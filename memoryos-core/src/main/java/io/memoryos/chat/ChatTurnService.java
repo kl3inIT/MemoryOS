@@ -331,7 +331,9 @@ public final class ChatTurnService implements AutoCloseable {
                             resolved.fallbackReason(), binding, resolved.contextRevision(), contribution, agent));
             if (!reserved.created()) return new Admission(accepted(reserved), null, false);
             var context = reserved.context() != null ? reserved.context() : persistence.loadContext(actor, session, reserved);
-            var setup = ChatTurnSetup.resolve(session, reserved.assistantMessageId(), context, contextLimit, binding, contribution)
+            // Deep research reads the whole window it can fit; compaction covers ordinary turns only (MEM-268).
+            var replayed = command.deepResearch() ? context.withoutSummary() : context;
+            var setup = ChatTurnSetup.resolve(session, reserved.assistantMessageId(), replayed, contextLimit, binding, contribution)
                     .withWeb(command.webSearch(), webAccess).withImage(command.image(), imageAccess);
             // Deep research runs its own agents and tool set, so selected MCP servers apply only to ordinary turns.
             boolean opensMcp = !command.mcpServerIds().isEmpty() && !command.deepResearch();

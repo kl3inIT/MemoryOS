@@ -25,6 +25,7 @@ import io.memoryos.ai.ModelBinding;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.chat.image.GeneratedImage;
 import io.memoryos.chat.session.persistence.JdbcChatRepository;
+import io.memoryos.chat.session.persistence.JdbcChatSummaryRepository;
 import io.memoryos.chat.image.persistence.JdbcImageArtifactRepository;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
@@ -62,6 +63,7 @@ public class ChatTurnPersistence {
     private final UserFileService files;
     private final ActorLanguageService languages;
     private final JdbcImageArtifactRepository imageArtifacts;
+    private final JdbcChatSummaryRepository summaries;
     private final @Nullable AiUsageRecorder usage;
     private final @Nullable JdbcChatPreferencesRepository preferences;
     private final @Nullable ActorProfileReader profiles;
@@ -69,14 +71,15 @@ public class ChatTurnPersistence {
 
     public ChatTurnPersistence(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
                                UserFileService files, ActorLanguageService languages,
-                               JdbcImageArtifactRepository imageArtifacts) {
-        this(tenants, authorization, chats, files, languages, imageArtifacts, null, null, null, null);
+                               JdbcImageArtifactRepository imageArtifacts, JdbcChatSummaryRepository summaries) {
+        this(tenants, authorization, chats, files, languages, imageArtifacts, summaries, null, null, null, null);
     }
 
     @Autowired
     public ChatTurnPersistence(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
                                UserFileService files, ActorLanguageService languages,
-                               JdbcImageArtifactRepository imageArtifacts, @Nullable AiUsageRecorder usage,
+                               JdbcImageArtifactRepository imageArtifacts, JdbcChatSummaryRepository summaries,
+                               @Nullable AiUsageRecorder usage,
                                @Nullable JdbcChatPreferencesRepository preferences,
                                @Nullable ActorProfileReader profiles, @Nullable JdbcChatMemoryRepository memories) {
         this.usage = usage;
@@ -89,6 +92,7 @@ public class ChatTurnPersistence {
         this.files = files;
         this.languages = languages;
         this.imageArtifacts = imageArtifacts;
+        this.summaries = summaries;
     }
 
     /** The member's own Chat preferences, read once per turn. */
@@ -346,9 +350,11 @@ public class ChatTurnPersistence {
         imageArtifacts.byMessages(tenant, history.stream().filter(message -> message.role() == ChatMessage.Role.ASSISTANT)
                 .map(ChatMessage::id).toList(), false).forEach((message, images) ->
                 generated.put(message, images.stream().map(GeneratedImage::id).toList()));
+        var summary = summaries.forTurn(tenant, session, user)
+                .map(found -> new TurnContext.Summary(found.cutoffMessageId(), found.content())).orElse(null);
         return new TurnContext(actor, tenant, instructions, history,
                 settings.options().withSampling(sampling(settings, own)), plaintext, workspaceFiles,
-                language, generated);
+                language, generated, summary);
     }
 
     /** A message's attachments as Chat records them, from the library files it admitted. */
@@ -359,10 +365,21 @@ public class ChatTurnPersistence {
     public record TurnContext(ActorId actor, TenantId tenant, String instructions,
                               List<ChatMessage> newestFirst, ChatTurnOptions options,
                               Map<UUID, UserFileService.FileText> fileTexts, List<ChatFileDescriptor> workspaceFiles,
-                              @Nullable String uiLanguage, Map<UUID, List<UUID>> generatedImages) {
+                              @Nullable String uiLanguage, Map<UUID, List<UUID>> generatedImages,
+                              @Nullable Summary summary) {
         public TurnContext { newestFirst = List.copyOf(newestFirst); fileTexts = Map.copyOf(fileTexts); workspaceFiles = List.copyOf(workspaceFiles); generatedImages = Map.copyOf(generatedImages); }
 
-        /** A context with default options and no files, account language or generated images. */
+        /** MEM-268: the branch's summary of the turns up to and including {@code cutoffMessageId}. */
+        public record Summary(UUID cutoffMessageId, String content) {
+        }
+
+        /** The same context replaying its whole window, as a Deep research turn does. */
+        public TurnContext withoutSummary() {
+            return summary == null ? this : new TurnContext(actor, tenant, instructions, newestFirst, options, fileTexts,
+                    workspaceFiles, uiLanguage, generatedImages, null);
+        }
+
+        /** A context with default options and no files, account language, generated images or summary. */
         public static Builder builder(ActorId actor, TenantId tenant, String instructions,
                                       List<ChatMessage> newestFirst) {
             return new Builder(actor, tenant, instructions, newestFirst);
@@ -378,6 +395,7 @@ public class ChatTurnPersistence {
             private List<ChatFileDescriptor> workspaceFiles = List.of();
             private @Nullable String uiLanguage;
             private Map<UUID, List<UUID>> generatedImages = Map.of();
+            private @Nullable Summary summary;
 
             private Builder(ActorId actor, TenantId tenant, String instructions,
                             List<ChatMessage> newestFirst) {
@@ -392,10 +410,11 @@ public class ChatTurnPersistence {
             public Builder workspaceFiles(List<ChatFileDescriptor> value) { workspaceFiles = value; return this; }
             public Builder uiLanguage(@Nullable String value) { uiLanguage = value; return this; }
             public Builder generatedImages(Map<UUID, List<UUID>> value) { generatedImages = value; return this; }
+            public Builder summary(@Nullable Summary value) { summary = value; return this; }
 
             public TurnContext build() {
                 return new TurnContext(actor, tenant, instructions, newestFirst, options, fileTexts,
-                        workspaceFiles, uiLanguage, generatedImages);
+                        workspaceFiles, uiLanguage, generatedImages, summary);
             }
         }
     }
