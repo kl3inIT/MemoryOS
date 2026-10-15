@@ -19,7 +19,12 @@ public interface ChatSessionService {
     /** A conversation held in a channel: kept like any other, and listed in the web's sidebar and search by none. */
     ChatSession createInChannel(ActorId actor, String title);
     /** {@code archived} lists the conversations the owner archived instead of the ones on the sidebar. */
-    List<ChatSession> list(ActorId actor, boolean archived, int offset, int limit);
+    default List<ChatSession> list(ActorId actor, boolean archived, int offset, int limit) {
+        return list(actor, archived, null, offset, limit);
+    }
+
+    /** A {@code personaId} keeps the caller's topics of one assistant, whether or not it can still use it. */
+    List<ChatSession> list(ActorId actor, boolean archived, @Nullable UUID personaId, int offset, int limit);
 
     /** Archives or unarchives one conversation the caller owns; idempotent. */
     ChatSession archive(ActorId actor, UUID sessionId, boolean archived);
@@ -27,7 +32,12 @@ public interface ChatSessionService {
     /** Archives the caller's conversations in one bounded command; answers how many were archived. */
     int archiveAll(ActorId actor);
     /** Fetch one extra result for hasMore without a separate unbounded count query. */
-    List<ChatSessionMatch> search(ActorId actor, String query, int offset, int limit);
+    default List<ChatSessionMatch> search(ActorId actor, String query, int offset, int limit) {
+        return search(actor, query, null, offset, limit);
+    }
+
+    /** A {@code personaId} keeps the caller's topics of one assistant. */
+    List<ChatSessionMatch> search(ActorId actor, String query, @Nullable UUID personaId, int offset, int limit);
     ChatSession get(ActorId actor, UUID sessionId);
     ChatSession rename(ActorId actor, UUID sessionId, String title);
     /** Pins how much this conversation's model should think, or clears the choice with a null level. */

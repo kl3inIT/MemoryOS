@@ -3,6 +3,7 @@ package io.memoryos.api.chat;
 import io.memoryos.api.security.CurrentActor;
 import io.memoryos.api.chat.contract.AvailableChatModelResponse;
 import io.memoryos.api.chat.contract.ChatAgentRefResponse;
+import io.memoryos.api.chat.contract.ChatAssistantResponse;
 import io.memoryos.api.chat.contract.ChatPersonaLabelRequest;
 import io.memoryos.api.chat.contract.ChatPersonaPinsRequest;
 import io.memoryos.api.chat.contract.ChatPersonaRequest;
@@ -188,6 +189,13 @@ class ChatPersonaController {
     @Operation(operationId = "deleteChatPersonaLabel", summary = "Delete an agent label; requires AGENTS_MANAGE")
     void deleteLabel(@CurrentActor IdentityContext identity, @PathVariable UUID labelId) {
         personas.deleteLabel(identity.actorId(), labelId);
+    }
+    @GetMapping("/assistants")
+    @Operation(operationId = "listChatAssistants",
+            summary = "List the caller's assistants for the sidebar: the built-in one, then the pins, each with the newest topic")
+    @ApiResponse(responseCode = "200", description = "The assistants in order", useReturnTypeSchema = true)
+    List<ChatAssistantResponse> assistants(@CurrentActor IdentityContext identity) {
+        return personas.assistants(identity.actorId()).stream().map(ChatAssistantResponse::from).toList();
     }
     @GetMapping("/persona-pins")
     @Operation(operationId = "listChatPersonaPins", summary = "List the actor's pinned agents in order")

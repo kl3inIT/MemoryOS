@@ -963,6 +963,29 @@ export const zTitle = z.object({
     title: z.string().min(0).max(200)
 });
 
+export const zChatAssistantTopic = z.object({
+    sessionId: z.uuid(),
+    title: z.string(),
+    lastMessageAt: z.iso.datetime(),
+    preview: z.string(),
+    replyRunning: z.boolean()
+});
+
+/**
+ * One row of the caller's list of assistants: the built-in assistant first, then their pins in order
+ */
+export const zChatAssistant = z.object({
+    id: z.uuid(),
+    name: z.string(),
+    description: z.string(),
+    avatarSeed: z.string(),
+    hasAvatar: z.boolean(),
+    builtin: z.boolean(),
+    ownerName: z.string().nullable(),
+    usable: z.boolean(),
+    latestTopic: zChatAssistantTopic.nullable()
+});
+
 export const zChatSession = z.object({
     id: z.uuid(),
     personaId: z.uuid(),
@@ -975,7 +998,8 @@ export const zChatSession = z.object({
     archivedAt: z.iso.datetime().nullable(),
     branchedFromSessionId: z.uuid().nullable(),
     branchedFromMessageId: z.uuid().nullable(),
-    temporary: z.boolean()
+    temporary: z.boolean(),
+    replyRunning: z.boolean()
 });
 
 export const zSharing = z.object({
@@ -5310,6 +5334,11 @@ export const zSetChatPersonaListingQuery = z.object({
 export const zSetChatPersonaListingResponse = zPersonaView;
 
 /**
+ * The assistants in order
+ */
+export const zListChatAssistantsResponse = z.array(zChatAssistant);
+
+/**
  * Successful chat operation
  */
 export const zListChatPersonaPinsResponse = z.array(zPersonaView);
@@ -6487,6 +6516,7 @@ export const zDeleteAllChatSessionsResponse = z.void();
 
 export const zListChatSessionsQuery = z.object({
     archived: z.boolean().optional().default(false),
+    personaId: z.uuid().optional(),
     offset: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).optional().default(0),
     limit: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).optional().default(30)
 });
@@ -7618,6 +7648,7 @@ export const zGetChatBranchesResponse = z.array(zChatBranch);
 
 export const zSearchChatSessionsQuery = z.object({
     query: z.string().optional().default(''),
+    personaId: z.uuid().optional(),
     offset: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).optional().default(0),
     limit: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).optional().default(20)
 });

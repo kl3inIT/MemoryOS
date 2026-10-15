@@ -3,7 +3,10 @@ package io.memoryos.chat.session.persistence;
 import io.memoryos.chat.ChatSessionMatch;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
+import java.sql.Types;
 import java.util.List;
+import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -19,7 +22,9 @@ public class JdbcChatSearchRepository {
 
     public JdbcChatSearchRepository(JdbcClient jdbc) { this.jdbc = jdbc; }
 
-    public List<ChatSessionMatch> search(TenantId tenant, ActorId actor, String query, int offset, int limit) {
+    /** A {@code persona} keeps the topics of one assistant (MEM-273). */
+    public List<ChatSessionMatch> search(TenantId tenant, ActorId actor, String query, @Nullable UUID persona,
+                                         int offset, int limit) {
         return jdbc.sql("""
                 WITH terms AS (SELECT tsvector_to_array(to_tsvector('simple', :query)) AS words), matches AS (
                     SELECT s.id FROM chat_session s
@@ -45,7 +50,10 @@ public class JdbcChatSearchRepository {
                            CROSS JOIN LATERAL unnest(token.lexemes) AS lexemes(word)
                            WHERE word = ANY(terms.words)) = cardinality(terms.words)
                 ), page AS (
-                    SELECT s.* FROM chat_session s JOIN matches m ON m.id = s.id
+                    SELECT s.*, EXISTS (SELECT 1 FROM chat_message r WHERE r.session_id = s.id AND r.status = 'RUNNING')
+                        AS reply_running
+                    FROM chat_session s JOIN matches m ON m.id = s.id
+                    WHERE CAST(:persona AS uuid) IS NULL OR s.persona_id = :persona
                     ORDER BY s.updated_at DESC, s.id LIMIT :limit OFFSET :offset
                 )
                 -- Headlines are computed for the returned page only, from the newest indexed matching message.
@@ -60,7 +68,7 @@ public class JdbcChatSearchRepository {
                 ) hit ON TRUE
                 ORDER BY page.updated_at DESC, page.id
                 """).param("tenant", tenant.value()).param("actor", actor.value()).param("query", query)
-                .param("headline", HEADLINE_OPTIONS).param("limit", limit).param("offset", offset)
+                .param("headline", HEADLINE_OPTIONS).param("persona", persona, Types.OTHER).param("limit", limit).param("offset", offset)
                 .query((row, number) -> new ChatSessionMatch(JdbcChatRepository.session(row, number), row.getString("snippet")))
                 .list();
     }

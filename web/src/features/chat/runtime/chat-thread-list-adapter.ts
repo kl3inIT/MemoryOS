@@ -31,6 +31,7 @@ type ChatThreadCustom = Pick<
   | "branchedFromSessionId"
   | "branchedFromMessageId"
   | "temporary"
+  | "replyRunning"
 >;
 
 function threadMetadata(session: ChatSession): RemoteThreadMetadata {
@@ -45,6 +46,7 @@ function threadMetadata(session: ChatSession): RemoteThreadMetadata {
     branchedFromSessionId: session.branchedFromSessionId ?? null,
     branchedFromMessageId: session.branchedFromMessageId ?? null,
     temporary: session.temporary,
+    replyRunning: session.replyRunning,
   };
   return {
     // An archived conversation is kept, so the thread list holds it as archived rather than dropping it.

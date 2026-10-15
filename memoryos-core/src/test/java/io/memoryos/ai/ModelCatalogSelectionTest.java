@@ -179,7 +179,7 @@ class ModelCatalogSelectionTest {
             naming(null);
             when(chats.findOwned(new TenantId(tenant), actor, session, false)).thenReturn(Optional.of(new ChatSession(
                     session, persona, UUID.randomUUID(), "Chat", Instant.now(), Instant.now(), null, null, null, null, null,
-                    false)));
+                    false, false)));
             when(chats.persona(session, true, false)).thenReturn(new JdbcChatRepository.Persona("",
                     ChatTurnOptions.DEFAULT, "7", null, List.of(), Set.of(), null));
             when(agents.personaModel(tenant, actor.value(), false, persona)).thenReturn(new PersonaModelDefault(persona, null, 1));

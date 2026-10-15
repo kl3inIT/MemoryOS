@@ -1023,6 +1023,53 @@ export type Title = {
     title: string;
 };
 
+/**
+ * One row of the caller's list of assistants: the built-in assistant first, then their pins in order
+ */
+export type ChatAssistant = {
+    id: string;
+    name: string;
+    /**
+     * Empty when the assistant is not usable
+     */
+    description: string;
+    /**
+     * Seed of the assistant's generated face
+     */
+    avatarSeed: string;
+    /**
+     * An uploaded image replaces the face; false when the assistant is not usable
+     */
+    hasAvatar: boolean;
+    builtin: boolean;
+    /**
+     * The owning group's name, else the owner's name or email; null for the built-in assistant or an unusable one
+     */
+    ownerName: string | null;
+    /**
+     * False once the assistant was deleted or is no longer shared with the caller; its topics stay readable
+     */
+    usable: boolean;
+    /**
+     * The caller's newest web topic with this assistant; null before the first
+     */
+    latestTopic: ChatAssistantTopic | null;
+};
+
+export type ChatAssistantTopic = {
+    sessionId: string;
+    title: string;
+    /**
+     * When its last question or finished answer was written
+     */
+    lastMessageAt: string;
+    /**
+     * That message as one line of plain text, at most 120 characters; empty before anyone wrote
+     */
+    preview: string;
+    replyRunning: boolean;
+};
+
 export type ChatSession = {
     id: string;
     personaId: string;
@@ -1051,6 +1098,10 @@ export type ChatSession = {
      * A temporary conversation: listed nowhere, and deleted with its uploads after its window
      */
     temporary: boolean;
+    /**
+     * An answer is being written in it
+     */
+    replyRunning: boolean;
 };
 
 export type Sharing = {
@@ -8242,6 +8293,47 @@ export type SetChatPersonaListingResponses = {
 
 export type SetChatPersonaListingResponse = SetChatPersonaListingResponses[keyof SetChatPersonaListingResponses];
 
+export type ListChatAssistantsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/assistants';
+};
+
+export type ListChatAssistantsErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type ListChatAssistantsError = ListChatAssistantsErrors[keyof ListChatAssistantsErrors];
+
+export type ListChatAssistantsResponses = {
+    /**
+     * The assistants in order
+     */
+    200: Array<ChatAssistant>;
+};
+
+export type ListChatAssistantsResponse = ListChatAssistantsResponses[keyof ListChatAssistantsResponses];
+
 export type ListChatPersonaPinsData = {
     body?: never;
     path?: never;
@@ -12447,6 +12539,10 @@ export type ListChatSessionsData = {
          * List the conversations the caller archived instead of the sidebar's
          */
         archived?: boolean;
+        /**
+         * Only the topics of this assistant
+         */
+        personaId?: string;
         offset?: number;
         limit?: number;
     };
@@ -16870,6 +16966,10 @@ export type SearchChatSessionsData = {
     path?: never;
     query?: {
         query?: string;
+        /**
+         * Only the topics of this assistant
+         */
+        personaId?: string;
         offset?: number;
         limit?: number;
     };

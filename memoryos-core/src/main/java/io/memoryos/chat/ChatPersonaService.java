@@ -30,6 +30,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
@@ -355,7 +356,11 @@ public class ChatPersonaService {
         return views(tenant, actor, manage, usable.stream().filter(id -> !deleted.contains(id)).toList());
     }
 
-    /** Onyx replaces the ordered list; duplicates, the builtin agent and inaccessible agents are dropped. */
+    /**
+     * Onyx replaces the ordered list; duplicates, the builtin agent and agents the actor cannot use are dropped. A pin
+     * that is already there stays even when its agent became unusable, so reordering the list keeps that row
+     * (MEM-273); the answer lists the usable pins only, as {@link #pins} does.
+     */
     @Transactional
     public List<PersonaView> replacePins(ActorId actor, List<UUID> ordered) {
         var tenant = write(actor);
@@ -363,13 +368,73 @@ public class ChatPersonaService {
             throw ChatException.invalid("Pin at most 100 agents.");
         boolean manage = manages(actor);
         var distinct = new ArrayList<>(new LinkedHashSet<>(ordered));
+        var current = Set.copyOf(agents.pins(tenant.value(), actor.value()));
         var access = agents.access(tenant.value(), actor.value(), manage, distinct);
         var entities = settings.findByTenantIdAndIdIn(tenant.value(), distinct).stream()
                 .collect(Collectors.toMap(PersonaEntity::id, Function.identity()));
         var kept = distinct.stream().filter(id -> entities.containsKey(id) && !entities.get(id).builtin()
-                && !entities.get(id).deleted() && access.containsKey(id) && access.get(id).uses()).toList();
+                && (current.contains(id) || usable(entities.get(id), access.get(id)))).toList();
         agents.replacePins(tenant.value(), actor.value(), kept);
-        return views(tenant, actor, manage, kept);
+        return views(tenant, actor, manage, kept.stream().filter(id -> usable(entities.get(id), access.get(id))).toList());
+    }
+
+    /**
+     * The person's list of assistants (MEM-273): the built-in assistant first, then their pins in order, each with
+     * their newest web topic. A pin they can no longer use stays, marked unusable. A fixed number of statements
+     * whatever the number of pins.
+     */
+    @Transactional
+    public List<ChatAssistant> assistants(ActorId actor) {
+        var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();
+        agents.seedPinsOnce(tenant.value(), actor.value());
+        boolean manage = manages(actor);
+        var ids = new ArrayList<UUID>();
+        chats.defaultPersona(tenant).ifPresent(ids::add);
+        agents.pins(tenant.value(), actor.value()).stream().filter(id -> !ids.contains(id)).forEach(ids::add);
+        var entities = settings.findByTenantIdAndIdIn(tenant.value(), ids).stream()
+                .collect(Collectors.toMap(PersonaEntity::id, Function.identity()));
+        var access = agents.access(tenant.value(), actor.value(), manage, ids);
+        var usable = ids.stream().filter(id -> entities.containsKey(id) && usable(entities.get(id), access.get(id)))
+                .collect(Collectors.toSet());
+        var owners = agents.details(tenant.value(), actor.value(), usable).owners();
+        var topics = chats.latestTopics(tenant, actor, ids).stream()
+                .collect(Collectors.toMap(JdbcChatRepository.LatestTopic::personaId, Function.identity()));
+        var empty = new AgentOwner(null, null);
+        var result = new ArrayList<ChatAssistant>();
+        for (UUID id : ids) {
+            var entity = entities.get(id);
+            if (entity == null) continue;
+            boolean uses = usable.contains(id);
+            var topic = topics.get(id);
+            result.add(new ChatAssistant(id, entity.name(), uses ? entity.description() : "", entity.avatarSeed(),
+                    uses && entity.avatarFileId() != null, entity.builtin(), uses ? owners.getOrDefault(id, empty) : empty,
+                    uses, topic == null ? null : new ChatAssistantTopic(topic.sessionId(), topic.title(),
+                            topic.messageAt() == null ? topic.updatedAt() : topic.messageAt(), preview(topic.content()),
+                            topic.replyRunning())));
+        }
+        return result;
+    }
+
+    private static boolean usable(PersonaEntity entity, @Nullable Access access) {
+        return !entity.deleted() && access != null && access.uses();
+    }
+
+    private static final Pattern CODE_BLOCK = Pattern.compile("```.*?(```|$)", Pattern.DOTALL);
+    private static final Pattern LINK = Pattern.compile("!?\\[([^\\]]*)]\\([^)]*\\)");
+    private static final Pattern CITATION = Pattern.compile("\\s*\\[\\^?\\d+]");
+    private static final Pattern MARKUP = Pattern.compile("[*_`#>|~]+");
+    private static final Pattern SPACE = Pattern.compile("\\s+");
+
+    /** A Markdown message as one line of plain text for a sidebar row, without code, links or citation markers. */
+    static String preview(@Nullable String markdown) {
+        if (markdown == null) return "";
+        String text = CODE_BLOCK.matcher(markdown).replaceAll(" ");
+        text = LINK.matcher(text).replaceAll("$1");
+        text = CITATION.matcher(text).replaceAll("");
+        text = MARKUP.matcher(text).replaceAll("");
+        text = SPACE.matcher(text).replaceAll(" ").strip();
+        if (text.codePointCount(0, text.length()) <= ChatAssistantTopic.PREVIEW_LENGTH) return text;
+        return text.substring(0, text.offsetByCodePoints(0, ChatAssistantTopic.PREVIEW_LENGTH - 1)).stripTrailing() + "…";
     }
 
     public record Avatar(ObjectContent content, String mediaType) {}

@@ -67,9 +67,9 @@ public class DefaultChatSessionService implements ChatSessionService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ChatSession> list(ActorId actor, boolean archived, int offset, int limit) {
+    public List<ChatSession> list(ActorId actor, boolean archived, @Nullable UUID personaId, int offset, int limit) {
         page(offset, limit);
-        return chats.list(tenant(actor), actor, archived, offset, limit);
+        return chats.list(tenant(actor), actor, archived, personaId, offset, limit);
     }
 
     @Override
@@ -89,14 +89,15 @@ public class DefaultChatSessionService implements ChatSessionService {
 
     @Override
     @Transactional(readOnly = true, timeout = 10)
-    public List<ChatSessionMatch> search(ActorId actor, String query, int offset, int limit) {
+    public List<ChatSessionMatch> search(ActorId actor, String query, @Nullable UUID personaId, int offset, int limit) {
         page(offset, limit);
         if (query == null || query.length() > 200 || query.indexOf('\0') >= 0 || limit > 50)
             throw ChatException.invalid("Search query must be at most 200 characters and limit at most 50.");
         var tenant = tenant(actor);
         return query.isBlank()
-                ? chats.list(tenant, actor, false, offset, limit + 1).stream().map(session -> new ChatSessionMatch(session, null)).toList()
-                : search.search(tenant, actor, query.strip(), offset, limit + 1);
+                ? chats.list(tenant, actor, false, personaId, offset, limit + 1).stream()
+                        .map(session -> new ChatSessionMatch(session, null)).toList()
+                : search.search(tenant, actor, query.strip(), personaId, offset, limit + 1);
     }
 
     @Override

@@ -287,6 +287,7 @@ function create(title = "Browser conversation", mode = "normal"): Session {
     branchedFromSessionId: null,
     branchedFromMessageId: null,
     temporary: false,
+    replyRunning: false,
     projectId: null,
     title,
     createdAt: now,
