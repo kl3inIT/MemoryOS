@@ -4,6 +4,7 @@ import com.embabel.agent.api.tool.Tool;
 import com.embabel.agent.api.tool.callback.AfterToolCallContext;
 import com.embabel.agent.api.tool.callback.BeforeToolCallContext;
 import com.embabel.agent.api.tool.callback.ToolCallInspector;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
@@ -18,12 +19,22 @@ public final class ChatToolActivity implements ToolCallInspector {
     private volatile ChatToolEvent.@Nullable Call current;
     private volatile boolean failed;
     private volatile ChatToolEvent.@Nullable Failure failure;
+    private volatile Set<String> quiet = Set.of();
 
     public ChatToolActivity(Consumer<? super ChatToolEvent> events) {
         this.events = events;
     }
 
+    /**
+     * Tools whose calls are no step of their own: an MCP server's opening tool (MEM-272) only makes its tools
+     * available, and the calls of those tools are the steps.
+     */
+    public void quiet(Set<String> names) {
+        quiet = Set.copyOf(names);
+    }
+
     @Override public void beforeToolCall(BeforeToolCallContext context) {
+        if (quiet.contains(context.getToolCall().getName())) return;
         begin(context.getToolCall().getId(), context.getToolCall().getName());
     }
 
@@ -44,6 +55,7 @@ public final class ChatToolActivity implements ToolCallInspector {
     }
 
     @Override public void afterToolCall(AfterToolCallContext context) {
+        if (quiet.contains(context.getToolCall().getName())) return;
         var active = current;
         var call = active != null && active.name().equals(context.getToolCall().getName()) ? active
                 : call(context.getToolCall().getId(), context.getToolCall().getName());
