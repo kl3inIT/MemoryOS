@@ -52,19 +52,34 @@ public class JdbcChannelLinkRepository {
                         new ActorId(row.getObject("actor_id", UUID.class)))).optional();
     }
 
-    /** Links the platform user to the member, replacing whatever either was linked to on this bot. */
-    public void link(TenantId tenant, UUID connection, String externalUserId, ActorId actor, Instant now) {
+    /**
+     * Links the platform user to the member, within the caller's transaction. A link of the platform user to a member
+     * who is no longer active is dropped, and the member's link of another account on this bot is replaced; a link
+     * of the platform user to another active member is kept, and nothing is linked: that member unlinks first. The
+     * database decides the last, so two codes sent at once cannot both take the account.
+     *
+     * @return false when the platform user is linked to another member
+     */
+    public boolean link(TenantId tenant, UUID connection, String externalUserId, ActorId actor, Instant now) {
+        jdbc.sql("""
+                        DELETE FROM channel_account_links l USING tenant_memberships m
+                        WHERE l.connection_id = :connection AND l.external_user_id = :user
+                          AND m.tenant_id = l.tenant_id AND m.actor_id = l.actor_id AND m.status <> 'ACTIVE'
+                        """)
+                .param("connection", connection).param("user", externalUserId).update();
         jdbc.sql("""
                         DELETE FROM channel_account_links
-                        WHERE connection_id = :connection AND (external_user_id = :user OR actor_id = :actor)
+                        WHERE connection_id = :connection AND actor_id = :actor AND external_user_id <> :user
                         """)
-                .param("connection", connection).param("user", externalUserId).param("actor", actor.value()).update();
-        jdbc.sql("""
+                .param("connection", connection).param("actor", actor.value()).param("user", externalUserId).update();
+        return jdbc.sql("""
                         INSERT INTO channel_account_links(tenant_id, connection_id, external_user_id, actor_id, linked_at)
                         VALUES (:tenant, :connection, :user, :actor, :now)
+                        ON CONFLICT (connection_id, external_user_id) DO UPDATE SET linked_at = EXCLUDED.linked_at
+                        WHERE channel_account_links.actor_id = EXCLUDED.actor_id
                         """)
                 .param("tenant", tenant.value()).param("connection", connection).param("user", externalUserId)
-                .param("actor", actor.value()).param("now", Timestamp.from(now)).update();
+                .param("actor", actor.value()).param("now", Timestamp.from(now)).update() == 1;
     }
 
     /** The active member the platform user is linked to on this bot. */

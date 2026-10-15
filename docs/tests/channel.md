@@ -31,15 +31,18 @@
 | Five wrong codes in an hour lock the sender out, even with a live code | `ChannelInboundServiceTest.aSenderWithFiveWrongCodesInAnHourIsNotHeardEvenWithALiveOne` |
 | A linked sender in a group is answered as the bot; a stranger there is told how to link | `ChannelInboundServiceTest.aLinkedSenderInAGroupIsAnsweredAsTheBotAndAStrangerIsToldHowToLink` |
 | A link is ignored once its member is not active | `ChannelInboundServiceTest.aLinkIsLeftOutOnceItsMemberIsNoLongerActive` |
-| A linked sender's wrong codes count toward the lock and are not answered as questions | `ChannelInboundServiceTest.aLinkedSendersWrongCodesCountTowardTheLockAndAreNotAnsweredAsQuestions` |
+| A linked account is not moved by another member's code, and a live code and a wrong one get the same answer | `ChannelInboundServiceTest.aLinkedAccountIsNotMovedByAnotherCodeAndLearnsNothingOfIt` |
+| A used, an expired and a wrong code get the same notice | `ChannelInboundServiceTest.everyCodeThatDoesNotLinkGetsTheSameNotice` |
 | Codes still being tried count toward the lock | `ChannelInboundServiceTest.codesStillBeingTriedCountTowardTheLock` |
 | A platform without organisations never answers from an e-mail or a remembered account | `ChannelInboundServiceTest.aPlatformWithoutOrganisationsNeverAnswersFromAnEmailOrARememberedAccount` |
-| An account moved to another member never continues the first member's conversation, by reply or by a new message | `ChannelInboundServiceTest.anAccountMovedToAnotherMemberNeverContinuesTheFirstMembersConversation` |
+| An account relinked to another member, after the first unlinked it, never continues the first member's conversation | `ChannelInboundServiceTest.anAccountRelinkedToAnotherMemberNeverContinuesTheFirstMembersConversation` |
 | A code made for one bot does not link on another | `ChannelLinkServiceTest.aCodeMadeForOneBotDoesNotLinkOnAnother` |
 | A code is eight unambiguous characters, live ten minutes, kept as a hash | `ChannelLinkServiceTest.aCodeIsEightUnambiguousCharactersLiveTenMinutesAndKeptOnlyAsAHash` |
 | A new code replaces the member's older one, and a code is used once | `ChannelLinkServiceTest.aNewCodeReplacesTheMembersOlderOneAndACodeIsUsedOnce` |
 | An expired code does not link | `ChannelLinkServiceTest.anExpiredCodeDoesNotLink` |
-| One account links to one member and a member to one account; relinking replaces | `ChannelLinkServiceTest.oneAccountLinksToOneMemberAndAMemberToOneAccountRelinkingReplaces` |
+| A member relinks their own account, but no code takes an account linked to another member until it is unlinked | `ChannelLinkServiceTest.aMemberRelinksTheirOwnAccountButNoCodeTakesAnAccountLinkedToAnotherMember` |
+| An account linked to a member no longer active can be linked again | `ChannelLinkServiceTest.anAccountLinkedToAMemberNoLongerActiveCanBeLinkedAgain` |
+| The database never moves a link to another member | `ChannelLinkServiceTest.theDatabaseNeverMovesALinkToAnotherMember` |
 | A member sees the bots that take a link, their own link only, and unlinks | `ChannelLinkServiceTest.theMemberSeesTheBotsThatTakeALinkAndUnlinks` |
 | A bot of a platform with organisations, or no bot, takes no link | `ChannelLinkServiceTest.aBotOfAPlatformWithOrganisationsOrOfNoBotTakesNoLink` |
 | Codes and links go with the membership and with the bot | `ChannelLinkServiceTest.codesAndLinksGoWithTheMembershipAndWithTheBot` |

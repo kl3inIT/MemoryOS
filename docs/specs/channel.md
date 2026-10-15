@@ -200,8 +200,11 @@ account on it to their MemoryOS account ([MEM-263](../increments/active/mem-263-
   bot, which a new one replaces. The member sends it to the bot in a direct message; the account that sends a live
   code is linked to the member who made it, the code is used up, and the bot says so (`LINKED`). A code in a group
   is not read. A message is a code only when it is one code alone, case and hyphens aside.
-- **The link.** One account on the platform links to one member and a member to one account a bot; linking again
-  replaces either. It does not expire; it is removed by the member (`DELETE /api/channel-links/{connectionId}`,
+- **The link.** One account on the platform links to one member and a member to one account a bot, which the
+  database holds both ways. A member who links another account of theirs replaces their old link; an account linked
+  to another active member is never moved by a code (`LINK_ALREADY`; the code is put back and stays its member's):
+  that member unlinks it first, so an account cannot change hands without its member knowing. A linked sender's code
+  is not tried at all, so a live code and a wrong one get the same answer. It does not expire; it is removed by the member (`DELETE /api/channel-links/{connectionId}`,
   which also drops their code), with their membership and with the bot, and it is ignored while the member is not
   active. `GET /api/channel-links` lists the Tenant's bots that take a link with the member's own on each.
 - **Who is answered.** A linked sender is answered as any member is: as themself in a direct message, as the bot in
@@ -209,9 +212,11 @@ account on it to their MemoryOS account ([MEM-263](../increments/active/mem-263-
   messages settle `LINK_REQUIRED_QUIET` without a notice), and is not answered, in a group too. A provider without
   organisations knows a sender only by the link: no e-mail and no remembered identity is read, and a link removed
   while a message is handled leaves it unanswered rather than answered as the bot.
-- **Guessing.** Every code in a direct message is an attempt, a linked sender's too: it is recorded on its message
+- **Guessing.** Every code an unlinked sender sends in a direct message is an attempt: it is recorded on its message
   as `LINK_CODE_INVALID` before it is tried and stays so unless it links, so attempts still in flight count. A
   sender with five within the hour is not heard for the rest of it (`LINK_LOCKED`, no notice), questions included.
+  A code that does not link gets one notice, whether it is wrong, used up, expired or another bot's; no notice, log
+  or record names the member a code or a link belongs to, and no log carries a code or a message's text.
   The sender's rate counts every message, codes included, and is checked before a code is tried.
 
 The Worker task `memoryos-channel-message-retention-v1` runs daily and deletes `channel_messages` rows older than

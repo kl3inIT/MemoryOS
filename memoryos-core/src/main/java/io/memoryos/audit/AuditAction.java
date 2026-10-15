@@ -62,7 +62,7 @@ public enum AuditAction {
     MCP_SERVER_CREATE("mcp_server.create", AuditEventClass.API_ACTIVITY, "after"),
     MCP_SERVER_UPDATE("mcp_server.update", AuditEventClass.API_ACTIVITY, "before", "after", "credentialChange"),
     MCP_SERVER_DELETE("mcp_server.delete", AuditEventClass.API_ACTIVITY, "url"),
-    MCP_TOOL_CHANGE("mcp_tool.change", AuditEventClass.API_ACTIVITY, "tools", "enabled"),
+    MCP_TOOL_CHANGE("mcp_tool.change", AuditEventClass.API_ACTIVITY, "tools", "enabled", "policy", "risk"),
     MCP_OAUTH_CLIENT_CHANGE("mcp_oauth_client.change", AuditEventClass.API_ACTIVITY, "change", "client", "issuer"),
     MCP_CONNECTION_CHANGE("mcp_connection.change", AuditEventClass.API_ACTIVITY, "change"),
     /** MEM-114: the per-Tenant switch of the MemoryOS MCP endpoint. Calls through the endpoint are not recorded. */

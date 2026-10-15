@@ -106,18 +106,34 @@ public class ChannelLinkService {
         return links.linkedActor(connection, externalUserId);
     }
 
-    /** Links the sender of a live code to the member who made it; false when the code is not live. */
-    boolean redeem(UUID connection, String externalUserId, String code) {
+    /** What sending a code did. */
+    enum Redemption {
+        LINKED,
+        /** No live code of this bot is the one sent: wrong, used up, expired or another bot's alike. */
+        NOT_LIVE,
+        /** The sender's account is linked to another member, who unlinks it first; the code stays live. */
+        ALREADY_LINKED
+    }
+
+    /**
+     * Links the sender of a live code to the member who made it. An account already linked to another member is not
+     * moved: the code is put back and stays its member's, so nobody's account changes hands without its member
+     * unlinking it.
+     */
+    Redemption redeem(UUID connection, String externalUserId, String code) {
         var now = clock.instant();
-        var redeemed = transactions.execute(_ -> {
+        var redemption = Objects.requireNonNull(transactions.execute(status -> {
             var found = links.redeem(connection, hash(code), now).orElse(null);
-            if (found != null) links.link(found.tenant(), connection, externalUserId, found.actor(), now);
-            return found;
-        });
-        if (redeemed == null) return false;
-        LOG.atInfo().addKeyValue("event", "channel.link.created").addKeyValue("connection_id", connection)
-                .log("Channel account linked");
-        return true;
+            if (found == null) return Redemption.NOT_LIVE;
+            if (links.link(found.tenant(), connection, externalUserId, found.actor(), now)) return Redemption.LINKED;
+            status.setRollbackOnly();
+            return Redemption.ALREADY_LINKED;
+        }));
+        if (redemption == Redemption.LINKED) {
+            LOG.atInfo().addKeyValue("event", "channel.link.created").addKeyValue("connection_id", connection)
+                    .log("Channel account linked");
+        }
+        return redemption;
     }
 
     /**

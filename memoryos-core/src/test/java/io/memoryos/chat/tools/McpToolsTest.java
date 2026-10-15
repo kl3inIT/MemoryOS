@@ -19,6 +19,7 @@ import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.memoryos.chat.ChatToolActivity;
 import io.memoryos.chat.ChatToolEvent;
+import io.memoryos.mcp.McpTurnService;
 import io.memoryos.mcp.McpTurnTools;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -65,6 +66,21 @@ class McpToolsTest {
                 "mcp_drive_delete_file", "Delete a file.", "{\"type\":\"object\"}", false, false)));
         assertTrue(writeTool.tools().getFirst().getDefinition().getDescription()
                 .startsWith("This tool can change or delete data."));
+    }
+
+    @Test
+    void namesTheAppsWhoseToolsTheTurnLimitLeftOutAndMeasuresWhatIsOffered() {
+        var mcp = tools(10, 8000);
+        when(turn.omitted()).thenReturn(List.of(new McpTurnTools.Omitted("Linear", 12)));
+
+        String notice = mcp.unavailableNotice();
+        assertTrue(notice.contains("at most " + McpTurnService.MAX_TOOLS + " MCP tools"), notice);
+        assertTrue(notice.contains("Linear: 12 tools"), notice);
+        assertFalse(notice.contains("unusable"), notice);
+
+        mcp.tools();
+        assertEquals(1, meters.get("memoryos.chat.mcp.tools.offered").summary().totalAmount());
+        assertTrue(meters.get("memoryos.chat.mcp.tools.definition.chars").summary().totalAmount() > 0);
     }
 
     @Test

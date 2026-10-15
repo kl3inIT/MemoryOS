@@ -13,7 +13,7 @@ reference gateways keep one adapter a platform behind a neutral interface; Zalo 
 as adapters. Only Zalo Bot is built; no enum value or adapter exists for a provider before it is built.
 
 Decided with the owner (2026-10-15): a sender who has not linked an account gets only the linking instructions;
-both webhook and polling, chosen for the deployment, webhook by default; staging only; choosing an agent for a bot
+both webhook and polling, chosen by the administrator for each bot, webhook by default; staging only; choosing an agent for a bot
 is a separate increment after this one.
 
 ## How the references do it (read 2026-10-15)
@@ -98,7 +98,7 @@ minute (GoClaw).
 A link belongs to one bot (a Zalo user id is not known to be the same across bots), is durable (no expiry, unlike
 the e-mail answers Lark's adapter remembers for an hour), and is shown in Settings › Chat with "Bỏ liên kết". It is
 removed with the member's membership or the bot; one Zalo account links to one member and a member to one Zalo
-account a bot, and linking again replaces the old link. The bot's page shows how many members linked, not who.
+account a bot. A member who links another account of theirs replaces their old link; an account linked to another member is not taken by a code until that member unlinks it, so an account never changes hands without its member knowing (a security review of 2026-10-15). The bot's page shows how many members linked, not who.
 
 The link is the capability's: any provider whose sender has no e-mail uses it. `ChannelInboundService.sender`
 reads a link first, then the e-mail.
@@ -110,12 +110,14 @@ a message that is a live code links its sender; a group question is answered onl
 what the bot's account may read, as in Lark, and an unlinked sender in a group gets the linking notice. Every
 answer is thus paid for by a member of the Tenant, and a stranger who adds the bot to a group gets nothing.
 
-### Transport: webhook by default, polling where Zalo cannot reach
+### Transport: webhook or polling, chosen for each bot
 
-`memoryos.channel.zalo.transport` (`MEMORYOS_CHANNEL_ZALO_TRANSPORT`), `webhook` by default or `polling`, is the
-deployment's, since whether Zalo can reach MemoryOS is a property of the host: a customer's internal cluster or a
-developer's machine has no address Zalo can call. Both are permanent ways of running for two kinds of host, not a
-temporary mode. OpenClaw and Hermes offer the same two.
+The administrator chooses for each bot, in the add dialog and on the bot's page (saved on change), "Webhook" (the
+default) or "Polling"; it is kept in the bot's `settings` (`transport`). OpenClaw configures the same per bot
+account. Polling is for a host Zalo cannot call, such as a customer's internal cluster or a developer's machine.
+Both are permanent ways of running, not a temporary mode. A webhook bot on a host Zalo cannot reach is not left
+silent: switching it on runs `testWebhook`, and a failure keeps the bot off with `CHANNEL_WEBHOOK_UNREACHABLE` and
+Zalo's outcome (`webhook.err.dns`, `webhook.err.tls`, `webhook.err.timeout`, `webhook.http.403`…) on its page.
 
 - **Webhook.** `open` calls `setWebhook` with `<memoryos.channel.web-url>/hooks/channels/<connection id>` and a
   secret of 32 random bytes made for that opening and kept in memory; `close` calls `deleteWebhook`.
@@ -124,8 +126,8 @@ temporary mode. OpenClaw and Hermes offer the same two.
   mismatch) and parse it, and answers `200` once the message's claim in `channel_messages` is written, as OpenClaw
   answers only after storing the event; a message pushed twice is answered once. The turn runs after the answer.
   The web's nginx routes `/hooks/channels/` to `memoryos-channels:8082`. `connected()` is whether
-  `getWebhookInfo` still names this opening's address, read at most once a minute. A bot cannot be switched on
-  while `memoryos.channel.web-url` is empty (`CHANNEL_WEB_URL_MISSING`).
+  `getWebhookInfo` still names this opening's address, read at most once a minute. Webhook is not offered, and a
+  webhook bot cannot be switched on, while `memoryos.channel.web-url` is empty (`CHANNEL_WEB_URL_MISSING`).
 - **Polling.** `open` calls `deleteWebhook`, then one virtual thread loops on `getUpdates` (30-second timeout, `408`
   an empty poll, backoff on errors) and hands each message to the receiver; `close` stops it. The runbook states
   Zalo's own warning that polling may miss events.
@@ -151,7 +153,7 @@ test and `checkRuntimeClasspathIsolation`. No SDK is maintained, so the client i
 
 ### The web
 
-"Thêm bot" asks Lark or Zalo first; Zalo asks a name and the token. The bot's page shows its facts as for Lark, with
+"Thêm bot" asks Lark or Zalo first; Zalo asks a name, the token and the transport. The bot's page shows its facts as for Lark, with
 the linked-member count. Settings › Chat gains the Zalo link rows.
 
 ## Contracts
@@ -161,12 +163,13 @@ the linked-member count. Settings › Chat gains the Zalo link rows.
 - `POST /api/channel-links` (`connectionId`) answers `{code, expiresAt}`; `GET /api/channel-links` lists the
   member's links and the Tenant's bots that take one; `DELETE /api/channel-links/{connectionId}` removes one.
 - `POST /hooks/channels/{connectionId}` on `memoryos-channels`, outside `/api`, no session.
-- New codes: `CHANNEL_WEB_URL_MISSING`, `CHANNEL_PROVIDER_QUOTA`. New notices: `LINK_REQUIRED`, `LINKED`,
+- `transport` (`WEBHOOK` or `POLLING`) on a Zalo bot, at creation and by `PATCH`.
+- New codes: `CHANNEL_WEB_URL_MISSING`, `CHANNEL_WEBHOOK_UNREACHABLE`, `CHANNEL_PROVIDER_QUOTA`. New notices: `LINK_REQUIRED`, `LINKED`,
   `LINK_CODE_INVALID`.
 
 ## Data
 
-- `channel_connections.region` becomes `settings JSONB NOT NULL DEFAULT '{}'`, Lark's rows carrying their region.
+- `channel_connections.region` becomes `settings JSONB NOT NULL DEFAULT '{}'`, Lark's rows carrying their region, Zalo's their transport.
 - `channel_link_codes (tenant_id, connection_id, actor_id, code_hash, expires_at)`, one row a member and bot.
 - `channel_account_links (tenant_id, connection_id, external_user_id, actor_id, linked_at)`, unique on
   `(connection_id, external_user_id)` and on `(connection_id, actor_id)`; cascades from the connection and the

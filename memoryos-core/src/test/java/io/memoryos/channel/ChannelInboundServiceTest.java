@@ -343,16 +343,42 @@ class ChannelInboundServiceTest {
     }
 
     @Test
-    void aLinkedSendersWrongCodesCountTowardTheLockAndAreNotAnsweredAsQuestions() throws Exception {
+    void aLinkedAccountIsNotMovedByAnotherCodeAndLearnsNothingOfIt() throws Exception {
         adapter.features = new ChannelFeatures(false, false, 2_000);
+        var quan = member();
         service.receive(zalo("z0", "zu_ha", links.code(ha, connection).code()));
-        for (int i = 1; i <= 5; i++) service.receive(zalo("w" + i, "zu_ha", "ABCDEFG" + (i + 1)));
-        assertEquals("REFUSED:LINK_CODE_INVALID", outcome("w5") + ":" + reason("w5"));
+        String quans = links.code(quan, connection).code();
 
-        // Locked out for the hour, questions included: a linked sender cannot guess codes past the lock either.
-        service.receive(zalo("q1", "zu_ha", "How many leave days?"));
-        assertEquals("REFUSED:LINK_LOCKED", outcome("q1") + ":" + reason("q1"));
+        // A live code of another member and a wrong one get the same answer, and neither is tried.
+        service.receive(zalo("c1", "zu_ha", quans));
+        service.receive(zalo("c2", "zu_ha", "ABCDEFG2"));
+        assertEquals("REFUSED:LINK_ALREADY", outcome("c1") + ":" + reason("c1"));
+        assertEquals("REFUSED:LINK_ALREADY", outcome("c2") + ":" + reason("c2"));
+        assertEquals(adapter.notices.get(1), adapter.notices.get(2));
+        assertTrue(adapter.notices.getLast().startsWith("This account is already linked to a MemoryOS account."));
         verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any());
+
+        // Ha's account is still Ha's, and Quan's code still links an account of Quan's.
+        service.receive(zalo("q1", "zu_ha", "How many leave days?"));
+        verify(turns).ask(eq(ha), any(), any(), any(), any(), any(), any(), any());
+        service.receive(zalo("z1", "zu_quan", quans));
+        assertEquals("ANSWERED:LINKED", outcome("z1") + ":" + reason("z1"));
+    }
+
+    @Test
+    void everyCodeThatDoesNotLinkGetsTheSameNotice() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, 2_000);
+        String used = links.code(ha, connection).code();
+        service.receive(zalo("u0", "zu_ha", used));
+        String expired = links.code(member(), connection).code();
+        jdbc.sql("UPDATE channel_link_codes SET expires_at = now() - INTERVAL '1 second'").update();
+
+        service.receive(zalo("c1", "zu_guess", used));
+        service.receive(zalo("c2", "zu_guess", expired));
+        service.receive(zalo("c3", "zu_guess", "ABCDEFG2"));
+        assertEquals(List.of("REFUSED:LINK_CODE_INVALID", "REFUSED:LINK_CODE_INVALID", "REFUSED:LINK_CODE_INVALID"),
+                List.of(outcome("c1") + ":" + reason("c1"), outcome("c2") + ":" + reason("c2"), outcome("c3") + ":" + reason("c3")));
+        assertEquals(1, adapter.notices.subList(1, 4).stream().distinct().count());
     }
 
     @Test
@@ -385,19 +411,21 @@ class ChannelInboundServiceTest {
     }
 
     @Test
-    void anAccountMovedToAnotherMemberNeverContinuesTheFirstMembersConversation() throws Exception {
+    void anAccountRelinkedToAnotherMemberNeverContinuesTheFirstMembersConversation() throws Exception {
         adapter.features = new ChannelFeatures(false, false, 2_000);
         var quan = member();
         service.receive(zalo("z1", "zu_shared", links.code(ha, connection).code()));
         service.receive(zalo("z2", "zu_shared", "Ha's question"));
         String answer = adapter.replyIds.getLast();
 
+        links.unlink(ha, connection);
         service.receive(zalo("z3", "zu_shared", links.code(quan, connection).code()));
         // A reply to Ha's answer, and a new direct message, both start Quan's own conversation.
         service.receive(new ChannelMessage(connection, "z4", DIRECT_CHAT, ChannelMessage.Kind.DIRECT, "zu_shared", null, null, true,
                 ChannelMessage.Type.TEXT, "And then?", answer));
         service.receive(zalo("z5", "zu_shared", "Another"));
 
+        assertEquals("ANSWERED:LINKED", outcome("z3") + ":" + reason("z3"));
         assertEquals(ha.value(), owner(session("z2")));
         assertEquals(quan.value(), owner(session("z4")));
         assertNotEquals(session("z2"), session("z4"));

@@ -12,6 +12,7 @@ import io.memoryos.mcp.McpCredentialStatus;
 import io.memoryos.mcp.McpOAuthClientSource;
 import io.memoryos.mcp.McpOAuthProviderMode;
 import io.memoryos.mcp.McpServerStatus;
+import io.memoryos.mcp.McpToolPolicy;
 import io.memoryos.mcp.McpTokenEndpointAuthMethod;
 import java.time.Instant;
 import java.util.List;
@@ -76,7 +77,7 @@ class McpPersistenceIntegrationTest {
             clients.saveAndFlush(client(tascoLand, tenant, server, "Tasco Land"));
             var tool = new McpServerToolEntity(UUID.randomUUID(), tenant, server, "search_files");
             tool.snapshot("Search files", "Search Drive files", "{\"type\": \"object\"}", "{\"readOnlyHint\": true}", true, NOW);
-            tool.enabled(true);
+            tool.policy(McpToolPolicy.ASK, true);
             tools.saveAndFlush(tool);
             credentials.saveAndFlush(credential(tenant, server, actor, tascoLand));
         });
@@ -93,7 +94,9 @@ class McpPersistenceIntegrationTest {
             assertEquals(List.of("Tasco Auto", "Tasco Land"), clients.findByTenantIdAndServerIdOrderByLabelAsc(tenant, server)
                     .stream().map(McpOAuthClientEntity::label).toList());
             var tool = tools.findByTenantIdAndServerIdOrderByNameAsc(tenant, server).getFirst();
-            assertTrue(tool.enabled() && tool.readOnly());
+            assertEquals(McpToolPolicy.ASK, tool.policy());
+            assertTrue(tool.policyCustomized() && tool.readOnly());
+            assertEquals(1, tools.countByTenantIdAndServerIdAndPolicyNot(tenant, server, McpToolPolicy.OFF));
             var credential = credentials.findByTenantIdAndServerIdAndOwnerActorId(tenant, server, actor).orElseThrow();
             assertEquals(tascoLand, credential.oauthClientId());
             assertEquals(McpCredentialStatus.ACTIVE, credential.status());

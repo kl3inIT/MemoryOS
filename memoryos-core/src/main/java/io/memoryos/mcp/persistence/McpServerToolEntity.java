@@ -1,7 +1,10 @@
 package io.memoryos.mcp.persistence;
 
+import io.memoryos.mcp.McpToolPolicy;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.PostLoad;
 import jakarta.persistence.PostPersist;
@@ -28,9 +31,9 @@ public class McpServerToolEntity implements Persistable<UUID> {
     @JdbcTypeCode(SqlTypes.JSON) @Column(name = "input_schema", nullable = false, columnDefinition = "jsonb") private String inputSchema;
     @JdbcTypeCode(SqlTypes.JSON) @Column(nullable = false, columnDefinition = "jsonb") private String annotations = "{}";
     @Column(name = "read_only", nullable = false) private boolean readOnly;
-    @Column(nullable = false) private boolean enabled;
-    /** An enabled tool that waits for the person to approve each call. */
-    @Column(name = "approval_required", nullable = false) private boolean approvalRequired;
+    @Enumerated(EnumType.STRING) @Column(nullable = false, length = 8) private McpToolPolicy policy = McpToolPolicy.OFF;
+    /** An administrator chose the policy, so a refresh keeps it instead of applying the default. */
+    @Column(name = "policy_customized", nullable = false) private boolean policyCustomized;
     @Column(name = "snapshot_at", nullable = false) private Instant snapshotAt;
     @Version private long revision = 1;
     @Transient private boolean fresh = true;
@@ -47,9 +50,10 @@ public class McpServerToolEntity implements Persistable<UUID> {
         this.annotations = annotations; this.readOnly = readOnly; snapshotAt = at;
     }
 
-    public void enabled(boolean enabled) { this.enabled = enabled; }
-
-    public void approvalRequired(boolean approvalRequired) { this.approvalRequired = approvalRequired; }
+    public void policy(McpToolPolicy policy, boolean customized) {
+        this.policy = policy;
+        policyCustomized = customized;
+    }
 
     @Override public UUID getId() { return id; }
     @Override public boolean isNew() { return fresh; }
@@ -62,8 +66,8 @@ public class McpServerToolEntity implements Persistable<UUID> {
     public String inputSchema() { return inputSchema; }
     public String annotations() { return annotations; }
     public boolean readOnly() { return readOnly; }
-    public boolean enabled() { return enabled; }
-    public boolean approvalRequired() { return approvalRequired; }
+    public McpToolPolicy policy() { return policy; }
+    public boolean policyCustomized() { return policyCustomized; }
     public Instant snapshotAt() { return snapshotAt; }
     public long revision() { return revision; }
 }

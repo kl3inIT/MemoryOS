@@ -13,6 +13,8 @@ enum ChannelNotice {
             "To ask the assistant, link your MemoryOS account: open Settings › Chat in MemoryOS, get a linking code and send it to the assistant in a direct message."),
     LINKED("Đã liên kết tài khoản MemoryOS của bạn. Giờ bạn có thể hỏi trợ lý.",
             "Your MemoryOS account is linked. You can ask the assistant now."),
+    LINK_ALREADY("Tài khoản này đã được liên kết với một tài khoản MemoryOS. Muốn liên kết tài khoản khác, hãy bỏ liên kết trong Cài đặt › Chat trên MemoryOS trước.",
+            "This account is already linked to a MemoryOS account. To link another one, unlink it in Settings › Chat in MemoryOS first."),
     LINK_CODE_INVALID("Mã liên kết không đúng hoặc đã hết hạn. Hãy lấy mã mới trong Cài đặt › Chat trên MemoryOS.",
             "The linking code is wrong or has expired. Get a new one in Settings › Chat in MemoryOS."),
     TEXT_ONLY("Hiện trợ lý chỉ đọc được tin nhắn văn bản.", "The assistant reads text messages only for now."),

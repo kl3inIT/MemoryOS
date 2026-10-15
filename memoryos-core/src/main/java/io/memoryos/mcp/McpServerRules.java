@@ -183,6 +183,27 @@ final class McpServerRules {
         return List.copyOf(snapshots);
     }
 
+    /** A destructive hint counts only when stated: the specification's default would lock every unannotated tool. */
+    static McpToolRisk risk(boolean readOnly, @Nullable Boolean destructiveHint) {
+        if (readOnly) return McpToolRisk.READ;
+        return Boolean.TRUE.equals(destructiveHint) ? McpToolRisk.DESTRUCTIVE : McpToolRisk.WRITE;
+    }
+
+    static McpToolRisk risk(boolean readOnly, String annotations) {
+        return risk(readOnly, hint(annotations, "destructiveHint"));
+    }
+
+    /** Read-only tools run; the rest ask; a tool whose model-facing name cannot be built is never offered. */
+    static McpToolPolicy defaultPolicy(McpToolRisk risk, boolean exposable) {
+        if (!exposable) return McpToolPolicy.OFF;
+        return risk == McpToolRisk.READ ? McpToolPolicy.ALWAYS : McpToolPolicy.ASK;
+    }
+
+    /** A tool that may overwrite or delete never runs without the person's approval. */
+    static boolean allowed(McpToolRisk risk, McpToolPolicy policy) {
+        return !(risk == McpToolRisk.DESTRUCTIVE && policy == McpToolPolicy.ALWAYS);
+    }
+
     static @Nullable Boolean hint(String annotations, String name) {
         return readObject(annotations).get(name) instanceof Boolean value ? value : null;
     }

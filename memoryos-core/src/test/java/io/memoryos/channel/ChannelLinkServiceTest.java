@@ -7,6 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static io.memoryos.channel.ChannelLinkService.Redemption.ALREADY_LINKED;
+import static io.memoryos.channel.ChannelLinkService.Redemption.LINKED;
+import static io.memoryos.channel.ChannelLinkService.Redemption.NOT_LIVE;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -91,9 +94,9 @@ class ChannelLinkServiceTest {
         String newer = links.code(ha, connection).code();
         assertNotEquals(older, newer);
 
-        assertFalse(links.redeem(connection, "zu_ha", older), "the older code no longer works");
-        assertTrue(links.redeem(connection, "zu_ha", newer));
-        assertFalse(links.redeem(connection, "zu_other", newer), "a code links once");
+        assertEquals(NOT_LIVE, links.redeem(connection, "zu_ha", older), "the older code no longer works");
+        assertEquals(LINKED, links.redeem(connection, "zu_ha", newer));
+        assertEquals(NOT_LIVE, links.redeem(connection, "zu_other", newer), "a code links once");
         assertEquals(Optional.of(ha), links.linked(connection, "zu_ha"));
         assertEquals(Optional.empty(), links.linked(connection, "zu_other"));
     }
@@ -110,9 +113,9 @@ class ChannelLinkServiceTest {
                 """).param("id", other).param("connection", connection).param("account", member().value()).update();
         String code = links.code(ha, connection).code();
 
-        assertFalse(links.redeem(other, "zu_ha", code));
+        assertEquals(NOT_LIVE, links.redeem(other, "zu_ha", code));
         assertEquals(Optional.empty(), links.linked(other, "zu_ha"));
-        assertTrue(links.redeem(connection, "zu_ha", code), "the code still works on its own bot");
+        assertEquals(LINKED, links.redeem(connection, "zu_ha", code), "the code still works on its own bot");
     }
 
     @Test
@@ -120,22 +123,48 @@ class ChannelLinkServiceTest {
         var made = links.code(ha, connection);
         jdbc.sql("UPDATE channel_link_codes SET expires_at = now() - INTERVAL '1 second'").update();
 
-        assertFalse(links.redeem(connection, "zu_ha", made.code()));
+        assertEquals(NOT_LIVE, links.redeem(connection, "zu_ha", made.code()));
         assertEquals(Optional.empty(), links.linked(connection, "zu_ha"));
     }
 
     @Test
-    void oneAccountLinksToOneMemberAndAMemberToOneAccountRelinkingReplaces() {
-        assertTrue(links.redeem(connection, "zu_a", links.code(ha, connection).code()));
-        // The member links another account: the first one is let go.
-        assertTrue(links.redeem(connection, "zu_b", links.code(ha, connection).code()));
+    void aMemberRelinksTheirOwnAccountButNoCodeTakesAnAccountLinkedToAnotherMember() {
+        assertEquals(LINKED, links.redeem(connection, "zu_a", links.code(ha, connection).code()));
+        // The member links another account of theirs: the first one is let go.
+        assertEquals(LINKED, links.redeem(connection, "zu_b", links.code(ha, connection).code()));
         assertEquals(Optional.empty(), links.linked(connection, "zu_a"));
         assertEquals(Optional.of(ha), links.linked(connection, "zu_b"));
 
-        // Another member's code sent from the same account moves the account to them.
-        assertTrue(links.redeem(connection, "zu_b", links.code(quan, connection).code()));
+        // Another member's code sent from that account does not move it, and stays live for its own member.
+        String quans = links.code(quan, connection).code();
+        assertEquals(ALREADY_LINKED, links.redeem(connection, "zu_b", quans));
+        assertEquals(Optional.of(ha), links.linked(connection, "zu_b"));
+        assertEquals(LINKED, links.redeem(connection, "zu_q", quans));
+        assertEquals(Optional.of(quan), links.linked(connection, "zu_q"));
+
+        // Once Ha unlinks, the account can be linked to Quan.
+        links.unlink(ha, connection);
+        assertEquals(LINKED, links.redeem(connection, "zu_b", links.code(quan, connection).code()));
         assertEquals(Optional.of(quan), links.linked(connection, "zu_b"));
         assertEquals(1L, jdbc.sql("SELECT count(*) FROM channel_account_links").query(Long.class).single());
+    }
+
+    @Test
+    void anAccountLinkedToAMemberNoLongerActiveCanBeLinkedAgain() {
+        assertEquals(LINKED, links.redeem(connection, "zu_a", links.code(ha, connection).code()));
+        jdbc.sql("UPDATE tenant_memberships SET status = 'INACTIVE' WHERE actor_id = :actor").param("actor", ha.value()).update();
+
+        assertEquals(LINKED, links.redeem(connection, "zu_a", links.code(quan, connection).code()));
+        assertEquals(Optional.of(quan), links.linked(connection, "zu_a"));
+    }
+
+    @Test
+    void theDatabaseNeverMovesALinkToAnotherMember() {
+        var repository = new JdbcChannelLinkRepository(jdbc);
+        assertTrue(repository.link(tenant, connection, "zu_a", ha, Instant.now()));
+        assertFalse(repository.link(tenant, connection, "zu_a", quan, Instant.now()));
+        assertTrue(repository.link(tenant, connection, "zu_a", ha, Instant.now()), "relinking one's own account is kept");
+        assertEquals(Optional.of(ha), links.linked(connection, "zu_a"));
     }
 
     @Test

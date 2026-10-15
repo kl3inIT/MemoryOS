@@ -4,6 +4,7 @@ import io.memoryos.shared.ActorId;
 import io.memoryos.mcp.McpException;
 import io.memoryos.mcp.McpOAuthProperties;
 import io.memoryos.mcp.McpOAuthService;
+import io.memoryos.mcp.McpServerService;
 import io.swagger.v3.oas.annotations.Hidden;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -20,9 +21,11 @@ import org.springframework.web.bind.annotation.RestController;
 final class McpOAuthCallbackController {
     private static final Logger LOG = LoggerFactory.getLogger(McpOAuthCallbackController.class);
     private final McpOAuthService oauth;
+    private final McpServerService servers;
 
-    McpOAuthCallbackController(McpOAuthService oauth) {
+    McpOAuthCallbackController(McpOAuthService oauth, McpServerService servers) {
         this.oauth = oauth;
+        this.servers = servers;
     }
 
     @GetMapping(McpOAuthProperties.CALLBACK_PATH)
@@ -38,9 +41,11 @@ final class McpOAuthCallbackController {
         } else if (pending != null && error == null && code != null && !code.isBlank() && code.length() <= 8192
                 && (issuers == null || issuers.length == 1)) {
             try {
-                oauth.complete(new ActorId(pending.actorId()), pending.pending(), code,
-                        pending.verifier(), issuers == null ? null : issuers[0]);
+                var actor = new ActorId(pending.actorId());
+                oauth.complete(actor, pending.pending(), code, pending.verifier(), issuers == null ? null : issuers[0]);
                 outcome = "connected";
+                // The first connection lists the server's tools, so nobody has to press refresh (MEM-264).
+                servers.discoverTools(actor, pending.pending().serverId());
             } catch (McpException failure) {
                 LOG.atWarn().addKeyValue("event", "mcp.oauth.callback.failed").addKeyValue("error_code", failure.code())
                         .log("MCP OAuth authorization could not be completed");

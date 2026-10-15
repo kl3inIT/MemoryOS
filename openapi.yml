@@ -1483,181 +1483,12 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
-  /api/mcp/servers/{serverId}/tools/{toolId}/enabled:
+  /api/mcp/servers/{serverId}/tools/policy:
     put:
       tags:
       - MCP
-      summary: Enable or disable one tool at the expected revision
-      operationId: setMcpServerToolEnabled
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: serverId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: toolId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: revision
-        in: query
-        required: true
-        schema:
-          type: integer
-          format: int64
-          exclusiveMinimum: 0
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/McpToolEnablement"
-        required: true
-      responses:
-        "400":
-          description: Invalid MCP configuration or tool snapshot
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: "MCP management, Tenant membership or CSRF requirement not\
-            \ met"
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: MCP server or tool not accessible
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: "Stale revision, duplicate slug, missing credential or server\
-            \ authorization required"
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: MCP server or credential encryption key unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: Saved tool
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/McpToolView"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/mcp/servers/{serverId}/tools/{toolId}/approval:
-    put:
-      tags:
-      - MCP
-      summary: "Set whether an enabled tool asks the person before each call, at the\
-        \ expected revision"
-      operationId: setMcpServerToolApproval
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: serverId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: toolId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: revision
-        in: query
-        required: true
-        schema:
-          type: integer
-          format: int64
-          exclusiveMinimum: 0
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/McpToolApproval"
-        required: true
-      responses:
-        "400":
-          description: Invalid MCP configuration or tool snapshot
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: "MCP management, Tenant membership or CSRF requirement not\
-            \ met"
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: MCP server or tool not accessible
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: "Stale revision, duplicate slug, missing credential or server\
-            \ authorization required"
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: MCP server or credential encryption key unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: Saved tool
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/McpToolView"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/mcp/servers/{serverId}/tools/enabled:
-    put:
-      tags:
-      - MCP
-      summary: Enable every exposable tool or disable every tool
-      operationId: setAllMcpServerToolsEnabled
+      summary: Set the policy of every tool of one risk
+      operationId: setMcpServerToolGroupPolicy
       parameters:
       - name: X-MemoryOS-CSRF
         in: header
@@ -1677,7 +1508,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/McpToolEnablement"
+              $ref: "#/components/schemas/McpToolGroupPolicyChange"
         required: true
       responses:
         "400":
@@ -1722,6 +1553,156 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/McpToolView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - MCP
+      summary: Return every tool to the default policy of its risk
+      operationId: resetMcpServerToolPolicies
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid MCP configuration or tool snapshot
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or tool not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Stale revision, duplicate slug, missing credential or server\
+            \ authorization required"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: MCP server or credential encryption key unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Tools with their default policies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/McpToolView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/servers/{serverId}/tools/{toolId}/policy:
+    put:
+      tags:
+      - MCP
+      summary: Set one tool's policy at the expected revision; refreshes keep it
+      operationId: setMcpServerToolPolicy
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: toolId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpToolPolicyChange"
+        required: true
+      responses:
+        "400":
+          description: Invalid MCP configuration or tool snapshot
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or tool not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Stale revision, duplicate slug, missing credential or server\
+            \ authorization required"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: MCP server or credential encryption key unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved tool
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpToolView"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -9394,8 +9375,8 @@ paths:
     post:
       tags:
       - MCP
-      summary: Explicitly list tools from the server with the administrator credential
-        and replace the snapshot
+      summary: "List tools from the server with the administrator credential and replace\
+        \ the snapshot, keeping customized policies"
       operationId: refreshMcpServerTools
       parameters:
       - name: X-MemoryOS-CSRF
@@ -23998,13 +23979,17 @@ components:
       - tenantWide
       - toolCount
       - url
-    McpToolEnablement:
+    McpToolPolicyChange:
       type: object
       properties:
-        enabled:
-          type: boolean
+        policy:
+          type: string
+          enum:
+          - ALWAYS
+          - ASK
+          - "OFF"
       required:
-      - enabled
+      - policy
     McpToolView:
       type: object
       description: Annotation hints come from the server and are not enforced guarantees
@@ -24031,11 +24016,23 @@ components:
           type:
           - boolean
           - "null"
-        enabled:
+        risk:
+          type: string
+          description: "From the annotations: READ, WRITE or DESTRUCTIVE"
+          enum:
+          - READ
+          - WRITE
+          - DESTRUCTIVE
+        policy:
+          type: string
+          description: "ALWAYS runs, ASK waits for the person, OFF is never offered"
+          enum:
+          - ALWAYS
+          - ASK
+          - "OFF"
+        policyCustomized:
           type: boolean
-        approvalRequired:
-          type: boolean
-          description: An enabled tool waits for the person to approve each call
+          description: An administrator chose the policy; refreshes keep it
         exposable:
           type: boolean
         snapshotAt:
@@ -24045,25 +24042,39 @@ components:
           type: integer
           format: int64
       required:
-      - approvalRequired
       - description
       - destructiveHint
-      - enabled
       - exposable
       - id
       - modelName
       - name
+      - policy
+      - policyCustomized
       - readOnlyHint
       - revision
+      - risk
       - snapshotAt
       - title
-    McpToolApproval:
+    McpToolGroupPolicyChange:
       type: object
       properties:
-        approvalRequired:
-          type: boolean
+        risk:
+          type: string
+          description: The group of tools to change
+          enum:
+          - READ
+          - WRITE
+          - DESTRUCTIVE
+        policy:
+          type: string
+          description: DESTRUCTIVE refuses ALWAYS
+          enum:
+          - ALWAYS
+          - ASK
+          - "OFF"
       required:
-      - approvalRequired
+      - policy
+      - risk
     McpOAuthClientInput:
       type: object
       description: A pre-registered OAuth client; the secret is write-only

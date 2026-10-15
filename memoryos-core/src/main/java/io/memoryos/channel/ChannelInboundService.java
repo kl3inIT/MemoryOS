@@ -161,10 +161,12 @@ public class ChannelInboundService {
 
     /**
      * For a provider without organisations, what a message from a sender is before any question (MEM-263): a sender
-     * with five wrong codes within the hour is not heard; past the sender's rate nothing is tried; a code in a direct
-     * message, from a linked sender too, is an attempt that counts until it links; a linked sender goes on to be
-     * answered (null); anyone else is told how to link, at most once a minute. A code is taken only in a direct
-     * message, where nobody else reads it.
+     * with five wrong codes within the hour is not heard; past the sender's rate nothing is tried; a linked sender's
+     * code is not tried at all, whatever it is, and they are told to unlink first, so a linked account never changes
+     * hands and learns nothing of the code; an unlinked sender's code is an attempt that counts until it links; a
+     * linked sender goes on to be answered (null); anyone else is told how to link, at most once a minute. A code is
+     * taken only in a direct message, where nobody else reads it. Every code that does not link gets the same notice,
+     * whether it is wrong, used up, expired or another bot's.
      *
      * <p>An attempt is recorded on its message before the code is tried and counted with the sender's others, those
      * still in flight included, so attempts sent at once cannot pass the lock together.
@@ -184,21 +186,31 @@ public class ChannelInboundService {
         }
         var code = message.kind() == ChannelMessage.Kind.DIRECT && message.type() == ChannelMessage.Type.TEXT
                 ? ChannelLinkService.codeIn(message.text()).orElse(null) : null;
+        boolean linked = links.linked(connection.id(), sender).isPresent();
+        if (code != null && linked) {
+            refuse(connection, adapter, message, new Refusal("LINK_ALREADY", ChannelNotice.LINK_ALREADY));
+            return "REFUSED";
+        }
         if (code != null) {
             inbound.settle(connection.id(), message.messageId(), "REFUSED", ChannelLinkService.WRONG_CODE, null, null, null);
             if (links.attempts(connection.id(), sender) > ChannelLinkService.WRONG_CODES) {
                 refuse(connection, adapter, message, new Refusal("LINK_LOCKED", null));
                 return "REFUSED";
             }
-            if (links.redeem(connection.id(), sender, code)) {
-                notice(connection, adapter, message, ChannelNotice.LINKED);
-                inbound.settle(connection.id(), message.messageId(), "ANSWERED", "LINKED", null, null, null);
-                return "LINKED";
+            switch (links.redeem(connection.id(), sender, code)) {
+                case LINKED -> {
+                    notice(connection, adapter, message, ChannelNotice.LINKED);
+                    inbound.settle(connection.id(), message.messageId(), "ANSWERED", "LINKED", null, null, null);
+                    return "LINKED";
+                }
+                // Linked to another member since it was checked: as for a linked sender, the code is not used.
+                case ALREADY_LINKED -> refuse(connection, adapter, message, new Refusal("LINK_ALREADY", ChannelNotice.LINK_ALREADY));
+                case NOT_LIVE -> refuse(connection, adapter, message,
+                        new Refusal(ChannelLinkService.WRONG_CODE, ChannelNotice.LINK_CODE_INVALID));
             }
-            refuse(connection, adapter, message, new Refusal(ChannelLinkService.WRONG_CODE, ChannelNotice.LINK_CODE_INVALID));
             return "REFUSED";
         }
-        if (links.linked(connection.id(), sender).isPresent()) return null;
+        if (linked) return null;
         if (links.noticeDue(connection.id(), sender)) {
             refuse(connection, adapter, message, new Refusal(ChannelLinkService.LINK_REQUIRED, ChannelNotice.LINK_REQUIRED));
         } else {
