@@ -428,7 +428,7 @@ Open: visual review of the research timeline, staging acceptance with the real c
 | --- | --- |
 | Administration seals secrets, lists tools when a shared server is saved, refreshes the snapshot (a read-only tool runs, a tool whose name cannot fit stays off), sets one tool or a risk group, refuses `ALWAYS` for a destructive group, keeps a chosen policy across a refresh, resets to defaults, and fences every write by revision | `ChatSessionApiIntegrationTest.mcpAdministrationSealsSecretsRefreshesToolsAndFencesRevisions` |
 | A tool's risk and default policy come from its annotations; an unannotated tool asks; a destructive tool never runs unasked | `McpServerRulesTest.annotationsSetTheDefaultAndADestructiveToolNeverRunsUnasked` |
-| V165 keeps levels an administrator chose and lets tools that change data ask | `McpToolPolicyMigrationTest` |
+| V166 keeps levels an administrator chose and lets tools that change data ask | `McpToolPolicyMigrationTest` |
 | The model is told which apps lost tools to the 64-tool limit; each turn records the tools offered and their definition size | `McpToolsTest.namesTheAppsWhoseToolsTheTurnLimitLeftOutAndMeasuresWhatIsOffered` |
 | A per-User server is Group-scoped; a User's API key is listed against the server before it is stored, a rejected key writes nothing, and two Users hold separate credentials | `ChatSessionApiIntegrationTest.mcpUserConnectionsAreGroupScopedProbedAndIsolatedPerUser` |
 | Discovery, DCR, per-organization clients, `iss` validation, PKCE with `resource`, refresh races and disconnect-with-revocation | `ChatSessionApiIntegrationTest.mcpOAuthDiscoversRegistersConnectsRefreshesAndDisconnects` |

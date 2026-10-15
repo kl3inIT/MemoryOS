@@ -33,7 +33,7 @@ Source read on 2026-10-15:
 ### One policy per tool
 
 `mcp_server_tool.policy` is `ALWAYS`, `ASK` or `OFF` and replaces the `enabled` and `approval_required` pair
-(V165). `policy_customized` marks a policy an administrator chose.
+(V166). `policy_customized` marks a policy an administrator chose.
 
 The tool's **risk** comes from its MCP annotations:
 
@@ -48,7 +48,7 @@ A tool whose model-facing name cannot be built stays `OFF`. The MCP specificatio
 without annotations gets `ASK` for every tool that is not read-only rather than a locked set.
 
 A refresh sets the default on every tool that is not customized, so changed annotations take effect, and keeps a
-customized policy, lowering `ALWAYS` to `ASK` when the tool became destructive. V165 keeps what an administrator
+customized policy, lowering `ALWAYS` to `ASK` when the tool became destructive. V166 keeps what an administrator
 had chosen: a read-only tool set to ask or off, or a tool that may change data turned on without approval, becomes
 customized; every other tool takes its default, so Linear's 35 tools that change data become `ASK`.
 

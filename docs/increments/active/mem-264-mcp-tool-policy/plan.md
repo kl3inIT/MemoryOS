@@ -4,7 +4,7 @@ Design: [design.md](design.md).
 
 ## 1. Policy in the registry
 
-- [x] V165: `policy` and `policy_customized` from `enabled`, `approval_required` and the annotations; the old
+- [x] V166: `policy` and `policy_customized` from `enabled`, `approval_required` and the annotations; the old
   columns dropped.
 - [x] `McpToolPolicy`, `McpToolRisk`; defaults and the destructive limit in `McpServerRules`.
 - [x] Refresh sets defaults on tools that are not customized and keeps the rest.

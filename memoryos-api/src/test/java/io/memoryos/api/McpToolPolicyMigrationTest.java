@@ -14,7 +14,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
-/** V165 keeps what an administrator chose and gives every other tool the default of its risk (MEM-264). */
+/** V166 keeps what an administrator chose and gives every other tool the default of its risk (MEM-264). */
 // SQL is exercised against the isolated, migrated Testcontainers database.
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 @Testcontainers
@@ -27,7 +27,7 @@ class McpToolPolicyMigrationTest {
     @Test
     void keepsChosenLevelsAndLetsToolsThatChangeDataAsk() {
         Flyway.configure().dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
-                .target("164").load().migrate();
+                .target("165").load().migrate();
         var jdbc = JdbcClient.create(new DriverManagerDataSource(
                 POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword()));
         UUID tenant = UUID.randomUUID();
@@ -64,7 +64,7 @@ class McpToolPolicyMigrationTest {
         }
 
         Flyway.configure().dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
-                .target("165").load().migrate();
+                .target("166").load().migrate();
 
         Map<String, String> policies = jdbc.sql("SELECT name, policy || ':' || policy_customized FROM mcp_server_tool")
                 .query((row, index) -> Map.entry(row.getString(1), row.getString(2))).list().stream()
