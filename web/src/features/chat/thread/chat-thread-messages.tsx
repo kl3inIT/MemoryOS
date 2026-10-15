@@ -107,6 +107,11 @@ function ChatFailureNotice({ code }: { code?: string }) {
     detail = ui(
       "Hội thoại vượt quá cửa sổ ngữ cảnh của mô hình. Hãy bắt đầu hội thoại mới hoặc chọn mô hình có ngữ cảnh lớn hơn.",
     );
+  } else if (code === "CHAT_PROVIDER_RATE_LIMITED") {
+    title = ui("Nhà cung cấp model đang giới hạn");
+    detail = ui(
+      "Đã chạm giới hạn tốc độ của nhà cung cấp. Hãy thử lại sau ít phút hoặc chọn model khác.",
+    );
   } else if (code === "CHAT_PROVIDER_CREDENTIAL_REJECTED" && manager) {
     title = ui("Provider từ chối API key");
     detail = <Link to="/admin/ai-providers">{ui("Cập nhật API key")}</Link>;

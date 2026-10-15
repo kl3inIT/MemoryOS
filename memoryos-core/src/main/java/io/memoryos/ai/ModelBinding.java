@@ -2,8 +2,9 @@ package io.memoryos.ai;
 
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.BiFunction;
-import java.util.function.Predicate;
+import java.util.function.Function;
 import java.util.function.UnaryOperator;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.Prompt;
@@ -20,7 +21,7 @@ public record ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> fin
                                ModelRequestPolicy policy, int contextWindow, @Nullable Integer maxOutputTokens, boolean toolCalling, boolean vision,
                                boolean structuredOutput, UnaryOperator<Prompt> requiredTools,
                                BiFunction<SpringAiLlmService, ModelSampling, SpringAiLlmService> sampling,
-                               Predicate<Throwable> credentialRejection, @Nullable ReasoningEffort taskEffort) {
+                               Function<Throwable, Optional<TurnFailure>> failureReading, @Nullable ReasoningEffort taskEffort) {
     /**
      * The key under which a call carries the JSON schema of its typed answer on Embabel's options. The provider's
      * options converter sends it with the request, so the provider holds the model to it.
@@ -43,7 +44,7 @@ public record ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> fin
         private final boolean vision;
         private UnaryOperator<Prompt> requiredTools = UnaryOperator.identity();
         private BiFunction<SpringAiLlmService, ModelSampling, SpringAiLlmService> sampling = (llmService, ignored) -> llmService;
-        private Predicate<Throwable> credentialRejection = failure -> false;
+        private Function<Throwable, Optional<TurnFailure>> failureReading = failure -> Optional.empty();
         private boolean structuredOutput;
 
         private Builder(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest, ModelRequestPolicy policy,
@@ -59,13 +60,14 @@ public record ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> fin
 
         public Builder requiredTools(UnaryOperator<Prompt> value) { requiredTools = value; return this; }
         public Builder sampling(BiFunction<SpringAiLlmService, ModelSampling, SpringAiLlmService> value) { sampling = value; return this; }
-        public Builder credentialRejection(Predicate<Throwable> value) { credentialRejection = value; return this; }
+        /** The adapter's reading of its own failures: a refused credential or a rate limit, never the provider's text. */
+        public Builder failureReading(Function<Throwable, Optional<TurnFailure>> value) { failureReading = value; return this; }
         /** The deployment holds an answer to a JSON schema sent with the request. */
         public Builder structuredOutput(boolean value) { structuredOutput = value; return this; }
 
         public ModelBinding build() {
             return new ModelBinding(service, finalRequest, policy, contextWindow, maxOutputTokens, toolCalling, vision,
-                    structuredOutput, requiredTools, sampling, credentialRejection, null);
+                    structuredOutput, requiredTools, sampling, failureReading, null);
         }
     }
 
@@ -94,7 +96,7 @@ public record ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> fin
                 turnSampling.isEmpty() ? service : sampling.apply(service, turnSampling),
                 finalRequest, policy, contextWindow,
                 outputTokenLimit == null ? maxOutputTokens : Integer.valueOf(outputAtMost(outputTokenLimit)),
-                toolCalling, vision, structuredOutput, requiredTools, sampling, credentialRejection, taskEffort);
+                toolCalling, vision, structuredOutput, requiredTools, sampling, failureReading, taskEffort);
     }
 
     /**
@@ -105,7 +107,7 @@ public record ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> fin
     public ModelBinding forTask(ReasoningEffort effort) {
         var base = effort == ReasoningEffort.OFF ? this : forOptions(new ModelSampling(null, effort, false), null);
         return new ModelBinding(base.service, finalRequest, policy, contextWindow, maxOutputTokens, toolCalling, vision,
-                structuredOutput, requiredTools, sampling, credentialRejection, effort);
+                structuredOutput, requiredTools, sampling, failureReading, effort);
     }
 
     /** Whether a task call through this binding thinks rather than running as a helper. */
@@ -113,9 +115,17 @@ public record ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> fin
         return taskEffort != null && taskEffort != ReasoningEffort.OFF;
     }
 
+    /**
+     * What a failure of a call through this binding means, by the adapter's rule: the provider refused its credential
+     * ({@link TurnFailure#PROVIDER_CREDENTIAL_REJECTED}) or limited its rate ({@link TurnFailure#PROVIDER_RATE_LIMITED}).
+     */
+    public Optional<TurnFailure> providerFailure(Throwable failure) {
+        return failureReading.apply(failure);
+    }
+
     /** Whether a failure of a call through this binding means the provider refused its credential (the adapter's rule). */
     public boolean credentialRejected(Throwable failure) {
-        return credentialRejection.test(failure);
+        return providerFailure(failure).filter(TurnFailure.PROVIDER_CREDENTIAL_REJECTED::equals).isPresent();
     }
 
     public ModelBinding {
@@ -123,7 +133,7 @@ public record ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> fin
         Objects.requireNonNull(finalRequest);
         Objects.requireNonNull(requiredTools);
         Objects.requireNonNull(sampling);
-        Objects.requireNonNull(credentialRejection);
+        Objects.requireNonNull(failureReading);
         Objects.requireNonNull(policy);
         if (maxOutputTokens != null && (maxOutputTokens < 1 || contextWindow <= maxOutputTokens))
             throw new IllegalArgumentException("Invalid model limits");

@@ -2048,4 +2048,8 @@ Object.assign(vietnameseUi, {
   "Đang cập nhật bộ nhớ…": "Updating memory…",
   "Đã cập nhật bộ nhớ": "Updated memory",
   "Chưa cập nhật bộ nhớ": "Memory not updated",
+  // MEM-255 provider rate limits
+  "Nhà cung cấp model đang giới hạn": "The model provider is limiting requests",
+  "Đã chạm giới hạn tốc độ của nhà cung cấp. Hãy thử lại sau ít phút hoặc chọn model khác.":
+    "The provider's rate limit was reached. Try again in a few minutes or choose another model.",
 });

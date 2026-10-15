@@ -1,6 +1,8 @@
 package io.memoryos.ai.openai;
 
 import com.openai.errors.OpenAIServiceException;
+import io.memoryos.ai.TurnFailure;
+import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,12 +37,21 @@ final class OpenAiFailures {
                 .log("The model endpoint call failed");
     }
 
-    /** Whether the endpoint refused the credential (HTTP 401 or 403), in {@code failure} or one of its causes. */
-    static boolean credentialRejected(@Nullable Throwable failure) {
+    /**
+     * MEM-255: what a failure means for the turn. A refused credential is HTTP 401 or 403; a rate limit is HTTP 429 or a
+     * {@code rate_limit_exceeded} error inside the stream, which arrives with HTTP 200 (an exhausted quota,
+     * {@code insufficient_quota}, is not a limit that passes and stays unnamed).
+     */
+    static Optional<TurnFailure> read(@Nullable Throwable failure) {
         for (int depth = 0; failure != null && depth < MAX_CAUSES; depth++, failure = failure.getCause()) {
-            if (failure instanceof OpenAIServiceException service
-                    && (service.statusCode() == 401 || service.statusCode() == 403)) return true;
+            if (failure instanceof OpenAIServiceException service) {
+                if (service.statusCode() == 401 || service.statusCode() == 403)
+                    return Optional.of(TurnFailure.PROVIDER_CREDENTIAL_REJECTED);
+                String code = service.code().orElse("");
+                if ("rate_limit_exceeded".equals(code) || service.statusCode() == 429 && !"insufficient_quota".equals(code))
+                    return Optional.of(TurnFailure.PROVIDER_RATE_LIMITED);
+            }
         }
-        return false;
+        return Optional.empty();
     }
 }
