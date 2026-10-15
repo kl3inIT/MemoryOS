@@ -47,6 +47,20 @@ and adds nothing of its own.
 
 ## Tools
 
+The sandbox is one group, as Dust's "Computer" is one server and Claude's code execution is one tool with bash and
+a file editor inside (owner, 2026-10-16).
+
+- **One switch.** The agent tool key `code_interpreter` turns on the whole group: `run_python` and the sandbox tools.
+  No new key, no change to `persona_tool`'s CHECK; agents that have Code Interpreter get the computer. The Tenant
+  switch `chat_interpreter_setting` and the page `/admin/code-interpreter` govern the group; the page becomes the
+  computer's page (the switch, the health of the interpreter and of the sandbox server, the allowed domains).
+- **Few tools for the model.** Five, after Claude's bash and text editor, instead of ten: fewer tool schemas in every
+  request and fewer wrong choices for a small model. Search goes through `rg` and `fd` in `bash`, as in Claude's
+  container. The file editor's name avoids `read_file`, which the attachment reader already uses.
+- **One look in the timeline.** The group's steps share an icon; a `bash` step is titled by its `description`.
+- **Not now.** A composer switch (the agent decides, as Dust attaches the Computer to an agent) and a per-tool
+  always/ask/off policy for built-in tools (approvals exist only for MCP).
+
 Written as `@LlmTool` methods of one per-turn `SandboxTools` instance in `chat.tools`, registered like
 `RunPythonTool`. spring-ai-agent-utils `ShellTools` is not used: its timeout is fixed at a 120 s default and 600 s
 maximum, it keeps only the head of long output and returns no output on a timeout. Its descriptions are borrowed
@@ -55,23 +69,16 @@ with attribution.
 | Tool | Parameters | Behaviour | From |
 | --- | --- | --- | --- |
 | `bash` | `command`, `description` (5–10 words, shown as the step title), `timeout_seconds` (default 60, maximum 120), `run_in_background` | Runs in `/workspace` as user 1000; returns stdout, stderr and exit code; a timeout is reported as such, with the output so far. In the background it returns a `bash_id` at once and the command runs up to 30 minutes | Dust (timeouts, partial output), spring-agent and Claude Code (`description`, background) |
-| `read_file` | `path`, `offset`, `limit` | Numbered lines, 2,000 lines by default, at most 4 MB | agents-flex, Claude Code |
-| `write_file` | `path`, `content` | Creates parent directories | agents-flex |
-| `edit_file` | `path`, `old_string`, `new_string`, `replace_all` | The old string must match once unless `replace_all` | agents-flex, Claude Code |
-| `list_files` | `path`, `depth` | Through the SDK directory listing | agents-flex, Dust |
-| `grep_files` | `pattern`, `path`, `glob`, `case_insensitive`, `context_lines`, `output_mode` (`content`, `files`, `count`) | `rg` run with an argument vector (no shell); skips `.git` and `node_modules`; at most 5,000 files, 2 MB a file and 100,000 characters of output | Dust `grep_files`, agents-flex `grep`, Claude Code `Grep` |
-| `glob` | `pattern`, `path` | `fd` with an argument vector; newest first; at most 1,000 paths | Dust `glob`, agents-flex `glob`, Claude Code `Glob` |
-| `bash_output` | `bash_id`, `filter` | New output of a background command since the last read, and whether it still runs; the regex filter applies to what is returned, not to what is consumed | spring-agent `BashOutput`, Claude Code |
-| `kill_shell` | `bash_id` | Terminates the background command's process group (TERM, then KILL after 1 s); its output file stays readable | spring-agent `KillShell`, Claude Code |
+| `bash_output` | `bash_id`, `filter`, `kill` | New output of a background command since the last read and whether it still runs; with `kill` it first terminates the command's process group (TERM, then KILL after 1 s) | spring-agent `BashOutput` and `KillShell`, Claude Code |
+| `edit_file` | `command` (`view`, `create`, `str_replace`, `insert`), `path`, and per command `view_range`, `file_text`, `old_str`, `new_str`, `insert_line` | `view`: numbered lines (2,000 by default, at most 4 MB) or a directory listing two levels deep; `create`: writes the file with its parent directories; `str_replace`: the old text must match exactly once; `insert`: after a line | Claude's text editor tool, agents-flex |
 | `publish_file` | `path`, `filename` | Puts the file in the Library; description after agents-flex: the final delivery step, never return an internal path, on error fix and retry and never claim delivery | agents-flex |
 | `run_python` | `code` | Unchanged contract, through `PythonRunner` | MEM-110, Onyx |
 
-Search and background commands are full tools, as in Claude Code, spring-agent and agents-flex (owner,
-2026-10-15). Background commands avoid spring-agent's faults: ids are UUIDs, not milliseconds; output is read from
-an offset with `tail -c +N`, not `dd bs=1`; each command runs under `setsid timeout` with a 30-minute ceiling and a
-capped output file; starting one renews the sandbox to outlive it, so the idle expiry never kills a running command.
-Not taken now: Dust's `add_egress_domain` and `request_egress_domain`, which need an administrator approval flow,
-and Dust's `describe_toolset`, replaced by the tool manifest in the prompt.
+Background commands avoid spring-agent's faults: ids are UUIDs, not milliseconds; output is read from an offset with
+`tail -c +N`, not `dd bs=1`; each command runs under `setsid timeout` with a 30-minute ceiling and a capped output
+file; starting one renews the sandbox to outlive it, so the idle expiry never kills a running command. Not taken now:
+Dust's `add_egress_domain` and `request_egress_domain`, which need an administrator approval flow, and Dust's
+`describe_toolset`, replaced by the tool manifest in the prompt.
 
 A `bash` call:
 
