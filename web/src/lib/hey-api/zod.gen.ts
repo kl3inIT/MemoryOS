@@ -395,8 +395,12 @@ export const zMcpServerView = z.object({
     revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
 });
 
-export const zMcpToolEnablement = z.object({
-    enabled: z.boolean()
+export const zMcpToolPolicyChange = z.object({
+    policy: z.enum([
+        'ALWAYS',
+        'ASK',
+        'OFF'
+    ])
 });
 
 /**
@@ -410,15 +414,33 @@ export const zMcpToolView = z.object({
     description: z.string(),
     readOnlyHint: z.boolean().nullable(),
     destructiveHint: z.boolean().nullable(),
-    enabled: z.boolean(),
-    approvalRequired: z.boolean(),
+    risk: z.enum([
+        'READ',
+        'WRITE',
+        'DESTRUCTIVE'
+    ]),
+    policy: z.enum([
+        'ALWAYS',
+        'ASK',
+        'OFF'
+    ]),
+    policyCustomized: z.boolean(),
     exposable: z.boolean(),
     snapshotAt: z.iso.datetime(),
     revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
 });
 
-export const zMcpToolApproval = z.object({
-    approvalRequired: z.boolean()
+export const zMcpToolGroupPolicyChange = z.object({
+    risk: z.enum([
+        'READ',
+        'WRITE',
+        'DESTRUCTIVE'
+    ]),
+    policy: z.enum([
+        'ALWAYS',
+        'ASK',
+        'OFF'
+    ])
 });
 
 /**
@@ -4204,6 +4226,22 @@ export const zChannelAppCheckResponse = z.object({
     missingScopes: z.array(z.string())
 });
 
+export const zCreateChannelLinkCodeRequest = z.object({
+    connectionId: z.uuid()
+});
+
+export const zChannelLinkCodeResponse = z.object({
+    code: z.string(),
+    expiresAt: z.iso.datetime()
+});
+
+export const zChannelLinkResponse = z.object({
+    connectionId: z.uuid(),
+    botName: z.string(),
+    provider: z.enum(['LARK', 'ZALO_BOT']),
+    linkedAt: z.iso.datetime().optional()
+});
+
 export const zReplaceSharePointScopeBody = zReplaceSharePointScopeRequest;
 
 export const zReplaceSharePointScopeHeaders = z.object({
@@ -4492,48 +4530,41 @@ export const zUpdateMcpServerQuery = z.object({
  */
 export const zUpdateMcpServerResponse = zMcpServerView;
 
-export const zSetMcpServerToolEnabledBody = zMcpToolEnablement;
-
-export const zSetMcpServerToolEnabledPath = z.object({
-    serverId: z.uuid(),
-    toolId: z.uuid()
-});
-
-export const zSetMcpServerToolEnabledQuery = z.object({
-    revision: z.coerce.bigint().gt(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+export const zResetMcpServerToolPoliciesPath = z.object({
+    serverId: z.uuid()
 });
 
 /**
- * Saved tool
+ * Tools with their default policies
  */
-export const zSetMcpServerToolEnabledResponse = zMcpToolView;
+export const zResetMcpServerToolPoliciesResponse = z.array(zMcpToolView);
 
-export const zSetMcpServerToolApprovalBody = zMcpToolApproval;
+export const zSetMcpServerToolGroupPolicyBody = zMcpToolGroupPolicyChange;
 
-export const zSetMcpServerToolApprovalPath = z.object({
-    serverId: z.uuid(),
-    toolId: z.uuid()
-});
-
-export const zSetMcpServerToolApprovalQuery = z.object({
-    revision: z.coerce.bigint().gt(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
-});
-
-/**
- * Saved tool
- */
-export const zSetMcpServerToolApprovalResponse = zMcpToolView;
-
-export const zSetAllMcpServerToolsEnabledBody = zMcpToolEnablement;
-
-export const zSetAllMcpServerToolsEnabledPath = z.object({
+export const zSetMcpServerToolGroupPolicyPath = z.object({
     serverId: z.uuid()
 });
 
 /**
  * Saved tools
  */
-export const zSetAllMcpServerToolsEnabledResponse = z.array(zMcpToolView);
+export const zSetMcpServerToolGroupPolicyResponse = z.array(zMcpToolView);
+
+export const zSetMcpServerToolPolicyBody = zMcpToolPolicyChange;
+
+export const zSetMcpServerToolPolicyPath = z.object({
+    serverId: z.uuid(),
+    toolId: z.uuid()
+});
+
+export const zSetMcpServerToolPolicyQuery = z.object({
+    revision: z.coerce.bigint().gt(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+});
+
+/**
+ * Saved tool
+ */
+export const zSetMcpServerToolPolicyResponse = zMcpToolView;
 
 export const zDeleteMcpServerOAuthClientPath = z.object({
     serverId: z.uuid(),
@@ -8509,3 +8540,24 @@ export const zDeleteChannelPath = z.object({
  * Bot removed
  */
 export const zDeleteChannelResponse = z.void();
+
+/**
+ * Bots and links
+ */
+export const zListChannelLinksResponse = z.array(zChannelLinkResponse);
+
+export const zCreateChannelLinkCodeBody = zCreateChannelLinkCodeRequest;
+
+/**
+ * Linking code
+ */
+export const zCreateChannelLinkCodeResponse = zChannelLinkCodeResponse;
+
+export const zDeleteChannelLinkPath = z.object({
+    connectionId: z.uuid()
+});
+
+/**
+ * Link removed
+ */
+export const zDeleteChannelLinkResponse = z.void();

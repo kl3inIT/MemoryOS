@@ -13,7 +13,7 @@ reference gateways keep one adapter a platform behind a neutral interface; Zalo 
 as adapters. Only Zalo Bot is built; no enum value or adapter exists for a provider before it is built.
 
 Decided with the owner (2026-10-15): a sender who has not linked an account gets only the linking instructions;
-both webhook and polling, chosen for the deployment, webhook by default; staging only; choosing an agent for a bot
+both webhook and polling, chosen by the administrator for each bot, webhook by default; staging only; choosing an agent for a bot
 is a separate increment after this one.
 
 ## How the references do it (read 2026-10-15)
@@ -64,12 +64,13 @@ Four parts of today's `ChannelAdapter` are Lark's and change before Zalo is adde
    and the encrypted secret (Lark's App Secret, Zalo's token). `verify(ChannelCredentials)` takes them and answers
    the normalised app id with the bot's name, so Zalo's id comes from its token. The API keeps a typed `region`,
    required for Lark and refused for others.
-2. **Features, stated.** `features()` answers `ChannelFeatures(organisations, editsReply, maxText)`: whether the
-   provider names an organisation for each sender, whether a reply can be rewritten while it is written, and the
-   longest text one message takes. The inbound service reads the first for its admission rule; a provider that does
+2. **Features, stated.** `features()` answers `ChannelFeatures(organisations, editsReply, quotes, maxText)`: whether
+   the provider names an organisation for each sender, whether a reply can be rewritten while it is written, whether
+   a message can reply to another so that the provider names it, and the longest text one message takes. The inbound service reads the first for its admission rule; a provider that does
    not edit never sees `append`, and its `finish` is given the answer cut by a shared splitter at `maxText`
    (paragraph, line, sentence, then hard ends), as OpenClaw's shared delivery chunks and GoClaw's shared helper
-   does. Lark: organisations, edits, 150,000. Zalo: none, no, 2,000.
+   does. Lark: organisations, edits, quotes, 150,000. Zalo: none, no, no, 2,000. A group answer closes by inviting a reply
+   only where the provider quotes; Zalo's invites a direct message instead (`GROUP_FOOTER_DIRECT`).
 3. **Inbound transport.** An adapter's transport either keeps a connection (Lark's WebSocket, Zalo's polling) or
    receives over HTTP. The second is an optional `ChannelWebhook` the adapter returns from `open`: `accept(headers,
    body)` checks the provider's secret and parses, as WeKnora's `VerifyCallback`/`ParseCallback`; the route and the
@@ -98,7 +99,7 @@ minute (GoClaw).
 A link belongs to one bot (a Zalo user id is not known to be the same across bots), is durable (no expiry, unlike
 the e-mail answers Lark's adapter remembers for an hour), and is shown in Settings › Chat with "Bỏ liên kết". It is
 removed with the member's membership or the bot; one Zalo account links to one member and a member to one Zalo
-account a bot, and linking again replaces the old link. The bot's page shows how many members linked, not who.
+account a bot. A member who links another account of theirs replaces their old link; an account linked to another member is not taken by a code until that member unlinks it, so an account never changes hands without its member knowing (a security review of 2026-10-15). The bot's page shows how many members linked, not who.
 
 The link is the capability's: any provider whose sender has no e-mail uses it. `ChannelInboundService.sender`
 reads a link first, then the e-mail.
@@ -110,12 +111,14 @@ a message that is a live code links its sender; a group question is answered onl
 what the bot's account may read, as in Lark, and an unlinked sender in a group gets the linking notice. Every
 answer is thus paid for by a member of the Tenant, and a stranger who adds the bot to a group gets nothing.
 
-### Transport: webhook by default, polling where Zalo cannot reach
+### Transport: webhook or polling, chosen for each bot
 
-`memoryos.channel.zalo.transport` (`MEMORYOS_CHANNEL_ZALO_TRANSPORT`), `webhook` by default or `polling`, is the
-deployment's, since whether Zalo can reach MemoryOS is a property of the host: a customer's internal cluster or a
-developer's machine has no address Zalo can call. Both are permanent ways of running for two kinds of host, not a
-temporary mode. OpenClaw and Hermes offer the same two.
+The administrator chooses for each bot, in the add dialog and on the bot's page (saved on change), "Webhook" (the
+default) or "Polling"; it is kept in the bot's `settings` (`transport`). OpenClaw configures the same per bot
+account. Polling is for a host Zalo cannot call, such as a customer's internal cluster or a developer's machine.
+Both are permanent ways of running, not a temporary mode. A webhook bot on a host Zalo cannot reach is not left
+silent: switching it on runs `testWebhook`, and a failure keeps the bot off with `CHANNEL_WEBHOOK_UNREACHABLE` and
+Zalo's outcome (`webhook.err.dns`, `webhook.err.tls`, `webhook.err.timeout`, `webhook.http.403`…) on its page.
 
 - **Webhook.** `open` calls `setWebhook` with `<memoryos.channel.web-url>/hooks/channels/<connection id>` and a
   secret of 32 random bytes made for that opening and kept in memory; `close` calls `deleteWebhook`.
@@ -124,8 +127,8 @@ temporary mode. OpenClaw and Hermes offer the same two.
   mismatch) and parse it, and answers `200` once the message's claim in `channel_messages` is written, as OpenClaw
   answers only after storing the event; a message pushed twice is answered once. The turn runs after the answer.
   The web's nginx routes `/hooks/channels/` to `memoryos-channels:8082`. `connected()` is whether
-  `getWebhookInfo` still names this opening's address, read at most once a minute. A bot cannot be switched on
-  while `memoryos.channel.web-url` is empty (`CHANNEL_WEB_URL_MISSING`).
+  `getWebhookInfo` still names this opening's address, read at most once a minute. Webhook is not offered, and a
+  webhook bot cannot be switched on, while `memoryos.channel.web-url` is empty (`CHANNEL_WEB_URL_MISSING`).
 - **Polling.** `open` calls `deleteWebhook`, then one virtual thread loops on `getUpdates` (30-second timeout, `408`
   an empty poll, backoff on errors) and hands each message to the receiver; `close` stops it. The runbook states
   Zalo's own warning that polling may miss events.
@@ -151,7 +154,7 @@ test and `checkRuntimeClasspathIsolation`. No SDK is maintained, so the client i
 
 ### The web
 
-"Thêm bot" asks Lark or Zalo first; Zalo asks a name and the token. The bot's page shows its facts as for Lark, with
+"Thêm bot" asks Lark or Zalo first; Zalo asks a name, the token and the transport. The bot's page shows its facts as for Lark, with
 the linked-member count. Settings › Chat gains the Zalo link rows.
 
 ## Contracts
@@ -161,16 +164,42 @@ the linked-member count. Settings › Chat gains the Zalo link rows.
 - `POST /api/channel-links` (`connectionId`) answers `{code, expiresAt}`; `GET /api/channel-links` lists the
   member's links and the Tenant's bots that take one; `DELETE /api/channel-links/{connectionId}` removes one.
 - `POST /hooks/channels/{connectionId}` on `memoryos-channels`, outside `/api`, no session.
-- New codes: `CHANNEL_WEB_URL_MISSING`, `CHANNEL_PROVIDER_QUOTA`. New notices: `LINK_REQUIRED`, `LINKED`,
+- `transport` (`WEBHOOK` or `POLLING`) on a Zalo bot, at creation and by `PATCH`.
+- New codes: `CHANNEL_WEB_URL_MISSING`, `CHANNEL_WEBHOOK_UNREACHABLE`, `CHANNEL_PROVIDER_QUOTA`. New notices: `LINK_REQUIRED`, `LINKED`,
   `LINK_CODE_INVALID`.
 
 ## Data
 
-- `channel_connections.region` becomes `settings JSONB NOT NULL DEFAULT '{}'`, Lark's rows carrying their region.
+- `channel_connections.region` becomes `settings JSONB NOT NULL DEFAULT '{}'`, Lark's rows carrying their region, Zalo's their transport.
 - `channel_link_codes (tenant_id, connection_id, actor_id, code_hash, expires_at)`, one row a member and bot.
 - `channel_account_links (tenant_id, connection_id, external_user_id, actor_id, linked_at)`, unique on
   `(connection_id, external_user_id)` and on `(connection_id, actor_id)`; cascades from the connection and the
   membership.
+- One app serves one bot by `(provider, app_id)` alone: the settings, where a Zalo bot keeps its transport, are no
+  part of it, so one bot is never stored twice with two transports.
+
+## Deviations during delivery
+
+Decided while building plan step 4, against the text above:
+
+- **An unreachable webhook leaves the bot on, failing.** Switching a webhook bot on does not run `testWebhook` and
+  keep it off. `ChannelWebhook.register()` relies on the verification `setWebhook` itself makes, then `testWebhook`
+  when that answers nothing clear; a failure leaves the bot switched on with `CHANNEL_WEBHOOK_UNREACHABLE` as its last
+  failure, shown by code on its page, and the supervisor does not reopen it until its revision changes (a new
+  secret, transport or switch). Zalo's outcome (`webhook.err.dns` and the like) goes only to the diagnostic and the
+  log. Switching off and on, or changing the transport, retries it.
+- **Endpoints per provider.** Not one `/api/channels` with an optional `region`: `POST /api/channels/zalo/test` and
+  `POST /api/channels/zalo` take a Zalo bot's own request (name, token, transport, language), and
+  `PUT /api/channels/{id}/transport` changes a bot's transport under its revision. Lark keeps its endpoints;
+  `ChannelResponse.region` is optional and `transport` is new.
+- **`426` is not counted.** Zalo's `426` on a webhook check is its daily limit of checks, not the bot's address; it
+  is not held against the bot.
+- **The default transport follows `web-url`.** A Zalo bot created without a transport gets `WEBHOOK` when
+  `memoryos.channel.web-url` is set and `POLLING` otherwise, so a deployment Zalo cannot reach still works.
+- **The API process needs `MEMORYOS_CHANNEL_WEB_URL`.** It chooses that default and refuses a webhook bot without an
+  address, so the API service has the variable as well as `memoryos-channels` (compose and the staging example).
+- **A quick empty poll waits a second.** A `getUpdates` that answers empty in under a second waits one second before
+  the next, so a Zalo that does not hold the poll is not called in a tight loop.
 
 ## Not in scope
 

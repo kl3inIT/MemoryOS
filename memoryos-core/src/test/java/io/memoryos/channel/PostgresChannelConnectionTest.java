@@ -287,7 +287,7 @@ class PostgresChannelConnectionTest {
 
         @Override public ChannelProvider provider() { return ChannelProvider.LARK; }
 
-        @Override public ChannelFeatures features() { return new ChannelFeatures(true, true, 150_000); }
+        @Override public ChannelFeatures features() { return new ChannelFeatures(true, true, true, 150_000); }
 
         @Override
         public ChannelVerification verify(ChannelCredentials credentials) {

@@ -75,25 +75,27 @@ public class McpTurnService {
             targets.put(candidate.serverId(), new McpTurnTools.Target(candidate.serverId(), candidate.url(), headers));
             bindings.addAll(candidate.bindings());
         }
-        return new McpTurnTools(clients, targets, bindings, unavailable);
+        return new McpTurnTools(clients, targets, bindings, unavailable, resolved.omitted());
     }
 
     /** A turn that selected no usable server; only {@link #open} needs it. */
     private McpTurnTools empty() {
-        return new McpTurnTools(clients, Map.of(), List.of(), List.of());
+        return new McpTurnTools(clients, Map.of(), List.of(), List.of(), List.of());
     }
 
     private record Candidate(UUID serverId, String serverName, String url, McpAuthType authType,
                              @Nullable UUID ownerActorId, @Nullable String headerTemplate, @Nullable String apiKey,
                              List<McpTurnTools.Binding> bindings) {}
 
-    private record Resolved(List<Candidate> candidates, List<McpTurnTools.Unavailable> unavailable) {}
+    private record Resolved(List<Candidate> candidates, List<McpTurnTools.Unavailable> unavailable,
+                            List<McpTurnTools.Omitted> omitted) {}
 
     private Resolved resolve(ActorId actor, List<UUID> serverIds) {
         UUID tenant = authorization.require(actor, IamCapability.CHAT_WRITE, false).tenantId().value();
         Set<UUID> accessible = access.accessibleServerIds(tenant, actor.value());
         var candidates = new ArrayList<Candidate>();
         var unavailable = new ArrayList<McpTurnTools.Unavailable>();
+        var omitted = new ArrayList<McpTurnTools.Omitted>();
         int offered = 0;
         for (UUID serverId : serverIds.stream().distinct().toList()) {
             if (!accessible.contains(serverId)) continue;
@@ -112,14 +114,21 @@ public class McpTurnService {
                 continue;
             }
             var bindings = new ArrayList<McpTurnTools.Binding>();
+            int left = 0;
             for (var tool : tools.findByTenantIdAndServerIdOrderByNameAsc(tenant, serverId)) {
-                if (!tool.enabled()) continue;
+                if (tool.policy() == McpToolPolicy.OFF) continue;
                 var modelName = McpServerRules.modelToolName(server.slug(), tool.name());
-                if (modelName.isEmpty() || offered + bindings.size() >= MAX_TOOLS) continue;
-                bindings.add(new McpTurnTools.Binding(serverId, server.slug(), server.name(), tool.name(),
-                        modelName.get(), tool.description(), tool.inputSchema(), tool.readOnly(), tool.approvalRequired()));
+                if (modelName.isEmpty()) continue;
+                if (offered + bindings.size() >= MAX_TOOLS) {
+                    left++;
+                    continue;
+                }
+                bindings.add(new McpTurnTools.Binding(serverId, server.slug(), server.name(), tool.name(), modelName.get(),
+                        tool.description(), tool.inputSchema(), tool.readOnly(), tool.policy() == McpToolPolicy.ASK));
             }
+            if (left > 0) omitted.add(new McpTurnTools.Omitted(server.name(), left));
             if (bindings.isEmpty()) {
+                if (left > 0) continue;
                 unavailable.add(new McpTurnTools.Unavailable(serverId, server.name(),
                         McpTurnTools.Unavailable.Reason.NO_TOOLS));
                 continue;
@@ -128,7 +137,7 @@ public class McpTurnService {
             candidates.add(new Candidate(serverId, server.name(), server.url(), server.authType(), owner,
                     server.headerTemplate() == null ? null : template(server), apiKey(tenant, credential), bindings));
         }
-        return new Resolved(candidates, unavailable);
+        return new Resolved(candidates, unavailable, omitted);
     }
 
     /** Resolves headers outside the transaction; OAuth refresh may call the authorization server. */

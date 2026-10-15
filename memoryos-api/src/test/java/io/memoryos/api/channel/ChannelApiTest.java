@@ -24,6 +24,9 @@ import io.memoryos.channel.ChannelConnectionState;
 import io.memoryos.channel.ChannelCredentials;
 import io.memoryos.channel.ChannelDelivery;
 import io.memoryos.channel.ChannelException;
+import io.memoryos.channel.ChannelLink;
+import io.memoryos.channel.ChannelLinkCode;
+import io.memoryos.channel.ChannelLinkService;
 import io.memoryos.channel.ChannelProvider;
 import io.memoryos.channel.ChannelRegion;
 import io.memoryos.channel.ChannelVerification;
@@ -84,6 +87,9 @@ class ChannelApiTest {
 
     @MockitoBean
     private ChannelConnectionService channels;
+
+    @MockitoBean
+    private ChannelLinkService links;
 
     private ActorAuthenticationToken owner;
     private ActorAuthenticationToken member;
@@ -362,5 +368,43 @@ class ChannelApiTest {
                         .header("If-Match", "\"3\""))
                 .andExpect(status().isNoContent());
         verify(channels).delete(any(), eq(id), eq(3L));
+    }
+
+    @Test
+    void aMemberMakesACodeSeesTheirLinksAndUnlinks() throws Exception {
+        var bot = UUID.randomUUID();
+        var linkedAt = Instant.parse("2026-10-15T07:00:00Z");
+        when(links.links(any())).thenReturn(List.of(new ChannelLink(bot, "Zalo", ChannelProvider.LARK, linkedAt)));
+        mockMvc.perform(get("/api/channel-links").with(authentication(member)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].connectionId").value(bot.toString()))
+                .andExpect(jsonPath("$[0].botName").value("Zalo"))
+                .andExpect(jsonPath("$[0].linkedAt").value("2026-10-15T07:00:00Z"));
+
+        String body = "{\"connectionId\":\"" + bot + "\"}";
+        when(links.code(any(), eq(bot))).thenReturn(new ChannelLinkCode("ABCD2345", Instant.parse("2026-10-15T07:10:00Z")));
+        mockMvc.perform(post("/api/channel-links").with(authentication(member))
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/channel-links").with(authentication(member)).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.code").value("ABCD2345"))
+                .andExpect(jsonPath("$.expiresAt").value("2026-10-15T07:10:00Z"));
+        mockMvc.perform(post("/api/channel-links").with(authentication(member)).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest());
+
+        var other = UUID.randomUUID();
+        when(links.code(any(), eq(other))).thenThrow(ChannelException.notFound());
+        mockMvc.perform(post("/api/channel-links").with(authentication(member)).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"connectionId\":\"" + other + "\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("CHANNEL_NOT_FOUND"));
+
+        mockMvc.perform(delete("/api/channel-links/{id}", bot).with(authentication(member)).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isNoContent());
+        verify(links).unlink(any(), eq(bot));
+        mockMvc.perform(get("/api/channel-links")).andExpect(status().isUnauthorized());
     }
 }

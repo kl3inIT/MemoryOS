@@ -419,8 +419,8 @@ export type McpServerView = {
     revision: number;
 };
 
-export type McpToolEnablement = {
-    enabled: boolean;
+export type McpToolPolicyChange = {
+    policy: 'ALWAYS' | 'ASK' | 'OFF';
 };
 
 /**
@@ -437,18 +437,32 @@ export type McpToolView = {
     description: string;
     readOnlyHint: boolean | null;
     destructiveHint: boolean | null;
-    enabled: boolean;
     /**
-     * An enabled tool waits for the person to approve each call
+     * From the annotations: READ, WRITE or DESTRUCTIVE
      */
-    approvalRequired: boolean;
+    risk: 'READ' | 'WRITE' | 'DESTRUCTIVE';
+    /**
+     * ALWAYS runs, ASK waits for the person, OFF is never offered
+     */
+    policy: 'ALWAYS' | 'ASK' | 'OFF';
+    /**
+     * An administrator chose the policy; refreshes keep it
+     */
+    policyCustomized: boolean;
     exposable: boolean;
     snapshotAt: string;
     revision: number;
 };
 
-export type McpToolApproval = {
-    approvalRequired: boolean;
+export type McpToolGroupPolicyChange = {
+    /**
+     * The group of tools to change
+     */
+    risk: 'READ' | 'WRITE' | 'DESTRUCTIVE';
+    /**
+     * DESTRUCTIVE refuses ALWAYS
+     */
+    policy: 'ALWAYS' | 'ASK' | 'OFF';
 };
 
 /**
@@ -4281,6 +4295,22 @@ export type ChannelAppCheckResponse = {
     missingScopes: Array<string>;
 };
 
+export type CreateChannelLinkCodeRequest = {
+    connectionId: string;
+};
+
+export type ChannelLinkCodeResponse = {
+    code: string;
+    expiresAt: string;
+};
+
+export type ChannelLinkResponse = {
+    connectionId: string;
+    botName: string;
+    provider: 'LARK' | 'ZALO_BOT';
+    linkedAt?: string;
+};
+
 export type ReplaceSharePointScopeData = {
     body: ReplaceSharePointScopeRequest;
     headers: {
@@ -5303,116 +5333,16 @@ export type UpdateMcpServerResponses = {
 
 export type UpdateMcpServerResponse = UpdateMcpServerResponses[keyof UpdateMcpServerResponses];
 
-export type SetMcpServerToolEnabledData = {
-    body: McpToolEnablement;
-    path: {
-        serverId: string;
-        toolId: string;
-    };
-    query: {
-        revision: number;
-    };
-    url: '/api/mcp/servers/{serverId}/tools/{toolId}/enabled';
-};
-
-export type SetMcpServerToolEnabledErrors = {
-    /**
-     * Invalid MCP configuration or tool snapshot
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * MCP management, Tenant membership or CSRF requirement not met
-     */
-    403: ApiProblem;
-    /**
-     * MCP server or tool not accessible
-     */
-    404: ApiProblem;
-    /**
-     * Stale revision, duplicate slug, missing credential or server authorization required
-     */
-    409: ApiProblem;
-    /**
-     * MCP server or credential encryption key unavailable
-     */
-    503: ApiProblem;
-};
-
-export type SetMcpServerToolEnabledError = SetMcpServerToolEnabledErrors[keyof SetMcpServerToolEnabledErrors];
-
-export type SetMcpServerToolEnabledResponses = {
-    /**
-     * Saved tool
-     */
-    200: McpToolView;
-};
-
-export type SetMcpServerToolEnabledResponse = SetMcpServerToolEnabledResponses[keyof SetMcpServerToolEnabledResponses];
-
-export type SetMcpServerToolApprovalData = {
-    body: McpToolApproval;
-    path: {
-        serverId: string;
-        toolId: string;
-    };
-    query: {
-        revision: number;
-    };
-    url: '/api/mcp/servers/{serverId}/tools/{toolId}/approval';
-};
-
-export type SetMcpServerToolApprovalErrors = {
-    /**
-     * Invalid MCP configuration or tool snapshot
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * MCP management, Tenant membership or CSRF requirement not met
-     */
-    403: ApiProblem;
-    /**
-     * MCP server or tool not accessible
-     */
-    404: ApiProblem;
-    /**
-     * Stale revision, duplicate slug, missing credential or server authorization required
-     */
-    409: ApiProblem;
-    /**
-     * MCP server or credential encryption key unavailable
-     */
-    503: ApiProblem;
-};
-
-export type SetMcpServerToolApprovalError = SetMcpServerToolApprovalErrors[keyof SetMcpServerToolApprovalErrors];
-
-export type SetMcpServerToolApprovalResponses = {
-    /**
-     * Saved tool
-     */
-    200: McpToolView;
-};
-
-export type SetMcpServerToolApprovalResponse = SetMcpServerToolApprovalResponses[keyof SetMcpServerToolApprovalResponses];
-
-export type SetAllMcpServerToolsEnabledData = {
-    body: McpToolEnablement;
+export type ResetMcpServerToolPoliciesData = {
+    body?: never;
     path: {
         serverId: string;
     };
     query?: never;
-    url: '/api/mcp/servers/{serverId}/tools/enabled';
+    url: '/api/mcp/servers/{serverId}/tools/policy';
 };
 
-export type SetAllMcpServerToolsEnabledErrors = {
+export type ResetMcpServerToolPoliciesErrors = {
     /**
      * Invalid MCP configuration or tool snapshot
      */
@@ -5439,16 +5369,113 @@ export type SetAllMcpServerToolsEnabledErrors = {
     503: ApiProblem;
 };
 
-export type SetAllMcpServerToolsEnabledError = SetAllMcpServerToolsEnabledErrors[keyof SetAllMcpServerToolsEnabledErrors];
+export type ResetMcpServerToolPoliciesError = ResetMcpServerToolPoliciesErrors[keyof ResetMcpServerToolPoliciesErrors];
 
-export type SetAllMcpServerToolsEnabledResponses = {
+export type ResetMcpServerToolPoliciesResponses = {
+    /**
+     * Tools with their default policies
+     */
+    200: Array<McpToolView>;
+};
+
+export type ResetMcpServerToolPoliciesResponse = ResetMcpServerToolPoliciesResponses[keyof ResetMcpServerToolPoliciesResponses];
+
+export type SetMcpServerToolGroupPolicyData = {
+    body: McpToolGroupPolicyChange;
+    path: {
+        serverId: string;
+    };
+    query?: never;
+    url: '/api/mcp/servers/{serverId}/tools/policy';
+};
+
+export type SetMcpServerToolGroupPolicyErrors = {
+    /**
+     * Invalid MCP configuration or tool snapshot
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or tool not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision, duplicate slug, missing credential or server authorization required
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SetMcpServerToolGroupPolicyError = SetMcpServerToolGroupPolicyErrors[keyof SetMcpServerToolGroupPolicyErrors];
+
+export type SetMcpServerToolGroupPolicyResponses = {
     /**
      * Saved tools
      */
     200: Array<McpToolView>;
 };
 
-export type SetAllMcpServerToolsEnabledResponse = SetAllMcpServerToolsEnabledResponses[keyof SetAllMcpServerToolsEnabledResponses];
+export type SetMcpServerToolGroupPolicyResponse = SetMcpServerToolGroupPolicyResponses[keyof SetMcpServerToolGroupPolicyResponses];
+
+export type SetMcpServerToolPolicyData = {
+    body: McpToolPolicyChange;
+    path: {
+        serverId: string;
+        toolId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/mcp/servers/{serverId}/tools/{toolId}/policy';
+};
+
+export type SetMcpServerToolPolicyErrors = {
+    /**
+     * Invalid MCP configuration or tool snapshot
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or tool not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision, duplicate slug, missing credential or server authorization required
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SetMcpServerToolPolicyError = SetMcpServerToolPolicyErrors[keyof SetMcpServerToolPolicyErrors];
+
+export type SetMcpServerToolPolicyResponses = {
+    /**
+     * Saved tool
+     */
+    200: McpToolView;
+};
+
+export type SetMcpServerToolPolicyResponse = SetMcpServerToolPolicyResponses[keyof SetMcpServerToolPolicyResponses];
 
 export type DeleteMcpServerOAuthClientData = {
     body?: never;
@@ -20894,3 +20921,116 @@ export type DeleteChannelResponses = {
 };
 
 export type DeleteChannelResponse = DeleteChannelResponses[keyof DeleteChannelResponses];
+
+export type ListChannelLinksData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/channel-links';
+};
+
+export type ListChannelLinksErrors = {
+    /**
+     * Invalid request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * No bot of the Tenant that takes a linked account
+     */
+    404: ApiProblem;
+};
+
+export type ListChannelLinksError = ListChannelLinksErrors[keyof ListChannelLinksErrors];
+
+export type ListChannelLinksResponses = {
+    /**
+     * Bots and links
+     */
+    200: Array<ChannelLinkResponse>;
+};
+
+export type ListChannelLinksResponse = ListChannelLinksResponses[keyof ListChannelLinksResponses];
+
+export type CreateChannelLinkCodeData = {
+    body: CreateChannelLinkCodeRequest;
+    path?: never;
+    query?: never;
+    url: '/api/channel-links';
+};
+
+export type CreateChannelLinkCodeErrors = {
+    /**
+     * Invalid request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * No bot of the Tenant that takes a linked account
+     */
+    404: ApiProblem;
+};
+
+export type CreateChannelLinkCodeError = CreateChannelLinkCodeErrors[keyof CreateChannelLinkCodeErrors];
+
+export type CreateChannelLinkCodeResponses = {
+    /**
+     * Linking code
+     */
+    201: ChannelLinkCodeResponse;
+};
+
+export type CreateChannelLinkCodeResponse = CreateChannelLinkCodeResponses[keyof CreateChannelLinkCodeResponses];
+
+export type DeleteChannelLinkData = {
+    body?: never;
+    path: {
+        connectionId: string;
+    };
+    query?: never;
+    url: '/api/channel-links/{connectionId}';
+};
+
+export type DeleteChannelLinkErrors = {
+    /**
+     * Invalid request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * No bot of the Tenant that takes a linked account
+     */
+    404: ApiProblem;
+};
+
+export type DeleteChannelLinkError = DeleteChannelLinkErrors[keyof DeleteChannelLinkErrors];
+
+export type DeleteChannelLinkResponses = {
+    /**
+     * Link removed
+     */
+    204: void;
+};
+
+export type DeleteChannelLinkResponse = DeleteChannelLinkResponses[keyof DeleteChannelLinkResponses];

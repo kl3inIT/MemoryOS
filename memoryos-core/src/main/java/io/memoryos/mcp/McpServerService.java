@@ -13,6 +13,7 @@ import io.memoryos.shared.TenantId;
 import io.memoryos.mcp.persistence.JpaMcpCredentialRepository;
 import io.memoryos.mcp.persistence.JpaMcpServerRepository;
 import io.memoryos.mcp.persistence.JpaMcpServerToolRepository;
+import io.memoryos.mcp.persistence.McpAccessRepository;
 import io.memoryos.mcp.persistence.McpCredentialEntity;
 import io.memoryos.mcp.persistence.McpServerEntity;
 import io.memoryos.mcp.persistence.McpServerToolEntity;
@@ -53,6 +54,7 @@ public class McpServerService {
     private final JpaMcpServerRepository servers;
     private final JpaMcpServerToolRepository tools;
     private final JpaMcpCredentialRepository credentials;
+    private final McpAccessRepository access;
     private final IamAuthorization authorization;
     private final GroupScopeService groups;
     private final McpSecrets secrets;
@@ -62,11 +64,13 @@ public class McpServerService {
     private final AuditTrail audit;
 
     public McpServerService(JpaMcpServerRepository servers, JpaMcpServerToolRepository tools,
-                            JpaMcpCredentialRepository credentials, IamAuthorization authorization,
+                            JpaMcpCredentialRepository credentials, McpAccessRepository access,
+                            IamAuthorization authorization,
                             GroupScopeService groups, McpSecrets secrets, McpClients clients, McpOAuthService oauth,
                             PlatformTransactionManager transactionManager, AuditTrail audit) {
         this.audit = audit;
-        this.servers = servers; this.tools = tools; this.credentials = credentials; this.authorization = authorization;
+        this.servers = servers; this.tools = tools; this.credentials = credentials; this.access = access;
+        this.authorization = authorization;
         this.groups = groups; this.secrets = secrets; this.clients = clients; this.oauth = oauth;
         this.transactions = new TransactionTemplate(transactionManager);
     }
@@ -96,8 +100,9 @@ public class McpServerService {
 
     /** {@code exposable} is false when {@code mcp_<slug>_<name>} does not fit model tool-name limits. */
     public record ToolView(UUID id, String name, String modelName, @Nullable String title, String description,
-                           @Nullable Boolean readOnlyHint, @Nullable Boolean destructiveHint, boolean enabled,
-                           boolean approvalRequired, boolean exposable, Instant snapshotAt, long revision) {}
+                           @Nullable Boolean readOnlyHint, @Nullable Boolean destructiveHint, McpToolRisk risk,
+                           McpToolPolicy policy, boolean policyCustomized, boolean exposable, Instant snapshotAt,
+                           long revision) {}
 
     public record Refresh(ServerView server, List<ToolView> tools) {}
 
@@ -176,52 +181,57 @@ public class McpServerService {
         return toolViews(server(read(actor), serverId));
     }
 
+    /** Sets one tool's policy as the administrator's choice, which later refreshes keep (MEM-264). */
     @Transactional
-    public ToolView setToolEnabled(ActorId actor, UUID serverId, UUID toolId, long revision, boolean enabled) {
+    public ToolView setToolPolicy(ActorId actor, UUID serverId, UUID toolId, long revision, McpToolPolicy policy) {
         UUID tenant = write(actor);
         var server = server(tenant, serverId);
         var tool = tools.findByTenantIdAndServerIdAndId(tenant, serverId, toolId).orElseThrow(McpException::notFound);
         if (tool.revision() != revision) throw McpException.conflict();
-        if (enabled && McpServerRules.modelToolName(server.slug(), tool.name()).isEmpty())
+        if (policy != McpToolPolicy.OFF && McpServerRules.modelToolName(server.slug(), tool.name()).isEmpty())
             throw McpException.toolNameUnsupported();
-        boolean changed = tool.enabled() != enabled;
-        tool.enabled(enabled);
+        if (!McpServerRules.allowed(risk(tool), policy)) throw McpException.toolPolicyNotAllowed();
+        boolean changed = tool.policy() != policy;
+        tool.policy(policy, true);
         var saved = tools.saveAndFlush(tool);
         if (changed) record(tenant, actor, AuditAction.MCP_TOOL_CHANGE, serverId, server.name(),
-                event -> event.detail("tools", List.of(tool.name())).detail("enabled", enabled));
+                event -> event.detail("tools", List.of(tool.name())).detail("policy", policy.name()));
         return toolView(server, saved);
     }
 
-    /** Whether an enabled tool waits for the person to approve each call (MEM-253). */
+    /** Sets every tool of one risk; a tool whose name cannot be exposed stays off. */
     @Transactional
-    public ToolView setToolApproval(ActorId actor, UUID serverId, UUID toolId, long revision, boolean approvalRequired) {
+    public List<ToolView> setGroupPolicy(ActorId actor, UUID serverId, McpToolRisk risk, McpToolPolicy policy) {
         UUID tenant = write(actor);
         var server = server(tenant, serverId);
-        var tool = tools.findByTenantIdAndServerIdAndId(tenant, serverId, toolId).orElseThrow(McpException::notFound);
-        if (tool.revision() != revision) throw McpException.conflict();
-        boolean changed = tool.approvalRequired() != approvalRequired;
-        tool.approvalRequired(approvalRequired);
-        var saved = tools.saveAndFlush(tool);
-        if (changed) record(tenant, actor, AuditAction.MCP_TOOL_CHANGE, serverId, server.name(),
-                event -> event.detail("tools", List.of(tool.name())).detail("approvalRequired", approvalRequired));
-        return toolView(server, saved);
+        if (!McpServerRules.allowed(risk, policy)) throw McpException.toolPolicyNotAllowed();
+        var changed = new ArrayList<String>();
+        for (var tool : tools.findByTenantIdAndServerIdOrderByNameAsc(tenant, serverId)) {
+            if (risk(tool) != risk) continue;
+            var target = McpServerRules.modelToolName(server.slug(), tool.name()).isPresent() ? policy : McpToolPolicy.OFF;
+            if (tool.policy() != target) changed.add(tool.name());
+            tool.policy(target, true);
+        }
+        tools.flush();
+        if (!changed.isEmpty()) record(tenant, actor, AuditAction.MCP_TOOL_CHANGE, serverId, server.name(),
+                event -> event.detail("tools", changed).detail("risk", risk.name()).detail("policy", policy.name()));
+        return toolViews(server);
     }
 
-    /** Enables every exposable tool, or disables every tool. */
+    /** Clears every customization, so each tool takes the default of its risk again. */
     @Transactional
-    public List<ToolView> setAllToolsEnabled(ActorId actor, UUID serverId, boolean enabled) {
+    public List<ToolView> resetToolPolicies(ActorId actor, UUID serverId) {
         UUID tenant = write(actor);
         var server = server(tenant, serverId);
         var changed = new ArrayList<String>();
         for (var tool : tools.findByTenantIdAndServerIdOrderByNameAsc(tenant, serverId)) {
-            if ((!enabled || McpServerRules.modelToolName(server.slug(), tool.name()).isPresent()) && tool.enabled() != enabled) {
-                tool.enabled(enabled);
-                changed.add(tool.name());
-            }
+            var policy = defaultPolicy(server, tool.name(), risk(tool));
+            if (tool.policy() != policy) changed.add(tool.name());
+            tool.policy(policy, false);
         }
         tools.flush();
         if (!changed.isEmpty()) record(tenant, actor, AuditAction.MCP_TOOL_CHANGE, serverId, server.name(),
-                event -> event.detail("tools", changed).detail("enabled", enabled));
+                event -> event.detail("tools", changed).detail("policy", "DEFAULT"));
         return toolViews(server);
     }
 
@@ -229,22 +239,11 @@ public class McpServerService {
     public Refresh refreshTools(ActorId actor, UUID serverId) {
         Target target = Objects.requireNonNull(transactions.execute(_ -> {
             UUID tenant = read(actor);
-            var server = server(tenant, serverId);
-            UUID owner = server.authPerformer() == McpAuthPerformer.PER_USER ? actor.value() : null;
-            return new Target(tenant, server.url(), headers(server, owner), server.revision(),
-                    server.authType() == McpAuthType.OAUTH, owner);
+            return target(tenant, server(tenant, serverId), actor);
         }));
         List<McpToolDescriptor> listed;
         try {
-            Map<String, String> headers = target.headers();
-            if (target.oauth()) {
-                var authorized = new LinkedHashMap<>(headers);
-                authorized.put("Authorization", "Bearer " + oauth.accessToken(target.tenantId(), serverId, target.ownerActorId()));
-                headers = authorized;
-            }
-            try (var session = clients.open(target.url(), headers, REFRESH_DEADLINE)) {
-                listed = session.listTools();
-            }
+            listed = listTools(target, serverId);
         } catch (McpException failure) {
             boolean unauthorized = "MCP_AUTHORIZATION_REQUIRED".equals(failure.code());
             // AWAITING_AUTH reports a missing shared connection, so one administrator's own credential never sets it.
@@ -255,31 +254,109 @@ public class McpServerService {
         }
         var snapshot = McpServerRules.snapshot(listed);
         return Objects.requireNonNull(transactions.execute(_ -> {
-            UUID tenant = write(actor);
-            var server = server(tenant, serverId);
+            var server = server(write(actor), serverId);
             if (server.revision() != target.revision()) throw McpException.conflict();
-            Instant now = Instant.now();
-            Map<String, McpServerToolEntity> existing = tools.findByTenantIdAndServerIdOrderByNameAsc(tenant, serverId)
-                    .stream().collect(Collectors.toMap(McpServerToolEntity::name, Function.identity()));
-            var listedNames = new HashSet<String>();
-            for (var tool : snapshot) {
-                listedNames.add(tool.name());
-                var entity = existing.get(tool.name());
-                if (entity == null) {
-                    entity = new McpServerToolEntity(UUID.randomUUID(), tenant, serverId, tool.name());
-                    // A tool the server declares read-only starts on; one that may change data waits for the administrator
-                    // and, once turned on, asks the person before each call.
-                    entity.enabled(tool.readOnly() && McpServerRules.modelToolName(server.slug(), tool.name()).isPresent());
-                    entity.approvalRequired(!tool.readOnly());
-                }
-                entity.snapshot(tool.title(), tool.description(), tool.inputSchema(), tool.annotations(), tool.readOnly(), now);
-                tools.save(entity);
-            }
-            tools.deleteAll(existing.values().stream().filter(tool -> !listedNames.contains(tool.name())).toList());
-            server.status(McpServerStatus.CONNECTED, now, now);
-            servers.saveAndFlush(server);
+            store(server, snapshot);
             return new Refresh(view(server), toolViews(server));
         }));
+    }
+
+    /**
+     * Lists the tools of a server that has none stored yet, with the caller's own or the shared credential, right
+     * after a connection completes or an administrator saves a server (MEM-264). Anyone who may use the server can
+     * fill an empty snapshot, since the defaults decide what the tools may do; replacing one stays a refresh. Never
+     * throws: the request that triggered it has already succeeded.
+     */
+    public void discoverTools(ActorId actor, UUID serverId) {
+        try {
+            Target target = transactions.execute(_ -> {
+                boolean manages = authorization.effectiveCapabilities(actor).contains(IamCapability.MCP_MANAGE);
+                UUID tenant = manages ? read(actor)
+                        : authorization.require(actor, IamCapability.CHAT_WRITE, false).tenantId().value();
+                if (!manages && !access.accessible(tenant, serverId, actor.value())) throw McpException.notFound();
+                var server = server(tenant, serverId);
+                if (!usable(tenant, server, actor) || tools.countByTenantIdAndServerId(tenant, serverId) > 0) return null;
+                return target(tenant, server, actor);
+            });
+            if (target == null) return;
+            var snapshot = McpServerRules.snapshot(listTools(target, serverId));
+            transactions.executeWithoutResult(_ -> {
+                var server = server(target.tenantId(), serverId);
+                // A refresh or a changed endpoint in the meantime wins over this first listing.
+                if (server.revision() != target.revision() || tools.countByTenantIdAndServerId(target.tenantId(), serverId) > 0)
+                    return;
+                store(server, snapshot);
+            });
+            LOGGER.atInfo().addKeyValue("event", "mcp.tools.discovered").addKeyValue("mcp_server_id", serverId)
+                    .addKeyValue("tool_count", snapshot.size()).log("MCP server tools listed after connecting");
+        } catch (RuntimeException failure) {
+            var warning = LOGGER.atWarn().addKeyValue("event", "mcp.tools.discovery_failed")
+                    .addKeyValue("mcp_server_id", serverId).addKeyValue("error_type", failure.getClass().getName());
+            if (failure instanceof McpException mcp) warning = warning.addKeyValue("error_code", mcp.code());
+            warning.log("MCP server tools could not be listed after connecting");
+        }
+    }
+
+    /** Whether the caller holds the credential a listing needs: none, the shared one, or their own. */
+    private boolean usable(UUID tenant, McpServerEntity server, ActorId actor) {
+        if (server.authType() == McpAuthType.NONE) return true;
+        var credential = server.authPerformer() == McpAuthPerformer.PER_USER
+                ? credentials.findByTenantIdAndServerIdAndOwnerActorId(tenant, server.getId(), actor.value())
+                : credentials.findByTenantIdAndServerIdAndOwnerActorIdIsNull(tenant, server.getId());
+        return credential.filter(stored -> stored.status() == McpCredentialStatus.ACTIVE).isPresent();
+    }
+
+    private Target target(UUID tenant, McpServerEntity server, ActorId actor) {
+        UUID owner = server.authPerformer() == McpAuthPerformer.PER_USER ? actor.value() : null;
+        return new Target(tenant, server.url(), headers(server, owner), server.revision(),
+                server.authType() == McpAuthType.OAUTH, owner);
+    }
+
+    private List<McpToolDescriptor> listTools(Target target, UUID serverId) {
+        Map<String, String> headers = target.headers();
+        if (target.oauth()) {
+            var authorized = new LinkedHashMap<>(headers);
+            authorized.put("Authorization", "Bearer " + oauth.accessToken(target.tenantId(), serverId, target.ownerActorId()));
+            headers = authorized;
+        }
+        try (var session = clients.open(target.url(), headers, REFRESH_DEADLINE)) {
+            return session.listTools();
+        }
+    }
+
+    /**
+     * Replaces the snapshot. A customized policy is kept, lowered to asking when the tool became destructive; every
+     * other tool takes the default of its risk, so changed annotations take effect.
+     */
+    private void store(McpServerEntity server, List<McpServerRules.ToolSnapshot> snapshot) {
+        UUID tenant = server.tenantId();
+        Instant now = Instant.now();
+        Map<String, McpServerToolEntity> existing = tools.findByTenantIdAndServerIdOrderByNameAsc(tenant, server.getId())
+                .stream().collect(Collectors.toMap(McpServerToolEntity::name, Function.identity()));
+        var listedNames = new HashSet<String>();
+        for (var tool : snapshot) {
+            listedNames.add(tool.name());
+            var entity = existing.get(tool.name());
+            if (entity == null) entity = new McpServerToolEntity(UUID.randomUUID(), tenant, server.getId(), tool.name());
+            entity.snapshot(tool.title(), tool.description(), tool.inputSchema(), tool.annotations(), tool.readOnly(), now);
+            var risk = risk(entity);
+            var policy = defaultPolicy(server, tool.name(), risk);
+            if (entity.policyCustomized() && policy != McpToolPolicy.OFF)
+                policy = McpServerRules.allowed(risk, entity.policy()) ? entity.policy() : McpToolPolicy.ASK;
+            entity.policy(policy, entity.policyCustomized());
+            tools.save(entity);
+        }
+        tools.deleteAll(existing.values().stream().filter(tool -> !listedNames.contains(tool.name())).toList());
+        server.status(McpServerStatus.CONNECTED, now, now);
+        servers.saveAndFlush(server);
+    }
+
+    private static McpToolRisk risk(McpServerToolEntity tool) {
+        return McpServerRules.risk(tool.readOnly(), tool.annotations());
+    }
+
+    private static McpToolPolicy defaultPolicy(McpServerEntity server, String toolName, McpToolRisk risk) {
+        return McpServerRules.defaultPolicy(risk, McpServerRules.modelToolName(server.slug(), toolName).isPresent());
     }
 
     private ServerView save(UUID tenant, McpServerEntity server, ServerInput input, boolean created, Instant now) {
@@ -436,7 +513,8 @@ public class McpServerService {
                 headerNames, credentials.findByTenantIdAndServerIdAndOwnerActorIdIsNull(server.tenantId(), server.getId()).isPresent(),
                 server.tenantWide(), server.groupIds(), server.status(), server.lastRefreshedAt(),
                 tools.countByTenantIdAndServerId(server.tenantId(), server.getId()),
-                tools.countByTenantIdAndServerIdAndEnabledTrue(server.tenantId(), server.getId()), server.revision());
+                tools.countByTenantIdAndServerIdAndPolicyNot(server.tenantId(), server.getId(), McpToolPolicy.OFF),
+                server.revision());
     }
 
     private List<ToolView> toolViews(McpServerEntity server) {
@@ -448,7 +526,7 @@ public class McpServerService {
         var modelName = McpServerRules.modelToolName(server.slug(), tool.name());
         return new ToolView(tool.getId(), tool.name(), modelName.orElse(""), tool.title(), tool.description(),
                 McpServerRules.hint(tool.annotations(), "readOnlyHint"), McpServerRules.hint(tool.annotations(), "destructiveHint"),
-                tool.enabled(), tool.approvalRequired(), modelName.isPresent(), tool.snapshotAt(), tool.revision());
+                risk(tool), tool.policy(), tool.policyCustomized(), modelName.isPresent(), tool.snapshotAt(), tool.revision());
     }
 
     private McpServerEntity server(UUID tenant, UUID serverId) {

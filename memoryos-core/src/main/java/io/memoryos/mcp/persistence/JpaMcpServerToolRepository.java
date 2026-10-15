@@ -1,5 +1,6 @@
 package io.memoryos.mcp.persistence;
 
+import io.memoryos.mcp.McpToolPolicy;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -9,5 +10,5 @@ public interface JpaMcpServerToolRepository extends JpaRepository<McpServerToolE
     List<McpServerToolEntity> findByTenantIdAndServerIdOrderByNameAsc(UUID tenantId, UUID serverId);
     Optional<McpServerToolEntity> findByTenantIdAndServerIdAndId(UUID tenantId, UUID serverId, UUID id);
     long countByTenantIdAndServerId(UUID tenantId, UUID serverId);
-    long countByTenantIdAndServerIdAndEnabledTrue(UUID tenantId, UUID serverId);
+    long countByTenantIdAndServerIdAndPolicyNot(UUID tenantId, UUID serverId, McpToolPolicy policy);
 }

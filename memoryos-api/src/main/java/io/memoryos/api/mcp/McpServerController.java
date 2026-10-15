@@ -4,8 +4,8 @@ import io.memoryos.api.security.CurrentActor;
 import io.memoryos.api.chat.contract.ChatGroupPageResponse;
 import io.memoryos.api.mcp.contract.McpServerRequest;
 import io.memoryos.api.mcp.contract.McpServerResponse;
-import io.memoryos.api.mcp.contract.McpToolApprovalRequest;
-import io.memoryos.api.mcp.contract.McpToolEnablementRequest;
+import io.memoryos.api.mcp.contract.McpToolGroupPolicyRequest;
+import io.memoryos.api.mcp.contract.McpToolPolicyRequest;
 import io.memoryos.api.mcp.contract.McpToolRefreshResponse;
 import io.memoryos.api.mcp.contract.McpToolResponse;
 import io.memoryos.iam.GroupQuery;
@@ -66,7 +66,10 @@ class McpServerController {
     @Operation(operationId = "createMcpServer", summary = "Register a remote Streamable HTTP MCP server; requires MCP_MANAGE")
     McpServerResponse create(@CurrentActor IdentityContext identity,
                              @RequestBody McpServerRequest request) {
-        return McpServerResponse.from(servers.create(identity.actorId(), request.slug(), request.toInput()));
+        var created = servers.create(identity.actorId(), request.slug(), request.toInput());
+        // A server with a shared connection lists its tools at once; the response then counts them.
+        servers.discoverTools(identity.actorId(), created.id());
+        return McpServerResponse.from(servers.get(identity.actorId(), created.id()));
     }
 
     @GetMapping("/servers/{serverId}")
@@ -83,7 +86,9 @@ class McpServerController {
     McpServerResponse update(@CurrentActor IdentityContext identity,
                              @PathVariable UUID serverId, @RequestParam @Positive long revision,
                              @RequestBody McpServerRequest request) {
-        return McpServerResponse.from(servers.update(identity.actorId(), serverId, revision, request.slug(), request.toInput()));
+        servers.update(identity.actorId(), serverId, revision, request.slug(), request.toInput());
+        servers.discoverTools(identity.actorId(), serverId);
+        return McpServerResponse.from(servers.get(identity.actorId(), serverId));
     }
 
     @DeleteMapping("/servers/{serverId}")
@@ -114,34 +119,34 @@ class McpServerController {
 
     @PostMapping("/servers/{serverId}/tools/refresh")
     @ApiResponse(responseCode = "200", description = "Refreshed tool snapshot", useReturnTypeSchema = true)
-    @Operation(operationId = "refreshMcpServerTools", summary = "Explicitly list tools from the server with the administrator credential and replace the snapshot")
+    @Operation(operationId = "refreshMcpServerTools", summary = "List tools from the server with the administrator credential and replace the snapshot, keeping customized policies")
     McpToolRefreshResponse refresh(@CurrentActor IdentityContext identity, @PathVariable UUID serverId) {
         return McpToolRefreshResponse.from(servers.refreshTools(identity.actorId(), serverId));
     }
 
-    @PutMapping("/servers/{serverId}/tools/{toolId}/enabled")
+    @PutMapping("/servers/{serverId}/tools/{toolId}/policy")
     @ApiResponse(responseCode = "200", description = "Saved tool", useReturnTypeSchema = true)
-    @Operation(operationId = "setMcpServerToolEnabled", summary = "Enable or disable one tool at the expected revision")
-    McpToolResponse setToolEnabled(@CurrentActor IdentityContext identity,
-                                   @PathVariable UUID serverId, @PathVariable UUID toolId, @RequestParam @Positive long revision,
-                                   @RequestBody McpToolEnablementRequest request) {
-        return McpToolResponse.from(servers.setToolEnabled(identity.actorId(), serverId, toolId, revision, request.enabled()));
+    @Operation(operationId = "setMcpServerToolPolicy", summary = "Set one tool's policy at the expected revision; "
+            + "refreshes keep it")
+    McpToolResponse setToolPolicy(@CurrentActor IdentityContext identity,
+                                  @PathVariable UUID serverId, @PathVariable UUID toolId, @RequestParam @Positive long revision,
+                                  @RequestBody McpToolPolicyRequest request) {
+        return McpToolResponse.from(servers.setToolPolicy(identity.actorId(), serverId, toolId, revision, request.policy()));
     }
 
-    @PutMapping("/servers/{serverId}/tools/{toolId}/approval")
-    @ApiResponse(responseCode = "200", description = "Saved tool", useReturnTypeSchema = true)
-    @Operation(operationId = "setMcpServerToolApproval", summary = "Set whether an enabled tool asks the person before each call, at the expected revision")
-    McpToolResponse setToolApproval(@CurrentActor IdentityContext identity,
-                                    @PathVariable UUID serverId, @PathVariable UUID toolId, @RequestParam @Positive long revision,
-                                    @RequestBody McpToolApprovalRequest request) {
-        return McpToolResponse.from(servers.setToolApproval(identity.actorId(), serverId, toolId, revision, request.approvalRequired()));
-    }
-
-    @PutMapping("/servers/{serverId}/tools/enabled")
+    @PutMapping("/servers/{serverId}/tools/policy")
     @ApiResponse(responseCode = "200", description = "Saved tools", useReturnTypeSchema = true)
-    @Operation(operationId = "setAllMcpServerToolsEnabled", summary = "Enable every exposable tool or disable every tool")
-    List<McpToolResponse> setAllToolsEnabled(@CurrentActor IdentityContext identity,
-                                             @PathVariable UUID serverId, @RequestBody McpToolEnablementRequest request) {
-        return servers.setAllToolsEnabled(identity.actorId(), serverId, request.enabled()).stream().map(McpToolResponse::from).toList();
+    @Operation(operationId = "setMcpServerToolGroupPolicy", summary = "Set the policy of every tool of one risk")
+    List<McpToolResponse> setGroupPolicy(@CurrentActor IdentityContext identity, @PathVariable UUID serverId,
+                                         @RequestBody McpToolGroupPolicyRequest request) {
+        return servers.setGroupPolicy(identity.actorId(), serverId, request.risk(), request.policy()).stream()
+                .map(McpToolResponse::from).toList();
+    }
+
+    @DeleteMapping("/servers/{serverId}/tools/policy")
+    @ApiResponse(responseCode = "200", description = "Tools with their default policies", useReturnTypeSchema = true)
+    @Operation(operationId = "resetMcpServerToolPolicies", summary = "Return every tool to the default policy of its risk")
+    List<McpToolResponse> resetPolicies(@CurrentActor IdentityContext identity, @PathVariable UUID serverId) {
+        return servers.resetToolPolicies(identity.actorId(), serverId).stream().map(McpToolResponse::from).toList();
     }
 }

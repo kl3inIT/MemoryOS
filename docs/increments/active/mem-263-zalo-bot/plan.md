@@ -18,12 +18,12 @@ Design: [design.md](design.md). Each pull request is accepted when CI is green a
 
 ## 3. Linked accounts
 
-- [ ] Migration: `channel_link_codes`, `channel_account_links`.
-- [ ] The link service: make a code, redeem it from a message, the five-failure lock, the once-a-minute notice,
+- [x] Migration: `channel_link_codes`, `channel_account_links`.
+- [x] The link service: make a code, redeem it from a message, the five-failure lock, the once-a-minute notice,
   list and remove a member's links; removal with the membership and the bot.
-- [ ] `ChannelInboundService`: the link before the e-mail; the rules for a provider without organisations.
-- [ ] `/api/channel-links` with contract records; `openapi.yml` and the web client.
-- [ ] Tests at the PostgreSQL boundary and of the inbound rules; the channel spec and matrix.
+- [x] `ChannelInboundService`: the link before the e-mail; the rules for a provider without organisations.
+- [x] `/api/channel-links` with contract records; `openapi.yml` and the web client.
+- [x] Tests at the PostgreSQL boundary and of the inbound rules; the channel spec and matrix.
 
 ## 4. The Zalo adapter
 
@@ -34,7 +34,7 @@ Design: [design.md](design.md). Each pull request is accepted when CI is green a
 - [x] `memoryos-channels`: `POST /hooks/channels/{id}` answering after the claim (`ChannelSupervisor.deliver`,
   `ChannelWebhookController`); the web nginx route; the transport chosen for each bot in its settings, the webhook
   registered once served (`ChannelWebhook.register`, `CHANNEL_WEBHOOK_UNREACHABLE`, which waits for the bot's next
-  revision); `CHANNEL_WEB_URL_MISSING`; compose and the staging example. Migration V167 (Zalo's provider, app id and
+  revision); `CHANNEL_WEB_URL_MISSING`; compose and the staging example. Migration V168 (Zalo's provider, app id and
   transport checks).
 - [x] `/api/channels` for `ZALO_BOT` (`/zalo/test`, `/zalo`, `PUT /{id}/transport`); contract, `openapi.yml`, the
   web client.

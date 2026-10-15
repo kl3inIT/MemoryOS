@@ -87,7 +87,7 @@ class LarkChannelAdapterTest {
                     Map.of(ChannelRegion.SETTING, "MARS")))));
             // Well formed, it is Lark's to answer, and no gateway here means Lark cannot be asked.
             assertEquals("CHANNEL_PROVIDER_UNAVAILABLE", code(() -> adapter.verify(new ChannelCredentials("cli_a1b2c3d4e5f6", "s", lark))));
-            assertEquals(new ChannelFeatures(true, true, 150_000), adapter.features());
+            assertEquals(new ChannelFeatures(true, true, true, 150_000), adapter.features());
         }
     }
 

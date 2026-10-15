@@ -4,6 +4,7 @@ import com.embabel.agent.api.tool.Tool;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.memoryos.chat.ChatToolActivity;
 import io.memoryos.chat.ChatToolEvent;
+import io.memoryos.mcp.McpTurnService;
 import io.memoryos.mcp.McpTurnTools;
 import java.time.Duration;
 import java.time.Instant;
@@ -52,7 +53,16 @@ public final class McpTools {
 
     /** Embabel tools for this turn, in the order the servers were resolved. */
     public List<Tool> tools() {
-        return turn.bindings().stream().map(this::tool).toList();
+        var offered = turn.bindings().stream().map(this::tool).toList();
+        if (!offered.isEmpty()) {
+            // What every model call of the turn carries, which sizes deferred tool loading (MEM-264).
+            meters.summary("memoryos.chat.mcp.tools.offered").record(offered.size());
+            meters.summary("memoryos.chat.mcp.tools.definition.chars").record(offered.stream()
+                    .mapToLong(tool -> tool.getDefinition().getDescription().length()
+                            + tool.getDefinition().getInputSchema().toJsonSchema().length())
+                    .sum());
+        }
+        return offered;
     }
 
     /**
@@ -60,15 +70,24 @@ public final class McpTools {
      * of guessing. Empty when every selected server is usable.
      */
     public String unavailableNotice() {
-        if (turn.unavailable().isEmpty()) return "";
-        var text = new StringBuilder("These MCP servers are selected but unusable this turn; "
-                + "tell the user to connect them from the composer rather than attempting their tools:");
-        for (var server : turn.unavailable()) {
-            text.append("\n- ").append(name(server.serverName())).append(": ").append(switch (server.reason()) {
-                case NOT_CONNECTED -> "not connected";
-                case REAUTH_REQUIRED -> "the connection expired and must be authorized again";
-                case NO_TOOLS -> "no tools are enabled";
-            });
+        var text = new StringBuilder();
+        if (!turn.unavailable().isEmpty()) {
+            text.append("These MCP servers are selected but unusable this turn; "
+                    + "tell the user to connect them from the composer rather than attempting their tools:");
+            for (var server : turn.unavailable()) {
+                text.append("\n- ").append(name(server.serverName())).append(": ").append(switch (server.reason()) {
+                    case NOT_CONNECTED -> "not connected";
+                    case REAUTH_REQUIRED -> "the connection expired and must be authorized again";
+                    case NO_TOOLS -> "no tools are enabled";
+                });
+            }
+        }
+        if (!turn.omitted().isEmpty()) {
+            if (!text.isEmpty()) text.append("\n");
+            text.append("This turn offers at most ").append(McpTurnService.MAX_TOOLS).append(" MCP tools, so some were left "
+                    + "out; if the user needs one, say which app lost tools and suggest selecting fewer apps:");
+            for (var server : turn.omitted())
+                text.append("\n- ").append(name(server.serverName())).append(": ").append(server.tools()).append(" tools");
         }
         return text.toString();
     }
