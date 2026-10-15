@@ -886,6 +886,18 @@ class ChatPersistenceIntegrationTest {
     }
 
     @Test
+    void aChannelConversationOpensForItsOwnerAndStaysOutOfTheSidebarAndSearch() {
+        var web = sessions.create(owner, "Doanh thu quý trên web");
+        var channel = sessions.createInChannel(owner, "Doanh thu quý từ Lark");
+
+        assertEquals(channel, sessions.get(owner, channel.id()), "its owner opens it by its address");
+        assertEquals(List.of(web.id()), sessions.list(owner, false, 0, 30).stream().map(ChatSession::id).toList());
+        assertEquals(List.of(web.id()), sessions.search(owner, "doanh thu", 0, 30).stream()
+                .map(match -> match.session().id()).toList());
+        assertEquals("CHAT_UNAVAILABLE", assertThrows(ChatException.class, () -> sessions.get(other, channel.id())).code());
+    }
+
+    @Test
     void reservesPairOnceAndPreservesHistoryCursorAndPartialOutcome() {
         var session = sessions.create(owner, "History");
         var request = UUID.randomUUID();

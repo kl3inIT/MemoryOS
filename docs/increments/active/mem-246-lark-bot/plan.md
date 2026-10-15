@@ -31,9 +31,13 @@ of step 5 is merged, so an administrator can always turn the bot off.
   administrator's history shows the surface.
 - [x] `iam`: the active member whose verified email equals a given one, none when several match; an index on the
   lower-cased email.
-- [ ] Tests at the PostgreSQL boundary: a turn of a service account finds only `PUBLIC` and everyone-granted
+- [x] Tests at the PostgreSQL boundary: a turn of a service account finds only `PUBLIC` and everyone-granted
   documents, not a private Group's, and a chunk without the public flag is refused by the recheck; nobody signs
   in as it; it is absent from the lists above; a `CHANNEL` session is absent from the sidebar.
+  `SourceSyncAccessTest` (the reads, the index filter and the recheck agree), `DefaultServiceAccountsTest` (no
+  sign-in reaches it; the lists, counts, pickers and Group candidates), `ChatPersistenceIntegrationTest` (a
+  `CHANNEL` session opens for its owner and is absent from the sidebar and session search). A Source cannot be
+  granted to the Basic Group, so "everyone-granted" is a `PUBLIC` Source or a synchronized file open to anyone.
 - [x] Whether a session opens on the web by its address when it is not in the sidebar; fix it if not. It does:
   on staging a bot's direct session opened by its address with both turns and a working composer.
 - [x] Identity, chat and usage specs and matrices; the OpenAPI contract and the web client. The identity spec
