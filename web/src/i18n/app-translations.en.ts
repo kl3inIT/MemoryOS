@@ -64,7 +64,7 @@ export const vietnameseUi: Record<string, string> = {
   "Dán địa chỉ MCP ở trên và chọn xác thực OAuth.":
     "Paste the MCP URL above and choose OAuth authentication.",
   "Đăng nhập MemoryOS và chọn Cho phép.": "Sign in to MemoryOS and choose Allow.",
-  "Ứng dụng": "Apps",
+  "Ứng dụng": "App",
   "Mọi ứng dụng": "All apps",
   "Mọi công cụ": "All tools",
   "Mọi kết quả": "All outcomes",
