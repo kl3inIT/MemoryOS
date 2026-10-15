@@ -22,7 +22,10 @@ import org.springframework.stereotype.Component;
 @Component
 @EnableConfigurationProperties(SandboxProperties.class)
 public class SandboxReconciliation {
-    /** A sandbox younger than this may belong to a transaction that has not committed its row yet. */
+    /**
+     * A sandbox younger than this may belong to a start that has not recorded it yet; OpenSandbox caps a start at
+     * 90 seconds ({@code OpenSandboxProperties.MAX_READY_TIMEOUT}).
+     */
     static final Duration GRACE = Duration.ofMinutes(2);
     private static final Logger LOG = LoggerFactory.getLogger(SandboxReconciliation.class);
 

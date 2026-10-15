@@ -140,6 +140,47 @@ class PostgresSandboxServiceTest {
     }
 
     @Test
+    void aSlowStartHoldsNoLockThatOtherConversationsWaitFor() throws Exception {
+        var service = service(properties(2));
+        UUID first = conversation();
+        UUID second = conversation();
+        runtime.startDelay = Duration.ofMillis(1500);
+        long began = System.nanoTime();
+        Thread slow = Thread.ofVirtual().start(() -> service.acquire(tenant, owner, first));
+        Thread.sleep(200);
+        Thread other = Thread.ofVirtual().start(() -> service.acquire(tenant, owner, second));
+        slow.join();
+        other.join();
+        // Run one after the other the two starts would take three seconds.
+        assertTrue(Duration.ofNanos(System.nanoTime() - began).compareTo(Duration.ofMillis(2500)) < 0);
+        assertEquals(2, runtime.created.size());
+    }
+
+    @Test
+    void aFailedStartGivesItsPlaceBack() {
+        var service = service(properties(1));
+        runtime.failNextCreate = true;
+        assertEquals("SANDBOX_UNAVAILABLE",
+                assertThrows(SandboxException.class, () -> service.acquire(tenant, owner, conversation())).code());
+        service.acquire(tenant, owner, conversation());
+        assertEquals(1, runtime.created.size());
+    }
+
+    @Test
+    void twoCallsOfOneConversationShareOneStart() throws Exception {
+        var service = service(properties(3));
+        UUID conversation = conversation();
+        runtime.startDelay = Duration.ofMillis(800);
+        var ids = new ConcurrentLinkedQueue<String>();
+        List<Thread> threads = new ArrayList<>();
+        for (int call = 0; call < 2; call++)
+            threads.add(Thread.ofVirtual().start(() -> ids.add(service.acquire(tenant, owner, conversation).runtimeId())));
+        for (Thread thread : threads) thread.join();
+        assertEquals(1, runtime.created.size());
+        assertEquals(1, Set.copyOf(ids).size());
+    }
+
+    @Test
     void aCommandRunsAgainInAFreshSandboxWhenItsOwnWentAwayMidCall() {
         var service = service(properties(3));
         UUID conversation = conversation();
@@ -264,6 +305,7 @@ class PostgresSandboxServiceTest {
         final Map<String, Instant> createdAt = new ConcurrentHashMap<>();
         final Set<String> alive = ConcurrentHashMap.newKeySet();
         volatile Duration startDelay = Duration.ZERO;
+        volatile boolean failNextCreate;
         final Clock clock;
         int renewals;
         String dieOnNextRun;
@@ -283,6 +325,10 @@ class PostgresSandboxServiceTest {
                 Thread.sleep(startDelay);
             } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
+            }
+            if (failNextCreate) {
+                failNextCreate = false;
+                throw new IllegalStateException("The runtime refused");
             }
             String id = "sbx-" + UUID.randomUUID();
             created.add(id);

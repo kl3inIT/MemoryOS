@@ -15,9 +15,12 @@ import org.springframework.stereotype.Repository;
 @Repository
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 public class JdbcSandboxRepository {
-    /** A conversation's row; {@code runtimeId} and {@code startedAt} are null while no sandbox is recorded. */
+    /**
+     * A conversation's row; {@code runtimeId} and {@code startedAt} are null while no sandbox is recorded, and
+     * {@code startingSince} is set while a start is in progress.
+     */
     public record Workspace(TenantId tenant, UUID conversation, ActorId actor, String runtime, @Nullable String runtimeId,
-                            @Nullable Instant startedAt, Instant lastUsedAt) {}
+                            @Nullable Instant startedAt, Instant lastUsedAt, @Nullable Instant startingSince) {}
 
     /** A recorded sandbox, for the Worker's reconciliation. */
     public record Recorded(TenantId tenant, UUID conversation, String runtimeId, Instant lastUsedAt) {}
@@ -43,30 +46,54 @@ public class JdbcSandboxRepository {
     /** The conversation's row, locked until the transaction ends, so one caller at a time starts its sandbox. */
     public Optional<Workspace> lock(TenantId tenant, UUID conversation) {
         return jdbc.sql("""
-                        SELECT tenant_id, conversation_id, actor_id, runtime, runtime_id, started_at, last_used_at
+                        SELECT tenant_id, conversation_id, actor_id, runtime, runtime_id, started_at, last_used_at,
+                               starting_since
                         FROM sandbox_workspaces WHERE tenant_id = :tenant AND conversation_id = :conversation
                         FOR UPDATE
                         """)
                 .param("tenant", tenant.value()).param("conversation", conversation)
                 .query((rs, _) -> {
                     Timestamp started = rs.getTimestamp("started_at");
+                    Timestamp starting = rs.getTimestamp("starting_since");
                     return new Workspace(new TenantId(rs.getObject("tenant_id", UUID.class)),
                             rs.getObject("conversation_id", UUID.class), new ActorId(rs.getObject("actor_id", UUID.class)),
                             rs.getString("runtime"), rs.getString("runtime_id"), started == null ? null : started.toInstant(),
-                            rs.getTimestamp("last_used_at").toInstant());
+                            rs.getTimestamp("last_used_at").toInstant(), starting == null ? null : starting.toInstant());
                 })
                 .optional();
     }
 
-    public void started(TenantId tenant, UUID conversation, String runtime, String runtimeId, Instant at) {
+    /** Takes a place in the running bound for a start that runs outside this transaction. */
+    public void reserve(TenantId tenant, UUID conversation, UUID token, Instant at) {
         jdbc.sql("""
-                        UPDATE sandbox_workspaces
-                        SET runtime = :runtime, runtime_id = :runtimeId, started_at = :at, last_used_at = :at,
-                            revision = revision + 1
+                        UPDATE sandbox_workspaces SET starting_since = :at, starting_token = :token, revision = revision + 1
                         WHERE tenant_id = :tenant AND conversation_id = :conversation
                         """)
-                .param("tenant", tenant.value()).param("conversation", conversation).param("runtime", runtime)
-                .param("runtimeId", runtimeId).param("at", Timestamp.from(at))
+                .param("tenant", tenant.value()).param("conversation", conversation).param("token", token)
+                .param("at", Timestamp.from(at))
+                .update();
+    }
+
+    /** Records the sandbox the start {@code token} made; false when that start no longer holds the row. */
+    public boolean started(TenantId tenant, UUID conversation, UUID token, String runtime, String runtimeId, Instant at) {
+        return jdbc.sql("""
+                        UPDATE sandbox_workspaces
+                        SET runtime = :runtime, runtime_id = :runtimeId, started_at = :at, last_used_at = :at,
+                            starting_since = NULL, starting_token = NULL, revision = revision + 1
+                        WHERE tenant_id = :tenant AND conversation_id = :conversation AND starting_token = :token
+                        """)
+                .param("tenant", tenant.value()).param("conversation", conversation).param("token", token)
+                .param("runtime", runtime).param("runtimeId", runtimeId).param("at", Timestamp.from(at))
+                .update() == 1;
+    }
+
+    /** Gives back the place a failed start {@code token} took. */
+    public void released(TenantId tenant, UUID conversation, UUID token) {
+        jdbc.sql("""
+                        UPDATE sandbox_workspaces SET starting_since = NULL, starting_token = NULL, revision = revision + 1
+                        WHERE tenant_id = :tenant AND conversation_id = :conversation AND starting_token = :token
+                        """)
+                .param("tenant", tenant.value()).param("conversation", conversation).param("token", token)
                 .update();
     }
 
@@ -97,13 +124,18 @@ public class JdbcSandboxRepository {
         jdbc.sql("SELECT pg_advisory_xact_lock(hashtext('memoryos.sandbox.start'))").query().singleRow();
     }
 
-    /** How many sandboxes of {@code runtime} were used since {@code since}, so are still alive in it. */
-    public int running(String runtime, Instant since) {
+    /**
+     * How many places of {@code runtime} are taken: sandboxes used since {@code since}, so still alive in it, and
+     * starts in progress since {@code startingSince}; a start older than that died with its process.
+     */
+    public int running(String runtime, Instant since, Instant startingSince) {
         return jdbc.sql("""
                         SELECT count(*) FROM sandbox_workspaces
-                        WHERE runtime = :runtime AND runtime_id IS NOT NULL AND last_used_at > :since
+                        WHERE runtime = :runtime
+                          AND ((runtime_id IS NOT NULL AND last_used_at > :since) OR starting_since > :startingSince)
                         """)
                 .param("runtime", runtime).param("since", Timestamp.from(since))
+                .param("startingSince", Timestamp.from(startingSince))
                 .query(Integer.class).single();
     }
 

@@ -18,6 +18,7 @@ import io.memoryos.sandbox.SandboxEntry;
 import io.memoryos.sandbox.SandboxGoneException;
 import io.memoryos.sandbox.SandboxRuntime;
 import io.memoryos.sandbox.SandboxSpec;
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -118,9 +119,28 @@ public class OpenSandboxRuntime implements SandboxRuntime, AutoCloseable {
         }
     }
 
+    /** The stream keeps its sandbox connection open until it is closed: closing the connection first cuts the read. */
     @Override
     public InputStream open(String id, String path) {
-        return on(id, sandbox -> sandbox.files().readStream(path));
+        Sandbox sandbox = connect(id);
+        try {
+            return new FilterInputStream(sandbox.files().readStream(path)) {
+                @Override
+                public void close() throws IOException {
+                    try {
+                        super.close();
+                    } finally {
+                        sandbox.close();
+                    }
+                }
+            };
+        } catch (SandboxNotFoundException gone) {
+            sandbox.close();
+            throw new SandboxGoneException(id, gone);
+        } catch (RuntimeException failed) {
+            sandbox.close();
+            throw failed;
+        }
     }
 
     @Override
@@ -158,9 +178,16 @@ public class OpenSandboxRuntime implements SandboxRuntime, AutoCloseable {
 
     /** Runs {@code operation} on the sandbox, reading the SDK's "not found" as {@link SandboxGoneException}. */
     private <T> T on(String id, Function<Sandbox, T> operation) {
-        try (Sandbox sandbox = Sandbox.connector().sandboxId(id).connectionConfig(connection).skipHealthCheck(true)
-                .connect()) {
+        try (Sandbox sandbox = connect(id)) {
             return operation.apply(sandbox);
+        } catch (SandboxNotFoundException gone) {
+            throw new SandboxGoneException(id, gone);
+        }
+    }
+
+    private Sandbox connect(String id) {
+        try {
+            return Sandbox.connector().sandboxId(id).connectionConfig(connection).skipHealthCheck(true).connect();
         } catch (SandboxNotFoundException gone) {
             throw new SandboxGoneException(id, gone);
         }

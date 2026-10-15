@@ -9,16 +9,19 @@ computer that keeps its files while the conversation works in it. No Chat tool c
 - **One row a conversation.** `sandbox_workspaces` (V176) holds the conversation, its owner, the runtime and the
   sandbox alive in it, if any. Deleting the conversation or the owner's membership deletes the row.
 - **Acquire.** `SandboxService.acquire(tenant, actor, conversation)` locks the row, renews the recorded sandbox by the
-  idle timeout and answers it; it starts a new one when none is recorded, the runtime no longer has it, or it is older
-  than the total life (the old one is killed). The caller has already established that the actor may work in the
-  conversation.
+  idle timeout and answers it. Otherwise it starts one in three steps: a short transaction takes a place in the running
+  bound and marks the row as starting with a token; the runtime creates the sandbox outside any transaction; a second
+  short transaction records it if the token still holds the row. A failed start gives its place back; a start older
+  than five minutes no longer counts. Another call of the same conversation waits for a start in progress instead of
+  making a second sandbox. A sandbox the runtime no longer has, or older than the total life (killed), is replaced.
+  The caller has already established that the actor may work in the conversation.
 - **Operations.** `run`, `write`, `read`, `open` and `list` acquire first and, when the sandbox went away between the
   renewal and the call, acquire once more and repeat the call.
 - **Commands.** A command runs with `bash -c` as the computer image's user 1000 in `/workspace`, stopped at its
   timeout; a command stopped at its timeout is reported as `timedOut`.
 - **Network.** Every sandbox is created with a policy that denies egress except to the configured domains.
 - **Bound.** At most `memoryos.sandbox.max-running` sandboxes used within the idle timeout run at once; past it,
-  acquiring a new one fails with `SANDBOX_BUSY`. Starting a sandbox is serialised across conversations by a transaction-scoped advisory lock, so two conversations cannot both take the last place. A deployment without a computer image or a runtime answers
+  acquiring a new one fails with `SANDBOX_BUSY`. Taking a place is serialised across conversations by a transaction-scoped advisory lock, so two conversations cannot both take the last place; the lock is never held while the runtime creates a sandbox. A deployment without a computer image or a runtime answers
   `SANDBOX_NOT_CONFIGURED`; a runtime failure is `SANDBOX_UNAVAILABLE`.
 - **Reconciliation.** Every five minutes the Worker clears rows whose sandbox the runtime no longer holds and kills
   sandboxes labelled `memoryos.io/managed` that no row records and that are older than two minutes.
@@ -35,6 +38,7 @@ computer that keeps its files while the conversation works in it. No Chat tool c
 | `memoryos.sandbox.allowed-domains` | | none |
 | `memoryos.sandbox.opensandbox.endpoint` | `MEMORYOS_SANDBOX_ENDPOINT` | empty: no OpenSandbox runtime |
 | `memoryos.sandbox.opensandbox.api-key` | `MEMORYOS_SANDBOX_API_KEY_FILE` through the launcher | |
+| `memoryos.sandbox.opensandbox.ready-timeout` | | 60 s, at most 90 s (under the reconciliation's two-minute grace) |
 
 The runtime is `memoryos-integration-opensandbox`; operating notes are in the
 [CI/CD runbook](../runbooks/ci-cd.md#sandbox-runtime).
