@@ -22,6 +22,7 @@ import io.memoryos.channel.ChannelConnectionService;
 import io.memoryos.channel.ChannelConnectionService.Listed;
 import io.memoryos.channel.ChannelConnectionState;
 import io.memoryos.channel.ChannelCredentials;
+import io.memoryos.channel.ChannelDelivery;
 import io.memoryos.channel.ChannelException;
 import io.memoryos.channel.ChannelProvider;
 import io.memoryos.channel.ChannelRegion;
@@ -271,6 +272,57 @@ class ChannelApiTest {
                                 {"name":"Trợ lý","region":"LARK","appId":"cli_a1b2c3d4e5f6","appSecret":"%s","noticeLanguage":"fr"}
                                 """.formatted(SECRET)))
                 .andExpect(status().isBadRequest());
+    }
+
+    /** MEM-263: a Zalo bot is its token and how it receives; it answers with no region and never the token. */
+    @Test
+    void aZaloBotIsAddedByItsTokenAndItsTransportChangesWithTheRevision() throws Exception {
+        String token = "1234567890:zalo-token-for-the-test";
+        var id = UUID.randomUUID();
+        var bot = new ChannelConnection(id, ChannelProvider.ZALO_BOT, "Bot Zalo", "1234567890",
+                Map.of(ChannelDelivery.SETTING, "WEBHOOK"), "vi", false, new ActorId(UUID.randomUUID()), 1, Instant.now(),
+                Instant.now(), null, "Bot MemoryOS", "1234567890", List.of());
+        var created = new Listed(bot, ChannelConnectionState.NONE, Listed.Status.OFF);
+        when(channels.create(any(), any())).thenReturn(bot);
+        when(channels.listWithState(any())).thenReturn(List.of(created));
+        when(channels.test(any(), eq(ChannelProvider.ZALO_BOT), eq(new ChannelCredentials(null, token, Map.of()))))
+                .thenReturn(new ChannelVerification("1234567890", "Bot MemoryOS", "1234567890", Set.of()));
+
+        mockMvc.perform(post("/api/channels/zalo/test").with(authentication(owner)).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"token\":\"%s\"}".formatted(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.botName").value("Bot MemoryOS"));
+
+        mockMvc.perform(post("/api/channels/zalo").with(authentication(owner)).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                {"name":"Bot Zalo","token":"%s","noticeLanguage":"vi","transport":"POLLING"}
+                                """.formatted(token)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.provider").value("ZALO_BOT"))
+                .andExpect(jsonPath("$.transport").value("WEBHOOK"))
+                .andExpect(jsonPath("$.region").doesNotExist())
+                .andExpect(jsonPath("$.token").doesNotExist());
+        verify(channels).create(any(), argThat(draft -> draft.provider() == ChannelProvider.ZALO_BOT
+                && draft.credentials().equals(new ChannelCredentials(null, token, Map.of(ChannelDelivery.SETTING, "POLLING")))));
+
+        mockMvc.perform(post("/api/channels/zalo").with(authentication(owner)).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                {"name":"Bot Zalo","token":"%s","noticeLanguage":"vi","transport":"CARRIER_PIGEON"}
+                                """.formatted(token)))
+                .andExpect(status().isBadRequest());
+
+        when(channels.updateSettings(any(), eq(id), eq(1L), eq(Map.of(ChannelDelivery.SETTING, "WEBHOOK"))))
+                .thenThrow(ChannelException.webUrlMissing());
+        mockMvc.perform(put("/api/channels/{id}/transport", id).with(authentication(owner)).header("X-MemoryOS-CSRF", "1")
+                        .header("If-Match", "\"1\"")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"transport\":\"WEBHOOK\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("CHANNEL_WEB_URL_MISSING"));
+        mockMvc.perform(put("/api/channels/{id}/transport", id).with(authentication(owner)).header("X-MemoryOS-CSRF", "1")
+                        .header("If-Match", "\"1\"")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"transport\":\"POLLING\"}"))
+                .andExpect(status().isOk());
+        verify(channels).updateSettings(any(), eq(id), eq(1L), eq(Map.of(ChannelDelivery.SETTING, "POLLING")));
     }
 
     @Test

@@ -104,6 +104,15 @@ public final class LarkChannelAdapter implements ChannelAdapter, AutoCloseable {
         }
     }
 
+    /** A Lark bot's one setting is its app's region. */
+    @Override
+    public Map<String, String> settings(Map<String, String> requested) {
+        var region = ChannelRegion.of(requested)
+                .orElseThrow(() -> ChannelException.invalid("Choose whether the app is on Lark or Feishu."));
+        if (requested.size() != 1) throw ChannelException.invalid("A Lark bot has no setting but its region.");
+        return Map.of(ChannelRegion.SETTING, region.name());
+    }
+
     @Override
     public ChannelProvider provider() {
         return ChannelProvider.LARK;

@@ -7,7 +7,10 @@ public interface ChannelTransport extends AutoCloseable {
     /** Whether it still receives; a transport that gave up reconnecting answers false and is opened again. */
     boolean connected();
 
-    /** The HTTP end the provider pushes to; empty for a transport that keeps a connection of its own. */
+    /**
+     * The HTTP end the provider pushes to; empty for a transport that keeps a connection of its own. The capability
+     * serves it at {@code /hooks/channels/<connection id>} and then calls {@link ChannelWebhook#register()}.
+     */
     default Optional<ChannelWebhook> webhook() {
         return Optional.empty();
     }

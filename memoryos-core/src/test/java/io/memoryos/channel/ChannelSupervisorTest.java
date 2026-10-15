@@ -5,9 +5,12 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
@@ -20,6 +23,8 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
@@ -130,6 +135,50 @@ class ChannelSupervisorTest {
         assertNotNull(state().openedAt());
     }
 
+    /** MEM-263: a provider that pushes reaches the bot's webhook through the route, and is answered after the claim. */
+    @Test
+    void aPushedMessageIsClaimedBeforeTheProviderIsAnswered() {
+        adapter.pushes = true;
+        var duringRegister = new ArrayList<ChannelSupervisor.Delivery>();
+        adapter.onRegister = () -> duringRegister.add(supervisor.deliver(connection, Map.of("secret", "s"), new byte[0]));
+        when(inbound.claim(any())).thenReturn(Optional.empty());
+
+        supervisor.pass();
+
+        assertEquals(List.of(ChannelSupervisor.Delivery.ACCEPTED), duringRegister,
+                "the provider's check of the address reaches the transport it is given for");
+        assertNotNull(state().openedAt());
+        assertEquals(ChannelSupervisor.Delivery.ACCEPTED,
+                supervisor.deliver(connection, Map.of("secret", "s"), "Hello".getBytes(StandardCharsets.UTF_8)));
+        verify(inbound).claim(argThat(message -> message.text().equals("Hello")));
+        assertEquals(ChannelSupervisor.Delivery.REFUSED, supervisor.deliver(connection, Map.of("secret", "x"), new byte[0]));
+        assertEquals(ChannelSupervisor.Delivery.UNKNOWN, supervisor.deliver(UUID.randomUUID(), Map.of("secret", "s"), new byte[0]));
+
+        jdbc.sql("UPDATE channel_connections SET enabled = FALSE").update();
+        supervisor.pass();
+        assertEquals(ChannelSupervisor.Delivery.UNKNOWN, supervisor.deliver(connection, Map.of("secret", "s"), new byte[0]));
+    }
+
+    @Test
+    void aWebhookTheProviderCannotReachWaitsForTheBotToChange() {
+        adapter.pushes = true;
+        adapter.onRegister = () -> { throw ChannelException.webhookUnreachable("webhook.err.dns"); };
+
+        supervisor.pass();
+        assertEquals("CHANNEL_WEBHOOK_UNREACHABLE", state().failureCode());
+        assertTrue(adapter.opened.getFirst().closed);
+        assertEquals(ChannelSupervisor.Delivery.UNKNOWN, supervisor.deliver(connection, Map.of("secret", "s"), new byte[0]));
+        // Opening again would only spend the provider's checks: it waits for an administrator to change the bot.
+        supervisor.pass();
+        assertEquals(1, adapter.opened.size());
+
+        adapter.onRegister = () -> { };
+        jdbc.sql("UPDATE channel_connections SET revision = revision + 1").update();
+        supervisor.pass();
+        assertEquals(2, adapter.opened.size());
+        assertNotNull(state().openedAt());
+    }
+
     @Test
     void stoppingClosesEveryConnection() {
         supervisor.pass();
@@ -155,6 +204,8 @@ class ChannelSupervisorTest {
         final List<FakeTransport> opened = new ArrayList<>();
         final List<Consumer<ChannelMessage>> receivers = new CopyOnWriteArrayList<>();
         volatile boolean failing;
+        volatile boolean pushes;
+        volatile Runnable onRegister = () -> { };
 
         @Override public ChannelProvider provider() { return ChannelProvider.LARK; }
 
@@ -163,7 +214,7 @@ class ChannelSupervisorTest {
             if (failing) throw new IllegalStateException("provider refused");
             secrets.add(secret);
             receivers.add(receiver);
-            var transport = new FakeTransport();
+            var transport = new FakeTransport(pushes ? new FakeWebhook(connection.id(), onRegister) : null);
             opened.add(transport);
             return transport;
         }
@@ -181,14 +232,34 @@ class ChannelSupervisorTest {
         @Override public boolean externalChat(ChannelConnection connection, String chatId) { return false; }
 
         @Override public ChannelVerification verify(ChannelCredentials credentials) { throw new UnsupportedOperationException(); }
+
+        @Override public Map<String, String> settings(Map<String, String> requested) { return requested; }
     }
 
     private static final class FakeTransport implements ChannelTransport {
+        private final @Nullable ChannelWebhook webhook;
         volatile boolean connected = true;
         volatile boolean closed;
 
+        FakeTransport(@Nullable ChannelWebhook webhook) { this.webhook = webhook; }
+
         @Override public boolean connected() { return connected && !closed; }
 
+        @Override public Optional<ChannelWebhook> webhook() { return Optional.ofNullable(webhook); }
+
         @Override public void close() { closed = true; }
+    }
+
+    /** Accepts a request whose {@code secret} header is {@code s}; its body is one message's text. */
+    private record FakeWebhook(UUID connection, Runnable onRegister) implements ChannelWebhook {
+        @Override
+        public Optional<List<ChannelMessage>> accept(Map<String, String> headers, byte[] body) {
+            if (!"s".equals(headers.get("secret"))) return Optional.empty();
+            if (body.length == 0) return Optional.of(List.of());
+            return Optional.of(List.of(new ChannelMessage(connection, "m1", "chat", ChannelMessage.Kind.DIRECT, "u1", null,
+                    null, true, ChannelMessage.Type.TEXT, new String(body, StandardCharsets.UTF_8), null)));
+        }
+
+        @Override public void register() { onRegister.run(); }
     }
 }

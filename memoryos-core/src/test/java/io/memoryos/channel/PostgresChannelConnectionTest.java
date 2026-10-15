@@ -43,6 +43,7 @@ import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -160,6 +161,36 @@ class PostgresChannelConnectionTest {
     }
 
     @Test
+    void aSettingChangesWhatTheProviderAcceptsAndMovesTheRevision() {
+        var bot = channels.create(owner, draft("cli_a1b2c3d4e5f6"));
+        var changed = channels.updateSettings(owner, bot.id(), bot.revision(), Map.of(ChannelRegion.SETTING, "FEISHU"));
+        assertEquals(Map.of("region", "FEISHU"), changed.settings());
+        assertEquals(bot.revision() + 1, changed.revision());
+        assertEquals("CHANNEL_CHANGED", code(() -> channels.updateSettings(owner, bot.id(), bot.revision(),
+                Map.of(ChannelRegion.SETTING, "LARK"))));
+        assertEquals("CHANNEL_INVALID", code(() -> channels.updateSettings(owner, bot.id(), changed.revision(),
+                Map.of("transport", "POLLING"))));
+        assertEquals(Map.of("region", "FEISHU"), channels.get(owner, bot.id()).settings());
+        assertEquals("CHANNEL_NOT_FOUND", code(() -> channels.updateSettings(owner, UUID.randomUUID(), 0, Map.of())));
+    }
+
+    /** MEM-263: a Zalo bot's row is its number and how it receives; the database refuses anything else. */
+    @Test
+    void theDatabaseHoldsAZaloBotByItsNumberAndHowItReceives() {
+        var bot = channels.create(owner, draft("cli_a1b2c3d4e5f6"));
+        jdbc.sql("UPDATE channel_connections SET provider = 'ZALO_BOT', app_id = '1234567890', "
+                + "settings = '{\"transport\": \"POLLING\"}' WHERE id = :id").param("id", bot.id()).update();
+        assertEquals("ZALO_BOT", jdbc.sql("SELECT provider FROM channel_connections WHERE id = :id")
+                .param("id", bot.id()).query(String.class).single());
+        assertThrows(DataIntegrityViolationException.class, () -> jdbc.sql(
+                "UPDATE channel_connections SET settings = '{\"transport\": \"CARRIER_PIGEON\"}' WHERE id = :id")
+                .param("id", bot.id()).update());
+        assertThrows(DataIntegrityViolationException.class, () -> jdbc.sql(
+                "UPDATE channel_connections SET app_id = 'cli_a1b2c3d4e5f6' WHERE id = :id")
+                .param("id", bot.id()).update());
+    }
+
+    @Test
     void removingABotRetiresItsAccountAndKeepsItsName() {
         var bot = channels.create(owner, draft("cli_a1b2c3d4e5f6"));
         channels.delete(owner, bot.id(), bot.revision());
@@ -264,6 +295,13 @@ class PostgresChannelConnectionTest {
             if (refusing) throw ChannelException.rejected();
             String appId = answeredAppId != null ? answeredAppId : Objects.requireNonNull(credentials.appId());
             return new ChannelVerification(appId, "MemoryOS Bot", "ou_bot", Set.of("contact:user.email:readonly"));
+        }
+
+        /** A region is kept as given; a setting it does not have is refused, as a provider's adapter refuses one. */
+        @Override
+        public Map<String, String> settings(Map<String, String> requested) {
+            if (!Set.of(ChannelRegion.SETTING).containsAll(requested.keySet())) throw ChannelException.invalid("unknown setting");
+            return Map.copyOf(requested);
         }
 
         @Override

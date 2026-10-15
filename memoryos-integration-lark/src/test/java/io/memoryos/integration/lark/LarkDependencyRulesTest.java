@@ -22,7 +22,8 @@ class LarkDependencyRulesTest {
                         "io.memoryos..persistence..",
                         "io.memoryos.ingestion..",
                         "io.memoryos.integration.google..",
-                        "io.memoryos.integration.microsoft.."
+                        "io.memoryos.integration.microsoft..",
+                        "io.memoryos.integration.zalo.."
                 )
                 .because("an integration depends on public capability APIs, writes the document model that document owns, and on no other platform (ADR 0027)")
                 .check(classes);

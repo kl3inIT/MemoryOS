@@ -419,5 +419,7 @@ class ChannelInboundServiceTest {
         }
 
         @Override public ChannelVerification verify(ChannelCredentials credentials) { throw new UnsupportedOperationException(); }
+
+        @Override public Map<String, String> settings(Map<String, String> requested) { return requested; }
     }
 }

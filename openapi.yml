@@ -6688,6 +6688,81 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/channels/{channelId}/transport:
+    put:
+      tags:
+      - Channels
+      summary: "Change how a bot receives, for a platform that offers both, with a\
+        \ revision precondition"
+      operationId: updateChannelTransport
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateChannelTransportRequest"
+        required: true
+      responses:
+        "400":
+          description: "Invalid bot, or an app the platform rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Bot unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Bot changed, or its app already serves a bot"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "The platform did not answer, or bots are not configured"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Updated bot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/ai-costs/limits/{limitId}:
     put:
       tags:
@@ -14337,6 +14412,133 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/channels/zalo:
+    post:
+      tags:
+      - Channels
+      summary: "Check a Zalo bot's token with Zalo and add the bot, switched off;\
+        \ nothing is stored when Zalo rejects it"
+      operationId: createZaloChannel
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateZaloChannelRequest"
+        required: true
+      responses:
+        "400":
+          description: "Invalid bot, or an app the platform rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Bot unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Bot changed, or its app already serves a bot"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "The platform did not answer, or bots are not configured"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "201":
+          description: Added bot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/channels/zalo/test:
+    post:
+      tags:
+      - Channels
+      summary: Check a Zalo bot's token with Zalo without storing anything
+      operationId: testZaloChannelBot
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ZaloBotRequest"
+        required: true
+      responses:
+        "400":
+          description: "Invalid bot, or an app the platform rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Bot unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Bot changed, or its app already serves a bot"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "The platform did not answer, or bots are not configured"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Zalo accepts the token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelAppCheckResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/ai-costs/reports:
     get:
       tags:
@@ -21552,7 +21754,8 @@ paths:
     post:
       tags:
       - Credentials
-      summary: Verify a Lark custom app with Lark and store it; nothing is stored when Lark rejects it
+      summary: Verify a Lark custom app with Lark and store it; nothing is stored
+        when Lark rejects it
       operationId: createLarkCredential
       parameters:
       - name: X-MemoryOS-CSRF
@@ -21822,7 +22025,8 @@ paths:
     post:
       tags:
       - Credentials
-      summary: "Ask Lark for a tenant token, read the bot and probe the read scopes; records what Lark said"
+      summary: "Ask Lark for a tenant token, read the bot and probe the read scopes;\
+        \ records what Lark said"
       operationId: testLarkCredential
       parameters:
       - name: X-MemoryOS-CSRF
@@ -21885,7 +22089,8 @@ paths:
     post:
       tags:
       - Sources
-      summary: Create a Lark source; its scope is verified with Lark before it takes effect
+      summary: Create a Lark source; its scope is verified with Lark before it takes
+        effect
       operationId: createLarkSource
       parameters:
       - name: X-MemoryOS-CSRF
@@ -22040,7 +22245,8 @@ paths:
     put:
       tags:
       - Sources
-      summary: Replace what a Lark source synchronizes; the new scope is verified before it applies
+      summary: Replace what a Lark source synchronizes; the new scope is verified
+        before it applies
       operationId: replaceLarkScope
       parameters:
       - name: X-MemoryOS-CSRF
@@ -22347,7 +22553,8 @@ paths:
     get:
       tags:
       - Sources
-      summary: "List the Wiki spaces the credential's app is a member of, read from Lark now"
+      summary: "List the Wiki spaces the credential's app is a member of, read from\
+        \ Lark now"
       operationId: listLarkSpaces
       parameters:
       - name: credentialId
@@ -22357,6 +22564,20 @@ paths:
           type: string
           format: uuid
       responses:
+        "200":
+          description: Wiki spaces a source may name
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LarkSpaceOptionResponse"
+        "503":
+          description: Lark did not answer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
         "400":
           description: Invalid Lark scope
           content:
@@ -22383,20 +22604,6 @@ paths:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Lark did not answer
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: Wiki spaces a source may name
-          content:
-            '*/*':
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/LarkSpaceOptionResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -24456,10 +24663,12 @@ components:
           type: string
         botName:
           type: string
-          description: "The bot Lark named at the last verification: what is added to a space or a folder"
+          description: "The bot Lark named at the last verification: what is added\
+            \ to a space or a folder"
         missingScopes:
           type: array
-          description: Read scopes Lark refused to the app's tenant token at the last verification
+          description: Read scopes Lark refused to the app's tenant token at the last
+            verification
           items:
             type: string
         credentialRevision:
@@ -26509,6 +26718,17 @@ components:
           items:
             type: string
             format: uuid
+    UpdateChannelTransportRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        transport:
+          type: string
+          enum:
+          - WEBHOOK
+          - POLLING
+      required:
+      - transport
     AiUsageLimitRequest:
       type: object
       properties:
@@ -29135,6 +29355,49 @@ components:
       - sizeBytes
       - skipped
       - status
+    CreateZaloChannelRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          description: "The bot's name here, and its account's"
+          maxLength: 100
+          minLength: 0
+        token:
+          type: string
+          description: The bot's token from Zalo Bot Creator
+          maxLength: 256
+          minLength: 0
+        noticeLanguage:
+          type: string
+          description: The language of the bot's notices
+          enum:
+          - vi
+          - en
+          pattern: vi|en
+        transport:
+          type: string
+          description: "How the bot receives: WEBHOOK where the deployment has a public\
+            \ address, which is the default there, else POLLING"
+          enum:
+          - WEBHOOK
+          - POLLING
+      required:
+      - name
+      - noticeLanguage
+      - token
+    ZaloBotRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        token:
+          type: string
+          description: The bot's token from Zalo Bot Creator
+          maxLength: 256
+          minLength: 0
+      required:
+      - token
     UsageReportRequest:
       type: object
       description: An inclusive UTC day range of at most 366 days
@@ -33346,15 +33609,25 @@ components:
           type: string
           enum:
           - LARK
+          - ZALO_BOT
         name:
           type: string
         region:
           type: string
+          description: Where a Lark bot's app is hosted; absent for another platform
           enum:
           - LARK
           - FEISHU
+        transport:
+          type: string
+          description: How a Zalo bot receives; absent for a platform with one way
+            of its own
+          enum:
+          - WEBHOOK
+          - POLLING
         appId:
           type: string
+          description: The platform's id of the bot's app
         noticeLanguage:
           type: string
         enabled:
@@ -33415,7 +33688,6 @@ components:
       - name
       - noticeLanguage
       - provider
-      - region
       - revision
       - serviceAccountId
       - status

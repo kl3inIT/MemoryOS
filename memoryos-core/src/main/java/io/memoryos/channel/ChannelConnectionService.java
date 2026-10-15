@@ -12,7 +12,9 @@ import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -108,7 +110,9 @@ public class ChannelConnectionService {
         Objects.requireNonNull(draft.provider(), "provider must not be null");
         String name = name(draft.name());
         String language = language(draft.noticeLanguage());
-        var given = given(draft.credentials());
+        var asked = given(draft.credentials());
+        var given = new ChannelCredentials(asked.appId(), asked.secret(),
+                adapters.of(draft.provider()).settings(asked.settings()));
         transactions.executeWithoutResult(_ -> {
             writer(actor);
             credentials.cipher(draft.provider());
@@ -173,6 +177,24 @@ public class ChannelConnectionService {
         var tenant = writer(actor);
         var updated = connections.setEnabled(tenant, id, revision, enabled).orElseThrow(() -> missingOrChanged(tenant, id));
         record(actor, tenant, updated, enabled ? "enabled" : "disabled");
+        return updated;
+    }
+
+    /**
+     * Changes some of a bot's public settings, such as how a Zalo bot receives; the provider checks the result. The
+     * revision moves on, so the process that holds the bot opens it again with them.
+     */
+    @Transactional
+    public ChannelConnection updateSettings(ActorId actor, UUID id, long revision, Map<String, String> changes) {
+        Objects.requireNonNull(changes, "changes must not be null");
+        var tenant = writer(actor);
+        var current = connections.find(tenant, id).orElseThrow(ChannelException::notFound);
+        if (current.revision() != revision) throw ChannelException.changed();
+        var merged = new HashMap<>(current.settings());
+        merged.putAll(changes);
+        var settings = adapters.of(current.provider()).settings(merged);
+        var updated = connections.updateSettings(tenant, id, revision, settings).orElseThrow(() -> missingOrChanged(tenant, id));
+        record(actor, tenant, updated, "settings");
         return updated;
     }
 
