@@ -14,7 +14,8 @@ of step 5 is merged, so an administrator can always turn the bot off.
 - [x] The API's bound becomes 48, a person's 3, the stream readers 256. Chat spec and matrix; the OpenAPI
   contract and the web client for the new event.
 - [ ] On staging: a turn cut by a restart of the API ends within the lease and its session accepts the next
-  question, and 30 simultaneous turns from the benchmark accounts all answer.
+  question. 30 simultaneous turns from the benchmark accounts all answer: done, 32, 48 and 96 at once
+  ([verification](verification.md#load-run-on-staging-2026-10-15)).
 
 ## 2. Service accounts, the session's surface and account lookup
 
@@ -33,7 +34,8 @@ of step 5 is merged, so an administrator can always turn the bot off.
 - [ ] Tests at the PostgreSQL boundary: a turn of a service account finds only `PUBLIC` and everyone-granted
   documents, not a private Group's, and a chunk without the public flag is refused by the recheck; nobody signs
   in as it; it is absent from the lists above; a `CHANNEL` session is absent from the sidebar.
-- [ ] Whether a session opens on the web by its address when it is not in the sidebar; fix it if not.
+- [x] Whether a session opens on the web by its address when it is not in the sidebar; fix it if not. It does:
+  on staging a bot's direct session opened by its address with both turns and a working composer.
 - [ ] Identity, chat and usage specs and matrices; the OpenAPI contract and the web client.
 
 ## 3. The `channel` capability and its deployable
@@ -105,7 +107,8 @@ Staging, 2026-10-13: the API killed during a turn, the Worker ended it `CHAT_INT
 - [ ] On staging with the three test accounts (finance, legal, an unmapped Lark member): a direct question on a
   private document answers for its reader and refuses for the other; the same question in a group answers from
   public documents only; revoking access in Lark changes the direct answer after the next synchronization.
-- [ ] A load run on staging that fixes the two bounds, with the provider's rate limit recorded.
+- [x] A load run on staging that fixes the two bounds, with the provider's rate limit recorded
+  ([verification](verification.md#load-run-on-staging-2026-10-15)): the bounds stay; no rate limit at 24 at once.
 - [ ] `verification.md`.
 - [ ] `docs/specs/channel.md`, `docs/tests/channel.md`, `docs/runbooks/lark-bot.md`, `ARCHITECTURE.md`
   (deployables and capability map), the backend guideline's module table, the ADR, the roadmap; the increment
