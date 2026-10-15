@@ -53,7 +53,7 @@ export function personaOf({
   modelConfigurationId = null,
   contextTokenLimit = null,
   outputTokenLimit = null,
-  iconName,
+  avatarSeed = "",
   hasAvatar = false,
   labels,
   owner,
@@ -102,7 +102,7 @@ export function personaOf({
     modelConfigurationId,
     contextTokenLimit,
     outputTokenLimit,
-    iconName: iconName ?? null,
+    avatarSeed,
     hasAvatar,
     labels: namedRefsOf(labels),
     owner: {

@@ -108,7 +108,7 @@ describe("AgentEditorPage", () => {
       starterPrompts: [],
       tools: ["search", "web_search", "code_interpreter"],
       modelConfigurationId: null,
-      iconName: "bot",
+      avatarSeed: expect.stringMatching(/^[A-Za-z0-9_-]{1,64}$/),
       grounded: true,
     });
     expect(window.localStorage.getItem(draftKey)).toBeNull();
@@ -120,7 +120,7 @@ describe("AgentEditorPage", () => {
       JSON.stringify({
         name: "Contract law",
         description: "",
-        iconName: "legal",
+        avatarSeed: "contract-law",
         avatarFileId: null,
         keepAvatar: false,
         labelIds: [],

@@ -71,19 +71,22 @@ public class ChatPersonaService {
 
     /**
      * Null tools, MCP servers, files, labels, task prompt and flags keep the current value on update and use defaults
-     * on create. A null knowledge cutoff clears it; an icon removes the avatar image, and omitting both keeps the image.
+     * on create. A null knowledge cutoff clears it. A null avatar seed keeps the face (a new agent draws a random one);
+     * a null avatar image keeps the image and {@code removeAvatar} drops it.
      */
     public record PersonaInput(String name, String description, String instructions, @Nullable String taskPrompt,
                                List<String> starterPrompts, List<UUID> sourceIds, @Nullable List<UUID> documentSetIds,
                                @Nullable Set<String> tools, @Nullable List<UUID> mcpServerIds, @Nullable UUID modelConfigurationId,
                                @Nullable Integer contextTokenLimit, @Nullable Integer outputTokenLimit, @Nullable List<UUID> fileIds,
-                               @Nullable String iconName, @Nullable UUID avatarFileId, @Nullable List<UUID> labelIds,
-                               @Nullable Boolean replaceBaseSystemPrompt, @Nullable Instant knowledgeCutoff,
-                               @Nullable Boolean grounded) {
+                               @Nullable String avatarSeed, @Nullable UUID avatarFileId, @Nullable Boolean removeAvatar,
+                               @Nullable List<UUID> labelIds, @Nullable Boolean replaceBaseSystemPrompt,
+                               @Nullable Instant knowledgeCutoff, @Nullable Boolean grounded) {
         /** The accepted range of an agent's own context token limit; the API declares the same bounds. */
         public static final int MIN_CONTEXT_TOKEN_LIMIT = 256, MAX_CONTEXT_TOKEN_LIMIT = 2_000_000;
         /** The accepted range of an agent's own output token limit; the API declares the same bounds. */
         public static final int MIN_OUTPUT_TOKEN_LIMIT = 1, MAX_OUTPUT_TOKEN_LIMIT = 200_000;
+        /** The characters of an avatar seed, as the persona table checks them. */
+        public static final String AVATAR_SEED_PATTERN = "^[A-Za-z0-9_-]{1,64}$";
     }
 
     public record AgentSourceRef(UUID id, String name) {}
@@ -93,7 +96,7 @@ public class ChatPersonaService {
                               List<UUID> sourceIds, List<AgentSourceRef> sources, List<UUID> documentSetIds, List<DocumentSetRef> documentSets,
                               Set<String> tools, List<AgentRef> mcpServers, @Nullable UUID modelConfigurationId,
                               @Nullable Integer contextTokenLimit, @Nullable Integer outputTokenLimit, List<UUID> fileIds,
-                              @Nullable String iconName, boolean hasAvatar, List<AgentRef> labels, AgentOwner owner,
+                              String avatarSeed, boolean hasAvatar, List<AgentRef> labels, AgentOwner owner,
                               boolean vacant, List<AgentUserShare> userShares, List<AgentGroupShare> groupShares, boolean isPublic,
                               AgentPermission publicPermission, boolean listed, boolean featured, @Nullable Integer displayPriority,
                               boolean replaceBaseSystemPrompt, boolean grounded, @Nullable Instant knowledgeCutoff,
@@ -405,19 +408,19 @@ public class ChatPersonaService {
                 throw ChatException.invalid("Use at most 20 unique files.");
             entity.files(input.fileIds());
         }
-        String iconName = input.iconName() == null || input.iconName().isBlank() ? null : input.iconName();
-        if (iconName != null && !iconName.matches("[a-z0-9-]{1,40}")) throw ChatException.invalid("Invalid icon.");
-        // A new image replaces the icon; choosing an icon removes the image; sending neither keeps the image.
-        UUID avatar = input.avatarFileId() != null ? input.avatarFileId() : iconName == null ? entity.avatarFileId() : null;
+        String avatarSeed = input.avatarSeed();
+        if (avatarSeed != null && !avatarSeed.matches(PersonaInput.AVATAR_SEED_PATTERN)) throw ChatException.invalid("Invalid avatar.");
+        // A new image replaces the old one; removeAvatar drops it so the face shows; sending neither keeps the image.
+        UUID avatar = input.avatarFileId() != null ? input.avatarFileId()
+                : Boolean.TRUE.equals(input.removeAvatar()) ? null : entity.avatarFileId();
         if (avatar != null && !avatar.equals(entity.avatarFileId())) {
             var file = files.readable(tenant, actor, avatar).orElseThrow(() -> ChatException.invalid("The avatar image is unavailable."));
             if (file.status() != UserFile.Status.READY || !AVATAR_TYPES.contains(file.mediaType()) || file.sizeBytes() > AVATAR_MAX_BYTES)
                 throw ChatException.invalid("Use a PNG, JPEG, WebP or GIF avatar of at most 2 MiB.");
         }
-        if (avatar != null) iconName = null;
         entity.update(new PersonaEntity.Settings(input.name().strip(), input.description(), input.instructions(), taskPrompt,
                 input.starterPrompts(), input.sourceIds(), input.modelConfigurationId(), input.contextTokenLimit(), input.outputTokenLimit(),
-                iconName, avatar,
+                avatarSeed, avatar,
                 input.replaceBaseSystemPrompt() == null ? entity.replaceBaseSystemPrompt() : input.replaceBaseSystemPrompt(),
                 input.grounded() == null ? entity.grounded() : input.grounded(),
                 input.knowledgeCutoff()));
@@ -491,7 +494,7 @@ public class ChatPersonaService {
                     documentSetIds, documentSetIds.stream().map(set -> new DocumentSetRef(set, setNames.getOrDefault(set, ""))).toList(),
                     details.tools().getOrDefault(id, Set.of()), details.mcpServers().getOrDefault(id, List.of()),
                     entity.modelConfigurationId(), entity.contextTokenLimit(), entity.outputTokenLimit(), entity.fileIds(),
-                    entity.iconName(), entity.avatarFileId() != null, details.labels().getOrDefault(id, List.of()),
+                    entity.avatarSeed(), entity.avatarFileId() != null, details.labels().getOrDefault(id, List.of()),
                     details.owners().getOrDefault(id, new AgentOwner(null, null)), granted.vacant(), userShares,
                     details.groupShares().getOrDefault(id, List.of()), entity.isPublic(), AgentPermission.valueOf(entity.publicPermission()),
                     entity.listed(), entity.featured(), entity.displayPriority(), entity.replaceBaseSystemPrompt(), entity.grounded(),

@@ -45,7 +45,8 @@ public class PersonaEntity {
     @Column(name = "is_listed", nullable = false) private boolean listed = true;
     @Column(name = "is_featured", nullable = false) private boolean featured;
     @Column(name = "display_priority") private @Nullable Integer displayPriority;
-    @Column(name = "icon_name", length = 40) private @Nullable String iconName;
+    /** The seed of the agent's DiceBear face; renaming keeps it (MEM-273). */
+    @Column(name = "avatar_seed", nullable = false, length = 64) private String avatarSeed = UUID.randomUUID().toString();
     @Column(name = "avatar_file_id") private @Nullable UUID avatarFileId;
     @Column(name = "task_prompt", nullable = false, columnDefinition = "text") private String taskPrompt = "";
     @Column(name = "replace_base_system_prompt", nullable = false) private boolean replaceBaseSystemPrompt;
@@ -64,7 +65,7 @@ public class PersonaEntity {
     }
     public record Settings(String name, String description, String instructions, String taskPrompt, List<String> starters,
                            List<UUID> sources, @Nullable UUID modelId, @Nullable Integer contextLimit, @Nullable Integer outputLimit,
-                           @Nullable String iconName, @Nullable UUID avatarFileId, boolean replaceBaseSystemPrompt, boolean grounded,
+                           @Nullable String avatarSeed, @Nullable UUID avatarFileId, boolean replaceBaseSystemPrompt, boolean grounded,
                            @Nullable Instant knowledgeCutoff) {}
     public void update(Settings settings) {
         this.name = settings.name(); this.description = settings.description(); this.instructions = settings.instructions();
@@ -74,7 +75,8 @@ public class PersonaEntity {
         if (!Objects.equals(this.modelConfigurationId, settings.modelId())) modelRevision++;
         this.modelConfigurationId = settings.modelId();
         this.contextTokenLimit = settings.contextLimit(); this.outputTokenLimit = settings.outputLimit();
-        this.iconName = settings.iconName(); this.avatarFileId = settings.avatarFileId();
+        if (settings.avatarSeed() != null) this.avatarSeed = settings.avatarSeed();
+        this.avatarFileId = settings.avatarFileId();
         this.replaceBaseSystemPrompt = settings.replaceBaseSystemPrompt(); this.grounded = settings.grounded();
         this.knowledgeCutoff = settings.knowledgeCutoff();
     }
@@ -102,7 +104,7 @@ public class PersonaEntity {
     public boolean listed() { return listed; }
     public boolean featured() { return featured; }
     public @Nullable Integer displayPriority() { return displayPriority; }
-    public @Nullable String iconName() { return iconName; }
+    public String avatarSeed() { return avatarSeed; }
     public @Nullable UUID avatarFileId() { return avatarFileId; }
     public String taskPrompt() { return taskPrompt; }
     public boolean replaceBaseSystemPrompt() { return replaceBaseSystemPrompt; }

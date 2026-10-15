@@ -14,8 +14,8 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
-/** Icon choices offered by the agent editor; the server stores only the key. */
-export const agentIcons: Record<string, LucideIcon> = {
+/** Icon choices offered by the project editor; the server stores only the key. */
+export const projectIcons: Record<string, LucideIcon> = {
   bot: Bot,
   chart: BarChart3,
   finance: Landmark,
@@ -36,8 +36,8 @@ const success = "bg-status-success-surface text-status-success-content";
 const warning = "bg-status-warning-surface text-status-warning-content";
 const neutral = "bg-surface-sunken text-content-secondary";
 
-/** Soft topic tints so a gallery of agents scans by subject rather than reading every name. */
-export const agentIconTones: Record<string, string> = {
+/** Soft topic tints so a list of projects scans by subject rather than reading every name. */
+export const projectIconTones: Record<string, string> = {
   bot: neutral,
   chart: info,
   finance: success,
