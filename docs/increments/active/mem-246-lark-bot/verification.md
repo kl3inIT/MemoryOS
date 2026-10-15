@@ -74,3 +74,18 @@ leaving room for the other applications on the same 9Router and for a turn that 
 person's bound stays 3. The API's database pool stays 15: the pools of the API and the Worker are held to 25 by
 the sizing policy, staging's role allows 40, and the 24 turns at once above ran on 15, since a turn holds a
 connection only for its writes. The host was measured up to 24 turns at once; a run with more accounts checks 80.
+
+## Restarts on staging (2026-10-15)
+
+What it checks: plan step 1's turn cut by a restart of the API, and step 4's restart of `memoryos-channels` while
+idle.
+
+- **The API during a long turn.** A question asking for a 3,000-word essay was sent as `owner`; while it ran,
+  `docker restart memoryos-api` took 7 seconds and the API was healthy 27 seconds later. The reply was already
+  `FAILED` with `CHAT_INTERRUPTED` when first read after the restart, well within the three-minute lease. A next
+  question in the same session, under the failed reply, was accepted (`202`) and `COMPLETED`.
+- **`memoryos-channels` while idle.** The bot was `CONNECTED`; `docker restart memoryos-channels` at 06:23:06, the
+  container healthy at 06:23:30, and the bot `CONNECTED` again with `connectedAt` 06:23:25, about 20 seconds after
+  the restart began.
+
+Not run: a restart of `memoryos-channels` during an answer, which needs a message sent from Lark.

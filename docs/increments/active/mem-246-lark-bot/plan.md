@@ -13,8 +13,8 @@ of step 5 is merged, so an administrator can always turn the bot off.
   languages.
 - [x] The API's bound becomes 48, a person's 3, the stream readers 256. Chat spec and matrix; the OpenAPI
   contract and the web client for the new event.
-- [ ] On staging: a turn cut by a restart of the API ends within the lease and its session accepts the next
-  question. 30 simultaneous turns from the benchmark accounts all answer: done, 32, 48 and 96 at once
+- [x] On staging: a turn cut by a restart of the API ends within the lease and its session accepts the next
+  question ([verification](verification.md#restarts-on-staging-2026-10-15)). 30 simultaneous turns from the benchmark accounts all answer: done, 32, 48 and 96 at once
   ([verification](verification.md#load-run-on-staging-2026-10-15)).
 
 ## 2. Service accounts, the session's surface and account lookup
@@ -36,7 +36,10 @@ of step 5 is merged, so an administrator can always turn the bot off.
   in as it; it is absent from the lists above; a `CHANNEL` session is absent from the sidebar.
 - [x] Whether a session opens on the web by its address when it is not in the sidebar; fix it if not. It does:
   on staging a bot's direct session opened by its address with both turns and a working composer.
-- [ ] Identity, chat and usage specs and matrices; the OpenAPI contract and the web client.
+- [x] Identity, chat and usage specs and matrices; the OpenAPI contract and the web client. The identity spec
+  and matrix hold the `SERVICE` account, the chat spec and matrix the session's surface and the waiting turn, the
+  AI usage spec and matrix the service account's budget and cost line; `openapi.yml` and the web client carry
+  `AccountType` and `surface`.
 
 ## 3. The `channel` capability and its deployable
 
@@ -56,9 +59,9 @@ Staging, 2026-10-13: the API killed during a turn, the Worker ended it `CHAT_INT
   the Worker's daily task that deletes `channel_messages` older than ninety days, through
   `ChannelWorkerComponents`. The inbound service: the claim, the rules, the sender, who the turn runs as, the
   conversation, the turn and its reply, notices. `ChatSessionService.leaf`.
-- [ ] 3c-2. What 3c-1 left: the sender's rate, the order within a conversation, the reaction that acknowledges
-  a message, the asker's name a bot turn is told (done), and the link to a direct conversation on the web, which
-  waits for the address of the web on staging and for step 2's check that a bot session opens by its address. Originally: the rules, the sender, who the turn runs as and the asker's name it is told, the
+- [x] 3c-2. What 3c-1 left: the sender's rate, the order within a conversation, the reaction that acknowledges
+  a message, the asker's name a bot turn is told, and the link to a direct conversation on the web (merged in #653;
+  it shows once staging sets `MEMORYOS_CHANNEL_WEB_URL`). Originally: the rules, the sender, who the turn runs as and the asker's name it is told, the
   conversation, the turn and its reply; the order within a conversation and the sender's rate.
 - [x] 3d-1. The model catalog, `ModelCalls`, the native Asyncer and the tool-observation sanitizer move from the
   API module into `chat.execution`, so every process that runs turns has them. `ChannelAdapter.open` and
@@ -90,7 +93,8 @@ Staging, 2026-10-13: the API killed during a turn, the Worker ended it `CHAT_INT
 - [ ] Whether a member can change the `email` Lark reports, settled on the test tenant; the adapter reads only
   an address that is safe to match an account by.
 - [ ] The wording of every notice and the reaction, taken from what Onyx, WeKnora, Dust and Claude in Slack
-  show for the same cases, in both languages, for review.
+  show for the same cases, in both languages, for review. Ready for review in the design's
+  [notices](design.md#notices).
 - [ ] On staging, through the API: enable the bot on the test tenant; a direct message from a mapped member, from
   an unmapped one, a group message, a second message while the first is answered; restart `memoryos-channels`
   during an answer and during idle.
@@ -108,8 +112,11 @@ Staging, 2026-10-13: the API killed during a turn, the Worker ended it `CHAT_INT
   private document answers for its reader and refuses for the other; the same question in a group answers from
   public documents only; revoking access in Lark changes the direct answer after the next synchronization.
 - [x] A load run on staging that fixes the two bounds, with the provider's rate limit recorded
-  ([verification](verification.md#load-run-on-staging-2026-10-15)): the bounds stay; no rate limit at 24 at once.
-- [ ] `verification.md`.
+  ([verification](verification.md#load-run-on-staging-2026-10-15)): no rate limit at 24 at once; the provider's
+  limit of about 160 then set the bounds to 80 in the API and 24 in the bots' process.
+- [ ] `verification.md`: the load run, the provider's limit and the restarts are recorded; the three-account
+  acceptance is not.
 - [ ] `docs/specs/channel.md`, `docs/tests/channel.md`, `docs/runbooks/lark-bot.md`, `ARCHITECTURE.md`
   (deployables and capability map), the backend guideline's module table, the ADR, the roadmap; the increment
-  moves to `completed/`.
+  moves to `completed/`. All but the move are done ([ADR 0028](../../../decisions/0028-chat-channels-in-their-own-process.md));
+  the increment moves once the acceptance above is run.

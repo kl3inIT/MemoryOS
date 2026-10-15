@@ -1,9 +1,9 @@
 # Channel
 
 The Tenant's chat bots on messaging platforms, the Lark bot first. Design and status:
-[MEM-246](../increments/active/mem-246-lark-bot/design.md). What a bot receives and how a question becomes a Chat
-turn is built, with the Lark adapter, the administrator's API and its page.
-This page describes what exists.
+[MEM-246](../increments/active/mem-246-lark-bot/design.md). What a bot receives, how a question becomes a Chat
+turn, the Lark adapter, the administrator's API and its page are built and run on staging. This page describes what
+exists; operating a bot is in the [runbook](../runbooks/lark-bot.md).
 
 ## Connections
 
@@ -105,7 +105,9 @@ go through a `LarkTransport` of its own with a 30-second, 1 MiB budget for the c
 - Text the model wrote, and a source's title, carry Lark's `<at>` and `<person>` tags written out, so an answer or a
   document it quotes cannot notify a person or the whole group.
 - The sender's e-mail is the contact `email` of their `open_id` (scope `contact:user.email:readonly`); none when
-  Lark will not say. Whether a member can change it themself is settled on the test tenant before acceptance.
+  Lark will not say. Lark keeps it unique within an organisation and its administrator assigns it; whether members
+  may edit it is a field setting of the organisation's admin console
+  ([design](../increments/active/mem-246-lark-bot/design.md#receiving-a-message)).
 - A group is external unless Lark answers that it is not; the answer is remembered for an hour, and a chat whose
   answer cannot be read counts as external.
 
