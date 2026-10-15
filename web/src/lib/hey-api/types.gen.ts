@@ -1260,8 +1260,15 @@ export type PersonaInput = {
     contextTokenLimit?: number | null;
     outputTokenLimit?: number | null;
     fileIds?: Array<string>;
-    iconName?: string;
+    /**
+     * The seed of the agent's face; null keeps it, and a new agent gets a random one
+     */
+    avatarSeed?: string | null;
     avatarFileId?: string;
+    /**
+     * True drops the uploaded image so the face shows
+     */
+    removeAvatar?: boolean | null;
     labelIds?: Array<string>;
     replaceBaseSystemPrompt?: boolean;
     knowledgeCutoff?: string;
@@ -1334,7 +1341,7 @@ export type PersonaView = {
     contextTokenLimit?: number | null;
     outputTokenLimit?: number | null;
     fileIds?: Array<string>;
-    iconName?: string;
+    avatarSeed?: string;
     hasAvatar?: boolean;
     labels?: Array<AgentRef>;
     owner?: AgentOwner;

@@ -195,7 +195,7 @@ class ChatPersistenceIntegrationTest {
     void documentSetsShareAndAttachToPersonasWithoutReplacingDirectSources() {
         var set = documentSets.create(owner, new DocumentSetService.Input("Finance", "Monthly reports", List.of(), false));
         var agent = personas.create(owner, new ChatPersonaService.PersonaInput("Finance assistant", "", "Use reports.", null,
-                List.of(), List.of(), List.of(set.id()), Set.of("search"), null, null, null, null, List.of(), null, null,
+                List.of(), List.of(), List.of(set.id()), Set.of("search"), null, null, null, null, List.of(), null, null, null,
                 null, false, null, null));
 
         assertEquals(List.of(set.id()), personas.get(owner, agent.id()).documentSetIds());
@@ -232,7 +232,7 @@ class ChatPersistenceIntegrationTest {
         when(authorization.effectiveCapabilities(other)).thenReturn(Set.of(IamCapability.CHAT_READ, IamCapability.CHAT_WRITE));
         var set = documentSets.create(owner, new DocumentSetService.Input("Owner only", "", List.of(sourceId), false));
         var agent = personas.create(owner, new ChatPersonaService.PersonaInput("Reports", "", "Use reports.", null,
-                List.of(), List.of(), List.of(set.id()), Set.of("search"), null, null, null, null, List.of(), null, null,
+                List.of(), List.of(), List.of(set.id()), Set.of("search"), null, null, null, null, List.of(), null, null, null,
                 null, false, null, null));
         personas.share(owner, agent.id(), agent.revision(), new ChatPersonaService.SharingInput(
                 List.of(), List.of(), true, AgentPermission.VIEWER));
@@ -1349,7 +1349,7 @@ class ChatPersistenceIntegrationTest {
         assertThrows(ChatException.class, () -> personas.createLabel(creator, "tài chính"));
         assertThrows(ChatException.class, () -> personas.renameLabel(reader, label.id(), "Finance"));
         var agent = personas.create(creator, new ChatPersonaService.PersonaInput("Finance", "", "", "Always cite the report month.",
-                List.of(), List.of(), null, Set.of("search"), null, null, null, null, List.of(), "chart", null, List.of(label.id()),
+                List.of(), List.of(), null, Set.of("search"), null, null, null, null, List.of(), "kt-finance", null, null, List.of(label.id()),
                 false, Instant.parse("2026-01-01T00:00:00Z"), null));
         assertEquals(List.of(label), agent.labels());
         var published = personas.share(creator, agent.id(), agent.revision(), new ChatPersonaService.SharingInput(List.of(), List.of(), true, null));
@@ -1579,10 +1579,34 @@ class ChatPersistenceIntegrationTest {
         return input(name, "", starters, sources, search, context, output, files);
     }
 
+    @Test
+    void anAgentKeepsTheFaceItWasGivenAndOnlyAValidSeedChangesIt() {
+        var first = personas.create(owner, input("Kế toán", "", List.of(), List.of(), false, null, null, null));
+        var second = personas.create(owner, input("Nhân sự", "", List.of(), List.of(), false, null, null, null));
+        assertTrue(first.avatarSeed().matches(ChatPersonaService.PersonaInput.AVATAR_SEED_PATTERN));
+        assertNotEquals(first.avatarSeed(), second.avatarSeed());
+
+        var renamed = personas.update(owner, first.id(), first.revision(), input("Kế toán tổng hợp", "", List.of(), List.of(), false, null, null, null));
+        assertEquals(first.avatarSeed(), renamed.avatarSeed(), "renaming keeps the face");
+
+        var chosen = personas.update(owner, first.id(), renamed.revision(), avatar(renamed.name(), "kt-2026_a"));
+        assertEquals("kt-2026_a", chosen.avatarSeed());
+        assertEquals("CHAT_INVALID_REQUEST", assertThrows(ChatException.class,
+                () -> personas.update(owner, first.id(), chosen.revision(), avatar(chosen.name(), "không hợp lệ"))).code());
+
+        assertEquals("memoryos", personas.get(owner, sessions.create(owner, "Builtin").personaId()).avatarSeed());
+        assertEquals(0, jdbc.sql("SELECT count(*) FROM persona WHERE avatar_seed IS NULL OR avatar_seed = ''").query(Integer.class).single());
+    }
+
+    private static ChatPersonaService.PersonaInput avatar(String name, String seed) {
+        return new ChatPersonaService.PersonaInput(name, "", "", null, List.of(), List.of(), null, Set.of(), null, null, null, null,
+                null, seed, null, null, null, null, null, null);
+    }
+
     private static ChatPersonaService.PersonaInput input(String name, String instructions, List<String> starters, List<UUID> sources,
             boolean search, Integer context, Integer output, List<UUID> files) {
         return new ChatPersonaService.PersonaInput(name, "", instructions, null, starters, sources, null,
-                search ? Set.of("search") : Set.of(), null, null, context, output, files, null, null, null, null, null, null);
+                search ? Set.of("search") : Set.of(), null, null, context, output, files, null, null, null, null, null, null, null);
     }
 
     private static String undated(String prompt) {

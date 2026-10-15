@@ -83,6 +83,7 @@ describe("AgentEditorPage", () => {
         sent = await request.json();
         const created: PersonaView = {
           ...sent,
+          avatarSeed: sent.avatarSeed ?? "contract-law",
           id: "70000000-0000-4000-8000-000000000099",
           revision: 0,
         };
@@ -108,7 +109,7 @@ describe("AgentEditorPage", () => {
       starterPrompts: [],
       tools: ["search", "web_search", "code_interpreter"],
       modelConfigurationId: null,
-      iconName: "bot",
+      avatarSeed: expect.stringMatching(/^[A-Za-z0-9_-]{1,64}$/),
       grounded: true,
     });
     expect(window.localStorage.getItem(draftKey)).toBeNull();
@@ -120,7 +121,7 @@ describe("AgentEditorPage", () => {
       JSON.stringify({
         name: "Contract law",
         description: "",
-        iconName: "legal",
+        avatarSeed: "contract-law",
         avatarFileId: null,
         keepAvatar: false,
         labelIds: [],
