@@ -3,9 +3,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Check, X } from "lucide-react";
 import { ThreadListRow } from "@/components/assistant-ui/elements/thread-list";
-import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { renameChatSessionMutation } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
@@ -33,9 +31,9 @@ export function ChatSessionRow({
 }) {
   const [renaming, setRenaming] = useState(false);
   const link = useRef<HTMLAnchorElement>(null);
-  function closeEditor() {
+  function closeEditor(restoreFocus = true) {
     setRenaming(false);
-    requestAnimationFrame(() => link.current?.focus());
+    if (restoreFocus) requestAnimationFrame(() => link.current?.focus());
   }
   const selected = useRouterState({
     select: (state) => state.location.pathname === `/chat/${session.id}`,
@@ -58,6 +56,16 @@ export function ChatSessionRow({
             deleteSession={deleteSession}
             archiveSession={archiveSession}
             onRename={() => setRenaming(true)}
+            onChange={async () => {
+              // Removing a Project row unmounts its menu button and drops focus to the page; the same
+              // conversation stays listed under "Hội thoại gần đây", so focus continues there.
+              requestAnimationFrame(() => {
+                if (!link.current?.isConnected && document.activeElement === document.body)
+                  document
+                    .querySelector<HTMLAnchorElement>(`a[data-chat-session-id="${session.id}"]`)
+                    ?.focus();
+              });
+            }}
           />
         )
       }
@@ -67,6 +75,7 @@ export function ChatSessionRow({
       ) : (
         <Link
           ref={link}
+          data-chat-session-id={session.id}
           to="/chat/$sessionId"
           params={{ sessionId: session.id }}
           // The row is what is dragged; a dragged link would carry its address as the picture.
@@ -87,7 +96,7 @@ export function ChatSessionRow({
   );
 }
 
-/** Renames a conversation in place of its row; Escape or cancel returns to the row. */
+/** Enter or leaving the name saves it; Escape returns to the row without saving. */
 function ChatSessionRenameForm({
   session,
   rename,
@@ -95,11 +104,13 @@ function ChatSessionRenameForm({
 }: {
   session: ChatSession;
   rename?: (title: string) => Promise<void>;
-  onClose: () => void;
+  onClose: (restoreFocus?: boolean) => void;
 }) {
   const ui = useAppTranslation();
   const [title, setTitle] = useState(session.title);
   const input = useRef<HTMLInputElement>(null);
+  // Set synchronously so Enter followed by the blur of the closing field writes once.
+  const submitting = useRef(false);
   const refreshSessions = useRefreshChatSessions();
   const renameSession = useMutation(renameChatSessionMutation());
   // The thread list renames its own rows, so the sidebar updates at once; other lists call the API.
@@ -115,9 +126,23 @@ function ChatSessionRenameForm({
     },
     onSuccess: async () => {
       await refreshSessions(session.id);
-      onClose();
+      // Leaving the field already chose where focus goes; only a save made in the field returns it to the row.
+      onClose(document.activeElement === input.current);
+    },
+    onSettled: () => {
+      submitting.current = false;
     },
   });
+  function commit(restoreFocus: boolean) {
+    if (submitting.current) return;
+    const next = title.trim();
+    if (!next || next === session.title) {
+      onClose(restoreFocus);
+      return;
+    }
+    submitting.current = true;
+    save.mutate(next);
+  }
   // The field replaces the row the person chose to rename, so it takes the focus with its text selected.
   useEffect(() => input.current?.select(), []);
   return (
@@ -126,45 +151,31 @@ function ChatSessionRenameForm({
         className="flex items-center gap-1"
         onSubmit={(event) => {
           event.preventDefault();
-          if (save.isPending || !title.trim()) return;
-          save.mutate(title.trim());
+          commit(true);
         }}
       >
         <Input
           ref={input}
           aria-label={ui("Tên hội thoại")}
           value={title}
-          required
           maxLength={200}
-          disabled={save.isPending}
+          // Read-only, not disabled: a disabled field would drop the focus the person is typing in.
+          readOnly={save.isPending}
+          aria-busy={save.isPending}
           onChange={(event) => setTitle(event.target.value)}
+          onBlur={() => commit(false)}
           onKeyDown={(event) => {
+            // Enter confirms an IME candidate; it must not save the half-composed name.
+            if (event.key === "Enter" && event.nativeEvent.isComposing) event.preventDefault();
             if (event.key === "Escape" && !save.isPending) {
               event.preventDefault();
+              // The field may blur as it unmounts; that must not save the discarded draft.
+              submitting.current = true;
               onClose();
             }
           }}
-          className="min-w-0"
+          className="min-w-0 flex-1"
         />
-        <IconButton
-          type="submit"
-          size="sm"
-          prominence="internal"
-          aria-label={ui("Lưu tên hội thoại")}
-          disabled={save.isPending || !title.trim()}
-        >
-          <Check />
-        </IconButton>
-        <IconButton
-          type="button"
-          size="sm"
-          prominence="internal"
-          aria-label={ui("Hủy đổi tên")}
-          disabled={save.isPending}
-          onClick={onClose}
-        >
-          <X />
-        </IconButton>
       </form>
       {save.error && (
         <p role="alert" className="px-2 text-xs text-status-danger-content">

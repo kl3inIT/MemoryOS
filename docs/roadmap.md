@@ -154,7 +154,7 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 
 ## Active
 
-Project conversation actions: explicit empty-session creation from the sidebar Project menu, synchronized membership and focus after removal, with history regression coverage. [Design](increments/active/chat-project-session-actions/design.md) · [Plan](increments/active/chat-project-session-actions/plan.md).
+Project conversation actions: a new-conversation item in the sidebar Project menu that opens the Project's unsent conversation (no session until the first send), synchronized membership and focus after removal, with history regression coverage. [Design](increments/active/chat-project-session-actions/design.md) · [Plan](increments/active/chat-project-session-actions/plan.md).
 
 Conversation rename uses one inline name field, saving on Enter or blur with no action buttons. [Design](increments/active/chat-inline-rename/design.md) · [Plan](increments/active/chat-inline-rename/plan.md).
 

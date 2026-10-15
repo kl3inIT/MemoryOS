@@ -1629,8 +1629,6 @@ export const vietnameseUi: Record<string, string> = {
     "“{{v1}}” will be permanently removed from history and sharing, and cannot be restored. Any running answer will also stop.",
   "Xóa hội thoại": "Delete conversation",
   "Tên hội thoại": "Conversation name",
-  "Lưu tên hội thoại": "Save conversation name",
-  "Hủy đổi tên": "Cancel rename",
   "Thay đổi áp dụng cho lượt tiếp theo. Lịch sử đã lưu giữ nguyên.":
     "Changes apply to the next turn. Saved history is preserved.",
   "Trợ lý không còn khả dụng": "Assistant unavailable",

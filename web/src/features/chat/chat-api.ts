@@ -167,7 +167,7 @@ export function initialChatTitle(text: string) {
     title += segment;
     count++;
   }
-  return title || i18n.t("app:Hội thoại mới", { keySeparator: false });
+  return title || i18n.t("Hội thoại mới", { ns: "app", keySeparator: false, nsSeparator: false });
 }
 
 /** Saved deep research renders before the answer, as it streamed. */

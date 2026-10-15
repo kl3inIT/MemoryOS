@@ -22,9 +22,10 @@ const session: ChatSession = {
   temporary: false,
 };
 const runId = "7c6f01e4-a456-4157-bb67-3b9e3ae8e3a4";
-it("uses a short, whitespace-normalized and Unicode-safe fallback title", () => {
+it("uses a short, whitespace-normalized and Unicode-safe fallback title", async () => {
+  await i18n.changeLanguage("vi");
   expect(initialChatTitle("  Phân tích\n  tài liệu  ")).toBe("Phân tích tài liệu");
-  expect(initialChatTitle(" ")).toBe(i18n.t("app:Hội thoại mới", { keySeparator: false }));
+  expect(initialChatTitle(" ")).toBe("Hội thoại mới");
   expect(initialChatTitle("😀".repeat(45))).toBe("😀".repeat(40) + "…");
 });
 it("places a question's attached files above its text", () => {

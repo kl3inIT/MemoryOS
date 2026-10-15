@@ -87,6 +87,121 @@ test("opens the project of the conversation a page address names", async ({ page
   await page.request.delete(`/api/chat/projects/${id}?revision=0`);
 });
 
+test("removing a conversation from a sidebar project keeps it in recent history", async ({
+  page,
+}) => {
+  const id = await createProject(page, "Remove history project");
+  const session = await (
+    await page.request.post(`/api/chat/projects/${id}/sessions`, {
+      data: { title: "Retained project conversation" },
+    })
+  ).json();
+  await page.goto(`/chat/${session.id}`);
+  const sidebar = page.getByRole("complementary");
+  const folder = sidebar.locator(`[data-project-id="${id}"]`);
+  const recent = sidebar.getByRole("group", { name: "Hội thoại gần đây", exact: true });
+  await expect(folder.locator(`a[href="/chat/${session.id}"]`)).toBeVisible();
+  await folder.getByRole("button", { name: `Thao tác hội thoại ${session.title}` }).click();
+  await page.getByRole("menuitem", { name: "Gỡ khỏi dự án", exact: true }).click();
+  await expect(folder.locator(`a[href="/chat/${session.id}"]`)).toHaveCount(0);
+  await expect(recent.locator(`a[href="/chat/${session.id}"]`)).toBeVisible();
+  // The Project row took the menu button with it; focus continues at the history link, not the page.
+  await expect(recent.locator(`a[href="/chat/${session.id}"]`)).toBeFocused();
+  await page
+    .getByRole("banner")
+    .getByRole("button", { name: `Thao tác hội thoại ${session.title}` })
+    .click();
+  await expect(page.getByRole("menuitem", { name: "Gỡ khỏi dự án", exact: true })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(page).toHaveURL(`/chat/${session.id}`);
+  await page.reload();
+  await expect(recent.locator(`a[href="/chat/${session.id}"]`)).toBeVisible();
+  await page.getByRole("button", { name: "Tìm hội thoại", exact: true }).click();
+  await expect(
+    page
+      .getByRole("dialog", { name: "Tìm hội thoại", exact: true })
+      .getByRole("option", { name: session.title }),
+  ).toBeVisible();
+  await page.request.delete(`/api/chat/projects/${id}?revision=0`);
+});
+
+test("starts a conversation from the project menu without creating a session until the first send", async ({
+  page,
+}) => {
+  const id = await createProject(page, "New conversation project");
+  const existing = await (
+    await page.request.post(`/api/chat/projects/${id}/sessions`, {
+      data: { title: "Existing project conversation" },
+    })
+  ).json();
+  const listProjectSessions = async () =>
+    (await (await page.request.get(`/api/chat/projects/${id}/sessions`)).json()) as {
+      id: string;
+      title: string;
+    }[];
+  await page.goto(`/chat/${existing.id}`);
+  const sidebar = page.getByRole("complementary");
+  const folder = sidebar.locator(`[data-project-id="${id}"]`);
+  await expect(folder.locator(`a[href="/chat/${existing.id}"]`)).toBeVisible();
+
+  await folder.getByRole("button", { name: "Thao tác với New conversation project" }).click();
+  await page.getByRole("menuitem", { name: "Hội thoại mới", exact: true }).click();
+
+  // The open conversation gives way to an unsent one in the Project; nothing is created yet.
+  await expect(page).toHaveURL(`/projects/${id}`);
+  const input = page.getByRole("textbox", { name: "Câu hỏi", exact: true });
+  await expect(input).toBeVisible();
+  await expect(input).toHaveValue("");
+  expect((await listProjectSessions()).map((item) => item.id)).toEqual([existing.id]);
+
+  await input.fill("Project menu first question");
+  await input.press("Enter");
+  await expect(page).toHaveURL(/\/chat\/[0-9a-f-]+$/);
+  await expect(page.getByText("Hello 👋", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Dừng trả lời" })).toHaveCount(0);
+  const sessionId = page.url().split("/").at(-1)!;
+  expect(sessionId).not.toBe(existing.id);
+  const created = (await listProjectSessions()).find((item) => item.id === sessionId);
+  expect(created).toBeDefined();
+
+  await folder.getByRole("button", { name: `Thao tác hội thoại ${created!.title}` }).click();
+  await page.getByRole("menuitem", { name: "Gỡ khỏi dự án", exact: true }).click();
+  await expect(folder.locator(`a[href="/chat/${sessionId}"]`)).toHaveCount(0);
+  const recent = sidebar.getByRole("group", { name: "Hội thoại gần đây", exact: true });
+  await expect(recent.locator(`a[href="/chat/${sessionId}"]`)).toBeVisible();
+  await expect(page.getByText("Hello 👋", { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(recent.locator(`a[href="/chat/${sessionId}"]`)).toBeVisible();
+  await expect(page.getByText("Hello 👋", { exact: true })).toBeVisible();
+  await page.request.delete(`/api/chat/projects/${id}?revision=0`);
+});
+
+test("retains a newly sent project conversation and its transcript after removal", async ({
+  page,
+}) => {
+  const id = await createProject(page, "First send history project");
+  await page.goto(`/projects/${id}`);
+  const input = page.getByRole("textbox", { name: "Câu hỏi", exact: true });
+  await input.fill("Project history retention question");
+  await input.press("Enter");
+  await expect(page).toHaveURL(/\/chat\/[0-9a-f-]+$/);
+  await expect(page.getByText("Hello 👋", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Dừng trả lời" })).toHaveCount(0);
+  const sessionId = page.url().split("/").at(-1)!;
+  const sidebar = page.getByRole("complementary");
+  const folder = sidebar.locator(`[data-project-id="${id}"]`);
+  await folder.getByRole("button", { name: /^Thao tác hội thoại/ }).click();
+  await page.getByRole("menuitem", { name: "Gỡ khỏi dự án", exact: true }).click();
+  await expect(folder.getByRole("link")).toHaveCount(0);
+  const recent = sidebar.getByRole("group", { name: "Hội thoại gần đây", exact: true });
+  await expect(recent.locator(`a[href="/chat/${sessionId}"]`)).toBeVisible();
+  await expect(page.getByText("Hello 👋", { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(recent.locator(`a[href="/chat/${sessionId}"]`)).toBeVisible();
+  await expect(page.getByText("Hello 👋", { exact: true })).toBeVisible();
+  await page.request.delete(`/api/chat/projects/${id}?revision=0`);
+});
+
 test("reorders projects with the keyboard and keeps the order after a reload", async ({ page }) => {
   const ids = [
     await createProject(page, "Order test first"),
