@@ -25,4 +25,6 @@ Design: [design.md](design.md).
 - [x] Core: always allow before approving and a refused change keeps the call waiting; context accounting; context
   read back with the answer.
 - [x] Web: transport gates and context, history gates, the card's options and expiry; e2e with screenshots.
-- [ ] Staging: a Linear write tool answered with "Luôn cho phép" stops asking; the gauge after a long conversation.
+- [x] Staging: a Linear write tool answered with "Luôn cho phép" stops asking; the gauge after a long conversation.
+
+Evidence: [verification.md](verification.md).

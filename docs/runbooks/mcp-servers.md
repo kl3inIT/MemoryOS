@@ -68,7 +68,7 @@ turn; `memoryos.chat.execution.mcp-call-limit` is an optional per-turn cap, unse
 
 ## Catalog servers
 
-`/admin/mcp` offers the [catalog](../increments/active/mem-252-mcp-catalog/design.md#the-catalog). Entries whose
+`/admin/mcp` offers the [catalog](../increments/completed/mem-252-mcp-catalog/design.md#the-catalog). Entries whose
 OAuth application is automatic need nothing beyond outbound HTTPS and, for the client metadata document, the
 inbound route above. Entries made by hand need one application per organization in the provider's console, with
 `MEMORYOS_MCP_REDIRECT_URI` registered as its redirect URI; the form links to the console.

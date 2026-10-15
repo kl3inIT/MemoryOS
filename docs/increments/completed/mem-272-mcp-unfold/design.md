@@ -1,7 +1,7 @@
 # MCP tools opened on demand
 
 Linear: [MEM-272](https://linear.app/memory-os/issue/MEM-272). Plan: [plan.md](plan.md). Follows
-[MEM-264](../../active/mem-264-mcp-tool-policy/design.md) (tool policy) and
+[MEM-264](../mem-264-mcp-tool-policy/design.md) (tool policy) and
 [MEM-269](../mem-269-prompt-cache/design.md) (prompt cache).
 
 ## Problem
