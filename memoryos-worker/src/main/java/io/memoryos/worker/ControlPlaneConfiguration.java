@@ -21,6 +21,7 @@ import io.memoryos.ingestion.SearchProjectionMaintenance;
 import io.memoryos.objectstorage.ObjectUploadCleanupPort;
 import io.memoryos.objectstorage.ObjectWriteService;
 import io.memoryos.retrieval.settings.SearchSettingsService;
+import io.memoryos.sandbox.SandboxReconciliation;
 import io.memoryos.usage.report.UsageReportService;
 import java.time.Duration;
 import java.util.Optional;
@@ -206,6 +207,13 @@ class ControlPlaneConfiguration {
     }
 
     /** Deletes the ids of messages a bot received past their retention (MEM-246), a batch at a time. */
+    /** MEM-270: kills sandboxes no row records and clears rows whose sandbox is gone, every five minutes as Dust. */
+    @Bean
+    RecurringTask<Void> sandboxReconciliationTask(SandboxReconciliation reconciliation) {
+        return Tasks.recurring("memoryos-sandbox-reconciliation-v1", FixedDelay.of(Duration.ofMinutes(5)))
+                .execute((_, _) -> reconciliation.sweep());
+    }
+
     @Bean
     RecurringTask<Void> channelMessageRetentionTask(ChannelMessageRetention retention) {
         return Tasks.recurring("memoryos-channel-message-retention-v1", FixedDelay.of(Duration.ofDays(1)))

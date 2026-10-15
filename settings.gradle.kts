@@ -17,6 +17,7 @@ rootProject.name = "memoryos"
 
 include(":memoryos-core")
 include(":memoryos-integration-lark")
+include(":memoryos-integration-opensandbox")
 include(":memoryos-integration-google")
 include(":memoryos-integration-microsoft")
 include(":memoryos-integration-zalo")

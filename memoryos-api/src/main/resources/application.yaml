@@ -208,6 +208,13 @@ memoryos:
       # How much one person's file library may hold; 0 means no limit. The deployment sets it, not an
       # administrator: 512 MiB by default, changed by the environment and read when the API starts.
       library-bytes: ${MEMORYOS_CHAT_STORAGE_LIBRARY_BYTES:536870912}
+  # MEM-270: the Chat sandbox. Empty: the deployment has no sandbox. Compose and the launcher set them.
+  sandbox:
+    computer-image: ${MEMORYOS_SANDBOX_COMPUTER_IMAGE:}
+    max-running: ${MEMORYOS_SANDBOX_MAX_RUNNING:3}
+    opensandbox:
+      endpoint: ${MEMORYOS_SANDBOX_ENDPOINT:}
+      api-key: ${MEMORYOS_SANDBOX_API_KEY:}
   identity:
     audience: ${MEMORYOS_IDENTITY_AUDIENCE}
     jit:

@@ -203,6 +203,7 @@ jobs:
           MEMORYOS_INTERPRETER_IMAGE: memoryos-interpreter:config-check
           MEMORYOS_INTERPRETER_EXECUTOR_IMAGE: memoryos-interpreter-executor:config-check
           MEMORYOS_SANDBOX_IMAGE: memoryos-sandbox:config-check
+          MEMORYOS_SANDBOX_COMPUTER_IMAGE: memoryos-sandbox-computer:config-check
           MEMORYOS_KEYCLOAK_IMAGE: memoryos-keycloak:config-check
           MEMORYOS_POSTGRES_ADMIN_PASSWORD: config-check-only
           MEMORYOS_DATABASE_PASSWORD: config-check-only
@@ -267,7 +268,7 @@ jobs:
             tasks: ':memoryos-api:check'
           - leg: integrations-worker
             tasks: >-
-              :memoryos-integration-lark:check :memoryos-integration-google:check :memoryos-integration-microsoft:check :memoryos-integration-zalo:check :memoryos-extraction:check :memoryos-worker:check :memoryos-channels:check
+              :memoryos-integration-lark:check :memoryos-integration-google:check :memoryos-integration-microsoft:check :memoryos-integration-zalo:check :memoryos-integration-opensandbox:check :memoryos-extraction:check :memoryos-worker:check :memoryos-channels:check
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

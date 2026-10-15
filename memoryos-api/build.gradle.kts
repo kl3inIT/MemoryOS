@@ -17,6 +17,7 @@ dependencies {
     implementation(project(":memoryos-core"))
     implementation(libs.commons.csv)
     implementation(project(":memoryos-integration-lark"))
+    runtimeOnly(project(":memoryos-integration-opensandbox"))
     implementation(project(":memoryos-integration-google"))
     implementation(project(":memoryos-integration-microsoft"))
     // MEM-263: the Zalo bot's adapter, through which an administrator's token is checked.

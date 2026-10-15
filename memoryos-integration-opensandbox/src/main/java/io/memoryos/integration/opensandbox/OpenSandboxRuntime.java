@@ -1,0 +1,212 @@
+package io.memoryos.integration.opensandbox;
+
+import com.alibaba.opensandbox.sandbox.Sandbox;
+import com.alibaba.opensandbox.sandbox.SandboxManager;
+import com.alibaba.opensandbox.sandbox.config.ConnectionConfig;
+import com.alibaba.opensandbox.sandbox.domain.exceptions.SandboxNotFoundException;
+import com.alibaba.opensandbox.sandbox.domain.models.execd.executions.Execution;
+import com.alibaba.opensandbox.sandbox.domain.models.execd.executions.OutputMessage;
+import com.alibaba.opensandbox.sandbox.domain.models.execd.executions.RunCommandRequest;
+import com.alibaba.opensandbox.sandbox.domain.models.execd.filesystem.WriteEntry;
+import com.alibaba.opensandbox.sandbox.domain.models.sandboxes.NetworkPolicy;
+import com.alibaba.opensandbox.sandbox.domain.models.sandboxes.NetworkRule;
+import com.alibaba.opensandbox.sandbox.domain.models.sandboxes.SandboxFilter;
+import com.alibaba.opensandbox.sandbox.domain.models.sandboxes.SandboxState;
+import io.memoryos.sandbox.SandboxCommand;
+import io.memoryos.sandbox.SandboxCommandResult;
+import io.memoryos.sandbox.SandboxEntry;
+import io.memoryos.sandbox.SandboxGoneException;
+import io.memoryos.sandbox.SandboxRuntime;
+import io.memoryos.sandbox.SandboxSpec;
+import java.io.FilterInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
+import java.net.URI;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+/**
+ * {@link SandboxRuntime} on an OpenSandbox server (MEM-270). Every call after creation goes through the server's
+ * proxy ({@code useServerProxy}), because the API, the Worker and the channels process sit on an internal network
+ * that cannot reach the ports sandboxes publish (MEM-270 probe, topology). Each sandbox is created with a network
+ * policy that denies everything but the allowed domains.
+ */
+public class OpenSandboxRuntime implements SandboxRuntime, AutoCloseable {
+    public static final String NAME = "OPENSANDBOX";
+    /**
+     * Files the sandbox user may change: owned by the computer image's {@code sandbox} user (uid 1000), mode 644.
+     * execd looks the owner up by name; a numeric uid is refused ("unknown user 1000").
+     */
+    private static final String OWNER = "sandbox";
+    private static final int FILE_MODE = 644;
+    private static final int PAGE = 100;
+
+    private final ConnectionConfig connection;
+    private final SandboxManager manager;
+    private final Duration readyTimeout;
+
+    public OpenSandboxRuntime(OpenSandboxProperties properties) {
+        URI endpoint = URI.create(properties.endpoint());
+        String domain = endpoint.getPort() < 0 ? endpoint.getHost() : endpoint.getHost() + ":" + endpoint.getPort();
+        this.connection = ConnectionConfig.builder().domain(domain).protocol(endpoint.getScheme())
+                .apiKey(properties.apiKey()).requestTimeout(properties.requestTimeout()).useServerProxy(true).build();
+        this.manager = SandboxManager.builder().connectionConfig(connection).build();
+        this.readyTimeout = properties.readyTimeout();
+    }
+
+    @Override
+    public String name() {
+        return NAME;
+    }
+
+    @Override
+    public String create(SandboxSpec spec) {
+        var policy = NetworkPolicy.builder().defaultAction(NetworkPolicy.DefaultAction.DENY);
+        for (String domain : spec.allowedDomains())
+            policy.addEgress(NetworkRule.builder().action(NetworkRule.Action.ALLOW).target(domain).build());
+        try (Sandbox sandbox = Sandbox.builder().connectionConfig(connection).image(spec.image())
+                .timeout(spec.timeToLive()).readyTimeout(readyTimeout)
+                .resource(Map.of("cpu", spec.cpu(), "memory", spec.memory()))
+                .networkPolicy(policy.build()).metadata(spec.labels()).build()) {
+            return sandbox.getId();
+        }
+    }
+
+    @Override
+    public void renew(String id, Duration timeToLive) {
+        on(id, sandbox -> sandbox.renew(timeToLive));
+    }
+
+    @Override
+    public SandboxCommandResult run(String id, SandboxCommand command) {
+        return on(id, sandbox -> {
+            long started = System.nanoTime();
+            Execution execution = sandbox.commands().run(RunCommandRequest.builder().command(command.command())
+                    .workingDirectory(command.workingDirectory()).uid(command.uid()).gid(command.uid())
+                    .timeout(command.timeout()).build());
+            Duration elapsed = Duration.ofNanos(System.nanoTime() - started);
+            int exitCode = exitCode(execution);
+            // OpenSandbox reports a command stopped at its timeout as exit −1 (MEM-270 probe).
+            boolean timedOut = exitCode == -1 && elapsed.compareTo(command.timeout()) >= 0;
+            return new SandboxCommandResult(exitCode, lines(execution.getLogs().getStdout()),
+                    lines(execution.getLogs().getStderr()), timedOut, elapsed);
+        });
+    }
+
+    @Override
+    public void write(String id, String path, byte[] content) {
+        on(id, sandbox -> {
+            sandbox.files().write(List.of(WriteEntry.builder().path(path).data(content).mode(FILE_MODE)
+                    .owner(OWNER).group(OWNER).build()));
+            return path;
+        });
+    }
+
+    @Override
+    public byte[] read(String id, String path, long maxBytes) {
+        try (InputStream in = open(id, path)) {
+            byte[] content = in.readNBytes((int) Math.min(Integer.MAX_VALUE - 8, maxBytes + 1));
+            if (content.length > maxBytes) throw new IllegalArgumentException("The file is larger than " + maxBytes + " bytes");
+            return content;
+        } catch (IOException failed) {
+            throw new UncheckedIOException(failed);
+        }
+    }
+
+    /** The stream keeps its sandbox connection open until it is closed: closing the connection first cuts the read. */
+    @Override
+    public InputStream open(String id, String path) {
+        Sandbox sandbox = connect(id);
+        try {
+            return new FilterInputStream(sandbox.files().readStream(path)) {
+                @Override
+                public void close() throws IOException {
+                    try {
+                        super.close();
+                    } finally {
+                        sandbox.close();
+                    }
+                }
+            };
+        } catch (SandboxNotFoundException gone) {
+            sandbox.close();
+            throw new SandboxGoneException(id, gone);
+        } catch (RuntimeException failed) {
+            sandbox.close();
+            throw failed;
+        }
+    }
+
+    @Override
+    public List<SandboxEntry> list(String id, String path, int depth) {
+        return on(id, sandbox -> sandbox.files().listDirectory(path, depth).stream()
+                .map(entry -> new SandboxEntry(entry.getPath(), "directory".equalsIgnoreCase(entry.getType()),
+                        entry.getSize()))
+                .toList());
+    }
+
+    @Override
+    public void kill(String id) {
+        try {
+            manager.killSandbox(id);
+        } catch (SandboxNotFoundException gone) {
+            // Already gone is what was asked for.
+        }
+    }
+
+    @Override
+    public Map<String, Instant> running(Map<String, String> labels) {
+        Map<String, Instant> running = new HashMap<>();
+        for (int page = 1; ; page++) {
+            var infos = manager.listSandboxInfos(SandboxFilter.builder().states(SandboxState.RUNNING).metadata(labels)
+                    .pageSize(PAGE).page(page).build());
+            infos.getSandboxInfos().forEach(info -> running.put(info.getId(), info.getCreatedAt().toInstant()));
+            if (!infos.getPagination().getHasNextPage()) return running;
+        }
+    }
+
+    @Override
+    public void close() {
+        manager.close();
+    }
+
+    /** Runs {@code operation} on the sandbox, reading the SDK's "not found" as {@link SandboxGoneException}. */
+    private <T> T on(String id, Function<Sandbox, T> operation) {
+        try (Sandbox sandbox = connect(id)) {
+            return operation.apply(sandbox);
+        } catch (SandboxNotFoundException gone) {
+            throw new SandboxGoneException(id, gone);
+        }
+    }
+
+    private Sandbox connect(String id) {
+        try {
+            return Sandbox.connector().sandboxId(id).connectionConfig(connection).skipHealthCheck(true).connect();
+        } catch (SandboxNotFoundException gone) {
+            throw new SandboxGoneException(id, gone);
+        }
+    }
+
+    private static int exitCode(Execution execution) {
+        if (execution.getExitCode() != null) return execution.getExitCode();
+        if (execution.getError() != null) {
+            try {
+                return Integer.parseInt(execution.getError().getValue().strip());
+            } catch (NumberFormatException unreadable) {
+                return -1;
+            }
+        }
+        return 0;
+    }
+
+    /** Each output line arrives as its own message without its newline (MEM-270 probe). */
+    private static String lines(List<OutputMessage> messages) {
+        return messages.stream().map(OutputMessage::getText).collect(Collectors.joining("\n"));
+    }
+}

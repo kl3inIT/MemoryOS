@@ -30,6 +30,7 @@ dependencies {
     // A turn's search reaches every external Source type's adapter, so every platform is here; the Lark one also
     // carries the bot's adapter.
     runtimeOnly(project(":memoryos-integration-lark"))
+    runtimeOnly(project(":memoryos-integration-opensandbox"))
     runtimeOnly(project(":memoryos-integration-google"))
     runtimeOnly(project(":memoryos-integration-microsoft"))
     // MEM-263: the Zalo bot, which no Source type uses.

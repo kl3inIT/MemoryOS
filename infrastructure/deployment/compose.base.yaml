@@ -297,6 +297,10 @@ services:
       MEMORYOS_RELEASE: ${MEMORYOS_RELEASE:?Set MEMORYOS_RELEASE}
       MEMORYOS_INTERPRETER_BASE_URL: http://memoryos-interpreter:8000
       MEMORYOS_INTERPRETER_API_KEY_FILE: /run/secrets/interpreter_api_key
+      # MEM-270: the Chat sandbox server, its key and the image a conversation's sandbox starts from.
+      MEMORYOS_SANDBOX_ENDPOINT: http://memoryos-sandbox:8090
+      MEMORYOS_SANDBOX_API_KEY_FILE: /run/secrets/sandbox_api_key
+      MEMORYOS_SANDBOX_COMPUTER_IMAGE: ${MEMORYOS_SANDBOX_COMPUTER_IMAGE:?Set MEMORYOS_SANDBOX_COMPUTER_IMAGE}
       # MEM-26: Chat reply replay. The memoryos-api ACL user reaches only memoryos:chat:stream:* keys.
       MEMORYOS_REDIS_HOST: redis
       MEMORYOS_REDIS_PORT: "6379"
@@ -351,6 +355,7 @@ services:
     secrets:
       - minio_api_secret_key
       - interpreter_api_key
+      - sandbox_api_key
       - redis_tls_ca
       - redis_api_password
       - database_password
@@ -431,6 +436,10 @@ services:
       MEMORYOS_OBJECT_STORAGE_SECRET_KEY_FILE: /run/secrets/minio_worker_secret_key
       MEMORYOS_OBJECT_STORAGE_READINESS_KEY: ${MEMORYOS_OBJECT_STORAGE_READINESS_KEY:-system/readiness}
       MEMORYOS_RELEASE: ${MEMORYOS_RELEASE:?Set MEMORYOS_RELEASE}
+      # MEM-270: the Chat sandbox server, its key and the image a conversation's sandbox starts from.
+      MEMORYOS_SANDBOX_ENDPOINT: http://memoryos-sandbox:8090
+      MEMORYOS_SANDBOX_API_KEY_FILE: /run/secrets/sandbox_api_key
+      MEMORYOS_SANDBOX_COMPUTER_IMAGE: ${MEMORYOS_SANDBOX_COMPUTER_IMAGE:?Set MEMORYOS_SANDBOX_COMPUTER_IMAGE}
       MEMORYOS_REDIS_HOST: redis
       MEMORYOS_REDIS_PORT: "6379"
       MEMORYOS_REDIS_USERNAME: memoryos-worker
@@ -469,6 +478,7 @@ services:
       MEMORYOS_CHAT_CATALOG_ENCRYPTION_KEY_FILE: /run/secrets/chat_catalog_encryption_key
     secrets:
       - minio_worker_secret_key
+      - sandbox_api_key
       - redis_tls_ca
       - redis_worker_password
       - database_password

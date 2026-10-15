@@ -23,6 +23,7 @@ dependencies {
     implementation(libs.spring.boot.starter.data.redis)
     implementation(libs.db.scheduler.spring.boot4)
     runtimeOnly(project(":memoryos-integration-lark"))
+    runtimeOnly(project(":memoryos-integration-opensandbox"))
     runtimeOnly(project(":memoryos-integration-google"))
     runtimeOnly(project(":memoryos-integration-microsoft"))
     runtimeOnly(project(":memoryos-extraction"))
