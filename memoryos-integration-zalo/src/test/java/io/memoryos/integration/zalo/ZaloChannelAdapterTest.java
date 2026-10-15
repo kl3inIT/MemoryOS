@@ -20,7 +20,11 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.text.Normalizer;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -29,6 +33,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -233,7 +238,9 @@ class ZaloChannelAdapterTest {
 
         var message = received.poll(10, TimeUnit.SECONDS);
         assertEquals("Xin chào", message == null ? null : message.text());
-        assertEquals("deleteWebhook", calls.getFirst().method(), "Zalo serves no poll while a webhook is set");
+        var methods = calls.stream().map(Call::method).toList();
+        assertTrue(methods.indexOf("deleteWebhook") >= 0 && methods.indexOf("deleteWebhook") < methods.indexOf("getUpdates"),
+                "Zalo serves no poll while a webhook is set: " + methods);
         assertEquals("30", calls("getUpdates").getFirst().body().path("timeout").asString(""));
         assertTrue(transport.connected());
         assertTrue(transport.webhook().isEmpty());
@@ -241,19 +248,23 @@ class ZaloChannelAdapterTest {
     }
 
     @Test
-    void aGroupMessageAddressesTheBotOnlyWhenItNamesIt() throws Exception {
+    void everyGroupMessageAddressesTheBotSinceZaloPushesOnlyTheOnesThatNameIt() throws Exception {
         var connection = connection(Map.of("transport", "WEBHOOK"));
-        var named = ZaloUpdates.message(connection, JSON.readTree(update(ZaloUpdates.TEXT, "GROUP", "@Bot MemoryOS hạn nộp báo cáo?", false)));
+        var named = ZaloUpdates.message(connection, "Bot MemoryOS",
+                JSON.readTree(update(ZaloUpdates.TEXT, "GROUP", "@Bot MemoryOS hạn nộp báo cáo?", false)));
         assertEquals(ChannelMessage.Kind.GROUP, named.kind());
         assertEquals("g-9", named.chatId());
         assertTrue(named.addressed());
         assertEquals("hạn nộp báo cáo?", named.text());
 
-        var unnamed = ZaloUpdates.message(connection, JSON.readTree(update(ZaloUpdates.TEXT, "GROUP", "ăn trưa không", false)));
-        assertFalse(unnamed.addressed());
+        var unnamed = ZaloUpdates.message(connection, "Bot MemoryOS",
+                JSON.readTree(update(ZaloUpdates.TEXT, "GROUP", "ăn trưa không", false)));
+        assertTrue(unnamed.addressed());
+        assertEquals("ăn trưa không", unnamed.text());
 
-        assertNull(ZaloUpdates.message(connection, JSON.readTree(update(ZaloUpdates.TEXT, "PRIVATE", "hi", true))));
-        var image = ZaloUpdates.message(connection, JSON.readTree(update("message.image.received", "PRIVATE", "", false)));
+        assertNull(ZaloUpdates.message(connection, "Bot MemoryOS", JSON.readTree(update(ZaloUpdates.TEXT, "PRIVATE", "hi", true))));
+        var image = ZaloUpdates.message(connection, "Bot MemoryOS",
+                JSON.readTree(update("message.image.received", "PRIVATE", "", false)));
         assertEquals(ChannelMessage.Type.OTHER, image.type());
     }
 
@@ -263,18 +274,21 @@ class ZaloChannelAdapterTest {
         answer("getUpdates", 408, "{\"ok\":false,\"error_code\":408}");
         answer("sendMessage", 200, "{\"ok\":true,\"result\":{\"message_id\":\"m-1\",\"date\":1}}");
         var transport = adapter.open(connection, TOKEN, _ -> { });
-        var question = ZaloUpdates.message(connection, JSON.readTree(update(ZaloUpdates.TEXT, "GROUP", "@Bot MemoryOS hỏi", false)));
+        var question = ZaloUpdates.message(connection, "Bot MemoryOS",
+                JSON.readTree(update(ZaloUpdates.TEXT, "GROUP", "@Bot MemoryOS hỏi", false)));
 
         var reply = adapter.reply(connection, question, "…");
+        waitFor(() -> !calls("sendChatAction").isEmpty());
         String id = reply.finish(List.of("Phần một.", "Phần hai."),
-                List.of(new ChannelReply.Source("Quy trình [A]", "https://memoryos.example/d/1")), "Tiếp tục trên MemoryOS");
+                List.of(new ChannelReply.Source("Quy trình [A]", "https://memoryos.example/d/1")),
+                "[Tiếp tục trên MemoryOS](https://memoryos.example/chat/s-1)");
 
         assertEquals("m-1", id);
         var sent = calls("sendMessage").stream().map(call -> call.body()).toList();
-        assertEquals(2, sent.size());
-        assertEquals("Hà: Phần một.", sent.get(0).path("text").asString(""));
-        assertEquals("Phần hai.\n\n1. [Quy trình (A)](https://memoryos.example/d/1)\n\nTiếp tục trên MemoryOS",
-                sent.get(1).path("text").asString(""));
+        assertEquals(1, sent.size(), "an answer that fits is one message");
+        // Sources and the closing link are bare addresses Zalo makes tappable, never a [text](url) it shows as typed.
+        assertEquals("Hà: Phần một.\n\nPhần hai.\n\n1. Quy trình [A]: https://memoryos.example/d/1\n\n"
+                + "Tiếp tục trên MemoryOS (https://memoryos.example/chat/s-1)", sent.get(0).path("text").asString(""));
         assertEquals("markdown", sent.get(0).path("parse_mode").asString(""));
         assertEquals("g-9", sent.get(0).path("chat_id").asString(""));
         assertFalse(calls("sendChatAction").isEmpty());
@@ -287,7 +301,8 @@ class ZaloChannelAdapterTest {
         var connection = connection(Map.of("transport", "POLLING"));
         answer("getUpdates", 408, "{\"ok\":false,\"error_code\":408}");
         var transport = adapter.open(connection, TOKEN, _ -> { });
-        var question = ZaloUpdates.message(connection, JSON.readTree(update(ZaloUpdates.TEXT, "PRIVATE", "hỏi", false)));
+        var question = ZaloUpdates.message(connection, "Bot MemoryOS",
+                JSON.readTree(update(ZaloUpdates.TEXT, "PRIVATE", "hỏi", false)));
 
         answer("sendMessage", 200, "{\"ok\":false,\"error_code\":400}");
         answer("sendMessage", 200, "{\"ok\":true,\"result\":{\"message_id\":\"m-2\"}}");
@@ -313,6 +328,201 @@ class ZaloChannelAdapterTest {
         assertTrue(messages.getFirst().startsWith("Hà: a"), "the name stays with the answer it introduces");
         assertTrue(messages.getLast().endsWith("\n\n1. Doc\n\nCuối"), messages.getLast());
         assertEquals(ZaloChannelAdapter.MAX_TEXT, messages.stream().mapToLong(text -> text.chars().filter(c -> c == 'a').count()).sum());
+    }
+
+    /** The payloads a real bot received (MEM-263 step 1), ids as Zalo sent them. */
+    @Test
+    void whatARealBotReceivedIsReadAsZaloSentIt() throws Exception {
+        var connection = connection(Map.of("transport", "POLLING"));
+        var group = ZaloUpdates.message(connection, "Bot MemoryOS", JSON.readTree("""
+                {"message":{"chat":{"id":"zgr-c1062b234043a91df052","chat_type":"GROUP"},"text":"@Bot MemoryOS alo",
+                 "message_id":"958e8c94ae40d9198056","date":1792058524294,
+                 "from":{"id":"fca529c49b8c72d22b9d","is_bot":false,"display_name":"Hồng Đạt"}},
+                 "event_name":"message.text.received"}"""));
+        assertEquals(ChannelMessage.Kind.GROUP, group.kind());
+        assertEquals("zgr-c1062b234043a91df052", group.chatId());
+        assertEquals("alo", group.text());
+        assertEquals("Hồng Đạt", group.senderName());
+
+        var direct = ZaloUpdates.message(connection, "Bot MemoryOS", JSON.readTree("""
+                {"message":{"chat":{"id":"fca529c49b8c72d22b9d","chat_type":"PRIVATE"},"text":"xin chào",
+                 "message_id":"d1497becba3bcd62942d","date":1792058261362,
+                 "from":{"id":"fca529c49b8c72d22b9d","is_bot":false,"display_name":"Hồng Đạt"}},
+                 "event_name":"message.text.received"}"""));
+        assertEquals(ChannelMessage.Kind.DIRECT, direct.kind());
+        assertEquals("xin chào", direct.text());
+
+        var sticker = ZaloUpdates.message(connection, "Bot MemoryOS", JSON.readTree("""
+                {"message":{"chat":{"id":"fca529c49b8c72d22b9d","chat_type":"PRIVATE"},"message_id":"7ab95c168fc1f898a1d7",
+                 "date":1792058274164,"message_type":"CHAT_STICKER",
+                 "from":{"id":"fca529c49b8c72d22b9d","is_bot":false,"display_name":"Hồng Đạt"},"sticker":"90a800f03cb5d5eb8ca4",
+                 "url":"https://zalo-api.zadn.vn/api/emoticon/oasticker?eid=1&size=130"},"event_name":"message.sticker.received"}"""));
+        assertEquals(ChannelMessage.Type.OTHER, sticker.type());
+
+        String photo = """
+                {"message":{"chat":{"id":"fca529c49b8c72d22b9d","chat_type":"PRIVATE"},"message_id":"34b9eeb7306047391e76",
+                 "date":1792058284018,"message_type":"CHAT_PHOTO","from":{"id":"fca529c49b8c72d22b9d","is_bot":false,
+                 "display_name":"Hồng Đạt"},"photo_url":"https://photo-stal-27.zdn.vn/no/jpg/x.jpg","caption":"%s"},
+                 "event_name":"message.image.received"}""";
+        assertEquals(ChannelMessage.Type.OTHER,
+                ZaloUpdates.message(connection, "Bot MemoryOS", JSON.readTree(photo.formatted(""))).type());
+        var captioned = ZaloUpdates.message(connection, "Bot MemoryOS", JSON.readTree(photo.formatted("hoá đơn này của ai?")));
+        assertEquals(ChannelMessage.Type.TEXT, captioned.type());
+        assertEquals("hoá đơn này của ai?\n\n" + ZaloUpdates.IMAGE_NOT_READ, captioned.text());
+    }
+
+    @Test
+    void aPollAnswersOneUpdateAsAnObject() throws InterruptedException {
+        answer("getUpdates", 200, "{\"ok\":true,\"result\":" + update(ZaloUpdates.TEXT, "GROUP", "@Bot MemoryOS một", false)
+                + ",\"error_code\":0}");
+        answer("getUpdates", 408, "{\"ok\":false,\"description\":\"Request timeout\",\"error_code\":408}");
+        answer("deleteWebhook", 400, "{\"ok\":false,\"description\":\"Bad request\",\"error_code\":400}");
+        BlockingQueue<ChannelMessage> received = new LinkedBlockingQueue<>();
+
+        var transport = adapter.open(connection(Map.of("transport", "POLLING")), TOKEN, received::add);
+
+        var message = received.poll(10, TimeUnit.SECONDS);
+        assertEquals("một", message == null ? null : message.text(), "no webhook to delete is no failure");
+        assertTrue(transport.connected());
+        transport.close();
+    }
+
+    @Test
+    void theMentionIsTheBotsWholeDisplayNameReadAgainAtEachOpening() throws Exception {
+        assertEquals("hỏi gì", ZaloUpdates.withoutMention("@bot memoryos hỏi gì", "@Bot MemoryOS"));
+        assertEquals("cho tôi hỏi nhé", ZaloUpdates.withoutMention("cho tôi @Bot MemoryOS hỏi nhé", "@Bot MemoryOS"));
+        assertEquals("@Bot MemoryOSa hỏi", ZaloUpdates.withoutMention("@Bot MemoryOSa hỏi", "@Bot MemoryOS"));
+        assertEquals("", ZaloUpdates.withoutMention("@Bot MemoryOS", "@Bot MemoryOS"));
+        assertEquals(", hỏi", ZaloUpdates.withoutMention("@Bot MemoryOS, hỏi", "@Bot MemoryOS"), "punctuation ends the name");
+        // A name typed in decomposed form is the same name.
+        var decomposed = Normalizer.normalize("@Bot Đạt hỏi", Normalizer.Form.NFD);
+        var connection = connection(Map.of("transport", "WEBHOOK"));
+        var message = ZaloUpdates.message(connection, "Bot Đạt", JSON.readTree(update(ZaloUpdates.TEXT, "GROUP", decomposed, false)));
+        assertEquals("hỏi", message.text());
+
+        answer("getMe", 200, "{\"ok\":true,\"result\":{\"id\":\"1234567890\",\"account_name\":\"bot.iKSmBtrB\",\"display_name\":\"Bot Mới\"}}");
+        answer("setWebhook", 200, "{\"ok\":true,\"result\":{\"url\":\"x\",\"verification\":{\"ok\":true}}}");
+        var webhook = adapter.open(connection, TOKEN, _ -> { }).webhook().orElseThrow();
+        webhook.register();
+        String secret = calls("setWebhook").getFirst().body().path("secret_token").asString("");
+        var pushed = webhook.accept(Map.of(ZaloChannelAdapter.SECRET_HEADER, secret),
+                ("{\"ok\":true,\"result\":" + update(ZaloUpdates.TEXT, "GROUP", "@Bot Mới hạn chót?", false) + "}")
+                        .getBytes(StandardCharsets.UTF_8)).orElseThrow();
+        assertEquals("hạn chót?", pushed.getFirst().text(), "renamed in Bot Creator since the bot was added");
+    }
+
+    @Test
+    void aSenderWithoutADisplayNameIsKnownByTheirName() throws Exception {
+        var message = ZaloUpdates.message(connection(Map.of()), null, JSON.readTree("""
+                {"event_name":"message.text.received","message":{"from":{"id":"u-1","name":"Lan"},
+                 "chat":{"id":"u-1","chat_type":"PRIVATE"},"text":"hi","message_id":"m-9"}}"""));
+        assertEquals("Lan", message.senderName());
+    }
+
+    @Test
+    void theSecretIsCheckedFromTheHeadersAlone() {
+        answer("setWebhook", 200, "{\"ok\":true,\"result\":{\"url\":\"x\",\"verification\":{\"ok\":true}}}");
+        var webhook = adapter.open(connection(Map.of("transport", "WEBHOOK")), TOKEN, _ -> { }).webhook().orElseThrow();
+        webhook.register();
+        String secret = calls("setWebhook").getFirst().body().path("secret_token").asString("");
+        assertTrue(webhook.authorized(Map.of(ZaloChannelAdapter.SECRET_HEADER, secret)));
+        assertFalse(webhook.authorized(Map.of(ZaloChannelAdapter.SECRET_HEADER, secret.substring(1))));
+        assertFalse(webhook.authorized(Map.of()));
+    }
+
+    @Test
+    void theDaysChecksSpentLeaveTheAddressSetOnlyWhenTheyRanOutOnTheCheck() {
+        var connection = connection(Map.of("transport", "WEBHOOK"));
+        answer("setWebhook", 200, "{\"ok\":false,\"error_code\":426}");
+        var refused = adapter.open(connection, TOKEN, _ -> { }).webhook().orElseThrow();
+        assertEquals("CHANNEL_PROVIDER_UNAVAILABLE", assertThrows(ChannelException.class, refused::register).code(),
+                "no address was set, so the opening fails and is tried again");
+
+        answers.clear();
+        answer("setWebhook", 200, "{\"ok\":true,\"result\":{\"url\":\"x\"}}");
+        answer("testWebhook", 200, "{\"ok\":false,\"error_code\":426}");
+        var set = adapter.open(connection, TOKEN, _ -> { }).webhook().orElseThrow();
+        set.register();
+    }
+
+    @Test
+    void aWebhookNeedsAnHttpsAddress() {
+        webUrl = "http://memoryos.internal";
+        assertEquals(Map.of("transport", "POLLING"), adapter.settings(Map.of()));
+        assertEquals("CHANNEL_WEB_URL_MISSING", code(() -> adapter.settings(Map.of("transport", "WEBHOOK"))));
+        assertEquals("CHANNEL_WEB_URL_MISSING",
+                code(() -> adapter.open(connection(Map.of("transport", "WEBHOOK")), TOKEN, _ -> { })));
+    }
+
+    @Test
+    void anAnswerCutShortKeepsWhatWasSentAndSaysTheRestIsMissing() throws Exception {
+        var connection = connection(Map.of("transport", "POLLING"));
+        answer("getUpdates", 408, "{\"ok\":false,\"error_code\":408}");
+        var transport = adapter.open(connection, TOKEN, _ -> { });
+        var question = ZaloUpdates.message(connection, "Bot MemoryOS",
+                JSON.readTree(update(ZaloUpdates.TEXT, "PRIVATE", "hỏi", false)));
+        answer("sendMessage", 200, "{\"ok\":true,\"result\":{\"message_id\":\"m-1\"}}");
+        answer("sendMessage", 500, "{\"ok\":false,\"error_code\":500}");
+
+        String long1 = "Đoạn một. ".repeat(150).strip();
+        String long2 = "Đoạn hai. ".repeat(150).strip();
+        var incomplete = assertThrows(ChannelReply.Incomplete.class,
+                () -> adapter.reply(connection, question, "…").finish(List.of(long1, long2), List.of(), null));
+        assertEquals("m-1", incomplete.lastSent());
+        transport.close();
+    }
+
+    @Test
+    void theTypingMarkStopsAtItsLimitWhateverBecomesOfTheAnswer() throws Exception {
+        var clock = new Clock() {
+            private Instant now = Instant.parse("2026-10-15T10:00:00Z");
+
+            @Override
+            public ZoneId getZone() {
+                return ZoneOffset.UTC;
+            }
+
+            @Override
+            public Clock withZone(ZoneId zone) {
+                return this;
+            }
+
+            @Override
+            public synchronized Instant instant() {
+                Instant current = now;
+                now = now.plus(ZaloChannelAdapter.TYPING_AT_MOST.plusSeconds(1));
+                return current;
+            }
+        };
+        var bounded = new ZaloChannelAdapter(baseUrl, () -> webUrl, clock);
+        var connection = connection(Map.of("transport", "POLLING"));
+        answer("getUpdates", 408, "{\"ok\":false,\"error_code\":408}");
+        var transport = bounded.open(connection, TOKEN, _ -> { });
+        var question = ZaloUpdates.message(connection, "Bot MemoryOS",
+                JSON.readTree(update(ZaloUpdates.TEXT, "PRIVATE", "hỏi", false)));
+
+        bounded.reply(connection, question, "…");
+        Thread.sleep(ZaloChannelAdapter.TYPING_EVERY.toMillis() + 1_000);
+
+        assertTrue(calls("sendChatAction").size() <= 1, "an answer never finished is not marked past the limit");
+        transport.close();
+        bounded.close();
+    }
+
+    @Test
+    void zalosMarkdownGetsTextItShows() {
+        var question = new ChannelMessage(UUID.randomUUID(), "m", "u", ChannelMessage.Kind.DIRECT, "u", "Hà", null, true,
+                ChannelMessage.Type.TEXT, "q", null);
+        var messages = ZaloChannelAdapter.messages(question,
+                List.of("## Kết quả\n\nXem [báo cáo](https://memoryos.example/r/(2026)) và `mã`.\n\n| Quý | Doanh thu |\n|---|---|\n| Q1 | 10 |"),
+                List.of(), null);
+        assertEquals("**Kết quả**\n\nXem báo cáo (https://memoryos.example/r/(2026)) và mã.\n\nQuý: Q1\nDoanh thu: 10",
+                messages.getFirst());
+    }
+
+    private static void waitFor(BooleanSupplier condition) throws InterruptedException {
+        long until = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (!condition.getAsBoolean() && System.nanoTime() < until) Thread.sleep(20);
     }
 
     @Test

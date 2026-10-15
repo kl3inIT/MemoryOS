@@ -16,7 +16,15 @@ public interface ChannelWebhook {
     }
 
     /**
-     * Checks that a request comes from the provider, before reading its body, and reads the messages it carries.
+     * Whether a request comes from the provider, by its headers alone, so that a stranger's body is never read.
+     *
+     * @param headers the request's headers, names in lower case
+     */
+    boolean authorized(Map<String, String> headers);
+
+    /**
+     * Reads the messages an authorized request carries; it checks the headers again, so a body is never read for a
+     * request that is not the provider's.
      *
      * @param headers the request's headers, names in lower case
      * @return the messages, possibly none; empty when the request is not the provider's

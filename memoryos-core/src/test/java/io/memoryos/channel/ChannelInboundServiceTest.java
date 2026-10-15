@@ -488,6 +488,61 @@ class ChannelInboundServiceTest {
     }
 
     @Test
+    void aGroupMessageThatOnlyNamesTheBotIsLeftUnansweredWithoutANotice() throws Exception {
+        service.receive(group("e1", "ou_ha", "   ", true, null));
+
+        assertEquals("REFUSED:EMPTY", outcome("e1") + ":" + reason("e1"));
+        assertTrue(adapter.notices.isEmpty(), "the group is not told anything");
+        verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void anUnlinkedSenderInAGroupIsToldOnlyToMessageTheBotDirectly() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, false, 2_000);
+        service.receive(new ChannelMessage(connection, "g1", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_guest", null, null, true,
+                ChannelMessage.Type.TEXT, "Leave policy?", null));
+
+        assertEquals("REFUSED:LINK_REQUIRED", outcome("g1") + ":" + reason("g1"));
+        assertEquals(List.of("Message the assistant directly to link your account."), adapter.notices,
+                "the linking instructions are not posted for the whole group");
+    }
+
+    @Test
+    void anAnswerSentInPartKeepsWhatWasSentAndTellsTheSenderTheRestIsMissing() throws Exception {
+        adapter.finishFailure = new ChannelReply.Incomplete("sent-1");
+        service.receive(direct("m1", "ou_ha", "Question", null));
+
+        assertEquals("FAILED:ANSWER_INCOMPLETE", outcome("m1") + ":" + reason("m1"));
+        assertEquals("The answer was not sent in full. Ask again.", adapter.notices.getLast());
+        assertEquals("sent-1", jdbc.sql("SELECT reply_external_message_id FROM channel_messages WHERE external_message_id = 'm1'")
+                .query(String.class).single(), "a reply to what was sent continues the conversation");
+    }
+
+    @Test
+    void whateverFailsOnceTheReplyIsOpenEndsTheReply() throws Exception {
+        adapter.finishFailure = ChannelException.providerQuota();
+        service.receive(direct("m1", "ou_ha", "Question", null));
+
+        assertEquals("FAILED:CHANNEL_PROVIDER_QUOTA", outcome("m1") + ":" + reason("m1"));
+        assertTrue(adapter.replies.getLast().startsWith("fail:"), "the reply, and its typing mark, are ended: " + adapter.replies);
+    }
+
+    @Test
+    void claimsAnEndedProcessLeftUnsettledAreSettledAsInterrupted() throws Exception {
+        assertTrue(inbound.claim(tenant, direct("old", "ou_ha", "Question", null)));
+        jdbc.sql("UPDATE channel_messages SET received_at = now() - INTERVAL '20 minutes' WHERE external_message_id = 'old'").update();
+        assertTrue(inbound.claim(tenant, direct("new", "ou_ha", "Question", null)));
+        service.receive(direct("done", "ou_ha", "Question", null));
+        jdbc.sql("UPDATE channel_messages SET received_at = now() - INTERVAL '20 minutes' WHERE external_message_id = 'done'").update();
+
+        assertEquals(1, service.settleAbandoned(Instant.now().minus(Duration.ofMinutes(10))));
+
+        assertEquals("FAILED:INTERRUPTED", outcome("old") + ":" + reason("old"));
+        assertEquals("RECEIVED", outcome("new"), "a recent claim may still be in hand");
+        assertEquals("ANSWERED", outcome("done"), "a settled message is left as it ended");
+    }
+
+    @Test
     void aSenderPastTheMinutesRateIsToldToWait() throws Exception {
         adapter.emails.put("ou_ha", "ha@tasco.vn");
         for (int i = 1; i <= 11; i++) service.receive(direct("m" + i, "ou_ha", "Question " + i, null));
@@ -576,6 +631,8 @@ class ChannelInboundServiceTest {
         final List<String> acknowledged = new ArrayList<>();
         int emailLookups;
         ChannelFeatures features = new ChannelFeatures(true, true, true, 150_000);
+        /** What finishing the reply throws, when a test makes it fail. */
+        @Nullable RuntimeException finishFailure;
 
         @Override public ChannelProvider provider() { return ChannelProvider.LARK; }
 
@@ -593,6 +650,7 @@ class ChannelInboundServiceTest {
 
                 @Override
                 public String finish(List<String> pieces, List<Source> sources, @Nullable String footer) {
+                    if (finishFailure != null) throw finishFailure;
                     replies.add("finish:" + String.join("|", pieces) + "|footer=" + footer);
                     String id = "reply-to-" + message.messageId();
                     replyIds.add(id);

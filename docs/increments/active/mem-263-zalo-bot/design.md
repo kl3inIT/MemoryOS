@@ -201,6 +201,47 @@ Decided while building plan step 4, against the text above:
 - **A quick empty poll waits a second.** A `getUpdates` that answers empty in under a second waits one second before
   the next, so a Zalo that does not hold the poll is not called in a tight loop.
 
+## What a real bot showed (2026-10-15)
+
+Probed with the owner's bot over polling, from a direct chat and a group of three members (plan step 1):
+
+- `getMe` answers `id`, `account_name` (a handle such as `bot.iKSmBtrB`), `display_name` (`Bot MemoryOS`),
+  `account_type` and `can_join_groups`. Members type the display name after @, so the bot's name is its display name.
+- A poll answers one update as an object, not a list. With nothing waiting, `getUpdates` sometimes answers `408` at
+  once instead of holding the poll.
+- `deleteWebhook` answers `400` and `getWebhookInfo` answers `404` when no webhook is set.
+- A photo arrives with `photo_url` (not `photo`) and `caption`, a sticker with `sticker` and `url`; both carry
+  `message_type` (`CHAT_PHOTO`, `CHAT_STICKER`). Updates are not ordered: a photo sent before a sticker arrived after it.
+- In a group only messages that name the bot arrive; a message without the mention, `@all` and a reply to another
+  message did not. The mention is plain text, `@Bot MemoryOS alo`, with no entity; a group's id reads `zgr-…`.
+- `parse_mode: markdown` renders bold, italic and bullet lists; `[text](url)` shows as typed with the address made
+  tappable; backticks are dropped. 2,000 characters are sent and 2,001 refused (`400 The text must not exceed 2000
+  characters`). `sendChatAction` `typing` is accepted.
+
+What changed from it, with what OpenClaw's and GoClaw's Zalo code taught (read in `tmp/refs`, 2026-10-15):
+
+- The name is the display name, read again at each opening; the mention is matched whole, ignoring case, on NFC text.
+- Every group message addresses the bot; one that is only the mention is settled `EMPTY` with no notice (OpenClaw
+  drops blank text).
+- An unlinked sender in a group is told only to message the bot directly (OpenClaw issues pairing in direct messages
+  only).
+- The answer, its sources and its closing line are made text Zalo shows: links and images their text and address,
+  code its text, headings bold lines, tables one `header: value` line a cell, quotes their text (both references
+  strip or convert the same; OpenClaw converts tables).
+- Typing is a 5-second call off the caller's thread (OpenClaw's typing timeout) and stops after 60 seconds whatever
+  becomes of the answer (GoClaw's typing limit); whatever fails once the reply is open ends it.
+- A polled message is claimed on the poll's thread before it is answered, since Zalo keeps nothing once it handed it
+  over; the webhook route asks the webhook about the secret header before it reads a body (OpenClaw checks auth before
+  the body).
+- A 426 from `setWebhook` fails the opening; only a check skipped for the day's checks spent after the address was set
+  is tolerated.
+- A sender without `display_name` is known by `name` (OpenClaw); a captioned photo is asked by its caption with a note
+  that the image was not read (OpenClaw and GoClaw read captions).
+- An answer cut short keeps what was sent, records its last id, and says the rest is missing (OpenClaw keeps the ids of
+  pieces Zalo accepted).
+- Claims an ended process never settled are settled `FAILED`/`INTERRUPTED` by the receiving process's pass, once they
+  are ten minutes old and older than the process (OpenClaw recovers its spooled events).
+
 ## Not in scope
 
 - Zalo OA, Telegram, WhatsApp, a Zalo personal account; images, stickers and voice (the text-only notice, as Lark).
@@ -209,8 +250,9 @@ Decided while building plan step 4, against the text above:
 
 ## Risks
 
-- Group behaviour is beta and undocumented: whether every group message or only a mention arrives, and how the
-  mention reads. Settled by probing the owner's bot (plan step 1); until then a group message is addressed only when
-  it names the bot.
 - Webhook retries and ordering are undocumented; the claim deduplicates.
 - The quota is per month and per bot; a busy pilot stops answering until the month ends.
+- The webhook route has no rate limit of its own (OpenClaw allows 120 requests a minute per path and address); a
+  request without the secret is refused before its body is read.
+- The webhook secret is made for each opening and kept in memory, so one process holds a bot; a second
+  `memoryos-channels` replica would need a shared secret.

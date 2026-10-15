@@ -95,7 +95,10 @@ direct message (`GROUP_FOOTER_DIRECT`). `reply(connection, message)` opens a `Ch
 the provider can: `append` text as it is written, called only when the reply can be rewritten; then
 `finish(pieces, sources, footer)`, given the whole answer as one piece when the reply can be rewritten and otherwise
 cut by `ChannelText.pieces` at `maxText` (at the last paragraph, line, sentence or space that fits), returning the
-provider's id of the answer's last message; or `fail(notice)`. `notice` sends one short message; `sender` answers
+provider's id of the answer's last message, or throwing `ChannelReply.Incomplete` with the last id sent when some
+of its messages reached the chat and a later one did not (the sender is told the rest is missing, `INCOMPLETE`, and
+the message settles `FAILED`/`ANSWER_INCOMPLETE` with that id); or `fail(notice)`. Whatever fails once the reply is
+open ends it with `fail`. `notice` sends one short message; `sender` answers
 a `ChannelSender` with the e-mail the provider holds, if any; `externalChat` says whether people outside the
 organisation read a chat, false for a provider without organisations. It hands over a `ChannelMessage`: the
 provider's message id, the chat and whether it is `DIRECT` or `GROUP`, the sender, the sender's organisation and
@@ -103,7 +106,8 @@ the bot's as the provider names them (none for a provider without organisations)
 `TEXT` or `OTHER`, the text without the bot's mention, and the message it replies to.
 `open(connection, secret, receiver)` starts receiving for one bot and returns a `ChannelTransport` (`connected()`,
 `close()`), which either keeps a connection of its own or names the `ChannelWebhook` the provider pushes to:
-`accept(headers, body)` checks the provider's secret before it reads the body and reads the messages, and
+`authorized(headers)` checks the provider's secret from the headers alone, `accept(headers, body)` reads the messages
+of an authorized request, and
 `register()` gives the provider the webhook's address (`ChannelWebhook.path`, `/hooks/channels/<connection id>`
 under the public address) once it is served, failing with `CHANNEL_WEBHOOK_UNREACHABLE` when the provider's check
 of the address did not arrive. The adapter acknowledges each message to the provider and hands it to the receiver,
@@ -115,30 +119,40 @@ states organisations, a reply it rewrites and 150,000 characters; Zalo's is belo
 `ZaloChannelAdapter`, in `memoryos-integration-zalo` ([MEM-263](../increments/active/mem-263-zalo-bot/design.md)),
 calls the Zalo Bot Platform (`memoryos.zalo.base-url`, `https://bot-api.zaloplatforms.com/bot<token>/<method>`)
 through an `@HttpExchange` client on `shared.OutboundHttp`, since no SDK is maintained: 15 seconds a call, 45 for a
-poll, 1 MiB. A failure is known by Zalo's `error_code`, else the status; its text, the address that holds the token
-and the cause are never kept. Zalo states no organisations, no reply it rewrites and 2,000 characters.
+poll, 5 for the typing mark, 1 MiB. A failure is known by Zalo's `error_code`, else the status; its text, the
+address that holds the token and the cause are never kept. Zalo states no organisations, no reply it rewrites and
+2,000 characters. What a real bot showed is recorded in the
+[increment's design](../increments/active/mem-263-zalo-bot/design.md#what-a-real-bot-showed-2026-10-15).
 
-- **A bot** is its token from Zalo Bot Creator; `getMe` names it. Its one setting is how it receives: `WEBHOOK`
-  where the deployment has a public address (`memoryos.channel.web-url`), which is then the default, else
-  `POLLING`; `WEBHOOK` without that address is `CHANNEL_WEB_URL_MISSING`.
+- **A bot** is its token from Zalo Bot Creator; `getMe` names it by its display name, which members type after @,
+  else its account name. Its one setting is how it receives: `WEBHOOK` where the deployment has a public HTTPS
+  address (`memoryos.channel.web-url`), which is then the default, else `POLLING`; `WEBHOOK` without such an address
+  is `CHANNEL_WEB_URL_MISSING`. Each opening reads the display name again, since it can be renamed in Bot Creator.
 - **Webhook.** Each opening makes a secret of 32 random bytes kept in memory; `register()` calls `setWebhook` with
   the bot's address and that secret and reads Zalo's check of the address from its answer (`testWebhook` when the
-  answer carries none; a day's checks spent, `426`, is not held against the bot); a failed check is
-  `CHANNEL_WEBHOOK_UNREACHABLE` with Zalo's outcome (`webhook.err.dns` and the like) in its diagnostic. A request is
-  Zalo's when its `X-Bot-Api-Secret-Token` equals the secret, compared in constant time; a body of Zalo's that is no
-  message is accepted and carries none. The transport asks `getWebhookInfo` at most once a minute whether the
-  address is still this one, and `close()` calls `deleteWebhook`.
-- **Polling.** Opening calls `deleteWebhook`, since Zalo serves no poll while a webhook is set, then one virtual
-  thread polls `getUpdates` (30-second wait; `408` is an empty poll; an empty answer sooner than a second waits a
-  second; errors back off from one second to a minute); a refused token stops it, and the supervisor opens it again.
-- **A message** is `{event_name, message}`: `message.text.received` is `TEXT`, any other event `OTHER`; a sender
-  Zalo marks as a bot is dropped. A `PRIVATE` chat is direct; in a `GROUP` (Zalo's beta) the bot is addressed when
-  the text names it as `@<bot name>`, which is removed; Zalo documents no mention, which the probe of plan step 1
-  settles. No sender e-mail, no external chat.
-- **The reply** sends Zalo's typing mark at once and every four seconds until it ends. `finish` sends the pieces
-  with `parse_mode: markdown`, the first after the asker's name in a group (Zalo has no quote), the sources as a
-  numbered list of links and the closing line after the last piece or as a message of their own, none longer than
-  2,000 characters; markdown Zalo refuses is sent again as plain text. `fail` and a notice are plain messages;
+  answer carries none; a day's checks spent, `426`, on that check is not held against the bot, but a `426` from
+  `setWebhook` itself leaves no address set and fails the opening); a failed check is `CHANNEL_WEBHOOK_UNREACHABLE`
+  with Zalo's outcome (`webhook.err.dns` and the like) in its diagnostic. A request is Zalo's when its
+  `X-Bot-Api-Secret-Token` equals the secret, compared in constant time from the headers before any body is read; a
+  body of Zalo's that is no message is accepted and carries none. The transport asks `getWebhookInfo` at most once a
+  minute whether the address is still this one (`404` is none), and `close()` calls `deleteWebhook`.
+- **Polling.** Opening calls `deleteWebhook` (`400` when none is set is no failure), since Zalo serves no poll while
+  a webhook is set, then one virtual thread polls `getUpdates` (30-second wait; one update an answer, as an object;
+  `408` is an empty poll; an empty answer sooner than a second waits a second; errors back off from one second to a
+  minute); a refused token stops it, and the supervisor opens it again.
+- **A message** is `{event_name, message}`: `message.text.received` is `TEXT`; `message.image.received` with a
+  caption is `TEXT`, the caption followed by a note that the image was not read; any other event `OTHER`; a sender
+  Zalo marks as a bot is dropped, and a sender without `display_name` is known by `name`. A `PRIVATE` chat is
+  direct. In a `GROUP` (Zalo's beta) Zalo pushes only messages that name the bot, so every group message addresses
+  it; the mention is plain text, `@<display name>`, removed where it is found whole (ignoring case, on NFC text, the
+  name ending at a space, punctuation or the end). No sender e-mail, no external chat.
+- **The reply** sends Zalo's typing mark at once and every four seconds, off the caller's thread, until it ends and
+  for 60 seconds at most. `finish` joins the pieces with the sources (a numbered list of titles and bare addresses)
+  and the closing line, makes them text Zalo shows (`ZaloText`: a link or image its text and address, code its text,
+  a heading a bold line, a table one `header: value` line a cell, a quote its text; bold, italic and lists kept, since
+  Zalo renders them), cuts the whole at 2,000 characters, puts the asker's name before the first in a group (Zalo has
+  no quote) and sends each with `parse_mode: markdown`; markdown Zalo refuses is sent again as plain text, and a
+  message that fails after others were sent is `ChannelReply.Incomplete`. `fail` and a notice are plain messages;
   `acknowledge` is the typing mark. Zalo's `429` is `CHANNEL_PROVIDER_QUOTA`, the bot's plan spent.
 
 ## The Lark adapter
@@ -182,10 +196,14 @@ recorded and tried again at the next pass, except a webhook the provider could n
 public address (`CHANNEL_WEBHOOK_UNREACHABLE`, `CHANNEL_WEB_URL_MISSING`), which wait for the bot's next revision
 rather than spend the provider's daily checks. The secret is decrypted for the open only and the buffer cleared.
 A transport with a webhook is served before its `register()` runs, so the provider's check reaches it;
-`deliver(id, headers, body)` hands a pushed request to that webhook (`UNKNOWN` when no bot here receives over HTTP,
-`REFUSED` when it is not the provider's) and claims each message before it returns, so the provider is answered
-only once its messages are recorded. Each message is answered on a virtual thread of its own. Stopping closes every
-connection, then waits up to 30 seconds for the answers in progress.
+`authorize(id, headers)` asks that webhook about the headers before the route reads a body (`UNKNOWN` when no bot
+here receives over HTTP, `REFUSED` when it is not the provider's), and `deliver(id, headers, body)` hands the
+request to it and claims each message before it returns, so the provider is answered only once its messages are
+recorded. A message a transport hands over itself, as a poll, is claimed on the transport's thread the same way,
+since a provider that polls keeps nothing once it has handed a message over. Each message is answered on a virtual
+thread of its own. Every pass also settles as `FAILED`/`INTERRUPTED` the messages claimed before this process began
+and at least ten minutes ago that were never settled, which only a process that ended while handling them leaves.
+Stopping closes every connection, then waits up to 30 seconds for the answers in progress.
 
 ## The process
 
@@ -214,7 +232,8 @@ acknowledged it to the provider:
 3. It is refused with a notice when the sender's organisation is not the organisation the event names for the
    bot's app, or not the one recorded for the bot when one is (`OUTSIDER`; an event that names neither admits
    nobody), when it is not text (`NOT_TEXT`) or when the group has people outside the organisation
-   (`EXTERNAL_GROUP`). A provider without organisations admits only a linked sender instead
+   (`EXTERNAL_GROUP`). A group message that only names the bot, empty once the mention is removed, is refused without
+   a notice (`EMPTY`). A provider without organisations admits only a linked sender instead
    ([linked accounts](#linked-accounts)).
 4. The sender's account is the one they linked on this bot; else the one active person whose verified e-mail
    equals the e-mail the provider holds ([identity](identity.md#account-classification-and-group-authority)),
@@ -265,8 +284,9 @@ account on it to their MemoryOS account ([MEM-263](../increments/active/mem-263-
   and nothing of the platform account, the code or a message. A link removed with the membership or the bot is not
   audited apart from that removal.
 - **Who is answered.** A linked sender is answered as any member is: as themself in a direct message, as the bot in
-  a group. A sender who is not linked is told how to link (`LINK_REQUIRED`), at most once a minute (later
-  messages settle `LINK_REQUIRED_QUIET` without a notice), and is not answered, in a group too. A provider without
+  a group. A sender who is not linked is told how to link (`LINK_REQUIRED`) in a direct message and, in a group,
+  only to message the bot directly (`LINK_IN_DIRECT`), so the instructions are not posted for everyone; at most once
+  a minute (later messages settle `LINK_REQUIRED_QUIET` without a notice); and is not answered, in a group too. A provider without
   organisations knows a sender only by the link: no e-mail and no remembered identity is read, and a link removed
   while a message is handled leaves it unanswered rather than answered as the bot.
 - **Guessing.** Every code an unlinked sender sends in a direct message is an attempt: it is recorded on its message

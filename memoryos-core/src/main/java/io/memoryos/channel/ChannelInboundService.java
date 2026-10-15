@@ -162,6 +162,10 @@ public class ChannelInboundService {
                 > properties.senderRate()) {
             return new Refusal("RATE_LIMITED", ChannelNotice.RATE);
         }
+        // Naming the bot with nothing to ask says nothing to answer, so the group is not told anything either.
+        if (message.kind() == ChannelMessage.Kind.GROUP && message.type() == ChannelMessage.Type.TEXT && message.text().isBlank()) {
+            return new Refusal("EMPTY", null);
+        }
         if (message.type() != ChannelMessage.Type.TEXT || message.text().isBlank()) {
             return new Refusal("NOT_TEXT", ChannelNotice.TEXT_ONLY);
         }
@@ -224,11 +228,19 @@ public class ChannelInboundService {
         }
         if (linked) return null;
         if (links.noticeDue(connection.id(), sender)) {
-            refuse(connection, adapter, message, new Refusal(ChannelLinkService.LINK_REQUIRED, ChannelNotice.LINK_REQUIRED));
+            refuse(connection, adapter, message, new Refusal(ChannelLinkService.LINK_REQUIRED, linkNotice(message)));
         } else {
             refuse(connection, adapter, message, new Refusal("LINK_REQUIRED_QUIET", null));
         }
         return "REFUSED";
+    }
+
+    /**
+     * How a sender is told to link: in a direct message, how; in a group, only to message the bot directly, where the
+     * instructions are not posted for everyone.
+     */
+    private static ChannelNotice linkNotice(ChannelMessage message) {
+        return message.kind() == ChannelMessage.Kind.DIRECT ? ChannelNotice.LINK_REQUIRED : ChannelNotice.LINK_IN_DIRECT;
     }
 
     /**
@@ -252,7 +264,7 @@ public class ChannelInboundService {
         boolean direct = message.kind() == ChannelMessage.Kind.DIRECT;
         // A link removed since it was checked: the sender is no longer anyone here, and is not answered as the bot.
         if (sender == null && !adapter.features().organisations()) {
-            refuse(connection, adapter, message, new Refusal(ChannelLinkService.LINK_REQUIRED, ChannelNotice.LINK_REQUIRED));
+            refuse(connection, adapter, message, new Refusal(ChannelLinkService.LINK_REQUIRED, linkNotice(message)));
             return false;
         }
         // A direct message is the sender's own; a group's answer is read by everyone in it, so it is the bot's.
@@ -276,30 +288,65 @@ public class ChannelInboundService {
                     }));
         } catch (RuntimeException failure) {
             var notice = noticeFor(failure);
-            if (opened.get() != null) opened.get().fail(notice.in(connection.noticeLanguage()));
-            else notice(connection, adapter, message, notice);
+            if (opened.get() != null) {
+                try {
+                    opened.get().fail(notice.in(connection.noticeLanguage()));
+                } catch (RuntimeException undelivered) {
+                    LOG.atWarn().addKeyValue("event", "channel.notice.failed").addKeyValue("provider", connection.provider())
+                            .addKeyValue("error_type", undelivered.getClass().getName()).log("Channel notice was not delivered");
+                }
+            } else {
+                notice(connection, adapter, message, notice);
+            }
             fail(connection, message, session, codeOf(failure), failure);
             return false;
         }
         var reply = Objects.requireNonNull(opened.get(), "the reply was not opened");
-        if (direct) inbound.keep(tenant, connection.id(), message.chatId(), message.senderId(), answer.session(), now);
-        if (answer.status() != ChatMessage.Status.COMPLETED) {
-            var notice = "CHAT_CAPACITY_EXCEEDED".equals(answer.failureCode()) ? ChannelNotice.BUSY : ChannelNotice.FAILED;
-            reply.fail(notice.in(connection.noticeLanguage()));
-            inbound.settle(connection.id(), message.messageId(), "FAILED",
-                    answer.failureCode() == null ? answer.status().name() : answer.failureCode(), answer.session(),
-                    answer.assistantMessage(), null);
+        var answered = answer;
+        // From here the reply is open, so whatever fails ends it, and its typing mark with it, in the sender's sight.
+        try {
+            if (direct) inbound.keep(tenant, connection.id(), message.chatId(), message.senderId(), answered.session(), now);
+            if (answered.status() != ChatMessage.Status.COMPLETED) {
+                var notice = "CHAT_CAPACITY_EXCEEDED".equals(answered.failureCode()) ? ChannelNotice.BUSY : ChannelNotice.FAILED;
+                reply.fail(notice.in(connection.noticeLanguage()));
+                inbound.settle(connection.id(), message.messageId(), "FAILED",
+                        answered.failureCode() == null ? answered.status().name() : answered.failureCode(), answered.session(),
+                        answered.assistantMessage(), null);
+                return false;
+            }
+            var pieces = features.editsReply() ? List.of(answered.text()) : ChannelText.pieces(answered.text(), features.maxText());
+            var sources = sources(answered.sources());
+            var footer = footer(connection, features, direct, sender, answered.session());
+            String replyId;
+            try {
+                replyId = step("finish", () -> reply.finish(pieces, sources, footer));
+            } catch (ChannelReply.Incomplete partly) {
+                // What was sent stays, a reply to it continues the conversation, and the sender is told the rest is missing.
+                notice(connection, adapter, message, ChannelNotice.INCOMPLETE);
+                inbound.settle(connection.id(), message.messageId(), "FAILED", "ANSWER_INCOMPLETE", answered.session(),
+                        answered.assistantMessage(), partly.lastSent());
+                return false;
+            }
+            inbound.settle(connection.id(), message.messageId(), "ANSWERED", null, answered.session(),
+                    answered.assistantMessage(), replyId);
+        } catch (RuntimeException failure) {
+            try {
+                reply.fail(noticeFor(failure).in(connection.noticeLanguage()));
+            } catch (RuntimeException undelivered) {
+                LOG.atWarn().addKeyValue("event", "channel.notice.failed").addKeyValue("provider", connection.provider())
+                        .addKeyValue("error_type", undelivered.getClass().getName()).log("Channel notice was not delivered");
+            }
+            fail(connection, message, answered.session(), codeOf(failure), failure);
             return false;
         }
-        var answered = answer;
-        var pieces = features.editsReply() ? List.of(answered.text()) : ChannelText.pieces(answered.text(), features.maxText());
-        String replyId = step("finish", () -> reply.finish(pieces, sources(answered.sources()),
-                footer(connection, features, direct, sender, answered.session())));
-        inbound.settle(connection.id(), message.messageId(), "ANSWERED", null, answer.session(), answer.assistantMessage(),
-                replyId);
         LOG.atInfo().addKeyValue("event", "channel.message.answered").addKeyValue("provider", connection.provider())
                 .log("Channel message answered");
         return true;
+    }
+
+    /** Settles what an ended process claimed and never settled, claimed before {@code before}; how many. */
+    int settleAbandoned(Instant before) {
+        return inbound.settleAbandoned(before);
     }
 
     /**

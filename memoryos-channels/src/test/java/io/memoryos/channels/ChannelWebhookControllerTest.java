@@ -19,7 +19,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-/** MEM-263: the route a platform pushes to answers as the bot's webhook judged the request, after the claim. */
+/**
+ * MEM-263: the route a platform pushes to asks the bot's webhook about the headers before it reads a body, and answers
+ * as the webhook judged the request, after the claim.
+ */
 class ChannelWebhookControllerTest {
     private static final UUID BOT = UUID.fromString("0af099b0-b70f-455d-af56-a05a53bbc7c5");
     private final ChannelSupervisor supervisor = mock(ChannelSupervisor.class);
@@ -32,30 +35,34 @@ class ChannelWebhookControllerTest {
 
     @Test
     void aRequestTheWebhookAcceptsIsAnsweredOnceItsMessagesAreClaimed() throws Exception {
+        when(supervisor.authorize(eq(BOT), any())).thenReturn(ChannelSupervisor.Delivery.ACCEPTED);
         when(supervisor.deliver(eq(BOT), any(), any())).thenReturn(ChannelSupervisor.Delivery.ACCEPTED);
 
         mvc.perform(post("/hooks/channels/" + BOT).header("X-Bot-Api-Secret-Token", "s3cret")
                         .content("{\"ok\":true}".getBytes(StandardCharsets.UTF_8)))
                 .andExpect(status().isOk());
 
+        verify(supervisor).authorize(eq(BOT), argThat(headers -> "s3cret".equals(headers.get("x-bot-api-secret-token"))));
         verify(supervisor).deliver(eq(BOT), argThat(headers -> "s3cret".equals(headers.get("x-bot-api-secret-token"))),
                 argThat(body -> new String(body, StandardCharsets.UTF_8).equals("{\"ok\":true}")));
     }
 
     @Test
-    void aRequestWithoutThePlatformsSecretIsRefusedAndAnUnknownBotIsNotFound() throws Exception {
-        when(supervisor.deliver(eq(BOT), any(), any())).thenReturn(ChannelSupervisor.Delivery.REFUSED);
+    void aRequestWithoutThePlatformsSecretIsRefusedUnreadAndAnUnknownBotIsNotFound() throws Exception {
+        when(supervisor.authorize(eq(BOT), any())).thenReturn(ChannelSupervisor.Delivery.REFUSED);
         mvc.perform(post("/hooks/channels/" + BOT).content("{}")).andExpect(status().isForbidden());
 
         UUID other = UUID.randomUUID();
-        when(supervisor.deliver(eq(other), any(), any())).thenReturn(ChannelSupervisor.Delivery.UNKNOWN);
+        when(supervisor.authorize(eq(other), any())).thenReturn(ChannelSupervisor.Delivery.UNKNOWN);
         mvc.perform(post("/hooks/channels/" + other).content("{}")).andExpect(status().isNotFound());
 
         mvc.perform(post("/hooks/channels/not-a-bot").content("{}")).andExpect(status().isBadRequest());
+        verify(supervisor, never()).deliver(any(), any(), any());
     }
 
     @Test
     void aBodyLargerThanAMessageIsNotRead() throws Exception {
+        when(supervisor.authorize(eq(BOT), any())).thenReturn(ChannelSupervisor.Delivery.ACCEPTED);
         byte[] large = new byte[ChannelWebhookController.MAX_BODY + 1];
         Arrays.fill(large, (byte) 'a');
 

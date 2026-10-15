@@ -2,6 +2,7 @@ package io.memoryos.channel;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -27,6 +28,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -92,14 +95,28 @@ class ChannelSupervisorTest {
         assertEquals(1, adapter.opened.size());
     }
 
+    /** MEM-263: a message is claimed on the transport's thread, so a poll's message is recorded before anything else. */
     @Test
-    void aMessageIsAnsweredOffTheAdaptersThreadAndMarksTheConnection() {
+    void aMessageIsClaimedOnTheAdaptersThreadAndAnsweredOffIt() throws InterruptedException {
         supervisor.start();
         while (adapter.receivers.isEmpty()) Thread.onSpinWait();
         var message = new ChannelMessage(connection, "m1", "oc_chat", ChannelMessage.Kind.DIRECT, "ou_ha", null, new ChannelMessage.Organisations("org", "org"), true,
                 ChannelMessage.Type.TEXT, "Hello", null);
+        var answeredOn = new LinkedBlockingQueue<Thread>();
+        when(inbound.claim(message)).thenReturn(Optional.of(() -> answeredOn.add(Thread.currentThread())));
+
         adapter.receivers.getFirst().accept(message);
-        verify(inbound, timeout(5000)).receive(message);
+
+        verify(inbound).claim(message);
+        var thread = answeredOn.poll(5, TimeUnit.SECONDS);
+        assertNotNull(thread);
+        assertNotEquals(Thread.currentThread(), thread);
+    }
+
+    @Test
+    void eachPassSettlesWhatAnEndedProcessLeftUnsettled() {
+        supervisor.start();
+        verify(inbound, timeout(5000)).settleAbandoned(argThat(before -> !before.isAfter(Instant.now().minus(ChannelSupervisor.ABANDONED))));
     }
 
     @Test
@@ -153,6 +170,10 @@ class ChannelSupervisorTest {
         verify(inbound).claim(argThat(message -> message.text().equals("Hello")));
         assertEquals(ChannelSupervisor.Delivery.REFUSED, supervisor.deliver(connection, Map.of("secret", "x"), new byte[0]));
         assertEquals(ChannelSupervisor.Delivery.UNKNOWN, supervisor.deliver(UUID.randomUUID(), Map.of("secret", "s"), new byte[0]));
+        // The route asks before it reads a body.
+        assertEquals(ChannelSupervisor.Delivery.ACCEPTED, supervisor.authorize(connection, Map.of("secret", "s")));
+        assertEquals(ChannelSupervisor.Delivery.REFUSED, supervisor.authorize(connection, Map.of("secret", "x")));
+        assertEquals(ChannelSupervisor.Delivery.UNKNOWN, supervisor.authorize(UUID.randomUUID(), Map.of("secret", "s")));
 
         jdbc.sql("UPDATE channel_connections SET enabled = FALSE").update();
         supervisor.pass();
@@ -253,8 +274,13 @@ class ChannelSupervisorTest {
     /** Accepts a request whose {@code secret} header is {@code s}; its body is one message's text. */
     private record FakeWebhook(UUID connection, Runnable onRegister) implements ChannelWebhook {
         @Override
+        public boolean authorized(Map<String, String> headers) {
+            return "s".equals(headers.get("secret"));
+        }
+
+        @Override
         public Optional<List<ChannelMessage>> accept(Map<String, String> headers, byte[] body) {
-            if (!"s".equals(headers.get("secret"))) return Optional.empty();
+            if (!authorized(headers)) return Optional.empty();
             if (body.length == 0) return Optional.of(List.of());
             return Optional.of(List.of(new ChannelMessage(connection, "m1", "chat", ChannelMessage.Kind.DIRECT, "u1", null,
                     null, true, ChannelMessage.Type.TEXT, new String(body, StandardCharsets.UTF_8), null)));

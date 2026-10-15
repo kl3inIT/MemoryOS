@@ -53,6 +53,8 @@ public final class ZaloChannelAdapter implements ChannelAdapter, AutoCloseable {
     static final String SECRET_HEADER = "x-bot-api-secret-token";
     /** How often the typing mark is sent again while an answer is written; Zalo does not say how long one lasts. */
     static final Duration TYPING_EVERY = Duration.ofSeconds(4);
+    /** The longest the typing mark is kept up, whatever happens to the answer, as GoClaw bounds its own. */
+    static final Duration TYPING_AT_MOST = Duration.ofSeconds(60);
     /** How often a webhook bot asks Zalo whether its address is still the one set. */
     static final Duration WEBHOOK_CHECK_EVERY = Duration.ofMinutes(1);
     private static final Duration POLL_BACKOFF_MAX = Duration.ofMinutes(1);
@@ -121,13 +123,18 @@ public final class ZaloChannelAdapter implements ChannelAdapter, AutoCloseable {
         }
         ChannelDelivery delivery;
         if (requested.get(ChannelDelivery.SETTING) == null) {
-            delivery = webUrl.get().isEmpty() ? ChannelDelivery.POLLING : ChannelDelivery.WEBHOOK;
+            delivery = reachable(webUrl.get()) ? ChannelDelivery.WEBHOOK : ChannelDelivery.POLLING;
         } else {
             delivery = ChannelDelivery.of(requested)
                     .orElseThrow(() -> ChannelException.invalid("Choose webhook or polling for the bot."));
         }
-        if (delivery == ChannelDelivery.WEBHOOK && webUrl.get().isEmpty()) throw ChannelException.webUrlMissing();
+        if (delivery == ChannelDelivery.WEBHOOK && !reachable(webUrl.get())) throw ChannelException.webUrlMissing();
         return Map.of(ChannelDelivery.SETTING, delivery.name());
+    }
+
+    /** Zalo pushes only to a public HTTPS address, as OpenClaw also requires of its webhook. */
+    private static boolean reachable(String address) {
+        return address.startsWith("https://");
     }
 
     @Override
@@ -135,23 +142,45 @@ public final class ZaloChannelAdapter implements ChannelAdapter, AutoCloseable {
         var bot = new ZaloBot(baseUrl, secret);
         var delivery = ChannelDelivery.of(connection.settings()).orElse(ChannelDelivery.POLLING);
         String address = webUrl.get();
-        if (delivery == ChannelDelivery.WEBHOOK && address.isEmpty()) throw ChannelException.webUrlMissing();
+        if (delivery == ChannelDelivery.WEBHOOK && !reachable(address)) throw ChannelException.webUrlMissing();
+        String name = currentName(bot, connection);
         // Known before the first message arrives, so its reply finds the bot.
         bots.put(connection.id(), bot);
         try {
             return delivery == ChannelDelivery.WEBHOOK
-                    ? new Webhook(connection, bot, address + ChannelWebhook.path(connection.id()))
-                    : new Polling(connection, bot, receiver);
+                    ? new Webhook(connection, name, bot, address + ChannelWebhook.path(connection.id()))
+                    : new Polling(connection, name, bot, receiver);
         } catch (RuntimeException failure) {
             bots.remove(connection.id(), bot);
             throw failure;
         }
     }
 
+    /**
+     * The name members type after @ now: the bot's display name, read again at each opening, since it can be renamed in
+     * Bot Creator after the bot was added; the name stored at the last check when Zalo does not answer.
+     */
+    private static @Nullable String currentName(ZaloBot bot, ChannelConnection connection) {
+        try {
+            String name = bot.me().name();
+            if (name != null && !name.isBlank()) return name;
+        } catch (ZaloApiException unanswered) {
+            if (unanswered.rejected()) throw ChannelException.rejected();
+        }
+        return connection.botName();
+    }
+
+    /** The typing mark, sent on a thread of its own so the caller never waits for Zalo. */
     @Override
     public void acknowledge(ChannelConnection connection, ChannelMessage message) {
+        var bot = bots.get(connection.id());
+        if (bot != null) Thread.ofVirtual().name("zalo-typing").start(() -> mark(bot, message.chatId()));
+    }
+
+    /** Best effort: an answer is sent whether or not the mark shows. */
+    private static void mark(ZaloBot bot, String chatId) {
         try {
-            bot(connection).typing(message.chatId());
+            bot.typing(chatId);
         } catch (RuntimeException unmarked) {
             LOG.atDebug().addKeyValue("event", "channel.acknowledge.failed").addKeyValue("provider", ChannelProvider.ZALO_BOT)
                     .addKeyValue("error_type", unmarked.getClass().getName()).log("Zalo typing mark was not sent");
@@ -207,43 +236,34 @@ public final class ZaloChannelAdapter implements ChannelAdapter, AutoCloseable {
         }
     }
 
-    /** The messages an answer is sent as: its pieces, the first after the asker's name in a group, then its sources and closing line. */
-    static List<String> messages(ChannelMessage question, List<String> pieces, List<ChannelReply.Source> sources,
+    /**
+     * The messages an answer is sent as. Its pieces are joined and made what Zalo shows ({@link ZaloText}) with its
+     * sources and closing line, a link among them as much as in the answer, then cut again at Zalo's length; in a group
+     * the first starts with the asker's name, since Zalo has no quote.
+     */
+    static List<String> messages(ChannelMessage question, List<String> written, List<ChannelReply.Source> sources,
                                  @Nullable String footer) {
-        var texts = new ArrayList<String>();
-        if (question.kind() == ChannelMessage.Kind.GROUP && question.senderName() != null && !pieces.isEmpty()) {
-            // The name goes before the first piece, which is cut again to leave it room.
-            String name = question.senderName().strip() + ": ";
-            var first = ChannelText.pieces(pieces.getFirst(), Math.max(1, MAX_TEXT - name.length()));
-            for (int i = 0; i < first.size(); i++) texts.add(i == 0 ? name + first.get(i) : first.get(i));
-            texts.addAll(pieces.subList(1, pieces.size()));
-        } else {
-            texts.addAll(pieces);
-        }
+        var whole = new StringBuilder(String.join("\n\n", written).strip());
         var tail = new StringBuilder();
         int index = 1;
         for (var source : sources) {
-            String title = source.title().replace("[", "(").replace("]", ")");
-            tail.append(index++).append(". ");
-            if (source.url() != null) tail.append('[').append(title).append("](").append(source.url()).append(')');
-            else tail.append(title);
+            tail.append(index++).append(". ").append(source.title().strip());
+            // A bare address, which Zalo makes tappable.
+            if (source.url() != null) tail.append(": ").append(source.url());
             tail.append('\n');
         }
         if (footer != null && !footer.isBlank()) tail.append('\n').append(footer.strip());
-        String closing = tail.toString().strip();
-        if (!closing.isEmpty()) {
-            if (!texts.isEmpty() && texts.getLast().length() + 2 + closing.length() <= MAX_TEXT) {
-                texts.set(texts.size() - 1, texts.getLast() + "\n\n" + closing);
-            } else {
-                texts.add(closing);
-            }
-        }
-        var out = new ArrayList<String>();
-        for (var text : texts) out.addAll(ChannelText.pieces(text, MAX_TEXT));
-        return out;
+        if (!tail.isEmpty()) whole.append("\n\n").append(tail.toString().strip());
+        String text = ZaloText.plain(whole.toString());
+        String name = question.kind() == ChannelMessage.Kind.GROUP && question.senderName() != null
+                && !question.senderName().isBlank() ? question.senderName().strip() + ": " : "";
+        // The name goes before the first piece; every piece is cut to leave it room, which costs the others a few characters.
+        var texts = new ArrayList<>(ChannelText.pieces(text, MAX_TEXT - name.length()));
+        if (!texts.isEmpty()) texts.set(0, name + texts.getFirst());
+        return List.copyOf(texts);
     }
 
-    /** An answer being written: the typing mark until it is sent. */
+    /** An answer being written: the typing mark until it is sent, and never longer than {@link #TYPING_AT_MOST}. */
     private final class Reply implements ChannelReply {
         private final ZaloBot bot;
         private final ChannelMessage question;
@@ -253,27 +273,19 @@ public final class ZaloChannelAdapter implements ChannelAdapter, AutoCloseable {
         Reply(ZaloBot bot, ChannelMessage question) {
             this.bot = bot;
             this.question = question;
-            // The first mark is sent at once, so even a quick answer shows the bot at work.
-            mark();
             this.typing = Thread.ofVirtual().name("zalo-typing").start(this::type);
         }
 
-        private void mark() {
-            try {
-                bot.typing(question.chatId());
-            } catch (RuntimeException unmarked) {
-                // Best effort: the answer is sent whether or not the mark shows.
-            }
-        }
-
+        /** The first mark at once, so even a quick answer shows the bot at work, then one every few seconds. */
         private void type() {
-            while (!done) {
+            Instant until = clock.instant().plus(TYPING_AT_MOST);
+            while (!done && clock.instant().isBefore(until)) {
+                mark(bot, question.chatId());
                 try {
                     Thread.sleep(TYPING_EVERY);
                 } catch (InterruptedException interrupted) {
                     return;
                 }
-                if (!done) mark();
             }
         }
 
@@ -287,11 +299,21 @@ public final class ZaloChannelAdapter implements ChannelAdapter, AutoCloseable {
             // Zalo cannot rewrite a message, so the capability never streams to it.
         }
 
+        /** Each message sent in turn; one that fails after others reached the chat leaves them and says so. */
         @Override
         public @Nullable String finish(List<String> pieces, List<Source> sources, @Nullable String footer) {
             stop();
             String last = null;
-            for (var text : messages(question, pieces, sources, footer)) last = send(bot, question.chatId(), text, true);
+            boolean sent = false;
+            for (var text : messages(question, pieces, sources, footer)) {
+                try {
+                    last = send(bot, question.chatId(), text, true);
+                    sent = true;
+                } catch (RuntimeException failure) {
+                    if (!sent) throw failure;
+                    throw new ChannelReply.Incomplete(last);
+                }
+            }
             return last;
         }
 
@@ -305,6 +327,7 @@ public final class ZaloChannelAdapter implements ChannelAdapter, AutoCloseable {
     /** Zalo pushes this bot's messages to the deployment, checked with a secret of this opening. */
     private final class Webhook implements ChannelTransport, ChannelWebhook {
         private final ChannelConnection connection;
+        private final @Nullable String name;
         private final ZaloBot bot;
         private final String address;
         private final byte[] secret;
@@ -313,8 +336,9 @@ public final class ZaloChannelAdapter implements ChannelAdapter, AutoCloseable {
         private volatile boolean current = true;
         private volatile Instant checkedAt;
 
-        Webhook(ChannelConnection connection, ZaloBot bot, String address) {
+        Webhook(ChannelConnection connection, @Nullable String name, ZaloBot bot, String address) {
             this.connection = connection;
+            this.name = name;
             this.bot = bot;
             this.address = address;
             byte[] random = new byte[32];
@@ -329,29 +353,49 @@ public final class ZaloChannelAdapter implements ChannelAdapter, AutoCloseable {
             return Optional.of(this);
         }
 
+        /**
+         * Sets the address, then checks Zalo reached it. Only the check may be skipped for the day's checks being spent:
+         * the address is set by then. A 426 from setting the address leaves none set, so the opening fails and is tried
+         * again.
+         */
         @Override
         public void register() {
-            ZaloBot.Check check;
             try {
-                check = bot.setWebhook(address, secretText);
+                var check = bot.setWebhook(address, secretText);
                 registered = true;
-                if (check == null) check = bot.testWebhook();
+                if (check == null) check = testWebhook();
+                if (check != null && !check.ok()) {
+                    throw ChannelException.webhookUnreachable(check.outcome() == null ? "unknown" : check.outcome());
+                }
             } catch (ZaloApiException failure) {
-                if (failure.checksSpent()) return;
                 if (failure.rejected()) throw ChannelException.rejected();
                 throw ChannelException.providerUnavailable();
             }
-            if (!check.ok()) throw ChannelException.webhookUnreachable(check.outcome() == null ? "unknown" : check.outcome());
             checkedAt = clock.instant();
         }
 
-        /** Checks the secret header before the body is read, in constant time. */
+        /** Zalo's check of the address set; null when the day's checks are spent. */
+        private ZaloBot.@Nullable Check testWebhook() {
+            try {
+                return bot.testWebhook();
+            } catch (ZaloApiException failure) {
+                if (failure.checksSpent()) return null;
+                throw failure;
+            }
+        }
+
+        /** The secret header, compared in constant time; nothing else of the request is read. */
+        @Override
+        public boolean authorized(Map<String, String> headers) {
+            String given = headers.get(SECRET_HEADER);
+            return given != null && MessageDigest.isEqual(secret, given.getBytes(StandardCharsets.UTF_8));
+        }
+
         @Override
         public Optional<List<ChannelMessage>> accept(Map<String, String> headers, byte[] body) {
-            String given = headers.get(SECRET_HEADER);
-            if (given == null || !MessageDigest.isEqual(secret, given.getBytes(StandardCharsets.UTF_8))) return Optional.empty();
+            if (!authorized(headers)) return Optional.empty();
             try {
-                return Optional.of(ZaloUpdates.messages(connection, JSON.readTree(body)));
+                return Optional.of(ZaloUpdates.messages(connection, name, JSON.readTree(body)));
             } catch (JacksonException unreadable) {
                 // Zalo's own, but not a message: its check of the address, or a shape not known here.
                 return Optional.of(List.of());
@@ -389,14 +433,16 @@ public final class ZaloChannelAdapter implements ChannelAdapter, AutoCloseable {
     /** This bot asks Zalo for its messages, one long poll after another. */
     private final class Polling implements ChannelTransport {
         private final ChannelConnection connection;
+        private final @Nullable String name;
         private final ZaloBot bot;
         private final Consumer<ChannelMessage> receiver;
         private final Thread loop;
         private volatile boolean closed;
         private volatile boolean failed;
 
-        Polling(ChannelConnection connection, ZaloBot bot, Consumer<ChannelMessage> receiver) {
+        Polling(ChannelConnection connection, @Nullable String name, ZaloBot bot, Consumer<ChannelMessage> receiver) {
             this.connection = connection;
+            this.name = name;
             this.bot = bot;
             this.receiver = receiver;
             try {
@@ -416,7 +462,7 @@ public final class ZaloChannelAdapter implements ChannelAdapter, AutoCloseable {
                     long started = System.nanoTime();
                     var updates = bot.poll();
                     for (var update : updates) {
-                        var message = ZaloUpdates.message(connection, update);
+                        var message = ZaloUpdates.message(connection, name, update);
                         if (message != null) receiver.accept(message);
                     }
                     backoff = Duration.ofSeconds(1);
