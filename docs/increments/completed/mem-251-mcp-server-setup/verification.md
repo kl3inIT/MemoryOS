@@ -8,4 +8,4 @@ Staging, 2026-10-15.
   refreshed the token: credential revision 1 → 2, new expiry 2026-10-16 16:35 UTC, status `ACTIVE`. The turn then
   called `list_teams` and completed. This is the path an hour-old Google token takes.
 - **Not run.** Google Drive MCP on staging: the deployment has no Google OAuth client for it. Owner review of the
-  screens was deferred by the owner on 2026-10-15 ("ui ux để sau"); it is [MEM-273](https://linear.app/memory-os/issue/MEM-273).
+  screens was deferred by the owner on 2026-10-15 ("ui ux để sau"); it is [MEM-274](https://linear.app/memory-os/issue/MEM-274).
