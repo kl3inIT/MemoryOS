@@ -105,11 +105,13 @@ public class JdbcChannelLinkRepository {
                 .list().stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
-    public void unlink(TenantId tenant, UUID connection, ActorId actor) {
-        jdbc.sql("DELETE FROM channel_account_links WHERE tenant_id = :tenant AND connection_id = :connection AND actor_id = :actor")
+    /** Removes the member's link and code for the bot; returns how many links were removed. */
+    public int unlink(TenantId tenant, UUID connection, ActorId actor) {
+        int removed = jdbc.sql("DELETE FROM channel_account_links WHERE tenant_id = :tenant AND connection_id = :connection AND actor_id = :actor")
                 .param("tenant", tenant.value()).param("connection", connection).param("actor", actor.value()).update();
         jdbc.sql("DELETE FROM channel_link_codes WHERE tenant_id = :tenant AND connection_id = :connection AND actor_id = :actor")
                 .param("tenant", tenant.value()).param("connection", connection).param("actor", actor.value()).update();
+        return removed;
     }
 
     /** How many messages of the sender since {@code since} were settled with {@code reason}. */

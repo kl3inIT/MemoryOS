@@ -207,6 +207,10 @@ account on it to their MemoryOS account ([MEM-263](../increments/active/mem-263-
   is not tried at all, so a live code and a wrong one get the same answer. It does not expire; it is removed by the member (`DELETE /api/channel-links/{connectionId}`,
   which also drops their code), with their membership and with the bot, and it is ignored while the member is not
   active. `GET /api/channel-links` lists the Tenant's bots that take a link with the member's own on each.
+- **Audit.** A link is audited as `channel.account_link` and a member's unlinking as `channel.account_unlink`
+  (`ACCOUNT_CHANGE`), each with the member as the actor and the bot (`CHANNEL`, its id and name) as the resource,
+  and nothing of the platform account, the code or a message. A link removed with the membership or the bot is not
+  audited apart from that removal.
 - **Who is answered.** A linked sender is answered as any member is: as themself in a direct message, as the bot in
   a group. A sender who is not linked is told how to link (`LINK_REQUIRED`), at most once a minute (later
   messages settle `LINK_REQUIRED_QUIET` without a notice), and is not answered, in a group too. A provider without

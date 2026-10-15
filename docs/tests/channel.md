@@ -47,6 +47,7 @@
 | A bot of a platform with organisations, or no bot, takes no link | `ChannelLinkServiceTest.aBotOfAPlatformWithOrganisationsOrOfNoBotTakesNoLink` |
 | Codes and links go with the membership and with the bot | `ChannelLinkServiceTest.codesAndLinksGoWithTheMembershipAndWithTheBot` |
 | A message is a code only when it is one code alone | `ChannelLinkServiceTest.aMessageIsReadAsACodeOnlyWhenItIsOneCodeAlone` |
+| Linking and unlinking are audited with the member and the bot only, never the platform account or the code; an unlinking that removes nothing is not | `ChannelLinkServiceTest.linkingAndUnlinkingAreAuditedWithTheMemberAndTheBotOnly` |
 | The API makes a code (`201`, CSRF), lists a member's links and unlinks; another bot is `404` | `ChannelApiTest.aMemberMakesACodeSeesTheirLinksAndUnlinks` |
 | A reply that cannot be rewritten gets no partial text and the whole answer in pieces | `ChannelInboundServiceTest.aReplyThatCannotBeRewrittenGetsTheWholeAnswerInPiecesAndNoPartialText` |
 | An answer is cut at the last paragraph, line, sentence or space that fits, never inside a character, and keeps every word | `ChannelTextTest` |

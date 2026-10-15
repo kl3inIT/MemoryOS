@@ -207,6 +207,33 @@ class ChannelLinkServiceTest {
     }
 
     @Test
+    void linkingAndUnlinkingAreAuditedWithTheMemberAndTheBotOnly() {
+        String code = links.code(ha, connection).code();
+        assertEquals(LINKED, links.redeem(connection, "zu_secret_id", code));
+        links.unlink(ha, connection);
+        // Nothing was linked: nothing to record.
+        links.unlink(quan, connection);
+
+        var events = jdbc.sql("""
+                        SELECT action, event_class, actor_id, resource_type, resource_id, resource_label, details::text AS details
+                        FROM audit_event WHERE action LIKE 'channel.account_%' ORDER BY occurred_at, id
+                        """)
+                .query((row, ignored) -> List.of(row.getString("action"), row.getString("event_class"),
+                        row.getString("actor_id"), row.getString("resource_type"), row.getString("resource_id"),
+                        row.getString("resource_label"), String.valueOf(row.getString("details"))))
+                .list();
+        assertEquals(2, events.size(), events.toString());
+        assertEquals(List.of("channel.account_link", "ACCOUNT_CHANGE", ha.value().toString(), "CHANNEL",
+                connection.toString(), "Zalo bot"), events.get(0).subList(0, 6));
+        assertEquals(List.of("channel.account_unlink", "ACCOUNT_CHANGE", ha.value().toString(), "CHANNEL",
+                connection.toString(), "Zalo bot"), events.get(1).subList(0, 6));
+        String stored = jdbc.sql("SELECT string_agg(row_to_json(e)::text, ' ') FROM audit_event e WHERE action LIKE 'channel.account_%'")
+                .query(String.class).single();
+        assertFalse(stored.contains("zu_secret_id"), "no platform account id is recorded");
+        assertFalse(stored.contains(code), "no code is recorded");
+    }
+
+    @Test
     void aMessageIsReadAsACodeOnlyWhenItIsOneCodeAlone() {
         assertEquals(Optional.of("ABCD2345"), ChannelLinkService.codeIn("  abcd-2345 "));
         assertEquals(Optional.empty(), ChannelLinkService.codeIn("ABCD 2345"), "two words are not a code");
@@ -216,8 +243,9 @@ class ChannelLinkServiceTest {
 
     private ChannelLinkService service(boolean organisations) {
         var adapters = new ChannelAdapters(List.of(new Platform(new ChannelFeatures(organisations, false, 2_000))));
+        var transactions = new DataSourceTransactionManager(dataSource);
         return new ChannelLinkService(authorization, new JdbcChannelConnectionRepository(jdbc), new JdbcChannelLinkRepository(jdbc),
-                adapters, new DataSourceTransactionManager(dataSource));
+                adapters, TestDatabase.audit(jdbc, transactions), transactions);
     }
 
     private ActorId member() {

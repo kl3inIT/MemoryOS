@@ -1,5 +1,8 @@
 package io.memoryos.channel;
 
+import io.memoryos.audit.AuditAction;
+import io.memoryos.audit.AuditRecord;
+import io.memoryos.audit.AuditTrail;
 import io.memoryos.channel.persistence.JdbcChannelConnectionRepository;
 import io.memoryos.channel.persistence.JdbcChannelLinkRepository;
 import io.memoryos.iam.IamAuthorization;
@@ -52,17 +55,19 @@ public class ChannelLinkService {
     private final JdbcChannelConnectionRepository connections;
     private final JdbcChannelLinkRepository links;
     private final ChannelAdapters adapters;
+    private final AuditTrail audit;
     private final TransactionTemplate transactions;
     private final SecureRandom random = new SecureRandom();
     private final Clock clock = Clock.systemUTC();
 
     public ChannelLinkService(IamAuthorization authorization, JdbcChannelConnectionRepository connections,
-                              JdbcChannelLinkRepository links, ChannelAdapters adapters,
+                              JdbcChannelLinkRepository links, ChannelAdapters adapters, AuditTrail audit,
                               PlatformTransactionManager transactionManager) {
         this.authorization = authorization;
         this.connections = connections;
         this.links = links;
         this.adapters = adapters;
+        this.audit = audit;
         this.transactions = new TransactionTemplate(transactionManager);
     }
 
@@ -96,8 +101,8 @@ public class ChannelLinkService {
         Objects.requireNonNull(connectionId, "connectionId must not be null");
         transactions.executeWithoutResult(_ -> {
             var tenant = member(actor);
-            linkable(tenant, connectionId);
-            links.unlink(tenant, connectionId, actor);
+            var bot = linkable(tenant, connectionId);
+            if (links.unlink(tenant, connectionId, actor) > 0) record(AuditAction.CHANNEL_ACCOUNT_UNLINK, tenant, actor, bot);
         });
     }
 
@@ -125,7 +130,11 @@ public class ChannelLinkService {
         var redemption = Objects.requireNonNull(transactions.execute(status -> {
             var found = links.redeem(connection, hash(code), now).orElse(null);
             if (found == null) return Redemption.NOT_LIVE;
-            if (links.link(found.tenant(), connection, externalUserId, found.actor(), now)) return Redemption.LINKED;
+            if (links.link(found.tenant(), connection, externalUserId, found.actor(), now)) {
+                connections.find(found.tenant(), connection).ifPresent(bot ->
+                        record(AuditAction.CHANNEL_ACCOUNT_LINK, found.tenant(), found.actor(), bot));
+                return Redemption.LINKED;
+            }
             status.setRollbackOnly();
             return Redemption.ALREADY_LINKED;
         }));
@@ -169,9 +178,15 @@ public class ChannelLinkService {
     }
 
     /** A bot of the Tenant whose members link an account; any other is not found to them. */
-    private void linkable(TenantId tenant, UUID connectionId) {
+    private ChannelConnection linkable(TenantId tenant, UUID connectionId) {
         var connection = connections.find(tenant, connectionId).orElseThrow(ChannelException::notFound);
         if (!adapters.takesLinks(connection.provider())) throw ChannelException.notFound();
+        return connection;
+    }
+
+    /** The member and the bot, and nothing of the platform account, its code or any message. */
+    private void record(AuditAction action, TenantId tenant, ActorId actor, ChannelConnection bot) {
+        audit.record(AuditRecord.of(action, tenant).actor(actor).resource("CHANNEL", bot.id(), bot.name()).build());
     }
 
     private static byte[] hash(String code) {

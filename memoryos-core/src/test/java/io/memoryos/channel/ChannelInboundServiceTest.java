@@ -124,7 +124,7 @@ class ChannelInboundServiceTest {
         when(authorization.require(any(), eq(IamCapability.CHAT_WRITE), eq(false))).thenReturn(new IamAccess(tenant, Authority.GLOBAL));
         var adapters = new ChannelAdapters(List.of(adapter));
         links = new ChannelLinkService(authorization, new JdbcChannelConnectionRepository(jdbc), new JdbcChannelLinkRepository(jdbc),
-                adapters, new DataSourceTransactionManager(dataSource));
+                adapters, TestDatabase.noAudit(), new DataSourceTransactionManager(dataSource));
         service = new ChannelInboundService(new JdbcChannelConnectionRepository(jdbc), inbound, adapters,
                 (ignored, email) -> "ha@tasco.vn".equals(email) ? Optional.of(ha) : Optional.empty(), links, turns,
                 new ChannelProperties(Duration.ofHours(1), Duration.ofHours(1), Duration.ofDays(90), 10, Duration.ofSeconds(3),
