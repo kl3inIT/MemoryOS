@@ -153,9 +153,13 @@ public class ChannelLinkService {
         return links.settledWith(connection, externalUserId, WRONG_CODE, clock.instant().minus(WRONG_CODE_WINDOW));
     }
 
-    /** Whether the sender was not told how to link within the last minute. */
-    boolean noticeDue(UUID connection, String externalUserId) {
-        return links.settledWith(connection, externalUserId, LINK_REQUIRED, clock.instant().minus(NOTICE_INTERVAL)) == 0;
+    /**
+     * Whether the sender was not told how to link in this chat within the last minute. Counted for each chat, so a
+     * group's short notice never silences the instructions in the sender's direct chat.
+     */
+    boolean noticeDue(UUID connection, String externalUserId, String externalChatId) {
+        return links.settledWithIn(connection, externalUserId, externalChatId, LINK_REQUIRED,
+                clock.instant().minus(NOTICE_INTERVAL)) == 0;
     }
 
     /**

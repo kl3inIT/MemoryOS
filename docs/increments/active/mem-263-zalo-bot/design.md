@@ -111,6 +111,24 @@ a message that is a live code links its sender; a group question is answered onl
 what the bot's account may read, as in Lark, and an unlinked sender in a group gets the linking notice. Every
 answer is thus paid for by a member of the Tenant, and a stranger who adds the bot to a group gets nothing.
 
+The linking notice goes at most once a minute in each chat, not for each sender: on staging (2026-10-15) a group
+notice at 19:04:30 silenced the same person's direct message at 19:04:37, and the direct chat is where the
+instructions matter. When `memoryos.channel.web-url` is set the instructions end with the bare address of Settings ›
+Chat (Zalo shows no link markup), and the bot's page offers "Liên kết tài khoản của bạn", which opens it.
+
+### A group's conversation
+
+Zalo has no reply, so a group question cannot continue an earlier answer as in Lark. As OpenClaw keys a session by
+group (`peer {kind: group, id: chatId}`), a group of a provider that cannot quote has one conversation, kept in
+`channel_conversations` for the group (`external_user_id` `@group`, no migration), continued by every member's
+question while its last message is younger than `memoryos.channel.group-conversation-idle` (4 hours, like OpenClaw's
+idle reset), and started over by `/new`. It runs as the bot's account, so it holds only what everyone in the group may
+read, and each question keeps its `[name]: question` label. Questions in it are ordered by the wait for the running
+turn as any conversation's. A direct conversation is never mixed with it. Summarising a long conversation before it
+reaches the model's limit is [MEM-268](https://linear.app/memory-os/issue/MEM-268), a separate increment.
+
+The group closing line is left as it is pending a study of the reference bots, so that Lark and Zalo behave alike.
+
 ### Transport: webhook or polling, chosen for each bot
 
 The administrator chooses for each bot, in the add dialog and on the bot's page (saved on change), "Webhook" (the

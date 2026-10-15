@@ -92,6 +92,10 @@
 | A write after Lark closed the stream reopens it once | `LarkReplyCardTest.aWriteAfterLarkClosedTheStreamReopensItOnce` |
 | A card Lark refuses fails before any reply is sent | `LarkReplyCardTest.aCardLarkRefusesIsReportedAndNothingIsSent` |
 | Mention tags are written out, long text is cut, the summary is one line | `LarkReplyCardTest.mentionTagsAreWrittenOutLongTextIsCutAndTheSummaryIsOneLine` |
+| The linking instructions end with the bare address of Settings › Chat | `ChannelInboundServiceTest.theLinkingInstructionsEndWithTheAddressWhereACodeIsGot` |
+| A group's linking notice never silences the instructions in the sender's direct chat; within one chat the notice goes once a minute | `ChannelInboundServiceTest.aGroupsNoticeNeverSilencesTheInstructionsInTheSendersDirectChat` |
+| A group that cannot quote has one conversation, run as the bot, shared by its members' questions while recent, apart from direct ones, started over past the idle window or on `/new` | `ChannelInboundServiceTest.aGroupThatCannotQuoteHasOneConversationWhileItIsRecent` |
+| A group that quotes continues only by reply and keeps no conversation | `ChannelInboundServiceTest.aGroupThatQuotesContinuesOnlyByReply` |
 | A sender past the minute's rate is refused and told to wait | `ChannelInboundServiceTest.aSenderPastTheMinutesRateIsToldToWait` |
 | A turn run as the bot is told the asker's name as a plain label; a sender's own turn is not | `ChannelInboundServiceTest.aTurnRunAsTheBotIsToldTheAskersNameAsALabel` |
 | A question waits for its conversation's running turn, is acknowledged once and asks at the new leaf | `ChannelTurnsTest.aQuestionWaitsForTheTurnItsConversationIsRunningAndAsksAtTheNewLeaf` |

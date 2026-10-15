@@ -251,9 +251,14 @@ acknowledged it to the provider:
 5. A direct message from a sender with an account runs as that person. A group message, and a direct message from
    a sender without an account, runs as the bot's service account, which reads what every member may read.
 6. The conversation: a reply to a message, the question or the bot's answer, continues that message's session
-   however old and whoever replies; a new message in a group starts a session; a new direct message continues
-   the one in `channel_conversations` while its last message is younger than `memoryos.channel.conversation-idle`
-   (1 hour); `/new` in a direct message forgets it and says so. A session is continued only by the account that
+   however old and whoever replies; a new message in a group of a provider that quotes (Lark) starts a session; a
+   new direct message continues the one in `channel_conversations` while its last message is younger than
+   `memoryos.channel.conversation-idle` (1 hour); `/new` in a direct message forgets it and says so. A group of a
+   provider that cannot quote (Zalo), where nothing can be replied to, has one conversation, as OpenClaw keys a
+   session by group: kept in `channel_conversations` for the group (`external_user_id` `@group`) and continued by
+   every member's question while its last message is younger than `memoryos.channel.group-conversation-idle`
+   (4 hours); `/new` there starts it over. It runs as the bot's account, so it holds only what everyone in the group
+   may read, and each question in it carries its asker's name. A session is continued only by the account that
    owns it, so a sender who gained or lost an account starts over.
 7. The question becomes a Chat turn through the API the web uses: a session created with
    `ChatSessionService.createInChannel`, a `SEND` at `ChatSessionService.leaf` with a request id derived from
@@ -295,7 +300,10 @@ account on it to their MemoryOS account ([MEM-263](../increments/active/mem-263-
 - **Who is answered.** A linked sender is answered as any member is: as themself in a direct message, as the bot in
   a group. A sender who is not linked is told how to link (`LINK_REQUIRED`) in a direct message and, in a group,
   only to message the bot directly (`LINK_IN_DIRECT`), so the instructions are not posted for everyone; at most once
-  a minute (later messages settle `LINK_REQUIRED_QUIET` without a notice); and is not answered, in a group too. A provider without
+  a minute in each chat, so a group's notice never silences the instructions in the sender's direct chat (later
+  messages settle `LINK_REQUIRED_QUIET` without a notice); and is not answered, in a group too. When
+  `memoryos.channel.web-url` is set, the instructions end with the bare address of Settings › Chat, where the code
+  is got; the bot's page offers "Liên kết tài khoản của bạn", which opens it. A provider without
   organisations knows a sender only by the link: no e-mail and no remembered identity is read, and a link removed
   while a message is handled leaves it unanswered rather than answered as the bot.
 - **Guessing.** Every code an unlinked sender sends in a direct message is an attempt: it is recorded on its message

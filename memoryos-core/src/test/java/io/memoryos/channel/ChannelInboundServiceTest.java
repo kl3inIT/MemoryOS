@@ -128,7 +128,7 @@ class ChannelInboundServiceTest {
         service = new ChannelInboundService(new JdbcChannelConnectionRepository(jdbc), inbound, adapters,
                 (ignored, email) -> "ha@tasco.vn".equals(email) ? Optional.of(ha) : Optional.empty(), links, turns,
                 new ChannelProperties(Duration.ofHours(1), Duration.ofHours(1), Duration.ofDays(90), 10, Duration.ofSeconds(3),
-                "https://memoryos.example/"), observations);
+                "https://memoryos.example/", Duration.ofHours(4)), observations);
     }
 
     @AfterEach
@@ -497,6 +497,78 @@ class ChannelInboundServiceTest {
     }
 
     @Test
+    void theLinkingInstructionsEndWithTheAddressWhereACodeIsGot() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, false, 2_000);
+        service.receive(zalo("z1", "zu_guest", "Question"));
+
+        // A bare address: Zalo shows no link markup, and makes a bare address tappable.
+        assertTrue(adapter.notices.getFirst().endsWith("\nhttps://memoryos.example/settings/chat"), adapter.notices.getFirst());
+    }
+
+    @Test
+    void aGroupsNoticeNeverSilencesTheInstructionsInTheSendersDirectChat() throws Exception {
+        // As on staging: a group notice at 19:04:30 silenced the same person's direct message at 19:04:37.
+        adapter.features = new ChannelFeatures(false, false, false, 2_000);
+        service.receive(new ChannelMessage(connection, "g1", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_ha", null, null, true,
+                ChannelMessage.Type.TEXT, "Leave policy?", null));
+        service.receive(zalo("z1", "zu_ha", "Leave policy?"));
+        service.receive(zalo("z2", "zu_ha", "Hello?"));
+
+        assertEquals("REFUSED:LINK_REQUIRED", outcome("g1") + ":" + reason("g1"));
+        assertEquals("REFUSED:LINK_REQUIRED", outcome("z1") + ":" + reason("z1"));
+        // Within one chat the notice still goes at most once a minute.
+        assertEquals("REFUSED:LINK_REQUIRED_QUIET", outcome("z2") + ":" + reason("z2"));
+        assertEquals(2, adapter.notices.size());
+        assertTrue(adapter.notices.getLast().startsWith("To ask the assistant, link your MemoryOS account"));
+    }
+
+    @Test
+    void aGroupThatCannotQuoteHasOneConversationWhileItIsRecent() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, false, 2_000);
+        var other = member();
+        service.receive(zalo("z1", "zu_ha", links.code(ha, connection).code()));
+        service.receive(new ChannelMessage(connection, "l2", "zu_an", ChannelMessage.Kind.DIRECT, "zu_an", null, null, true,
+                ChannelMessage.Type.TEXT, links.code(other, connection).code(), null));
+
+        // Two people's questions share the group's conversation, which runs as the bot, each labelled with its asker.
+        service.receive(new ChannelMessage(connection, "g1", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_ha", "Hà", null, true,
+                ChannelMessage.Type.TEXT, "Leave policy?", null));
+        service.receive(new ChannelMessage(connection, "g2", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_an", "An", null, true,
+                ChannelMessage.Type.TEXT, "And for interns?", null));
+        assertEquals(session("g1"), session("g2"));
+        assertEquals(bot.value(), owner(session("g2")));
+        verify(turns).ask(eq(bot), eq(session("g1")), any(), any(), eq("[An]: And for interns?"), any(), any(), any());
+
+        // A direct question is never put in the group's conversation, nor the group's in the direct one.
+        service.receive(zalo("d1", "zu_ha", "My own leave?"));
+        assertNotEquals(session("g1"), session("d1"));
+        service.receive(new ChannelMessage(connection, "g3", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_ha", "Hà", null, true,
+                ChannelMessage.Type.TEXT, "Remote work?", null));
+        assertEquals(session("g1"), session("g3"));
+
+        // Past the idle window, or on /new, the group starts over.
+        jdbc.sql("UPDATE channel_conversations SET last_message_at = last_message_at - INTERVAL '5 hours' WHERE external_user_id = '@group'")
+                .update();
+        service.receive(new ChannelMessage(connection, "g4", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_ha", "Hà", null, true,
+                ChannelMessage.Type.TEXT, "Next week?", null));
+        assertNotEquals(session("g3"), session("g4"));
+        service.receive(new ChannelMessage(connection, "g5", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_an", "An", null, true,
+                ChannelMessage.Type.TEXT, "/new", null));
+        assertEquals("ANSWERED:NEW_CONVERSATION", outcome("g5") + ":" + reason("g5"));
+        service.receive(new ChannelMessage(connection, "g6", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_an", "An", null, true,
+                ChannelMessage.Type.TEXT, "Fresh question", null));
+        assertNotEquals(session("g4"), session("g6"));
+    }
+
+    @Test
+    void aGroupThatQuotesContinuesOnlyByReply() throws Exception {
+        service.receive(group("g1", "ou_ha", "Leave policy?", true, null));
+        service.receive(group("g2", "ou_ha", "And interns?", true, null));
+        assertNotEquals(session("g1"), session("g2"));
+        assertEquals(0L, jdbc.sql("SELECT count(*) FROM channel_conversations").query(Long.class).single());
+    }
+
+    @Test
     void anUnlinkedSenderInAGroupIsToldOnlyToMessageTheBotDirectly() throws Exception {
         adapter.features = new ChannelFeatures(false, false, false, 2_000);
         service.receive(new ChannelMessage(connection, "g1", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_guest", null, null, true,
@@ -567,7 +639,7 @@ class ChannelInboundServiceTest {
         service.receive(direct("m2", "ou_ha", "Recent", null));
         jdbc.sql("UPDATE channel_messages SET received_at = received_at - INTERVAL '91 days' WHERE external_message_id = 'm1'").update();
 
-        var retention = new ChannelMessageRetention(inbound, new ChannelProperties(Duration.ofHours(1), Duration.ofHours(1), Duration.ofDays(90), 10, Duration.ofSeconds(3), ""));
+        var retention = new ChannelMessageRetention(inbound, new ChannelProperties(Duration.ofHours(1), Duration.ofHours(1), Duration.ofDays(90), 10, Duration.ofSeconds(3), "", Duration.ofHours(4)));
         assertEquals(1, retention.sweep());
         assertEquals(List.of("m2"), jdbc.sql("SELECT external_message_id FROM channel_messages").query(String.class).list());
         assertNull(inbound.sessionOf(connection, "m1").orElse(null));

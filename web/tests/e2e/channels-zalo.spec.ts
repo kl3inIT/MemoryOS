@@ -213,6 +213,10 @@ test("a Zalo bot's page shows its facts and its way of receiving saves on change
 
   await page.getByRole("button", { name: "Thao tác với Trợ lý Tasco trên Zalo" }).click();
   await expect(page.getByRole("menuitem", { name: "Thay token" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Liên kết tài khoản của bạn" })).toHaveAttribute(
+    "href",
+    "/settings/chat",
+  );
 });
 
 test("a member gets a code for a Zalo bot, sees it link, and unlinks another", async ({ page }) => {

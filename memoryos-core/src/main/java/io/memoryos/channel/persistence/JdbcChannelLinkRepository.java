@@ -125,5 +125,16 @@ public class JdbcChannelLinkRepository {
                 .param("since", Timestamp.from(since)).query(Integer.class).single();
     }
 
+    /** How many messages of the sender in one chat since {@code since} were settled with {@code reason}. */
+    public int settledWithIn(UUID connection, String externalUserId, String externalChatId, String reason, Instant since) {
+        return jdbc.sql("""
+                        SELECT count(*) FROM channel_messages
+                        WHERE connection_id = :connection AND external_user_id = :user AND external_chat_id = :chat
+                          AND reason = :reason AND received_at >= :since
+                        """)
+                .param("connection", connection).param("user", externalUserId).param("chat", externalChatId)
+                .param("reason", reason).param("since", Timestamp.from(since)).query(Integer.class).single();
+    }
+
     public record Redeemed(TenantId tenant, ActorId actor) {}
 }
