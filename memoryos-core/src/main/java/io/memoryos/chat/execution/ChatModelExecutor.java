@@ -371,6 +371,7 @@ public final class ChatModelExecutor {
                         limits.mcpCallTimeout(), limits.mcpCallCap(), events::accept, activity,
                         guard::availableContextTokens, selected.policy().tokens(), meters);
                 for (var tool : mcpTools.tools()) runner = runner.withTools(List.of(tool));
+                activity.quiet(mcpTools.openers());
             }
             if (selected.toolCalling()) runner = runner.withToolCallInspectors(activity);
             // No total bound, as Onyx: the provider read gap, Stop and the lease reconciler end a stalled turn.

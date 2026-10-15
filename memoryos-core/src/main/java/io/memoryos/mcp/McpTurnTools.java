@@ -29,9 +29,6 @@ public final class McpTurnTools implements AutoCloseable {
         public enum Reason { NOT_CONNECTED, REAUTH_REQUIRED, NO_TOOLS }
     }
 
-    /** Enabled tools of a usable server that the turn's tool limit left out; the model is told so it can say so. */
-    public record Omitted(String serverName, int tools) {}
-
     /** What a tool call produced. {@code error} is the server's own {@code isError}. */
     public record Outcome(String text, boolean error) {
         @Override public @NonNull String toString() { return "McpOutcome[redacted]"; }
@@ -67,7 +64,6 @@ public final class McpTurnTools implements AutoCloseable {
     private final Map<UUID, Target> targets;
     private final List<Binding> bindings;
     private final List<Unavailable> unavailable;
-    private final List<Omitted> omitted;
     private final Set<String> alwaysAllowable;
     private final Map<UUID, McpSession> sessions = new LinkedHashMap<>();
     private boolean closed;
@@ -79,20 +75,17 @@ public final class McpTurnTools implements AutoCloseable {
     }
 
     McpTurnTools(McpClients clients, Map<UUID, Target> targets, List<Binding> bindings, List<Unavailable> unavailable,
-                 List<Omitted> omitted, Set<String> alwaysAllowable) {
+                 Set<String> alwaysAllowable) {
         this.clients = clients;
         this.targets = Map.copyOf(targets);
         this.bindings = List.copyOf(bindings);
         this.unavailable = List.copyOf(unavailable);
-        this.omitted = List.copyOf(omitted);
         this.alwaysAllowable = Set.copyOf(alwaysAllowable);
     }
 
     public List<Binding> bindings() { return bindings; }
 
     public List<Unavailable> unavailable() { return unavailable; }
-
-    public List<Omitted> omitted() { return omitted; }
 
     /**
      * Whether the person deciding may answer this call with "always allow" (MEM-267): they manage MCP servers and the

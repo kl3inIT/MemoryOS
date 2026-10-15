@@ -60,9 +60,9 @@ failing, timing out or rejecting credentials is visible before people report it.
 
 ## Limits
 
-A turn offers at most 8 servers and 64 tools; tools past the limit are left out and the model is told which apps
-lost them. `memoryos.chat.mcp.tools.offered` and `memoryos.chat.mcp.tools.definition.chars` show what each turn sends
-the model. As Onyx, the cycle limit (`max-cycles`, 6) bounds the calls in one
+A turn offers at most 8 servers. A server with more than 12 enabled tools is one opening tool, `mcp_<slug>`, until the
+model opens the tools it names (MEM-272), so a large server no longer crowds out the others.
+`memoryos.chat.mcp.tools.offered` and `memoryos.chat.mcp.tools.definition.chars` show what each turn starts with. As Onyx, the cycle limit (`max-cycles`, 6) bounds the calls in one
 turn; `memoryos.chat.execution.mcp-call-limit` is an optional per-turn cap, unset by default. `mcp-call-timeout`
 (60 seconds) bounds each call, since a turn has no total deadline; it has not been measured against a live provider.
 

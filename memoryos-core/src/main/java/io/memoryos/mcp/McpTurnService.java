@@ -28,9 +28,11 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @Service
 public class McpTurnService {
-    /** A turn offers at most this many servers and tools; the caller's context budget is the other bound. */
+    /**
+     * A turn offers at most this many servers. A large server's tools wait behind one opening tool (MEM-272), so the
+     * number of its tools is no longer bounded per turn.
+     */
     public static final int MAX_SERVERS = 8;
-    public static final int MAX_TOOLS = 64;
 
     private final JpaMcpServerRepository servers;
     private final JpaMcpServerToolRepository tools;
@@ -79,12 +81,12 @@ public class McpTurnService {
             targets.put(candidate.serverId(), new McpTurnTools.Target(candidate.serverId(), candidate.url(), headers));
             bindings.addAll(candidate.bindings());
         }
-        return new McpTurnTools(clients, targets, bindings, unavailable, resolved.omitted(), resolved.alwaysAllowable());
+        return new McpTurnTools(clients, targets, bindings, unavailable, resolved.alwaysAllowable());
     }
 
     /** A turn that selected no usable server; only {@link #open} needs it. */
     private McpTurnTools empty() {
-        return new McpTurnTools(clients, Map.of(), List.of(), List.of(), List.of(), Set.of());
+        return new McpTurnTools(clients, Map.of(), List.of(), List.of(), Set.of());
     }
 
     private record Candidate(UUID serverId, String serverName, String url, McpAuthType authType,
@@ -92,7 +94,7 @@ public class McpTurnService {
                              List<McpTurnTools.Binding> bindings) {}
 
     private record Resolved(List<Candidate> candidates, List<McpTurnTools.Unavailable> unavailable,
-                            List<McpTurnTools.Omitted> omitted, Set<String> alwaysAllowable) {}
+                            Set<String> alwaysAllowable) {}
 
     /**
      * "Always allow" answered on an approval card (MEM-267): the tool stops asking for everyone. The server checks
@@ -107,10 +109,8 @@ public class McpTurnService {
         Set<UUID> accessible = access.accessibleServerIds(tenant, actor.value());
         var candidates = new ArrayList<Candidate>();
         var unavailable = new ArrayList<McpTurnTools.Unavailable>();
-        var omitted = new ArrayList<McpTurnTools.Omitted>();
         var alwaysAllowable = new HashSet<String>();
         boolean manages = authorization.effectiveCapabilities(actor).contains(IamCapability.MCP_MANAGE);
-        int offered = 0;
         // Servers in ID order and tools by name, so a conversation's tool list, which leads the provider's cached prefix,
         // stays the same from turn to turn (MEM-269).
         for (UUID serverId : serverIds.stream().distinct().sorted().toList()) {
@@ -130,33 +130,25 @@ public class McpTurnService {
                 continue;
             }
             var bindings = new ArrayList<McpTurnTools.Binding>();
-            int left = 0;
             for (var tool : tools.findByTenantIdAndServerIdOrderByNameAsc(tenant, serverId)) {
                 if (tool.policy() == McpToolPolicy.OFF) continue;
                 var modelName = McpServerRules.modelToolName(server.slug(), tool.name());
                 if (modelName.isEmpty()) continue;
-                if (offered + bindings.size() >= MAX_TOOLS) {
-                    left++;
-                    continue;
-                }
                 bindings.add(new McpTurnTools.Binding(serverId, server.slug(), server.name(), tool.name(), modelName.get(),
                         tool.description(), tool.inputSchema(), tool.readOnly(), tool.policy() == McpToolPolicy.ASK));
                 if (manages && tool.policy() == McpToolPolicy.ASK
                         && McpServerRules.allowed(McpServerRules.risk(tool.readOnly(), tool.annotations()), McpToolPolicy.ALWAYS))
                     alwaysAllowable.add(modelName.get());
             }
-            if (left > 0) omitted.add(new McpTurnTools.Omitted(server.name(), left));
             if (bindings.isEmpty()) {
-                if (left > 0) continue;
                 unavailable.add(new McpTurnTools.Unavailable(serverId, server.name(),
                         McpTurnTools.Unavailable.Reason.NO_TOOLS));
                 continue;
             }
-            offered += bindings.size();
             candidates.add(new Candidate(serverId, server.name(), server.url(), server.authType(), owner,
                     server.headerTemplate() == null ? null : template(server), apiKey(tenant, credential), bindings));
         }
-        return new Resolved(candidates, unavailable, omitted, alwaysAllowable);
+        return new Resolved(candidates, unavailable, alwaysAllowable);
     }
 
     /** Resolves headers outside the transaction; OAuth refresh may call the authorization server. */

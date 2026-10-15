@@ -1,16 +1,20 @@
 package io.memoryos.chat.tools;
 
 import com.embabel.agent.api.tool.Tool;
+import com.embabel.agent.api.tool.progressive.UnfoldingTool;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.memoryos.chat.ChatToolActivity;
 import io.memoryos.chat.ChatToolEvent;
-import io.memoryos.mcp.McpTurnService;
 import io.memoryos.mcp.McpTurnTools;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.concurrent.TimeUnit;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.IntSupplier;
@@ -22,7 +26,8 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * One Embabel tool per enabled MCP tool. Results are untrusted third-party data: they are capped against the
+ * One Embabel tool per enabled MCP tool, or, for a server with more than {@link #DIRECT_TOOLS} of them, one tool that
+ * opens the ones the model names (MEM-272, Embabel's {@code UnfoldingTool}). Results are untrusted third-party data: they are capped against the
  * remaining context and never merged with MemoryOS instructions. A failure is reported by category only —
  * upstream bodies and exception text never reach the model or the logs, unlike the reference implementation.
  */
@@ -31,6 +36,10 @@ public final class McpTools {
     private static final Logger LOG = LoggerFactory.getLogger(McpTools.class);
     /** A single result may take at most this share of the remaining context, leaving room for the answer. */
     private static final int MAX_RESULT_TOKENS = 6000;
+    /** A server with at most this many enabled tools offers them directly; a larger one offers a tool that opens them. */
+    static final int DIRECT_TOOLS = 12;
+    /** How many tools one opening may ask for. */
+    static final int OPENED_AT_ONCE = 12;
 
     private final McpTurnTools turn;
     private final Runnable active;
@@ -51,9 +60,19 @@ public final class McpTools {
         this.contextTokens = contextTokens; this.tokens = tokens; this.meters = meters;
     }
 
-    /** Embabel tools for this turn, in the order the servers were resolved. */
+    /**
+     * Embabel tools for this turn, in the order the servers were resolved: a small server's tools themselves, a large
+     * server's opening tool. The list the model starts with is the same from turn to turn, so it stays in the
+     * provider's prompt cache (MEM-269).
+     */
     public List<Tool> tools() {
-        var offered = turn.bindings().stream().map(this::tool).toList();
+        var servers = new LinkedHashMap<UUID, List<McpTurnTools.Binding>>();
+        for (var binding : turn.bindings()) servers.computeIfAbsent(binding.serverId(), ignored -> new ArrayList<>()).add(binding);
+        var offered = new ArrayList<Tool>();
+        for (var bindings : servers.values()) {
+            if (bindings.size() <= DIRECT_TOOLS) bindings.forEach(binding -> offered.add(tool(binding)));
+            else offered.add(opener(bindings));
+        }
         if (!offered.isEmpty()) {
             // What every model call of the turn carries, which sizes deferred tool loading (MEM-264).
             meters.summary("memoryos.chat.mcp.tools.offered").record(offered.size());
@@ -62,7 +81,64 @@ public final class McpTools {
                             + tool.getDefinition().getInputSchema().toJsonSchema().length())
                     .sum());
         }
-        return offered;
+        return List.copyOf(offered);
+    }
+
+    /** The names of the opening tools {@link #tools()} offers, whose calls are not steps of their own. */
+    public Set<String> openers() {
+        var counts = new LinkedHashMap<String, Integer>();
+        for (var binding : turn.bindings()) counts.merge(opener(binding.slug()), 1, Integer::sum);
+        var names = new LinkedHashSet<String>();
+        counts.forEach((name, count) -> { if (count > DIRECT_TOOLS) names.add(name); });
+        return names;
+    }
+
+    private static String opener(String slug) {
+        return "mcp_" + slug;
+    }
+
+    /**
+     * One tool standing for a large server: its description names every enabled tool, and a call with some of those
+     * names makes Embabel replace it with them. It returns itself among them, so the model can open more later in
+     * the same turn.
+     */
+    private Tool opener(List<McpTurnTools.Binding> bindings) {
+        var first = bindings.getFirst();
+        var inner = new LinkedHashMap<String, Tool>();
+        for (var binding : bindings) inner.put(binding.toolName(), tool(binding));
+        var names = List.copyOf(inner.keySet());
+        String description = "Opens tools of " + name(first.serverName()) + ". Call it with the names of the tools you need, "
+                + "then call the tools it opens. Tools: " + String.join(", ", names) + ".";
+        var schema = new LinkedHashMap<String, Object>();
+        schema.put("type", "object");
+        schema.put("properties", Map.of("tools", Map.of("type", "array", "minItems", 1, "maxItems", OPENED_AT_ONCE,
+                "items", Map.of("type", "string", "enum", names))));
+        schema.put("required", List.of("tools"));
+        var self = new ArrayList<Tool>(1);
+        var tool = UnfoldingTool.Companion.selectable(opener(first.slug()), description, List.copyOf(inner.values()),
+                new SnapshotSchema(JSON.writeValueAsString(schema)), true, null, input -> {
+                    var chosen = new ArrayList<Tool>();
+                    for (String requested : requested(input)) {
+                        var match = inner.get(requested);
+                        if (match != null && !chosen.contains(match) && chosen.size() < OPENED_AT_ONCE) chosen.add(match);
+                    }
+                    if (chosen.isEmpty()) return List.of();
+                    chosen.addAll(self);
+                    return chosen;
+                });
+        self.add(tool);
+        return tool;
+    }
+
+    /** The tool names an opening call asked for; anything else in its arguments is ignored. */
+    private static List<String> requested(String input) {
+        try {
+            var value = JSON.readValue(input == null || input.isBlank() ? "{}" : input, new TypeReference<Map<String, Object>>() {});
+            return value.get("tools") instanceof List<?> list
+                    ? list.stream().filter(String.class::isInstance).map(String.class::cast).toList() : List.of();
+        } catch (RuntimeException invalid) {
+            return List.of();
+        }
     }
 
     /**
@@ -81,13 +157,6 @@ public final class McpTools {
                     case NO_TOOLS -> "no tools are enabled";
                 });
             }
-        }
-        if (!turn.omitted().isEmpty()) {
-            if (!text.isEmpty()) text.append("\n");
-            text.append("This turn offers at most ").append(McpTurnService.MAX_TOOLS).append(" MCP tools, so some were left "
-                    + "out; if the user needs one, say which app lost tools and suggest selecting fewer apps:");
-            for (var server : turn.omitted())
-                text.append("\n- ").append(name(server.serverName())).append(": ").append(server.tools()).append(" tools");
         }
         return text.toString();
     }
