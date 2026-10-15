@@ -69,7 +69,7 @@ export function GeneralSection({ form, agent, choices, editable }: SectionProps)
             <AgentAvatarStudio
               agentId={agent?.id ?? "new"}
               avatarSeed={avatarSeed}
-              savedSeed={agent?.avatarSeed ?? avatarSeed}
+              savedSeed={agent?.avatarSeed ?? form.options.defaultValues?.avatarSeed ?? avatarSeed}
               hasAvatar={keepAvatar}
               avatarFileId={avatarFileId}
               allowImage={!agent?.builtin}

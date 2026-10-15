@@ -71,6 +71,23 @@ Rakazo's faces are Apache-2.0 and could be ported, but a maintained library does
    that sent `iconName` are rejected by the generated schema, as they would be for any unknown field the contract
    drops.
 
+## Changes made during implementation
+
+- **Where the seed is made.** `PersonaEntity` starts with `UUID.randomUUID()`, and V177 gives the column the volatile
+  default `gen_random_uuid()::text`, so every existing row, every JPA insert and every raw SQL insert (the tests have
+  about twenty) gets its own seed without a step in `ChatPersonaService`. The editor proposes `crypto.randomUUID()`
+  for a new agent, so the face shown before saving is the one that is saved. The built-in agent's `memoryos` is set in
+  `JdbcChatRepository.provisionPersona`, which is what tenant bootstrap calls.
+- **`removeAvatar`.** Picking an icon used to be the only way to drop an uploaded image (the exclusivity rule). With
+  the rule gone, the request takes `removeAvatar: true` to drop it; null or false keeps it, and a new `avatarFileId`
+  replaces it. *Bỏ ảnh* and picking a face send it.
+- **The icon set moved, not deleted.** Projects draw from the same thirteen lucide icons, so `agent-icons.ts` became
+  `web/src/features/chat/projects/project-icon-set.ts` and only the agent use is gone. The icon names stay in the
+  catalog because the project picker labels them.
+- **Migration version.** V177: V176 is taken by the open MEM-270 sandbox pull request.
+- **Tabs.** The two tabs are our `Tabs` primitive with the `line` variant, unmodified; the built-in agent, which takes no
+  upload, shows only the faces. For a new agent *Mặc định* returns to the face it was opened with.
+
 ## Not in scope
 
 - The sidebar entries for agents ("Trợ lý" in the main menu beside "Khám phá trợ lý"): a separate decision.
