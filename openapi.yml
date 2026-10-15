@@ -2915,6 +2915,7 @@ paths:
           enum:
           - CHAT_NAMING
           - CHAT_GUARDRAIL
+          - CHAT_COMPACTION
           - MEETING_MINUTES
           - MEETING_CORRECTION
       requestBody:
@@ -5900,6 +5901,7 @@ paths:
           enum:
           - CHAT_NAMING
           - CHAT_GUARDRAIL
+          - CHAT_COMPACTION
           - MEETING_MINUTES
           - MEETING_CORRECTION
       - name: modelConfigurationId
@@ -20875,6 +20877,7 @@ paths:
           - CHAT
           - CHAT_NAMING
           - CHAT_GUARDRAIL
+          - CHAT_COMPACTION
           - DEEP_RESEARCH
           - EMBEDDING_QUERY
           - EMBEDDING_INDEXING
@@ -21129,6 +21132,7 @@ paths:
           - CHAT
           - CHAT_NAMING
           - CHAT_GUARDRAIL
+          - CHAT_COMPACTION
           - DEEP_RESEARCH
           - EMBEDDING_QUERY
           - EMBEDDING_INDEXING
@@ -21219,6 +21223,7 @@ paths:
           - CHAT
           - CHAT_NAMING
           - CHAT_GUARDRAIL
+          - CHAT_COMPACTION
           - DEEP_RESEARCH
           - EMBEDDING_QUERY
           - EMBEDDING_INDEXING
@@ -25346,6 +25351,7 @@ components:
           enum:
           - CHAT_NAMING
           - CHAT_GUARDRAIL
+          - CHAT_COMPACTION
           - MEETING_MINUTES
           - MEETING_CORRECTION
         modelConfigurationId:

@@ -6,6 +6,8 @@ public enum AiUsageFlow {
     CHAT_NAMING,
     /** MEM-208: the guardrail check before an answer, recorded apart so Chat counts each turn once. */
     CHAT_GUARDRAIL,
+    /** MEM-268: the summary of a long conversation's earlier turns, recorded apart so Chat counts each turn once. */
+    CHAT_COMPACTION,
     DEEP_RESEARCH,
     EMBEDDING_QUERY,
     EMBEDDING_INDEXING,

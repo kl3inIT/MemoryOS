@@ -12,6 +12,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.embabel.agent.api.tool.Tool;
+import com.embabel.agent.api.tool.progressive.UnfoldingTool;
+import com.embabel.agent.api.tool.callback.BeforeToolCallContext;
+import com.embabel.chat.ToolCall;
 import io.memoryos.shared.Tokenizers;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
@@ -19,7 +22,6 @@ import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.memoryos.chat.ChatToolActivity;
 import io.memoryos.chat.ChatToolEvent;
-import io.memoryos.mcp.McpTurnService;
 import io.memoryos.mcp.McpTurnTools;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -69,18 +71,43 @@ class McpToolsTest {
     }
 
     @Test
-    void namesTheAppsWhoseToolsTheTurnLimitLeftOutAndMeasuresWhatIsOffered() {
-        var mcp = tools(10, 8000);
-        when(turn.omitted()).thenReturn(List.of(new McpTurnTools.Omitted("Linear", 12)));
+    void aLargeServerOffersOneToolThatOpensTheToolsTheModelNames() {
+        var linear = UUID.randomUUID();
+        var bindings = new ArrayList<McpTurnTools.Binding>();
+        for (int i = 0; i <= McpTools.DIRECT_TOOLS; i++)
+            bindings.add(new McpTurnTools.Binding(linear, "linear", "Linear", "tool_" + i, "mcp_linear_tool_" + i,
+                    "Tool " + i + ".", "{\"type\":\"object\"}", i > 0, false));
+        bindings.add(binding);
+        when(turn.bindings()).thenReturn(bindings);
+        when(turn.unavailable()).thenReturn(List.of());
+        var mcp = new McpTools(turn, () -> {}, Duration.ofSeconds(30), 10, events::add,
+                new ChatToolActivity(ignored -> {}), () -> 8000, Tokenizers.o200k(), meters);
 
-        String notice = mcp.unavailableNotice();
-        assertTrue(notice.contains("at most " + McpTurnService.MAX_TOOLS + " MCP tools"), notice);
-        assertTrue(notice.contains("Linear: 12 tools"), notice);
-        assertFalse(notice.contains("unusable"), notice);
+        var offered = mcp.tools();
+        assertEquals(List.of("mcp_linear", "mcp_drive_search_files"),
+                offered.stream().map(tool -> tool.getDefinition().getName()).toList());
+        assertEquals(Set.of("mcp_linear"), mcp.openers());
+        var opener = assertInstanceOf(UnfoldingTool.class, offered.getFirst());
+        assertTrue(opener.getDefinition().getDescription().contains("tool_0, tool_1"));
+        assertTrue(opener.getDefinition().getInputSchema().toJsonSchema().contains("\"enum\""));
 
-        mcp.tools();
-        assertEquals(1, meters.get("memoryos.chat.mcp.tools.offered").summary().totalAmount());
-        assertTrue(meters.get("memoryos.chat.mcp.tools.definition.chars").summary().totalAmount() > 0);
+        // The named tools open with the opener itself, so the model can open more later; unknown names open nothing.
+        var opened = opener.selectTools("{\"tools\":[\"tool_3\",\"nope\",\"tool_0\"]}");
+        assertEquals(List.of("mcp_linear_tool_3", "mcp_linear_tool_0", "mcp_linear"),
+                opened.stream().map(tool -> tool.getDefinition().getName()).toList());
+        assertTrue(opened.get(1).getDefinition().getDescription().startsWith("This tool can change or delete data."));
+        assertTrue(opener.selectTools("{\"tools\":[\"nope\"]}").isEmpty());
+
+        assertEquals(2, meters.get("memoryos.chat.mcp.tools.offered").summary().totalAmount());
+        assertTrue(mcp.unavailableNotice().isEmpty());
+    }
+
+    @Test
+    void anOpenerCallIsNoStepOfItsOwn() {
+        var activity = new ChatToolActivity(events::add);
+        activity.quiet(Set.of("mcp_linear"));
+        activity.beforeToolCall(new BeforeToolCallContext(new ToolCall("call-1", "mcp_linear", "{}")));
+        assertTrue(events.isEmpty());
     }
 
     @Test

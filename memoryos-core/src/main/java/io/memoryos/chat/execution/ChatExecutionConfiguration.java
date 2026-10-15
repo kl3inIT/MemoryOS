@@ -93,15 +93,18 @@ class ChatExecutionConfiguration {
                                     ChatModelSelector models, WebConnectionService web, ImageConnectionService images,
                                     ChatSettingsService settings, ResearchProperties research, McpTurnService mcp,
                                     AiUsageLimitService spending, ObjectProvider<ModelCalls> calls, AuditTrail audit,
-                                    MeterRegistry meters, SystemOneClients systemOne,
+                                    MeterRegistry meters, ObservationRegistry observations, SystemOneClients systemOne,
                                     SystemOneConnectionService systemOneConnections) {
         // MEM-195 Check 1 needs single model calls, which the API application provides; without them a turn that needs
         // the check is refused rather than answered unchecked.
         var modelCalls = calls.getIfAvailable();
         var guardrails = modelCalls == null ? null : new ChatGuardrailCheck(
                 new GroundingClassifier(modelCalls, systemOne), audit, systemOneConnections);
+        // MEM-268: a quarter of the turn slots may compact at once, on the turns' virtual threads.
+        var compactions = new ChatCompactions(persistence, models, model, spending, chatTaskExecutor,
+                limits.concurrency() / 4, meters, observations);
         return new ChatTurnService(persistence, model, limits, chatTaskExecutor, streams, models, web, images, settings,
-                research, mcp, spending, guardrails, new ChatTurnMetrics(meters));
+                research, mcp, spending, guardrails, new ChatTurnMetrics(meters), compactions);
     }
 
     @Bean

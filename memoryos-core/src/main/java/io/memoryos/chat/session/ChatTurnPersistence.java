@@ -530,6 +530,44 @@ public class ChatTurnPersistence {
     @Transactional
     public void recordUsage(Usage call) { record(call); }
 
+    /**
+     * MEM-268: what a compaction after the answer {@code assistant} reads: the branch from that answer back, newest
+     * first, and the summary the next turn on it would replay. Empty when the conversation is no longer the actor's.
+     */
+    public record CompactionInput(TenantId tenant, List<ChatMessage> newestFirst, TurnContext.@Nullable Summary summary) {
+        public CompactionInput {
+            newestFirst = List.copyOf(newestFirst);
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<CompactionInput> compactionInput(ActorId actor, UUID session, UUID assistant) {
+        var tenant = tenants.findActiveTenant(actor).orElse(null);
+        if (tenant == null || chats.findOwned(tenant, actor, session, false).isEmpty()) return Optional.empty();
+        var summary = summaries.forTurn(tenant, session, assistant)
+                .map(found -> new TurnContext.Summary(found.cutoffMessageId(), found.content())).orElse(null);
+        return Optional.of(new CompactionInput(tenant, chats.context(session, assistant, 200), summary));
+    }
+
+    /** Claims the session's compaction for {@code hold}; false while another holds it or a failure asked to wait. */
+    @Transactional
+    public boolean claimCompaction(TenantId tenant, UUID session, Duration hold) {
+        return summaries.claim(tenant, session, hold);
+    }
+
+    /** Ends the session's claim; after a failure, the session is not compacted again before {@code retryAfter}. */
+    @Transactional
+    public void releaseCompaction(UUID session, @Nullable Duration retryAfter) {
+        summaries.release(session, retryAfter);
+    }
+
+    /** Saves a summary written after the question {@code parent}, covering the branch up to {@code cutoff}. */
+    @Transactional
+    public void saveSummary(TenantId tenant, UUID session, UUID parent, UUID cutoff, String content, int tokenCount,
+                            @Nullable UUID modelConfigurationId) {
+        summaries.insert(tenant, session, parent, cutoff, content, tokenCount, modelConfigurationId);
+    }
+
     private void record(Usage call) {
         if (usage == null || !call.accounting().used()) return;
         // Naming has no turn and knows only its actor; its Tenant is the actor's active one.

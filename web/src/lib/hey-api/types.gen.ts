@@ -878,7 +878,7 @@ export type SystemOneTaskRequest = {
  * What one task runs on: a Tenant model, a System One connection for a classifying task, or with neither the conversation model
  */
 export type ModelFlow = {
-    flow: 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
+    flow: 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     modelConfigurationId: string | null;
     /**
      * False when the model is set but no longer eligible; the task then uses the conversation model
@@ -6331,7 +6331,7 @@ export type SaveChatVoiceConnectionResponse = SaveChatVoiceConnectionResponses[k
 export type SetSystemOneTaskData = {
     body: SystemOneTaskRequest;
     path: {
-        flow: 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
+        flow: 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     };
     query?: never;
     url: '/api/chat/system-one/tasks/{flow}';
@@ -8541,7 +8541,7 @@ export type UpdateChatModelResponse = UpdateChatModelResponses[keyof UpdateChatM
 export type SetChatModelFlowData = {
     body?: never;
     path: {
-        flow: 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
+        flow: 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     };
     query: {
         modelConfigurationId?: string;
@@ -19415,7 +19415,7 @@ export type GetAiCostSummaryData = {
         from: string;
         to: string;
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
     };
     url: '/api/ai-costs/summary';
 };
@@ -19600,7 +19600,7 @@ export type ListAiCostDaysData = {
         to: string;
         split?: 'BOUNDARY' | 'MODEL' | 'NONE';
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
     };
     url: '/api/ai-costs/daily';
 };
@@ -19640,7 +19640,7 @@ export type ListAiCostBreakdownData = {
         by: 'ACTOR' | 'GROUP' | 'MODEL' | 'FLOW' | 'PROVIDER';
         limit?: number;
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
     };
     url: '/api/ai-costs/breakdown';
 };

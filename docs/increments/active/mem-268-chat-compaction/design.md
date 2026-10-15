@@ -43,7 +43,9 @@ it, and what failure does; the choices below take a side on each.
 1. **After the turn, off the answer's path.** As Onyx, compaction runs once the assistant message is saved, in the
    process that ran the turn, on a virtual thread that holds neither the stream nor the turn's slot or lease. One
    compaction a session at a time, by a claim in the database (GoClaw's lock, Onyx's claim). A turn that starts before
-   the summary exists uses the previous summary and the sliding window; nothing waits for it.
+   the summary exists uses the previous summary and the sliding window; nothing waits for it. The claim holds for five
+   minutes and the branch is read again under it; a quarter of the process's turn slots may compact at once, and past
+   that the next answer tries again.
 2. **Trigger.** The tokens the next turn would replay — the current summary plus the messages after its cutoff,
    counted with the turn's own token policy as `ChatTurnSetup` counts them — exceed 75 % of the history budget of the
    conversation's model. Measuring what is replayed, not the whole branch, keeps it from firing again on every turn
@@ -68,15 +70,22 @@ it, and what failure does; the choices below take a side on each.
    the messages after its cutoff. The sliding window stays as the guard inside the budget: the summary is always kept,
    and the tail is trimmed if it still does not fit.
 7. **Model.** A new task `ModelFlow.CHAT_COMPACTION`, a Tenant task model that falls back to the conversation model
-   through `ChatModelAccess.selectFlow` as `CHAT_NAMING` does, reasoning `OFF` by default, called through
-   `ModelCalls`; its usage is recorded as part of the conversation's Chat cost. An administrator can pick a cheaper
-   model (Hermes); the default matches Onyx and OpenClaw.
+   through `ChatModelAccess.selectFlow` as `CHAT_NAMING` does, reasoning `OFF` by default. An administrator can pick
+   a cheaper model (Hermes); V172 seeds it with the Tenant's Chat model, as every task since V121. Two deviations,
+   settled in step 3: the call goes through `ChatModelExecutor.summarize`, as naming does, not `ModelCalls`, which
+   binds one system and one user message to a typed object and is provided only by the API application, while the
+   summary is Onyx's sequence of messages and channel turns run in `memoryos-channels` too; and its usage is its own
+   flow, `CHAT_COMPACTION`, as Onyx records `CHAT_HISTORY_SUMMARIZATION` and as the guardrail check is recorded apart,
+   so Chat counts each turn once.
 8. **Prompt.** Onyx's shape: the older messages, a cutoff marker, then the recent messages as context only. OpenClaw's
    and Hermes's checkpoint sections, for a knowledge assistant: what the person is trying to do, their constraints and
    preferences, facts established with their sources by document title (never citation numbers), decisions, open
    questions. Written in the conversation's language, identifiers kept exactly (OpenClaw), the transcript treated as
    data (Hermes), the previous summary updated when there is one. It is given exactly what `ChatTurnSetup` would
-   replay, so a question the guardrail hid stays hidden.
+   replay, so a question the guardrail hid stays hidden. The probe ([verification](verification.md)) added two things:
+   a "Questions so far" section, each question with the gist of its answer, after the summary dropped the questions
+   about the assistant itself as small talk and the model then invented an answer from it; and a closing reminder said
+   to come from the summarization system, after the model reported the English reminder as the person's request.
 9. **Failure.** Logged as `chat.compaction.failed` with `error_type` and `error_code`; nothing is written and the
    sliding window goes on as today (Onyx, GoClaw). A session whose compaction failed is not tried again for ten
    minutes (Hermes's cooldown). No fixed fallback summary (Hermes) and no summary-less compaction (OpenClaw): a summary
