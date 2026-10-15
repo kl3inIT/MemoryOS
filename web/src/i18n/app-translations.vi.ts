@@ -2318,6 +2318,10 @@ Object.assign(englishUi, {
   "Sorts a question before it is answered: small talk, a question or a blocked topic. Needs a model that returns a fixed format.":
     "Phân loại câu hỏi trước khi trả lời: câu xã giao, câu hỏi hay chủ đề bị chặn. Cần model trả đúng định dạng.",
   "Question check model": "Model kiểm tra câu hỏi",
+  "Long conversation summaries": "Tóm tắt hội thoại dài",
+  "Summarizes the earlier turns of a long conversation so the chat model still knows them.":
+    "Tóm tắt phần đầu của hội thoại dài để model chat vẫn nhớ những gì đã trao đổi.",
+  "Long conversation summary model": "Model tóm tắt hội thoại dài",
   "No model chosen; {{model}} is used.": "Chưa chọn mô hình; đang dùng {{model}}.",
   "Meeting minutes": "Biên bản họp",
   "Writes the summary, decisions and action items of a recorded meeting.":

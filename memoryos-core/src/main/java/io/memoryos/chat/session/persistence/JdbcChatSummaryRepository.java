@@ -1,6 +1,7 @@
 package io.memoryos.chat.session.persistence;
 
 import io.memoryos.shared.TenantId;
+import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -32,6 +33,35 @@ public class JdbcChatSummaryRepository {
                 .param("parent", parent).param("cutoff", cutoff).param("content", content)
                 .param("tokens", tokenCount).param("model", modelConfigurationId).update();
         return id;
+    }
+
+    /**
+     * Claims the session's compaction for {@code hold}: true when no compaction holds it and no failed one asked to
+     * wait. A claim whose holder died lapses with its hold.
+     */
+    public boolean claim(TenantId tenant, UUID session, Duration hold) {
+        return jdbc.sql("""
+                INSERT INTO chat_session_compaction(session_id, tenant_id, claimed_until)
+                VALUES (:session, :tenant, CURRENT_TIMESTAMP + make_interval(secs => :hold))
+                ON CONFLICT (session_id) DO UPDATE SET claimed_until = EXCLUDED.claimed_until
+                WHERE (chat_session_compaction.claimed_until IS NULL OR chat_session_compaction.claimed_until < CURRENT_TIMESTAMP)
+                  AND (chat_session_compaction.retry_after IS NULL OR chat_session_compaction.retry_after <= CURRENT_TIMESTAMP)
+                """).param("session", session).param("tenant", tenant.value()).param("hold", hold.toSeconds())
+                .update() == 1;
+    }
+
+    /** Ends the session's claim; a failed compaction is not tried again before {@code retryAfter} has passed. */
+    public void release(UUID session, @Nullable Duration retryAfter) {
+        if (retryAfter == null) {
+            jdbc.sql("UPDATE chat_session_compaction SET claimed_until = NULL, retry_after = NULL WHERE session_id = :session")
+                    .param("session", session).update();
+            return;
+        }
+        jdbc.sql("""
+                UPDATE chat_session_compaction
+                SET claimed_until = NULL, retry_after = CURRENT_TIMESTAMP + make_interval(secs => :retry)
+                WHERE session_id = :session
+                """).param("session", session).param("retry", retryAfter.toSeconds()).update();
     }
 
     /**

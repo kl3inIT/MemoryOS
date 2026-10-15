@@ -15,13 +15,14 @@ The `usage` capability records every AI call MemoryOS makes into a daily ledger 
 
 ## Flows
 
-`CHAT`, `CHAT_NAMING`, `CHAT_GUARDRAIL`, `DEEP_RESEARCH`, `EMBEDDING_QUERY`, `EMBEDDING_INDEXING`, `IMAGE_GENERATION`, `IMAGE_EDIT`, `SPEECH_TO_TEXT`, `TEXT_TO_SPEECH`, `MEETING_MINUTES`, `MEETING_CORRECTION`, `OCR` (a page read by a model chosen as the OCR reader, MEM-243). A new AI task adds a value to `AiUsageFlow` and the table's check constraint (V138 added `CHAT_GUARDRAIL`, V139 validates it).
+`CHAT`, `CHAT_NAMING`, `CHAT_GUARDRAIL`, `CHAT_COMPACTION` (the summary of a long conversation's earlier turns, MEM-268), `DEEP_RESEARCH`, `EMBEDDING_QUERY`, `EMBEDDING_INDEXING`, `IMAGE_GENERATION`, `IMAGE_EDIT`, `SPEECH_TO_TEXT`, `TEXT_TO_SPEECH`, `MEETING_MINUTES`, `MEETING_CORRECTION`, `OCR` (a page read by a model chosen as the OCR reader, MEM-243). A new AI task adds a value to `AiUsageFlow` and the table's check constraint (V138 added `CHAT_GUARDRAIL`, V139 validates it).
 
 | Flow | Captured by | Usage |
 | --- | --- | --- |
 | Chat, Deep research | `ChatTurnService` when the turn settles (completed, stopped or failed), summed over every `ChatModelGuard` of the turn | Provider-reported input, output and cache-read tokens; cost from the model price |
 | Conversation naming | `ChatTurnService.recordNaming` after the title call | Same, on the naming model |
 | Question check (guardrail) | `ChatTurnService.recordCheck` after the check's call, on the model that ran it | Same; recorded apart from `CHAT` since 2026-10-02, so Chat counts each turn once |
+| Long conversation summary | `ChatCompactions` after the summary call, on the `CHAT_COMPACTION` model, failed calls included | Same; apart from `CHAT`, as Onyx records `CHAT_HISTORY_SUMMARIZATION` (V172 adds the flow, V173 validates it) |
 | Search and indexing embeddings | `ValidatedEmbeddingService` per batch with a known caller | Reported tokens; priced by `memoryos.search.embedding-input-price-per-million`, unknown when unset |
 | Image generation and editing | `ImageProviderClient` after a delivered image | One image; cost unknown |
 | Speech-to-text | `VoiceTranscriptionService` once when a dictation session closes, and `BatchTranscriptionService` once per uploaded recording | Seconds from the audio received (16-bit mono 24 kHz), or the length the provider reported for a recording; cost unknown |

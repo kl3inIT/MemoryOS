@@ -12,6 +12,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.intThat;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.timeout;
@@ -21,6 +22,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.memoryos.chat.session.ChatTurnPersistence;
+import io.memoryos.chat.execution.ChatCompactions;
 import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.ai.ModelBinding;
 import io.memoryos.ai.ModelResolver;
@@ -225,6 +227,28 @@ class ChatTurnServiceTest {
             when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any()))
                     .thenReturn(new ChatTurnPersistence.Reservation(pair.userMessageId(), UUID.randomUUID(), true));
             service.send(actor, session, parent, UUID.randomUUID(), "Question", null);
+        }
+    }
+
+    @Test
+    void aCompletedAnswerStartsACompactionWithTheTurnsHistoryBudgetAndAFailedOneDoesNot() {
+        prepare();
+        doAnswer(call -> { call.<Consumer<String>>getArgument(3).accept("Answer"); return null; })
+                .when(model).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        var compactions = mock(ChatCompactions.class);
+        try (var service = new ChatTurnService(persistence, model, limits, Runnable::run, streams, models, null, null, null,
+                null, null, null, null, null, compactions)) {
+            service.send(actor, session, parent, request, "Question", null);
+            service.maintain();
+            verify(compactions).after(eq(actor), eq(session), eq(pair.assistantMessageId()), any(), intThat(budget -> budget > 0));
+
+            doThrow(new IllegalStateException("provider down"))
+                    .when(model).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
+            var failed = new ChatTurnPersistence.Reservation(pair.userMessageId(), UUID.randomUUID(), true);
+            when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any())).thenReturn(failed);
+            service.send(actor, session, parent, UUID.randomUUID(), "Question", null);
+            service.maintain();
+            verify(compactions, never()).after(any(), any(), eq(failed.assistantMessageId()), any(), anyInt());
         }
     }
 

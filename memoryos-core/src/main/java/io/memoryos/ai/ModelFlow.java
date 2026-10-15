@@ -8,6 +8,8 @@ public enum ModelFlow {
      * return a structured verdict, so it may use a model that does so reliably while the conversation model answers.
      */
     CHAT_GUARDRAIL,
+    /** MEM-268: the summary that stands in for a long conversation's earlier turns, written after an answer. */
+    CHAT_COMPACTION,
     /** Summary, decisions and action items for a recorded meeting. */
     MEETING_MINUTES,
     /** Proposals for the stretches of a transcript the speech provider was unsure of. */

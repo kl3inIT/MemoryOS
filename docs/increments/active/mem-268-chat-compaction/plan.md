@@ -19,15 +19,17 @@ Design: [design.md](design.md). Each pull request is accepted when CI is green a
 
 ## 3. Writing the summary
 
-- [ ] Probe, only where unsure: the prompt on two or three long staging conversations through 9Router
-  `cx/gpt-6-luna`; a follow-up that needs an early turn, answered with the summary and with the window alone; the
-  summary's tokens against the model's own count. Recorded in `verification.md`.
-- [ ] `ModelFlow.CHAT_COMPACTION` (task model row for every Tenant, the Models page row, `OFF` reasoning), the prompt,
-  the trigger at 75 % of what the next turn replays, the 25 % kept tail cut before a USER message.
-- [ ] `ChatTurnService`: after the answer is saved, on a virtual thread, claimed per session; failure logged with a
-  ten-minute cooldown; usage recorded; span and metrics.
-- [ ] Tests: the trigger does not fire again once a summary exists, the previous summary is updated, a hidden question
-  stays hidden, a failure keeps the window, two turns compact once.
+- [x] Probe on three staging conversations through 9Router `cx/gpt-6-luna`: a follow-up that needs an early turn,
+  answered with the summary and with the window alone; the summary's tokens against the provider's count. Two prompt
+  changes came of it. Recorded in [verification.md](verification.md).
+- [x] Migrations V172 (the `CHAT_COMPACTION` task for every Tenant, the usage flow `NOT VALID`) and V173 (validates
+  it); the Models page row; reasoning `OFF`; `ChatCompaction` with the prompt, the trigger at 75 % of what the next
+  turn replays and the 25 % kept tail cut before a USER message.
+- [x] `ChatCompactions` from `ChatTurnService` after a completed ordinary answer is saved: on a virtual thread,
+  claimed per session and read again under the claim; failure logged with a ten-minute cooldown; usage as its own
+  flow; span and metrics.
+- [x] Tests: the trigger does not fire again once a summary exists, the previous summary is rolled forward, a hidden
+  question stays hidden, a failure keeps the window, two turns compact once, the claim and cooldown in PostgreSQL.
 
 ## 4. Acceptance
 
