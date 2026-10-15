@@ -8,7 +8,12 @@ import { presentProblem } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
 
 /** What the server streamed with the gate (MEM-253): the app, the tool, its display name and the call's JSON arguments. */
-type Descriptor = { serverName?: string; toolName?: string; toolTitle?: string; arguments?: string };
+type Descriptor = {
+  serverName?: string;
+  toolName?: string;
+  toolTitle?: string;
+  arguments?: string;
+};
 
 /** The fields assistant-ui reads from the gate's descriptor (MEM-267): the answers offered and how it ended. */
 type Gate = {
