@@ -48,7 +48,7 @@ class EditImageToolTest {
     private final UUID messageId = UUID.randomUUID();
     private final List<ChatImageEvent> events = new ArrayList<>();
     private final ImageConnectionService.Connection connection = new ImageConnectionService.Connection(
-            UUID.randomUUID(), tenant.value(), ImageProvider.CLOUDFLARE_WORKERS_AI, "https://api.example/accounts/a", "", "encrypted", 1);
+            UUID.randomUUID(), tenant.value(), ImageProvider.CLOUDFLARE_WORKERS_AI, "https://api.example/accounts/a", "", null, "encrypted", 1);
 
     private EditImageTool tool(Set<UUID> attachments, Map<UUID, String> names, int maxCalls) {
         return new EditImageTool(client, connection, artifacts, files, actor, tenant, session, messageId, attachments, names,

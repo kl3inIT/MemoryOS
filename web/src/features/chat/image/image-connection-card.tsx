@@ -22,6 +22,7 @@ import {
   FieldTitle,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -32,6 +33,14 @@ import type {
 } from "@/lib/hey-api/types.gen";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import {
+  customImagePresets,
+  isJsonObject,
+  templateComplete,
+  templateDraft,
+  templateOf,
+} from "./custom-image-presets";
+import { ImageFormatField, TemplateBodyField } from "./custom-image-template";
+import {
   imageProblem,
   imageProviderMarks,
   imageProviderNames,
@@ -39,13 +48,23 @@ import {
   type ImageProvider,
 } from "./use-image-connections";
 
-const sites: Record<ImageProvider, string> = {
+const CUSTOM = "CUSTOM_HTTP";
+const sites: Record<Exclude<ImageProvider, typeof CUSTOM>, string> = {
   OPENAI_IMAGE: "platform.openai.com",
   CLOUDFLARE_WORKERS_AI: "developers.cloudflare.com/workers-ai",
+  GEMINI_IMAGE: "aistudio.google.com",
+  OPENROUTER_IMAGE: "openrouter.ai",
+  XAI_IMAGE: "console.x.ai",
+  FAL_AI: "fal.ai",
 };
 const endpointHints: Record<ImageProvider, string> = {
   OPENAI_IMAGE: "https://api.openai.com/v1",
   CLOUDFLARE_WORKERS_AI: "<ACCOUNT_ID>",
+  GEMINI_IMAGE: "https://generativelanguage.googleapis.com/v1",
+  OPENROUTER_IMAGE: "https://openrouter.ai/api/v1",
+  XAI_IMAGE: "https://api.x.ai/v1",
+  FAL_AI: "https://fal.run",
+  CUSTOM_HTTP: "https://api.example.com",
 };
 const CLOUDFLARE_ACCOUNT_BASE = "https://api.cloudflare.com/client/v4/accounts/";
 /** Cloudflare asks for its account ID; a stored account endpoint is shown back as the ID. */
@@ -60,6 +79,12 @@ const formats: Record<string, string> = {
 };
 const OTHER = "__other__";
 const OFF = "__off__";
+
+/** Where the provider's keys come from, or what a custom connection is. */
+function ProviderSite({ provider }: { provider: ImageProvider }) {
+  const ui = useAppTranslation();
+  return provider === CUSTOM ? ui("Kết nối API ảnh bất kỳ bằng mẫu request") : sites[provider];
+}
 
 function displayName(provider: ImageProviderResponse, model: string) {
   return provider.knownModels.find((known) => known.modelName === model)?.displayName ?? model;
@@ -105,7 +130,7 @@ export function ImageConnectionCard({
         connection && configured ? (
           <ModelSummary provider={provider} model={connection.model} />
         ) : (
-          sites[provider.provider]
+          <ProviderSite provider={provider.provider} />
         )
       }
       active={!!connection?.active}
@@ -142,6 +167,7 @@ function ImageConnectionDialog({
 }) {
   const ui = useAppTranslation();
   const name = imageProviderNames[provider.provider];
+  const isCustom = provider.provider === CUSTOM;
   const configured = !!connection?.credentialConfigured;
   const models = provider.knownModels.filter(
     (model) => !model.deprecated || model.modelName === connection?.model,
@@ -159,6 +185,7 @@ function ImageConnectionDialog({
       key: "",
       choice: initialChoice,
       custom: initialChoice === OTHER ? (connection?.model ?? "") : "",
+      template: templateDraft(connection?.template),
     },
     onSubmit: async ({ value }) => {
       test.reset();
@@ -171,6 +198,7 @@ function ImageConnectionDialog({
             revision: connection?.revision ?? 0,
             credentialAction: value.key ? "REPLACE" : "KEEP",
             credentialValue: value.key || undefined,
+            template: isCustom ? templateOf(value.template) : undefined,
           },
         });
         onClose();
@@ -184,7 +212,14 @@ function ImageConnectionDialog({
   const testable =
     model.length > 0 &&
     (!provider.endpointRequired || values.endpoint.trim().length > 0) &&
-    (configured || values.key.trim().length > 0);
+    (configured || values.key.trim().length > 0) &&
+    (!isCustom || templateComplete(values.template));
+  const pathRule = ({ value }: { value: string }) =>
+    value.trim().startsWith("/") ? undefined : ui("Đường dẫn phải bắt đầu bằng /");
+  const bodyRule = ({ value }: { value: string }) =>
+    isJsonObject(value) ? undefined : ui("Body phải là JSON hợp lệ");
+  const pointerRule = ({ value }: { value: string }) =>
+    value.trim().startsWith("/") ? undefined : ui("Vị trí ảnh phải bắt đầu bằng /");
   const busy = disabled || save.isPending || test.isPending || disconnect.isPending;
   const failure = save.error ?? test.error ?? disconnect.error;
   return (
@@ -207,7 +242,7 @@ function ImageConnectionDialog({
       ) : (
         <ConnectionForm
           title={name}
-          description={sites[provider.provider]}
+          description={<ProviderSite provider={provider.provider} />}
           onSubmit={() => void form.handleSubmit()}
           saving={save.isPending}
           saveDisabled={!model}
@@ -220,6 +255,7 @@ function ImageConnectionDialog({
                 endpoint: values.endpoint.trim(),
                 model,
                 credentialValue: values.key || undefined,
+                template: isCustom ? templateOf(values.template) : undefined,
               },
             });
           }}
@@ -257,16 +293,20 @@ function ImageConnectionDialog({
                 label={
                   provider.provider === "CLOUDFLARE_WORKERS_AI"
                     ? ui("Account ID")
-                    : provider.endpointRequired
-                      ? ui("Địa chỉ tài khoản")
-                      : ui("Địa chỉ tùy chỉnh (để trống dùng mặc định)")
+                    : isCustom
+                      ? ui("Địa chỉ API")
+                      : provider.endpointRequired
+                        ? ui("Địa chỉ tài khoản")
+                        : ui("Địa chỉ tùy chỉnh (để trống dùng mặc định)")
                 }
                 description={
                   provider.provider === "CLOUDFLARE_WORKERS_AI"
                     ? ui(
                         "Chuỗi 32 ký tự trong URL dashboard Cloudflare: dash.cloudflare.com/<ACCOUNT_ID>",
                       )
-                    : undefined
+                    : isCustom
+                      ? ui("Đường dẫn của mỗi bước được nối vào sau địa chỉ này.")
+                      : undefined
                 }
                 required={provider.endpointRequired}
                 maxLength={2048}
@@ -314,6 +354,116 @@ function ImageConnectionDialog({
               />
             )}
           </form.AppField>
+          {isCustom && (
+            <>
+              <Field>
+                <FieldLabel htmlFor={`${provider.provider}-preset`}>
+                  {ui("Bắt đầu từ mẫu")}
+                </FieldLabel>
+                <NativeSelect
+                  id={`${provider.provider}-preset`}
+                  value=""
+                  onChange={(event) => {
+                    const preset = customImagePresets.find(
+                      (entry) => entry.id === event.target.value,
+                    );
+                    if (preset) form.setFieldValue("template", templateDraft(preset.template));
+                  }}
+                >
+                  <option value="">{ui("Chọn mẫu…")}</option>
+                  {customImagePresets.map((preset) => (
+                    <option key={preset.id} value={preset.id}>
+                      {preset.label}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </Field>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <form.AppField
+                  name="template.authHeader"
+                  validators={{
+                    onChange: ({ value }) =>
+                      value.trim() ? undefined : ui("Nhập tên header xác thực"),
+                  }}
+                >
+                  {(field) => (
+                    <field.TextField label={ui("Header xác thực")} required maxLength={200} />
+                  )}
+                </form.AppField>
+                <form.AppField name="template.authPrefix">
+                  {(field) => (
+                    <field.TextField label={ui("Tiền tố khóa")} optional maxLength={200} />
+                  )}
+                </form.AppField>
+              </div>
+              <form.AppField name="template.generate.path" validators={{ onChange: pathRule }}>
+                {(field) => (
+                  <field.TextField
+                    label={ui("Đường dẫn tạo ảnh")}
+                    required
+                    maxLength={2048}
+                    placeholder="/images/generations"
+                  />
+                )}
+              </form.AppField>
+              <form.AppField name="template.generate.body" validators={{ onChange: bodyRule }}>
+                {() => <TemplateBodyField label={ui("Body tạo ảnh (JSON)")} edit={false} />}
+              </form.AppField>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <form.AppField name="template.generate.imageFormat">
+                  {() => <ImageFormatField />}
+                </form.AppField>
+                {values.template.generate.imageFormat !== "RAW" && (
+                  <form.AppField
+                    name="template.generate.imagePointer"
+                    validators={{ onChange: pointerRule }}
+                  >
+                    {(field) => (
+                      <field.TextField
+                        label={ui("Vị trí ảnh trong phản hồi (JSON Pointer)")}
+                        maxLength={500}
+                        placeholder="/data/0/b64_json"
+                      />
+                    )}
+                  </form.AppField>
+                )}
+              </div>
+              <form.AppField name="template.editing">
+                {(field) => <field.CheckboxField label={ui("Bật sửa ảnh")} />}
+              </form.AppField>
+              {values.template.editing && (
+                <>
+                  <form.AppField name="template.edit.path" validators={{ onChange: pathRule }}>
+                    {(field) => (
+                      <field.TextField label={ui("Đường dẫn sửa ảnh")} required maxLength={2048} />
+                    )}
+                  </form.AppField>
+                  <form.AppField name="template.edit.body" validators={{ onChange: bodyRule }}>
+                    {() => <TemplateBodyField label={ui("Body sửa ảnh (JSON)")} edit />}
+                  </form.AppField>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <form.AppField name="template.edit.imageFormat">
+                      {() => <ImageFormatField />}
+                    </form.AppField>
+                    {values.template.edit.imageFormat !== "RAW" && (
+                      <form.AppField
+                        name="template.edit.imagePointer"
+                        validators={{ onChange: pointerRule }}
+                      >
+                        {(field) => (
+                          <field.TextField
+                            label={ui("Vị trí ảnh sửa trong phản hồi (JSON Pointer)")}
+                            maxLength={500}
+                            placeholder="/data/0/b64_json"
+                          />
+                        )}
+                      </form.AppField>
+                    )}
+                  </div>
+                </>
+              )}
+            </>
+          )}
         </ConnectionForm>
       )}
     </ConnectionDialog>
@@ -340,6 +490,14 @@ function ModelChoiceField({
   const ui = useAppTranslation();
   const id = useId();
   const { field } = useFieldValidity<string>();
+  if (models.length === 0)
+    return (
+      <FieldSet>
+        <FieldLegend variant="label">{ui("Mô hình tạo ảnh")}</FieldLegend>
+        {custom}
+        {note && <FieldDescription>{note}</FieldDescription>}
+      </FieldSet>
+    );
   return (
     <FieldSet>
       <FieldLegend variant="label">{ui("Mô hình tạo ảnh")}</FieldLegend>

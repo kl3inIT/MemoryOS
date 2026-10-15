@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -282,6 +283,33 @@ class DocumentSearchServiceTest {
         when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(tenant));
         when(authorization.require(actor, IamCapability.SEARCH_READ, false))
                 .thenReturn(new IamAccess(tenant, Authority.GLOBAL));
+        when(sourceSearch.scope(actor)).thenReturn(new SourceSearchScope(tenant, actor, Map.of()));
+    }
+
+    @Test
+    void directSearchResolvesOneSourceScopeForTheIndexTokensAndTheReadableOrigins() {
+        var tenant = new TenantId(UUID.randomUUID());
+        var document = UUID.randomUUID();
+        givenHits(document, List.of(hit(document, generation, 0, 1)));
+        var scope = new SourceSearchScope(tenant, actor, Map.of(UUID.randomUUID(), SourceType.FILE), Set.of("group:hr"));
+        when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(tenant));
+        when(authorization.require(actor, IamCapability.SEARCH_READ, false)).thenReturn(new IamAccess(tenant, Authority.GLOBAL));
+        when(sourceSearch.scope(actor)).thenReturn(scope);
+
+        service.search(actor, new SearchRequest("leave", List.of(), null, null, 0, 10, List.of(), List.of()));
+
+        verify(sourceSearch, times(1)).scope(actor);
+        verify(index).search(eq(tenant), eq(actor), eq("leave"), eq(List.of()), isNull(), eq(Set.of("group:hr")));
+        verify(sourceSearch).readableMetadata(scope, List.of(document));
+    }
+
+    @Test
+    void directSearchRejectsASourceScopeOfAnotherTenantBeforeTheIndex() {
+        givenSearchAccess(new TenantId(UUID.randomUUID()));
+        when(sourceSearch.scope(actor)).thenReturn(new SourceSearchScope(new TenantId(UUID.randomUUID()), actor, Map.of()));
+        assertThrows(SearchDocumentUnavailableException.class,
+                () -> service.search(actor, new SearchRequest("leave", List.of(), null, null, 0, 10, List.of(), List.of())));
+        verifyNoInteractions(index);
     }
 
     @Test

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import {
   keepPreviousData,
   useInfiniteQuery,
@@ -15,7 +15,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { usePointerOpenedTrigger } from "@/hooks/use-pointer-opened-trigger";
-import { PageSizeSelect } from "@/components/ui/page-size-select";
 import {
   Select,
   SelectContent,
@@ -23,7 +22,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { TablePagination } from "@/components/ui/table-pagination";
 import { DocumentPreviewDialog } from "@/features/documents/document-preview-dialog";
 import { useGlobalCapability } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -41,7 +39,7 @@ import {
   invalidateLibrary,
   LIBRARY_CATEGORIES,
   LIBRARY_PAGE_SIZE,
-  LIBRARY_PAGE_SIZES,
+  LISTING_LIMIT,
   type LibraryCategory,
   type LibrarySort,
 } from "./library";
@@ -65,7 +63,7 @@ import {
 import { LibraryEntryEmpty, LibraryEntryList, type EntryActions } from "./library-entry-list";
 import { categoryLabels } from "./library-labels";
 import type { LibraryEntryView } from "./library-views";
-import { LibraryListSkeleton } from "./library-results";
+import { LibraryListSkeleton, LibraryPageSizeSelect, LibraryPager } from "./library-results";
 import { LibraryNoMatch } from "./library-rows";
 import type { EntryKindChip } from "./library-search";
 import { LibraryDisplayControls, LibrarySearchField, type LibraryLayout } from "./library-toolbar";
@@ -194,9 +192,9 @@ export function LibraryEntryViews({
         />
       </div>
       {view === "recent" ? (
-        <RecentEntries {...results} />
+        <RecentEntries {...results} library={library} />
       ) : view === "documents" ? (
-        <DocumentEntries {...results} />
+        <DocumentEntries {...results} library={library} />
       ) : (
         <PagedEntries {...results} view={view} library={library} />
       )}
@@ -214,19 +212,31 @@ type ResultsProps = {
   onClearFilters: () => void;
 };
 
-/** What the person opened last; the server keeps at most a hundred, so the name search runs here. */
-function RecentEntries(props: ResultsProps) {
+/**
+ * What the person opened last; the server keeps at most a hundred, so the name search and the pages are cut here.
+ */
+function RecentEntries({ library, ...props }: ResultsProps & { library: LibraryViewState }) {
   const recent = useQuery({
     ...listChatLibraryRecentOptions({ query: { limit: RECENT_LIMIT } }),
     // Every visit reads the opens made since, including those made on the other views a moment ago.
     staleTime: 0,
   });
+  const { offset, size } = library;
+  const named = entriesNamed(recent.data ?? [], props.filter.query);
+  const end = size === "all" ? named.length : offset + size;
   return (
-    <EntryResults
-      {...props}
-      state={recent}
-      entries={entriesNamed(recent.data ?? [], props.filter.query)}
-    />
+    <>
+      <EntryResults {...props} state={recent} entries={named.slice(offset, end)} />
+      {recent.data && (
+        <LibraryPager
+          library={library}
+          noun="item"
+          total={named.length}
+          hasMore={end < named.length}
+          busy={false}
+        />
+      )}
+    </>
   );
 }
 
@@ -235,44 +245,23 @@ function PagedEntries({
   library,
   ...props
 }: ResultsProps & { view: "shared" | "starred"; library: LibraryViewState }) {
-  const ui = useAppTranslation();
   const { offset, size } = library;
   const page = useQuery({
     ...entryPageOptions(props.view, props.filter, offset, size),
     // Paging keeps the page being read on screen until the next one arrives, instead of emptying the list.
     placeholderData: keepPreviousData,
   });
-  const total = page.data?.totalCount ?? 0;
   return (
     <>
       <EntryResults {...props} state={page} entries={page.data?.items ?? []} />
-      {page.data && total > 0 && (
-        <TablePagination
-          label={ui("Phân trang thư viện")}
-          page={Math.floor(offset / size)}
-          totalPages={Math.ceil(total / size)}
-          summary={ui("Hiển thị {{first}}–{{last}} trên {{total}} mục", {
-            first: offset + 1,
-            last: Math.min(offset + size, total),
-            total,
-          })}
-          previousDisabled={offset === 0}
-          nextDisabled={!page.data.hasMore}
-          previousLabel={ui("Trang trước")}
-          nextLabel={ui("Trang sau")}
-          onPrevious={() => library.showPage(Math.max(0, offset - size))}
-          onNext={() => library.showPage(offset + size)}
-        >
-          <PageSizeSelect
-            label={ui("Số mục mỗi trang")}
-            rowsLabel={ui("Số mục")}
-            value={size}
-            sizes={LIBRARY_PAGE_SIZES}
-            disabled={page.isPlaceholderData}
-            // A page size change re-cuts the list, so it restarts at its first page.
-            onSizeChange={(next) => library.filterBy({ size: next })}
-          />
-        </TablePagination>
+      {page.data && (
+        <LibraryPager
+          library={library}
+          noun="item"
+          total={page.data.totalCount}
+          hasMore={page.data.hasMore}
+          busy={page.isPlaceholderData}
+        />
       )}
     </>
   );
@@ -280,33 +269,40 @@ function PagedEntries({
 
 /**
  * The organisation's documents, paged by a cursor as the Source views page them: the next page continues where
- * this one ended, so *Tải thêm* appends rather than replaces.
+ * this one ended, so *Tải thêm* appends rather than replaces. With no total to count, the page size is offered
+ * once the documents outgrow one default page; the whole list is read one page after another.
  */
-function DocumentEntries(props: ResultsProps) {
+function DocumentEntries({ library, ...props }: ResultsProps & { library: LibraryViewState }) {
   const ui = useAppTranslation();
+  const all = library.size === "all";
   const documents = useInfiniteQuery({
-    ...documentPagesOptions(props.filter, LIBRARY_PAGE_SIZE),
+    ...documentPagesOptions(props.filter, library.size === "all" ? LISTING_LIMIT : library.size),
     initialPageParam: undefined as unknown as string,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     placeholderData: keepPreviousData,
   });
+  const { hasNextPage, isFetchingNextPage, isPlaceholderData, fetchNextPage } = documents;
+  useEffect(() => {
+    if (all && hasNextPage && !isFetchingNextPage && !isPlaceholderData) void fetchNextPage();
+  }, [all, hasNextPage, isFetchingNextPage, isPlaceholderData, fetchNextPage]);
+  const entries = documents.data?.pages.flatMap((page) => page.items) ?? [];
   return (
     <>
-      <EntryResults
-        {...props}
-        state={documents}
-        entries={documents.data?.pages.flatMap((page) => page.items) ?? []}
-      />
-      {documents.hasNextPage && !documents.isPlaceholderData && (
-        <Button
-          size="sm"
-          prominence="secondary"
-          className="self-center"
-          pending={documents.isFetchingNextPage}
-          onClick={() => void documents.fetchNextPage()}
-        >
-          {ui("Tải thêm")}
-        </Button>
+      <EntryResults {...props} state={documents} entries={entries} />
+      {documents.data && (entries.length > LIBRARY_PAGE_SIZE || hasNextPage) && (
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <LibraryPageSizeSelect library={library} noun="item" disabled={isPlaceholderData} />
+          {hasNextPage && !all && !isPlaceholderData && (
+            <Button
+              size="sm"
+              prominence="secondary"
+              pending={isFetchingNextPage}
+              onClick={() => void fetchNextPage()}
+            >
+              {ui("Tải thêm")}
+            </Button>
+          )}
+        </div>
       )}
     </>
   );

@@ -44,8 +44,11 @@ public class UserFileSearchService {
         if (hits.isEmpty()) return List.of();
         var current = documents(tenant, actor, candidates(scope, hits.stream().map(SearchHit::documentId)
                 .collect(Collectors.toUnmodifiableSet())));
-        return hits.stream().flatMap(hit -> current.entrySet().stream().filter(entry -> entry.getValue().equals(hit.documentId()))
-                .map(entry -> new FileHit(entry.getKey(), hit))).toList();
+        // Files by their document, built once, so each hit is a lookup rather than a scan of every readable file.
+        var filesByDocument = current.entrySet().stream().collect(Collectors.groupingBy(Map.Entry::getValue,
+                Collectors.mapping(Map.Entry::getKey, Collectors.toList())));
+        return hits.stream().flatMap(hit -> filesByDocument.getOrDefault(hit.documentId(), List.of()).stream()
+                .map(file -> new FileHit(file, hit))).toList();
     }
     /**
      * The files of {@code scope} whose document is among {@code found}. The search runs outside a transaction, so its

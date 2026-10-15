@@ -35,17 +35,19 @@ public class ImageConnectionService {
         this.connections = connections; this.admin = admin;
         this.authorization = authorization; this.tenants = tenants; this.adapters = adapters;
     }
-    public record View(ImageProvider provider, String endpoint, String model, boolean credentialConfigured,
-                       boolean active, long revision) {}
-    public record Input(String endpoint, String model, ProviderCredentials.Change credential, long revision) {
+    public record View(ImageProvider provider, String endpoint, String model, @Nullable ImageTemplate template,
+                       boolean credentialConfigured, boolean active, long revision) {}
+    /** @param template required for {@link ImageProvider#CUSTOM_HTTP}, refused for every other provider */
+    public record Input(String endpoint, String model, @Nullable ImageTemplate template, ProviderCredentials.Change credential,
+                        long revision) {
         @Override public @NonNull String toString() { return "ImageConnectionInput[redacted]"; }
     }
     public record Connection(@Nullable UUID id, UUID tenantId, ImageProvider provider, String endpoint, String model,
-                             @Nullable String encryptedCredential, long revision) {
+                             @Nullable ImageTemplate template, @Nullable String encryptedCredential, long revision) {
         @Override public @NonNull String toString() { return "ImageConnection[redacted]"; }
     }
     /** Unsaved connection details to probe; a missing credentialValue falls back to the stored key. */
-    public record ProbeInput(String endpoint, String model, @Nullable String credentialValue) {
+    public record ProbeInput(String endpoint, String model, @Nullable ImageTemplate template, @Nullable String credentialValue) {
         @Override public @NonNull String toString() { return "ImageProbeInput[redacted]"; }
     }
     /** A validated connection to test; credential is the supplied plaintext key, null when the stored key applies. */
@@ -76,10 +78,11 @@ public class ImageConnectionService {
             throw ChatException.invalid("Invalid image connection.");
         if (input.model().isBlank()) throw ChatException.invalid("An image model is required.");
         var endpoint = endpoint(provider, input.endpoint());
+        String template = template(provider, input.template());
         var entity = connections.findByTenantIdAndProvider(tenant, provider).orElseGet(() -> new ImageConnectionEntity(tenant, provider));
         String credential = admin.reconfigure(tenant, entity.id(), entity.revision(), input.revision(),
                 entity.credential(), input.credential(), ChatException::conflict);
-        entity.configure(endpoint, input.model(), credential);
+        entity.configure(endpoint, input.model(), credential, template);
         if (!admin.usable(adapters.capabilities(provider).requiresKey(), credential)) entity.select(false);
         var saved = connections.saveAndFlush(entity);
         audit(tenant, actor, provider, "CONFIGURE", ProviderConnections.credentialChange(input.credential()));
@@ -115,13 +118,14 @@ public class ImageConnectionService {
         if (input.endpoint() == null || input.model() == null || input.model().isBlank() || input.model().length() > 200)
             throw ChatException.invalid("Invalid image connection.");
         var endpoint = endpoint(provider, input.endpoint());
+        template(provider, input.template());
         String key = input.credentialValue();
         boolean override = key != null && !key.isBlank();
         if (override && key.length() > 8192) throw ChatException.invalid("Invalid provider credential.");
         if (!override && adapters.capabilities(provider).requiresKey() && (stored == null || !admin.configured(stored.credential())))
             throw ChatException.invalid("An API key is required to test this provider.");
         var connection = new Connection(stored == null ? null : stored.id(), tenant, provider, endpoint,
-                input.model(), override || stored == null ? null : stored.credential(), stored == null ? 0 : stored.revision());
+                input.model(), input.template(), override || stored == null ? null : stored.credential(), stored == null ? 0 : stored.revision());
         return new Probe(connection, override ? key.trim() : null);
     }
 
@@ -140,11 +144,25 @@ public class ImageConnectionService {
                 () -> ChatException.invalid("This image provider requires an endpoint."));
         return endpoint;
     }
+    /** The template to store: a valid one for a custom HTTP connection, none for any other. */
+    private static @Nullable String template(ImageProvider provider, @Nullable ImageTemplate template) {
+        if (provider != ImageProvider.CUSTOM_HTTP) {
+            if (template != null) throw ChatException.invalid("Only a custom HTTP image connection takes a request template.");
+            return null;
+        }
+        if (template == null) throw ChatException.invalid("A custom HTTP image connection requires a request template.");
+        try { template.validate(); }
+        catch (IllegalArgumentException invalid) { throw ChatException.invalid("Invalid image request template."); }
+        return template.toJson();
+    }
+    private static @Nullable ImageTemplate stored(@Nullable String template) {
+        return template == null ? null : ImageTemplate.fromJson(template);
+    }
     private void audit(UUID tenant, ActorId actor, @Nullable ImageProvider provider, String change, @Nullable String credential) {
         admin.audit(AuditAction.IMAGE_CONNECTION_CHANGE, "IMAGE_CONNECTION", tenant, actor,
                 provider == null ? null : provider.name(), change, credential);
     }
     private boolean usable(ImageConnectionEntity c) { return admin.usable(adapters.capabilities(c.provider()).requiresKey(), c.credential()); }
-    private View view(ImageConnectionEntity c) { return new View(c.provider(), c.endpoint(), c.model(), admin.configured(c.credential()), c.active(), c.revision()); }
-    private Connection snapshot(ImageConnectionEntity c) { return new Connection(c.id(), c.tenantId(), c.provider(), c.endpoint(), c.model(), c.credential(), c.revision()); }
+    private View view(ImageConnectionEntity c) { return new View(c.provider(), c.endpoint(), c.model(), stored(c.template()), admin.configured(c.credential()), c.active(), c.revision()); }
+    private Connection snapshot(ImageConnectionEntity c) { return new Connection(c.id(), c.tenantId(), c.provider(), c.endpoint(), c.model(), stored(c.template()), c.credential(), c.revision()); }
 }

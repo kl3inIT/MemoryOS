@@ -25,8 +25,15 @@ public interface JpaProjectRepository extends JpaRepository<ProjectEntity, UUID>
     @Query("select coalesce(min(p.position) - 1, 0) from ProjectEntity p where p.tenantId=:tenant and p.ownerId=:actor")
     int firstPosition(UUID tenant, UUID actor);
 
-    /** A bulk update bypasses the entity, so it leaves {@code revision} and {@code updatedAt} alone. */
+    /**
+     * Places the owner's Projects at {@code 0..n-1} in the order of {@code ids}, in one statement. A bulk update
+     * bypasses the entity, so it leaves {@code revision} and {@code updatedAt} alone.
+     */
     @Modifying(clearAutomatically = true)
-    @Query("update ProjectEntity p set p.position=:position where p.tenantId=:tenant and p.ownerId=:actor and p.id=:id")
-    int place(UUID tenant, UUID actor, UUID id, int position);
+    @Query(nativeQuery = true, value = """
+            UPDATE chat_project p SET position = CAST(o.ordinal - 1 AS integer)
+            FROM unnest(CAST(:ids AS uuid[])) WITH ORDINALITY AS o(id, ordinal)
+            WHERE p.tenant_id = :tenant AND p.owner_actor_id = :actor AND p.id = o.id
+            """)
+    int place(UUID tenant, UUID actor, UUID[] ids);
 }

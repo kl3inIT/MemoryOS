@@ -14,13 +14,13 @@ import org.springframework.modulith.NamedInterface;
  * @param defaultEndpoint  used when a connection leaves its endpoint empty; null when the manager must supply one
  * @param endpointRequired the manager must configure an endpoint
  * @param editModel        the model every edit uses; null when edits use the connection's configured model
- * @param knownModels      generation models, newest first
+ * @param knownModels      generation models, newest first; empty when the manager names every model
  */
 @NamedInterface("image")
 public record ImageProviderCapabilities(@Nullable String defaultEndpoint, boolean endpointRequired,
                                         @Nullable KnownModel editModel, List<KnownModel> knownModels) {
     public ImageProviderCapabilities {
-        if (knownModels.isEmpty() || knownModels.stream().map(KnownModel::modelName).distinct().count() != knownModels.size())
+        if (knownModels.stream().map(KnownModel::modelName).distinct().count() != knownModels.size())
             throw new IllegalArgumentException("Invalid image model catalog");
         knownModels = List.copyOf(knownModels);
     }
@@ -34,11 +34,16 @@ public record ImageProviderCapabilities(@Nullable String defaultEndpoint, boolea
         return known == null ? null : known.sizeFor(shape);
     }
 
-    /** Published metadata only: runtime behaviour follows the connection's stored model, never this entry. */
+    /**
+     * Published metadata only: runtime behaviour follows the connection's stored model, never this entry. Sizes are
+     * what the provider takes: pixel sizes {@code WxH}, or aspect ratios {@code W:H} for providers that pick the pixels.
+     */
     public record KnownModel(String modelName, String displayName, String outputMediaType, List<String> sizes,
                              boolean edit, boolean deprecated) {
         public static final List<String> GPT_IMAGE_SIZES = List.of("1024x1024", "1536x1024", "1024x1536");
-        private static final Pattern SIZE = Pattern.compile("[1-9][0-9]{1,4}x[1-9][0-9]{1,4}");
+        /** Square, landscape and portrait for providers that take an aspect ratio. */
+        public static final List<String> ASPECT_RATIOS = List.of("1:1", "16:9", "9:16");
+        private static final Pattern SIZE = Pattern.compile("[1-9][0-9]{0,4}[x:][1-9][0-9]{0,4}");
         private static final Set<String> MEDIA_TYPES = Set.of("image/png", "image/jpeg", "image/webp");
 
         public KnownModel {
@@ -61,7 +66,7 @@ public record ImageProviderCapabilities(@Nullable String defaultEndpoint, boolea
             };
             if (aspect == null) return null;
             for (var size : sizes) {
-                var at = size.indexOf('x');
+                var at = Math.max(size.indexOf('x'), size.indexOf(':'));
                 int order = Integer.compare(
                         Integer.parseInt(size.substring(0, at)), Integer.parseInt(size.substring(at + 1)));
                 if (order == aspect) return size;

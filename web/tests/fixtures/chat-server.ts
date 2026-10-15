@@ -2,7 +2,12 @@ import { fixtureModels, fixtureSource } from "./chat-data.ts";
 import { randomUUID } from "node:crypto";
 import { generatedFileMessages, handleGeneratedFile } from "./generated-files.ts";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { ChatMessage, ChatSession, ProjectView } from "../../src/lib/hey-api/types.gen.ts";
+import type {
+  ChatMessage,
+  ChatSession,
+  CurrentIdentity,
+  ProjectView,
+} from "../../src/lib/hey-api/types.gen.ts";
 
 type Run = {
   id: string;
@@ -23,6 +28,16 @@ type Session = {
 };
 const sessions = new Map<string, Session>();
 const projects = new Map<string, Required<ProjectView>>();
+// The signed-in person of a browser opened on `pnpm mock-api`; the browser specs route their own identity.
+const fixtureIdentity: CurrentIdentity = {
+  actorId: "e62a621f-41d2-4853-aa76-b600dafd8e34",
+  displayName: "Test user",
+  authorizationVersion: 1,
+  uiLanguage: "vi",
+  tenant: { displayName: "Test tenant", role: "MEMBER" },
+  capabilities: ["SYSTEM_BASIC", "SEARCH_READ", "CHAT_READ", "CHAT_WRITE"],
+  scopedCapabilities: [],
+};
 const answer =
   'Hello 👋\n\nHere is an example:\n\n```java\nSystem.out.println("Hello");\n```\n\n[Reference](https://example.com)';
 function json(response: ServerResponse, data: unknown, status = 200) {
@@ -330,11 +345,46 @@ function finish(state: Session, run: Run, status: "COMPLETED" | "CANCELED" | "FA
 }
 
 /** Test-only HTTP fixture: real incremental streams; no claims about model/IAM acceptance. */
+/**
+ * Adds Projects with their conversations, for `pnpm mock-api` only: the browser tests never call it, so they
+ * start without any. The first seed is listed first, and each conversation is a little older than the one before.
+ */
+export function seedChatProjects(
+  seeds: ReadonlyArray<{
+    name: string;
+    description: string;
+    instructions: string;
+    iconName: string;
+    fileIds: string[];
+    sessions: string[];
+  }>,
+) {
+  seeds.forEach(({ sessions: titles, ...seed }, index) => {
+    const project = {
+      ...seed,
+      id: randomUUID(),
+      revision: 0,
+      updatedAt: new Date(Date.now() - index * 86_400_000).toISOString(),
+    };
+    projects.set(project.id, project);
+    titles.forEach((title, order) => {
+      const { session } = create(title);
+      session.projectId = project.id;
+      session.updatedAt = new Date(
+        Date.now() - (index * 24 + order * 5 + 1) * 3_600_000,
+      ).toISOString();
+    });
+  });
+}
 export async function handleChatFixture(
   request: IncomingMessage,
   response: ServerResponse,
 ): Promise<boolean> {
   const url = new URL(request.url!, "http://localhost");
+  if (url.pathname === "/api/identity/me" && request.method === "GET") {
+    json(response, fixtureIdentity);
+    return true;
+  }
   if (url.pathname === "/api/chat/models") {
     json(response, fixtureModels);
     return true;
@@ -457,6 +507,20 @@ export async function handleChatFixture(
         json(response, updated);
       }
     } else json(response, project);
+    return true;
+  }
+  if (segments.length === 5 && segments[3] === "sessions" && segments[4] === "search") {
+    const query = (url.searchParams.get("query") ?? "").toLocaleLowerCase();
+    const offset = Number(url.searchParams.get("offset") ?? 0);
+    const limit = Number(url.searchParams.get("limit") ?? 20);
+    const found = [...sessions.values()]
+      .reverse()
+      .map((item) => item.session)
+      .filter((session) => !session.temporary && session.title.toLocaleLowerCase().includes(query));
+    json(response, {
+      items: found.slice(offset, offset + limit).map((session) => ({ session, snippet: null })),
+      hasMore: found.length > offset + limit,
+    });
     return true;
   }
   if (segments.length === 4 && segments[3] === "sessions") {

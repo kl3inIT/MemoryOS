@@ -35,11 +35,6 @@ public class SourceSearchService {
         return new SourceSearchScope(tenant, actor, documents.searchableSources(tenant, actor), documents.actorAccessTokens(tenant, actor));
     }
 
-    /** Index access tokens for direct Search, which has no Source scope. */
-    public Set<String> accessTokens(TenantId tenant, ActorId actor) {
-        return documents.actorAccessTokens(tenant, actor);
-    }
-
     public DocumentAccess indexAccess(TenantId tenant, DocumentId document) {
         return documents.documentAccess(tenant, document.value());
     }

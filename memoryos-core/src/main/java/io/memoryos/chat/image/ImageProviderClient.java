@@ -58,9 +58,9 @@ public final class ImageProviderClient {
             var adapter = adapters.adapter(connection.provider());
             // The tool shape maps to a declared size of the configured model; unknown models and models without
             // declared sizes keep the provider default.
-            String size = adapter.capabilities().sizeFor(connection.model(), shape);
+            String size = adapter.size(connection.model(), shape);
             return adapter.generate(call, base(adapter, connection), key != null ? key : connections.key(connection),
-                    connection.model(), prompt, size);
+                    connection.model(), prompt, size, connection.template());
         });
     }
 
@@ -69,7 +69,8 @@ public final class ImageProviderClient {
         return measured(connection.provider().name(), "edit", () -> {
             validate(prompt);
             var adapter = adapters.adapter(connection.provider());
-            return adapter.edit(call, base(adapter, connection), connections.key(connection), connection.model(), prompt, image);
+            return adapter.edit(call, base(adapter, connection), connections.key(connection), connection.model(), prompt, image,
+                    connection.template());
         });
     }
 

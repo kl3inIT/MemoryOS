@@ -9,5 +9,10 @@ import org.springframework.modulith.NamedInterface;
 @NamedInterface("image")
 public enum ImageProvider {
     OPENAI_IMAGE,
-    CLOUDFLARE_WORKERS_AI
+    CLOUDFLARE_WORKERS_AI,
+    GEMINI_IMAGE,
+    OPENROUTER_IMAGE,
+    XAI_IMAGE,
+    FAL_AI,
+    CUSTOM_HTTP
 }
