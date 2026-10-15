@@ -1,5 +1,6 @@
 package io.memoryos.chat.session.persistence;
 
+import io.memoryos.chat.ChatContextUse;
 import io.memoryos.chat.ChatActivity;
 import io.memoryos.chat.ChatArtifact;
 import io.memoryos.chat.ChatPersonaService;
@@ -695,6 +696,22 @@ public class JdbcChatRepository {
                 JSON.readValue(row.getString("activity"), ChatActivity.class),
                 new ChatResearch(row.getBoolean("is_clarification"), row.getString("research_plan"),
                         List.of(JSON.readValue(row.getString("research_agents"), ChatResearch.Agent[].class))),
-                row.getString("failure_code"), row.getString("refusal_reason"));
+                row.getString("failure_code"), row.getString("refusal_reason"), context(row));
+    }
+
+    private static @Nullable ChatContextUse context(ResultSet row) throws SQLException {
+        int tokens = row.getInt("context_tokens");
+        if (row.wasNull()) return null;
+        int limit = row.getInt("context_limit");
+        return row.wasNull() ? null : new ChatContextUse(tokens, limit);
+    }
+
+    /** What the reply's last model call carried; recorded once the reply has its terminal state (MEM-267). */
+    public void recordContext(UUID session, UUID assistant, ChatContextUse context) {
+        jdbc.sql("""
+                        UPDATE chat_message SET context_tokens = :tokens, context_limit = :limit
+                        WHERE session_id = :session AND id = :id AND role = 'ASSISTANT' AND status <> 'RUNNING'
+                        """).param("tokens", context.tokens()).param("limit", context.limit())
+                .param("session", session).param("id", assistant).update();
     }
 }

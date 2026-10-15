@@ -16,4 +16,6 @@ public record ToolApprovalEvent(@Schema(requiredMode = REQUIRED) UUID assistantM
                                 String arguments,
                                 @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, allowableValues = {"APPROVED", "DECLINED", "NO_DECISION"},
                                         description = "Absent while the call waits")
-                                @Nullable String decision) {}
+                                @Nullable String decision,
+                                @Schema(requiredMode = REQUIRED, description = "The reply's owner may answer with always allow")
+                                boolean alwaysAllowable) {}

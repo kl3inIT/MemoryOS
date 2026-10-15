@@ -38,6 +38,7 @@ import io.memoryos.chat.streaming.TurnWaiting;
 import io.memoryos.chat.streaming.StreamBufferWriter;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
+import io.memoryos.mcp.McpException;
 import io.memoryos.mcp.McpTurnService;
 import io.memoryos.mcp.McpTurnTools;
 
@@ -612,9 +613,13 @@ class ChatTurnServiceTest {
 
     /** Answers the waiting call once it is waiting; a decision before then is refused as not pending. */
     private void decideWhenWaiting(ChatTurnService service, boolean approved) throws InterruptedException {
+        decideWhenWaiting(service, approved, false);
+    }
+
+    private void decideWhenWaiting(ChatTurnService service, boolean approved, boolean alwaysAllow) throws InterruptedException {
         for (int attempt = 0; attempt < 200; attempt++) {
             try {
-                service.decide(actor, session, pair.assistantMessageId(), "call-1", approved);
+                service.decide(actor, session, pair.assistantMessageId(), "call-1", approved, alwaysAllow);
                 return;
             } catch (ChatException notYet) {
                 assertEquals("CHAT_TOOL_APPROVAL_NOT_PENDING", notYet.code());
@@ -637,6 +642,25 @@ class ChatTurnServiceTest {
             assertEquals(McpTurnTools.Decision.APPROVED, decided.get());
             assertEquals("CHAT_TOOL_APPROVAL_NOT_PENDING", assertThrows(ChatException.class,
                     () -> service.decide(actor, session, pair.assistantMessageId(), "call-1", false)).code());
+        }
+    }
+
+    @Test
+    void alwaysAllowSavesThePolicyBeforeApprovingAndARefusedChangeLeavesTheCallWaiting() throws Exception {
+        prepare();
+        when(persistence.authorizeReply(actor, session, pair.assistantMessageId())).thenReturn(ChatMessage.Status.RUNNING);
+        var decided = modelAskingApproval(new CountDownLatch(1));
+        doThrow(McpException.toolPolicyNotAllowed()).doNothing().when(mcp).allowAlways(actor, SEND);
+        try (var tasks = Executors.newVirtualThreadPerTaskExecutor(); var service = withMcp(limits, tasks::execute)) {
+            service.command(actor, session, mcpCommand(request));
+            // A refused policy change answers nothing: the call still waits and a second answer approves it.
+            assertEquals("MCP_TOOL_POLICY_NOT_ALLOWED",
+                    assertThrows(McpException.class, () -> decideWhenWaiting(service, true, true)).code());
+            decideWhenWaiting(service, true, true);
+            verify(persistence, timeout(5000)).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.COMPLETED),
+                    eq("Done"), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+            assertEquals(McpTurnTools.Decision.APPROVED, decided.get());
+            verify(mcp, times(2)).allowAlways(actor, SEND);
         }
     }
 

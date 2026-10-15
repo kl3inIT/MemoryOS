@@ -46,6 +46,14 @@ class ModelAccountingTest {
     }
 
     @Test
+    void theContextOfTheLastCallSurvivesAnIncompleteTotalAndAnUnknownOneIsDropped() {
+        var incomplete = new ModelAccounting(10L, null, null, 0, true).withContext(9_000, 128_000);
+        assertEquals(9_000, incomplete.shown().contextTokens());
+        assertEquals(128_000, incomplete.shown().contextLimit());
+        assertNull(ModelAccounting.NONE.withContext(null, 128_000).contextTokens());
+    }
+
+    @Test
     void aCallWithoutUsageKeepsWhatTheOthersReportedAndMarksTheTurnIncomplete() {
         // Staging, 2026-10-02: one silent call in a turn of several erased the usage of all of them.
         spent(1000, 100, 0.00042);

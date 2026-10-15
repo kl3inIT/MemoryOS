@@ -313,10 +313,29 @@ export function historyParts(content: string, activity: ChatActivity): Part[] {
         toolCallId: step.toolCallId,
         providerExecuted: true,
       } as const;
+      // MEM-267: a call the person declined, or never answered, comes back as its settled approval gate, so the
+      // answer shows the card's receipt where the call asked instead of a line inside the collapsed thinking.
+      const unanswered = step.failure === "NO_DECISION";
       const part: Part =
-        step.status === "COMPLETED"
-          ? { ...base, state: "output-available", input, output: { durationMs: input.durationMs } }
-          : { ...base, state: "output-error", input, errorText: TOOL_FAILED };
+        step.failure === "DECLINED" || unanswered
+          ? {
+              ...base,
+              state: "output-denied",
+              input,
+              approval: {
+                id: step.toolCallId,
+                approved: false,
+                ...(unanswered && { descriptor: { resolution: "expired" } }),
+              },
+            }
+          : step.status === "COMPLETED"
+            ? {
+                ...base,
+                state: "output-available",
+                input,
+                output: { durationMs: input.durationMs },
+              }
+            : { ...base, state: "output-error", input, errorText: TOOL_FAILED };
       return { position: step.position, offset: step.textOffset, part };
     }),
   ].sort((left, right) => left.position - right.position);

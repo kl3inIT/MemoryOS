@@ -57,15 +57,7 @@ export function ChatMcpToolStep({
 
   return (
     <ActivityStep icon={<Blocks />} status={state} title={title}>
-      {/* A reloaded answer has no live approval, only the step's failure category. */}
-      {failure === "DECLINED" || failure === "NO_DECISION" ? (
-        <p className="text-xs">
-          {failure === "DECLINED"
-            ? ui("Bạn đã từ chối.")
-            : ui("Không có phản hồi nên công cụ không chạy.")}
-        </p>
-      ) : null}
-      {failure && failure !== "DECLINED" && failure !== "NO_DECISION" ? (
+      {failure ? (
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <p>
             {failure === "AUTHORIZATION_REQUIRED"

@@ -6,6 +6,7 @@ import { fixtureSource } from "../../../../tests/fixtures/chat-data";
 import type { ChatMessage, ChatSession } from "@/lib/hey-api/types.gen";
 import type { UIMessageChunk } from "ai";
 import { i18n } from "@/i18n/index";
+import { historyParts } from "@/features/chat/activity/chat-activity";
 
 const session: ChatSession = {
   id: "5230ab53-dab0-4441-acbf-840636b52953",
@@ -66,6 +67,8 @@ const row: ChatMessage = {
   research: { clarification: false, plan: null, agents: [] },
   failureCode: null,
   refusalReason: null,
+  contextTokens: null,
+  contextLimit: null,
   images: [],
   generatedFiles: [],
   id: runId,
@@ -694,6 +697,97 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     expect(chunks.find((chunk) => chunk.type === "message-metadata")).toMatchObject({
       messageMetadata: { sources: [fixtureSource], toolCitations: { ws_1: [1] } },
     });
+  });
+
+  it("offers always allow when the server does, and settles the gate from the server's decision", async () => {
+    const call = { serverName: "Linear", toolName: "save_issue", arguments: "{}" };
+    fixture(() =>
+      sse(
+        packet(1, "tool_approval", {
+          ...call,
+          toolCallId: "c1",
+          decision: null,
+          alwaysAllowable: true,
+        }) +
+          packet(2, "tool_approval", {
+            ...call,
+            toolCallId: "c1",
+            decision: "APPROVED",
+            alwaysAllowable: false,
+          }) +
+          packet(3, "tool_approval", {
+            ...call,
+            toolCallId: "c2",
+            decision: null,
+            alwaysAllowable: false,
+          }) +
+          packet(4, "tool_approval", {
+            ...call,
+            toolCallId: "c2",
+            decision: "NO_DECISION",
+            alwaysAllowable: false,
+          }) +
+          packet(5, "outcome", {
+            status: "COMPLETED",
+            failureCode: null,
+            contextTokens: 9000,
+            contextLimit: 128000,
+          }),
+      ),
+    );
+    const chunks = await collect(await send(new MemoryOsChatTransport(session)));
+    const gates = chunks.filter(
+      (chunk) => chunk.type === "tool-approval-request" || chunk.type === "tool-approval-response",
+    );
+    expect(gates).toEqual([
+      expect.objectContaining({
+        type: "tool-approval-request",
+        toolCallId: "c1",
+        approvalDescriptor: expect.objectContaining({
+          options: expect.arrayContaining([expect.objectContaining({ kind: "allow-always" })]),
+        }),
+      }),
+      { type: "tool-approval-response", approvalId: "c1", approved: true },
+      expect.objectContaining({ type: "tool-approval-request", toolCallId: "c2" }),
+      expect.objectContaining({
+        type: "tool-approval-request",
+        toolCallId: "c2",
+        approvalDescriptor: expect.objectContaining({ resolution: "expired" }),
+      }),
+    ]);
+    expect(
+      (gates[2] as { approvalDescriptor: Record<string, unknown> }).approvalDescriptor,
+    ).not.toHaveProperty("options");
+    expect(chunks.findLast((chunk) => chunk.type === "message-metadata")).toMatchObject({
+      messageMetadata: { context: { tokens: 9000, limit: 128000 } },
+    });
+  });
+
+  it("brings back a declined or unanswered call as its settled approval gate", () => {
+    const step = (toolCallId: string, failure: "DECLINED" | "NO_DECISION") => ({
+      toolCallId,
+      toolName: "mcp_linear_save_issue",
+      status: "FAILED" as const,
+      queries: [],
+      filters: null,
+      documents: [],
+      citations: [],
+      durationMs: null,
+      failure,
+      position: toolCallId === "d" ? 0 : 1,
+      textOffset: 0,
+    });
+    const parts = historyParts("", {
+      reasoning: [],
+      steps: [step("d", "DECLINED"), step("n", "NO_DECISION")],
+    } as unknown as Parameters<typeof historyParts>[1]);
+    expect(parts.filter((part) => part.type === "dynamic-tool")).toEqual([
+      expect.objectContaining({ state: "output-denied", approval: { id: "d", approved: false } }),
+      expect.objectContaining({
+        state: "output-denied",
+        approval: { id: "n", approved: false, descriptor: { resolution: "expired" } },
+      }),
+    ]);
   });
 
   it("rebuilds saved reasoning, tool steps and text in streamed order", () => {

@@ -1337,6 +1337,12 @@ class ChatPersistenceIntegrationTest {
                 "Late", "CHAT_EXECUTION_FAILED", "model", 1L, 2L, null, List.of());
         assertEquals(new ChatTurnPersistence.TerminalOutcome(ChatMessage.Status.COMPLETED, null), late,
                 "the terminal winner is reported, not the late write");
+
+        // MEM-267: what the last model call carried is read back with the answer for the context gauge.
+        turns.recordContext(session.id(), pair.assistantMessageId(), new ChatContextUse(9_000, 128_000));
+        var answer = sessions.history(owner, session.id(), null, 100).stream()
+                .filter(message -> message.id().equals(pair.assistantMessageId())).findFirst().orElseThrow();
+        assertEquals(new ChatContextUse(9_000, 128_000), answer.context());
     }
 
     @Test

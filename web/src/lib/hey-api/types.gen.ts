@@ -2409,6 +2409,10 @@ export type BranchChatSessionRequest = {
 
 export type ChatToolDecision = {
     approved: boolean;
+    /**
+     * With approved, the tool also runs without asking from now on; needs MCP_MANAGE and a tool that is not destructive
+     */
+    alwaysAllow?: boolean | null;
 };
 
 export type Cancellation = {
@@ -3347,6 +3351,14 @@ export type ChatMessage = {
      * Why a COMPLETED reply declined instead of answering: no_evidence, uncited or blocked_topic (answers from documents only, sensitive topics); null otherwise
      */
     refusalReason: string | null;
+    /**
+     * Estimated input tokens of the reply's last model call; null when unknown
+     */
+    contextTokens: number | null;
+    /**
+     * The model's input limit for that call; null when unknown
+     */
+    contextLimit: number | null;
 };
 
 export type ChatMessageResearch = {
@@ -3468,6 +3480,14 @@ export type OutcomeEvent = {
     status: 'COMPLETED' | 'CANCELED' | 'FAILED';
     failureCode: string | null;
     hasArtifacts: boolean;
+    /**
+     * Estimated input tokens of the reply's last model call
+     */
+    contextTokens: number | null;
+    /**
+     * The model's input limit for that call
+     */
+    contextLimit: number | null;
 };
 
 export type ResetEvent = {
@@ -3593,6 +3613,10 @@ export type ToolApprovalEvent = {
      * Absent while the call waits
      */
     decision?: 'APPROVED' | 'DECLINED' | 'NO_DECISION';
+    /**
+     * The reply's owner may answer with always allow
+     */
+    alwaysAllowable: boolean;
 };
 
 export type ChatBranch = {

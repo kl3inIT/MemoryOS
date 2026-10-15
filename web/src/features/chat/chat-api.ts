@@ -31,6 +31,8 @@ export type ChatUiMessage = UIMessage<
     failureCode?: string;
     /** MEM-195: why a completed reply declined instead of answering. */
     refusalReason?: string;
+    /** MEM-267: what the reply's last model call carried, against the model's input limit. */
+    context?: { tokens: number; limit: number };
     createdAt?: string;
     /** Set by assistant-ui on a live question sent with a composer quote. */
     custom?: { quote?: { text: string; messageId: string } };
@@ -198,6 +200,10 @@ export function toUiMessages(messages: ChatMessage[]): ChatUiMessage[] {
       serverStatus: message.status,
       failureCode: message.failureCode ?? undefined,
       refusalReason: message.refusalReason ?? undefined,
+      ...(message.contextTokens != null &&
+        message.contextLimit != null && {
+          context: { tokens: message.contextTokens, limit: message.contextLimit },
+        }),
       createdAt: message.createdAt,
       sources: sourcesSchema.parse(message.sources),
       artifacts: artifactsSchema.parse(message.artifacts),

@@ -78,7 +78,8 @@ class ChatTurnController {
     @ApiResponse(responseCode = "409", description = "No call of this reply waits for approval")
     void decide(@CurrentActor IdentityContext identity, @PathVariable UUID sessionId, @PathVariable UUID assistantMessageId,
                 @PathVariable @Size(min = 1, max = 256) String toolCallId, @Valid @RequestBody ChatToolDecisionRequest request) {
-        turns.decide(identity.actorId(), sessionId, assistantMessageId, toolCallId, request.approved());
+        turns.decide(identity.actorId(), sessionId, assistantMessageId, toolCallId, request.approved(),
+                Boolean.TRUE.equals(request.alwaysAllow()));
     }
 
     @PostMapping("/{userMessageId}/edit")

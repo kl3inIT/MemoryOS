@@ -1,5 +1,6 @@
 package io.memoryos.mcp;
 
+import java.util.HashSet;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
 import io.memoryos.mcp.persistence.McpCredentialEntity;
@@ -38,15 +39,18 @@ public class McpTurnService {
     private final IamAuthorization authorization;
     private final McpSecrets secrets;
     private final McpClients clients;
+    private final McpServerService serverAdministration;
     private final McpOAuthService oauth;
     private final TransactionTemplate transactions;
 
     public McpTurnService(JpaMcpServerRepository servers, JpaMcpServerToolRepository tools,
                           JpaMcpCredentialRepository credentials, McpAccessRepository access,
                           IamAuthorization authorization, McpSecrets secrets, McpClients clients,
-                          McpOAuthService oauth, PlatformTransactionManager transactionManager) {
+                          McpOAuthService oauth, McpServerService serverAdministration,
+                          PlatformTransactionManager transactionManager) {
         this.servers = servers; this.tools = tools; this.credentials = credentials; this.access = access;
         this.authorization = authorization; this.secrets = secrets; this.clients = clients; this.oauth = oauth;
+        this.serverAdministration = serverAdministration;
         this.transactions = new TransactionTemplate(transactionManager);
     }
 
@@ -75,12 +79,12 @@ public class McpTurnService {
             targets.put(candidate.serverId(), new McpTurnTools.Target(candidate.serverId(), candidate.url(), headers));
             bindings.addAll(candidate.bindings());
         }
-        return new McpTurnTools(clients, targets, bindings, unavailable, resolved.omitted());
+        return new McpTurnTools(clients, targets, bindings, unavailable, resolved.omitted(), resolved.alwaysAllowable());
     }
 
     /** A turn that selected no usable server; only {@link #open} needs it. */
     private McpTurnTools empty() {
-        return new McpTurnTools(clients, Map.of(), List.of(), List.of(), List.of());
+        return new McpTurnTools(clients, Map.of(), List.of(), List.of(), List.of(), Set.of());
     }
 
     private record Candidate(UUID serverId, String serverName, String url, McpAuthType authType,
@@ -88,7 +92,15 @@ public class McpTurnService {
                              List<McpTurnTools.Binding> bindings) {}
 
     private record Resolved(List<Candidate> candidates, List<McpTurnTools.Unavailable> unavailable,
-                            List<McpTurnTools.Omitted> omitted) {}
+                            List<McpTurnTools.Omitted> omitted, Set<String> alwaysAllowable) {}
+
+    /**
+     * "Always allow" answered on an approval card (MEM-267): the tool stops asking for everyone. The server checks
+     * again that the person manages MCP servers and that the tool is not destructive.
+     */
+    public void allowAlways(ActorId actor, McpTurnTools.Binding binding) {
+        serverAdministration.allowAlways(actor, binding.serverId(), binding.toolName());
+    }
 
     private Resolved resolve(ActorId actor, List<UUID> serverIds) {
         UUID tenant = authorization.require(actor, IamCapability.CHAT_WRITE, false).tenantId().value();
@@ -96,6 +108,8 @@ public class McpTurnService {
         var candidates = new ArrayList<Candidate>();
         var unavailable = new ArrayList<McpTurnTools.Unavailable>();
         var omitted = new ArrayList<McpTurnTools.Omitted>();
+        var alwaysAllowable = new HashSet<String>();
+        boolean manages = authorization.effectiveCapabilities(actor).contains(IamCapability.MCP_MANAGE);
         int offered = 0;
         for (UUID serverId : serverIds.stream().distinct().toList()) {
             if (!accessible.contains(serverId)) continue;
@@ -125,6 +139,9 @@ public class McpTurnService {
                 }
                 bindings.add(new McpTurnTools.Binding(serverId, server.slug(), server.name(), tool.name(), modelName.get(),
                         tool.description(), tool.inputSchema(), tool.readOnly(), tool.policy() == McpToolPolicy.ASK));
+                if (manages && tool.policy() == McpToolPolicy.ASK
+                        && McpServerRules.allowed(McpServerRules.risk(tool.readOnly(), tool.annotations()), McpToolPolicy.ALWAYS))
+                    alwaysAllowable.add(modelName.get());
             }
             if (left > 0) omitted.add(new McpTurnTools.Omitted(server.name(), left));
             if (bindings.isEmpty()) {
@@ -137,7 +154,7 @@ public class McpTurnService {
             candidates.add(new Candidate(serverId, server.name(), server.url(), server.authType(), owner,
                     server.headerTemplate() == null ? null : template(server), apiKey(tenant, credential), bindings));
         }
-        return new Resolved(candidates, unavailable, omitted);
+        return new Resolved(candidates, unavailable, omitted, alwaysAllowable);
     }
 
     /** Resolves headers outside the transaction; OAuth refresh may call the authorization server. */

@@ -12,7 +12,7 @@ import org.jspecify.annotations.Nullable;
  * cost, so a single silent call no longer erases the usage of every other call of the turn.
  */
 public record ModelAccounting(@Nullable Long input, @Nullable Long output, @Nullable Double cost, long cacheRead, boolean used,
-                              boolean complete) {
+                              boolean complete, @Nullable Integer contextTokens, @Nullable Integer contextLimit) {
     public static final ModelAccounting NONE = new ModelAccounting(null, null, null, 0, false);
 
     /** Accounting whose totals are complete exactly when both token counts are known. */
@@ -20,12 +20,26 @@ public record ModelAccounting(@Nullable Long input, @Nullable Long output, @Null
         this(input, output, cost, cacheRead, used, input != null && output != null);
     }
 
+    public ModelAccounting(@Nullable Long input, @Nullable Long output, @Nullable Double cost, long cacheRead, boolean used,
+                           boolean complete) {
+        this(input, output, cost, cacheRead, used, complete, null, null);
+    }
+
+    /**
+     * With what the conversation's last model call carried against the model's input limit (MEM-267). Totals sum every
+     * call of a turn, so they overstate the context of a turn that called tools.
+     */
+    public ModelAccounting withContext(@Nullable Integer tokens, int limit) {
+        return tokens == null || limit <= 0 ? this
+                : new ModelAccounting(input, output, cost, cacheRead, used, complete, tokens, limit);
+    }
+
     /**
      * The totals a stored answer shows as its own: only complete ones. Partial totals go to the usage ledger, which counts
      * the turn as having an unknown cost; on the answer they would read as the whole turn.
      */
     public ModelAccounting shown() {
-        return complete ? this : new ModelAccounting(null, null, null, 0, used, false);
+        return complete ? this : new ModelAccounting(null, null, null, 0, used, false, contextTokens, contextLimit);
     }
 
     public static ModelAccounting of(List<? extends ModelGuard> guards, AgentProcess process, LlmMetadata metadata) {

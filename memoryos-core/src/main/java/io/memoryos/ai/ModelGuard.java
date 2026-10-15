@@ -99,6 +99,12 @@ public class ModelGuard implements ChatModel {
 
     public int availableContextTokens() { return Math.max(0, inputLimit - lastStreamInput - 1024); }
 
+    /** The estimated input of the latest streamed call, or null before the first one: what the context holds. */
+    public @Nullable Integer contextTokens() { return lastStreamInput > 0 ? lastStreamInput : null; }
+
+    /** The model's input limit this guard admits calls against. */
+    public int inputLimit() { return inputLimit; }
+
     public void executionScheduler(Scheduler value) { this.scheduler = value; }
 
     /** Onyx has no helper-call count: tool work is bounded by the cycle limit and the turn's budgets. */
