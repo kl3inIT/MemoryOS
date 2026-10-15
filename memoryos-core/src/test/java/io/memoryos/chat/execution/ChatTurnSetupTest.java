@@ -231,7 +231,7 @@ class ChatTurnSetupTest {
         var context = new TurnContext(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "Answer",
                 List.of(message(ChatMessage.Role.USER, "Make the shirt red"), imageOnly, message(ChatMessage.Role.USER, "Draw a man")),
                 ChatTurnOptions.DEFAULT, Map.of(), List.of(), null,
-                Map.of(imageOnly.id(), List.of(image)));
+                Map.of(imageOnly.id(), List.of(image)), null);
         var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, 32000, binding(), "");
         assertEquals(List.of("Draw a man", "Make the shirt red"), setup.messages().stream()
                 .filter(m -> m instanceof UserMessage).map(Message::getContent).toList());
@@ -334,5 +334,68 @@ class ChatTurnSetupTest {
         var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(),
                 context(List.of(message(ChatMessage.Role.USER, "Còn chế độ thai sản?"), uncited, question)), 32000, binding(), "");
         assertEquals("Nghỉ phép năm?", setup.messages().get(1).getContent());
+    }
+
+    /** Newest first: the current question, then two exchanges, the older of which a summary covers. */
+    private List<ChatMessage> compactedHistory(ChatMessage cutoff) {
+        return List.of(message(ChatMessage.Role.USER, "Newest"), message(ChatMessage.Role.ASSISTANT, "Second answer"),
+                message(ChatMessage.Role.USER, "Second question"), cutoff, message(ChatMessage.Role.USER, "First question"));
+    }
+
+    @Test
+    void theSummaryFollowsTheWorkspaceAndOnlyTheMessagesAfterItsCutoffReplay() {
+        var cutoff = message(ChatMessage.Role.ASSISTANT, "First answer");
+        var picture = new ChatFileDescriptor(UUID.randomUUID(), "picture.png", "image/png", 100);
+        var context = TurnContext.builder(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "Answer",
+                        compactedHistory(cutoff))
+                .workspaceFiles(List.of(picture))
+                .summary(new TurnContext.Summary(cutoff.id(), "The person compares two plans."))
+                .build();
+        var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, 32000, binding(), "");
+        assertInstanceOf(SystemMessage.class, setup.messages().getFirst());
+        assertTrue(setup.messages().get(1).getContent().startsWith("Workspace files (untrusted data)"));
+        assertInstanceOf(UserMessage.class, setup.messages().get(2));
+        assertEquals(ChatTurnSetup.SUMMARY_LABEL + "The person compares two plans.", setup.messages().get(2).getContent());
+        assertEquals(List.of("Second question", "Second answer", "Newest"),
+                setup.messages().stream().skip(3).map(Message::getContent).toList());
+    }
+
+    @Test
+    void theSummaryIsKeptWhileTheWindowTrimsTheTail() {
+        var cutoff = message(ChatMessage.Role.ASSISTANT, "First answer");
+        var history = List.of(message(ChatMessage.Role.USER, "Newest"), message(ChatMessage.Role.ASSISTANT, "Previous"),
+                message(ChatMessage.Role.USER, "Old question ".repeat(1000)), cutoff);
+        var context = TurnContext.builder(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "Answer", history)
+                .summary(new TurnContext.Summary(cutoff.id(), "Short summary"))
+                .build();
+        var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, 200, binding(), "");
+        assertEquals(List.of(ChatTurnSetup.SUMMARY_LABEL + "Short summary", "Newest"),
+                setup.messages().stream().skip(1).map(Message::getContent).toList());
+    }
+
+    @Test
+    void aSummaryThatLeavesNoRoomForTheQuestionIsIgnoredAndTheWindowReplaysAsBefore() {
+        var cutoff = message(ChatMessage.Role.ASSISTANT, "First answer");
+        var context = TurnContext.builder(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "Answer",
+                        compactedHistory(cutoff))
+                .summary(new TurnContext.Summary(cutoff.id(), "Long summary ".repeat(1000)))
+                .build();
+        var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, 2000, binding(), "");
+        assertEquals(List.of("First question", "First answer", "Second question", "Second answer", "Newest"),
+                setup.messages().stream().skip(1).map(Message::getContent).toList());
+    }
+
+    @Test
+    void withoutASummaryTheWholeWindowReplays() {
+        var cutoff = message(ChatMessage.Role.ASSISTANT, "First answer");
+        var summarized = TurnContext.builder(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "Answer",
+                        compactedHistory(cutoff))
+                .summary(new TurnContext.Summary(cutoff.id(), "The person compares two plans."))
+                .build();
+        var plain = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context(compactedHistory(cutoff)), 32000, binding(), "");
+        var research = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), summarized.withoutSummary(), 32000, binding(), "");
+        var expected = List.of("First question", "First answer", "Second question", "Second answer", "Newest");
+        assertEquals(expected, plain.messages().stream().skip(1).map(Message::getContent).toList());
+        assertEquals(expected, research.messages().stream().skip(1).map(Message::getContent).toList());
     }
 }

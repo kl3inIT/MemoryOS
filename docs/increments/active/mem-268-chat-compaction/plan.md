@@ -9,12 +9,13 @@ Design: [design.md](design.md). Each pull request is accepted when CI is green a
 
 ## 2. The summary and how a turn uses it
 
-- [ ] Migration (the next free version): `chat_session_summary` with its claim column and cooldown; persistence in
-  `chat.persistence`.
-- [ ] `ChatTurnSetup.resolve`: the branch's summary after the system and workspace messages, then only messages after
-  its cutoff; the sliding window as the guard.
-- [ ] Tests at the PostgreSQL boundary: the summary on the branch, ignored after an edit above the cutoff, ignored on
-  another branch.
+- [x] Migration V171: `chat_session_summary`, and `chat_session_compaction` with the claim (`claimed_until`) and the
+  cooldown (`retry_after`) one row a session; persistence in `chat.session.persistence`.
+- [x] `ChatTurnSetup.resolve`: the branch's summary after the system and workspace messages, then only messages after
+  its cutoff; the sliding window as the guard; a summary that leaves no room for the question ignored; Deep research
+  without it.
+- [x] Tests at the PostgreSQL boundary: the summary on the branch, ignored after an edit above the cutoff, ignored on
+  another branch, the nearest of two, deleted with the session.
 
 ## 3. Writing the summary
 

@@ -57,7 +57,9 @@ it, and what failure does; the choices below take a side on each.
    enough on its own.
 5. **Kept by branch.** A new table `chat_session_summary` (`session_id`, `parent_message_id` = the last USER message
    it was written after, `cutoff_message_id` = the last message it covers, `content`, `token_count`,
-   `model_configuration_id`, `created_at`), in `chat.persistence`. A turn uses the summary whose parent is the
+   `model_configuration_id`, `created_at`), in `chat.session.persistence`; the claim and the cooldown are one
+   `chat_session_compaction` row a session (`claimed_until`, `retry_after`), apart from the summaries, which are per
+   branch, and from `chat_session`, whose row every turn updates. A turn uses the summary whose parent is the
    nearest ancestor on its selected branch and whose cutoff is on that branch; any other is ignored, so an edit or a
    regeneration above the cutoff falls back by itself (Onyx `load_branch_summary`). Not a message role: a role would
    reach the history API, sibling counts and the edit and regenerate paths. The transcript is unchanged.

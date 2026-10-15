@@ -21,6 +21,7 @@ import io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository;
 import io.memoryos.chat.export.persistence.JdbcChatExportRepository;
 import io.memoryos.library.persistence.JdbcLibraryRepository;
 import io.memoryos.chat.session.persistence.JdbcChatRepository;
+import io.memoryos.chat.session.persistence.JdbcChatSummaryRepository;
 import io.memoryos.chat.session.persistence.JdbcChatSearchRepository;
 import io.memoryos.chat.image.persistence.JdbcImageArtifactRepository;
 import io.memoryos.library.persistence.JdbcUserFileRepository;
@@ -140,7 +141,7 @@ class ChatExportIntegrationTest {
                 files, new ActorLanguageService(jpa.repository(JpaActorRepository.class,
                         RepositoryComposition.RepositoryFragments
                                 .just(new ActorRefreshImpl(jpa.entityManager()))), tenants),
-                new JdbcImageArtifactRepository(jdbc)));
+                new JdbcImageArtifactRepository(jdbc), new JdbcChatSummaryRepository(jdbc)));
         factory.setProxyTargetClass(true);
         factory.addAdvice(interceptor);
         turns = (ChatTurnPersistence) factory.getProxy();
