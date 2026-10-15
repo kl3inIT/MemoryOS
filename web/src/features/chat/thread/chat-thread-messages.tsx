@@ -7,8 +7,8 @@ import {
   ActionBarPrimitive,
   AuiIf,
   MessagePrimitive,
-  groupPartByType,
   useAuiState,
+  type PartState,
 } from "@assistant-ui/react";
 import { Copy, FileX, ShieldAlert } from "lucide-react";
 import { MarkdownText } from "@/components/assistant-ui/elements/markdown-text";
@@ -28,6 +28,7 @@ import {
   ChatReasoningStep,
   ChatToolStep,
 } from "@/features/chat/activity/chat-activity-view";
+import { ChatMcpApproval } from "@/features/chat/mcp/chat-mcp-step";
 import { ChatResearchView } from "@/features/chat/research/chat-research-view";
 import type { ResearchState } from "@/features/chat/research/chat-research";
 import { ChatMessageActions, ChatUserMessageContent } from "./chat-message-actions";
@@ -36,10 +37,17 @@ import { ChatArtifactCards } from "./chat-artifact-view";
 import { ChatMessageTiming } from "./chat-message-timing";
 import { ChatUserMessageQuote, ChatUserText } from "./chat-quote";
 
-const activityGroups = groupPartByType({
-  reasoning: ["group-activity"],
-  "tool-call": ["group-activity"],
-});
+/**
+ * Reasoning and tool steps share one disclosure, except a call that waits for the person (MEM-253): as ChatGPT and
+ * Claude ask, its approval sits in the answer itself, never inside the collapsed thinking, and stays there with its
+ * outcome after the person answers.
+ */
+function activityGroups(part: PartState): readonly "group-activity"[] | null {
+  if (part.type === "reasoning") return ["group-activity"];
+  if (part.type === "tool-call")
+    return "approval" in part && part.approval ? null : ["group-activity"];
+  return null;
+}
 const answerPlugins = [remarkCitations, remarkSandboxLinks];
 const answerComponents = { a: ChatMarkdownLink };
 
@@ -162,7 +170,11 @@ export function AssistantMessage({ readOnly }: { readOnly: boolean }) {
               case "reasoning":
                 return <ChatReasoningStep running={part.status.type === "running"} />;
               case "tool-call":
-                return <ChatToolStep part={part} />;
+                return part.approval ? (
+                  <ChatMcpApproval part={part} />
+                ) : (
+                  <ChatToolStep part={part} />
+                );
               case "text":
                 // Only the answer body can be quoted, not activity, sources or actions.
                 return part.text.trim() ? (

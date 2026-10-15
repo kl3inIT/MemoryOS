@@ -43,8 +43,10 @@ turn ends today. The decision is local to the API process that runs the turn, wh
 
 In the browser the call is the AI SDK's own approval gate, as assistant-ui's server-side approval gates intend: the
 transport turns a waiting `tool_approval` into a `tool-approval-request` chunk on the tool part (the server, tool
-and arguments as its `approvalDescriptor`), assistant-ui adds `approval` and `respondToApproval` to the part, the
-step renders assistant-ui's Approval card element with each argument as a row, and the runtime's
+and arguments as its `approvalDescriptor`), assistant-ui adds `approval` and `respondToApproval` to the part, and
+the part leaves the collapsible thinking group to render assistant-ui's Approval card element in the answer itself,
+with each argument as a row, as ChatGPT and Claude ask; it stays there with its outcome (MEM-264, after the staging
+check showed the card inside the thinking), and the runtime's
 `onRespondToToolApproval` posts the answer to the decision endpoint, because the server owns the paused call. A
 reloaded answer has no gate, only the step's `DECLINED` or `NO_DECISION`.
 
