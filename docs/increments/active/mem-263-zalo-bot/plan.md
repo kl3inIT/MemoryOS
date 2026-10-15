@@ -43,8 +43,9 @@ Design: [design.md](design.md). Each pull request is accepted when CI is green a
 
 ## 5. The web
 
-- [ ] "Thêm bot" with the provider first; the Zalo form; the linked count on the bot's page; Settings › Chat link
-  rows with code and "Bỏ liên kết"; both languages; e2e and screenshots at desktop and phone widths.
+- [x] "Thêm bot" with the provider first; the Zalo form; Settings › Chat link rows with code and "Bỏ liên kết"; both
+  languages; e2e (`channels-zalo.spec.ts`) and screenshots at desktop and phone widths. The linked count on the bot's
+  page is not shown: `ChannelResponse` carries none, and adding it is an API change left for when it is wanted.
 
 ## 6. Acceptance
 

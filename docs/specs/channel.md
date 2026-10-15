@@ -75,13 +75,22 @@ Zalo, each absent for the other. No response carries the secret or the token, an
 ### The administration page
 
 `/admin/channels` (`web/src/features/channels`, "Kênh chat"), shown to a holder of `CHANNELS_MANAGE` under the agents and tools
-section, lists the bots as the MCP servers are listed: Lark's mark, the bot's name, one line and the switch, which
-saves on change. The line names what is wrong first (no connection, the bots' process not running), then a scope Lark
-refuses, else that the bot is off, connecting or answering; the list is read again every five seconds while a bot
-switched on is not connected. Each bot has its page, `/admin/channels/{id}`: its status, Lark's name for the bot,
-region, App ID, notice language, when it connected, its last message and its last failure, the scopes still missing,
-and a menu to replace the App Secret or delete the bot. Adding a bot is a dialog beside the console steps and scopes
-the app needs; the App Secret stays in a ref, never in query state or storage, and is cleared once sent.
+section, lists the bots as the MCP servers are listed: the platform's mark (Lark or Zalo), the bot's name, one line
+and the switch, which saves on change. The line names what is wrong first (no connection, with Zalo's own reason for
+a webhook Zalo cannot reach or a deployment without a public address; the bots' process not running), then a scope
+Lark refuses, else that the bot is off, connecting or answering; the list is read again every five seconds while a
+bot switched on is not connected. Each bot has its page, `/admin/channels/{id}`: its status, the platform's name for
+the bot, a Lark bot's region and App ID or a Zalo bot's Bot ID and way of receiving (a select of Webhook or Polling
+that saves on change through `PUT /api/channels/{id}/transport`), notice language, when it connected, its last
+message and its last failure, the scopes still missing, and a menu to replace the App Secret or the token, or delete
+the bot. Adding a bot is a dialog that asks the platform first, then shows that platform's form beside its setup
+steps: Lark's App ID and App Secret with the console steps and scopes, or Zalo's token and way of receiving with the
+Zalo Bot Creator steps. A secret or token stays in a ref, never in query state or storage, and is cleared once sent.
+
+Settings › Chat shows "Liên kết Zalo" to a member when the Tenant has a Zalo bot: one row a bot, linked (with when)
+or not. "Lấy mã" makes a code and shows it large and copyable with the time it has left; while it is shown the links
+are read every three seconds, and the dialog closes once the bot took the code. "Bỏ liên kết" removes a link after a
+confirmation. The route composes the section into the chat settings page, since `chat` does not import `channels`.
 
 ## The adapter
 

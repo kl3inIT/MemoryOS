@@ -121,8 +121,9 @@ test("adding a bot opens the dialog beside the console steps and waits for the A
   await page.goto("/admin/channels");
 
   await expect(page.getByText("Chưa có bot nào.")).toBeVisible({ timeout: 30_000 });
-  await page.getByRole("button", { name: "Thêm bot Lark" }).click();
-  const dialog = page.getByRole("dialog", { name: "Thêm bot Lark" });
+  await page.getByRole("button", { name: "Thêm bot" }).click();
+  const dialog = page.getByRole("dialog", { name: "Thêm bot" });
+  await expect(dialog.getByRole("radio", { name: "Lark", exact: true })).toBeChecked();
   await expect(dialog.getByText("im.message.receive_v1")).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Kiểm tra và lưu" })).toBeDisabled();
   await dialog.getByRole("textbox", { name: "App Secret" }).fill("secret");
@@ -156,7 +157,7 @@ for (const theme of ["light", "dark"] as const) {
       await page.screenshot({ path: `${OUTPUT}/detail-${theme}-${width}.png`, fullPage: true });
 
       await page.goto("/admin/channels");
-      await page.getByRole("button", { name: "Thêm bot Lark" }).click({ timeout: 30_000 });
+      await page.getByRole("button", { name: "Thêm bot" }).click({ timeout: 30_000 });
       await expect(page.getByRole("dialog")).toBeVisible({ timeout: 30_000 });
       await page.screenshot({ path: `${OUTPUT}/dialog-${theme}-${width}.png`, fullPage: true });
     });

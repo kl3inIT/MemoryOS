@@ -2113,7 +2113,6 @@ Object.assign(vietnameseUi, {
     "The provider's rate limit was reached. Try again in a few minutes or choose another model.",
   // MEM-246 the chat bots' administration
   "Kênh chat": "Chat channels",
-  "Thêm bot Lark": "Add a Lark bot",
   "Chưa có bot nào.": "No bots yet.",
   "Không kết nối được tới Lark": "Cannot connect to Lark",
   "Dịch vụ bot đang không chạy": "The bot service is not running",
@@ -2144,8 +2143,6 @@ Object.assign(vietnameseUi, {
   "Lỗi gần nhất": "Last failure",
   "Quyền Lark còn thiếu": "Missing Lark scopes",
   "Thay App Secret của bot": "Replace the bot's App Secret",
-  "Lark kiểm tra app trước khi lưu; app bị từ chối sẽ không được lưu.":
-    "Lark checks the app before it is saved; an app it rejects is not saved.",
   "Nhập App ID của app Lark, bắt đầu bằng cli_.":
     "Enter the Lark app's App ID, which starts with cli_.",
   "Chuẩn bị app trên Lark": "Prepare the app in Lark",
@@ -2177,4 +2174,56 @@ Object.assign(vietnameseUi, {
     "The bot was just changed elsewhere. Try again.",
   "Bot này không còn nữa.": "This bot no longer exists.",
   "Kiểm tra lại các trường rồi thử lại.": "Check the fields and try again.",
+  // MEM-263 the Zalo bot and its account links
+  "Thêm bot": "Add a bot",
+  "Nền tảng": "Platform",
+  "Nền tảng kiểm tra bot trước khi lưu; bot bị từ chối sẽ không được lưu.":
+    "The platform checks the bot before it is saved; a bot it rejects is not saved.",
+  "Thay token": "Replace token",
+  "Thay token của bot": "Replace the bot's token",
+  "Đã thay token": "Token replaced",
+  "Zalo đã chấp nhận token mới của {{v1}}.": "Zalo accepted the new token of {{v1}}.",
+  "Chuẩn bị bot trên Zalo": "Prepare the bot in Zalo",
+  "Trong app Zalo, tìm Zalo Bot Manager và mở Zalo Bot Creator.":
+    "In the Zalo app, find Zalo Bot Manager and open Zalo Bot Creator.",
+  "Tạo bot với tên bắt đầu bằng Bot.": "Create a bot whose name starts with Bot.",
+  "Sao chép token mà Zalo gửi trong tin nhắn.": "Copy the token Zalo sends in a message.",
+  "Ẩn token": "Hide token",
+  "Hiện token": "Show token",
+  "Cách nhận tin": "Receiving",
+  "Bot trên Zalo": "Bot in Zalo",
+  "Không kết nối được tới Zalo": "Cannot connect to Zalo",
+  "Đang kết nối tới Zalo…": "Connecting to Zalo…",
+  "Đang trả lời trên Zalo": "Answering in Zalo",
+  "Zalo không gọi được tới webhook": "Zalo cannot reach the webhook",
+  "Máy chủ chưa có địa chỉ công khai cho webhook": "The server has no public address for a webhook",
+  "Zalo từ chối token của bot": "Zalo rejects the bot's token",
+  "Máy chủ chưa có địa chỉ công khai, nên Zalo không gọi được webhook. Hãy chọn Polling.":
+    "The server has no public address, so Zalo cannot call a webhook. Choose Polling.",
+  "Zalo không gọi được tới webhook của MemoryOS. Hãy chọn Polling.":
+    "Zalo cannot reach the MemoryOS webhook. Choose Polling.",
+  "Bot đã dùng hết quota tin nhắn của Zalo trong tháng.":
+    "The bot has used up this month's Zalo message quota.",
+  "Zalo từ chối token này. Hãy sao chép lại token từ Zalo Bot Creator.":
+    "Zalo rejects this token. Copy the token from Zalo Bot Creator again.",
+  "Bot Zalo này đã được thêm.": "This Zalo bot is already added.",
+  "Zalo không phản hồi. Hãy thử lại sau ít phút.":
+    "Zalo did not answer. Try again in a few minutes.",
+  "Bot ngừng trả lời trên Zalo, các liên kết tài khoản bị xóa và tài khoản của bot bị vô hiệu hóa; các hội thoại cũ vẫn giữ tên bot. Không hoàn tác được.":
+    "The bot stops answering in Zalo, its account links are removed and its account is deactivated; past conversations keep its name. This cannot be undone.",
+  "Liên kết Zalo": "Zalo links",
+  "Đã liên kết · {{time}}": "Linked · {{time}}",
+  "Chưa liên kết": "Not linked",
+  "Lấy mã": "Get a code",
+  "Lấy mã mới": "Get a new code",
+  "Mã liên kết": "Link code",
+  "Gửi mã này cho bot {{name}}.": "Send this code to the bot {{name}}.",
+  "Sao chép mã": "Copy the code",
+  "Mã đã hết hạn.": "The code has expired.",
+  "Hết hạn sau {{time}}": "Expires in {{time}}",
+  "Bỏ liên kết": "Unlink",
+  "Bỏ liên kết với {{name}}?": "Unlink from {{name}}?",
+  "Bot sẽ không trả lời tài khoản Zalo này nữa cho tới khi bạn liên kết lại.":
+    "The bot stops answering this Zalo account until you link it again.",
+  "Đang bỏ liên kết…": "Unlinking…",
 });
