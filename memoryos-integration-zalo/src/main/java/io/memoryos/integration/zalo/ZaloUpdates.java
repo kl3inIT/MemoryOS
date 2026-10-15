@@ -13,8 +13,9 @@ import tools.jackson.databind.JsonNode;
  * in Zalo's envelope ({@code {ok, result}}) and a poll answers one or several. A message from a bot, or without the ids
  * a message needs, is not handed over.
  *
- * <p>Zalo documents no mention in a group (MEM-263 step 1 settles it on a real bot): until then a group message
- * addresses the bot when its text names it as {@code @<bot name>}, which is removed from the question.
+ * <p>In a group Zalo pushes only the messages that name the bot (seen on a real bot, MEM-263 step 1), so every group
+ * message addresses it. The mention is plain text, {@code @<display name>}, with no entity marking it; it is removed
+ * from the question where it is found.
  */
 final class ZaloUpdates {
     static final String TEXT = "message.text.received";
@@ -45,15 +46,12 @@ final class ZaloUpdates {
         boolean text = TEXT.equals(ZaloBot.text(update, "event_name"));
         String body = text ? ZaloBot.text(message, "text") : null;
         String question = body == null ? "" : body.strip();
-        boolean addressed = !group;
         if (group && connection.botName() != null) {
             String mention = "@" + connection.botName();
             int at = question.toLowerCase(Locale.ROOT).indexOf(mention.toLowerCase(Locale.ROOT));
-            if (at >= 0) {
-                addressed = true;
-                question = (question.substring(0, at) + question.substring(at + mention.length())).strip();
-            }
+            if (at >= 0) question = (question.substring(0, at) + question.substring(at + mention.length())).strip();
         }
+        boolean addressed = true;
         return new ChannelMessage(connection.id(), messageId, chatId,
                 group ? ChannelMessage.Kind.GROUP : ChannelMessage.Kind.DIRECT, senderId,
                 ZaloBot.text(from, "display_name"), null, addressed,

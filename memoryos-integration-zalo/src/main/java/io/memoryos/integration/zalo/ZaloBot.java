@@ -29,6 +29,9 @@ final class ZaloBot {
     private static final Limits CALL = new Limits(Duration.ofSeconds(15), 1_048_576);
     private static final Limits POLL = new Limits(POLL_WAIT.plusSeconds(15), 1_048_576);
     private static final int ERROR_BODY_BYTES = 4_096;
+    // Seen on a real bot (MEM-263 step 1): what Zalo answers when there is no webhook to delete or to describe.
+    private static final int NO_WEBHOOK_TO_DELETE = 400;
+    private static final int NO_WEBHOOK_SET = 404;
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
     private final ZaloBotApi calls;
@@ -58,9 +61,11 @@ final class ZaloBot {
     /** Zalo's check of a webhook address: whether its call arrived, and its typed outcome such as {@code webhook.err.dns}. */
     record Check(boolean ok, @Nullable String outcome) {}
 
+    /** The bot's name is the one members see and type after {@code @}, its display name; its account name is a handle. */
     Me me() {
         var result = result(() -> calls.getMe(Map.of()));
-        return new Me(Objects.requireNonNullElse(text(result, "id"), ""), text(result, "account_name"));
+        String name = text(result, "display_name");
+        return new Me(Objects.requireNonNullElse(text(result, "id"), ""), name != null ? name : text(result, "account_name"));
     }
 
     /** The updates Zalo has, waiting for one up to {@link #POLL_WAIT}; none when the wait ran out. */
@@ -87,13 +92,23 @@ final class ZaloBot {
         return check(result(() -> calls.testWebhook(Map.of())));
     }
 
+    /** Removes the webhook; Zalo answers 400 when none is set, which is what was asked. */
     void deleteWebhook() {
-        result(() -> calls.deleteWebhook(Map.of()));
+        try {
+            result(() -> calls.deleteWebhook(Map.of()));
+        } catch (ZaloApiException failure) {
+            if (failure.code() != NO_WEBHOOK_TO_DELETE) throw failure;
+        }
     }
 
-    /** The address Zalo pushes to now; empty when none is set. */
+    /** The address Zalo pushes to now; empty when none is set, which Zalo answers with 404. */
     String webhookUrl() {
-        return Objects.requireNonNullElse(text(result(() -> calls.getWebhookInfo(Map.of())), "url"), "");
+        try {
+            return Objects.requireNonNullElse(text(result(() -> calls.getWebhookInfo(Map.of())), "url"), "");
+        } catch (ZaloApiException failure) {
+            if (failure.code() == NO_WEBHOOK_SET) return "";
+            throw failure;
+        }
     }
 
     /** @return Zalo's id of the message sent, or null when it gives none */

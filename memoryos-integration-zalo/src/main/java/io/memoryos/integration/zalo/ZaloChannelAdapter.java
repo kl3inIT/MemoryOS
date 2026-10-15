@@ -50,6 +50,7 @@ public final class ZaloChannelAdapter implements ChannelAdapter, AutoCloseable {
     private static final ChannelFeatures FEATURES = new ChannelFeatures(false, false, false, MAX_TEXT);
     /** A token is the bot's number, a colon and its secret. */
     private static final Pattern TOKEN = Pattern.compile("^([0-9]{1,32}):(\\S{1,200})$");
+    private static final Pattern MARKDOWN_LINK = Pattern.compile("!?\\[([^\\]\\n]+)]\\((https?://[^\\s)]+)\\)");
     static final String SECRET_HEADER = "x-bot-api-secret-token";
     /** How often the typing mark is sent again while an answer is written; Zalo does not say how long one lasts. */
     static final Duration TYPING_EVERY = Duration.ofSeconds(4);
@@ -208,8 +209,11 @@ public final class ZaloChannelAdapter implements ChannelAdapter, AutoCloseable {
     }
 
     /** The messages an answer is sent as: its pieces, the first after the asker's name in a group, then its sources and closing line. */
-    static List<String> messages(ChannelMessage question, List<String> pieces, List<ChannelReply.Source> sources,
+    static List<String> messages(ChannelMessage question, List<String> written, List<ChannelReply.Source> sources,
                                  @Nullable String footer) {
+        // Zalo's markdown shows a [text](url) link as written, so a link becomes its text and its tappable bare address;
+        // the piece only gets shorter.
+        var pieces = written.stream().map(piece -> MARKDOWN_LINK.matcher(piece).replaceAll("$1 ($2)")).toList();
         var texts = new ArrayList<String>();
         if (question.kind() == ChannelMessage.Kind.GROUP && question.senderName() != null && !pieces.isEmpty()) {
             // The name goes before the first piece, which is cut again to leave it room.
@@ -223,10 +227,11 @@ public final class ZaloChannelAdapter implements ChannelAdapter, AutoCloseable {
         var tail = new StringBuilder();
         int index = 1;
         for (var source : sources) {
-            String title = source.title().replace("[", "(").replace("]", ")");
+            String title = source.title().strip();
             tail.append(index++).append(". ");
-            if (source.url() != null) tail.append('[').append(title).append("](").append(source.url()).append(')');
-            else tail.append(title);
+            // Zalo's markdown shows no [text](url) link, only a bare address, which it makes tappable.
+            tail.append(title);
+            if (source.url() != null) tail.append(": ").append(source.url());
             tail.append('\n');
         }
         if (footer != null && !footer.isBlank()) tail.append('\n').append(footer.strip());
