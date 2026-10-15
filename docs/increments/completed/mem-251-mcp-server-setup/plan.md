@@ -26,6 +26,8 @@ Design: [design.md](design.md). One pull request; web only, no API or migration 
 
 - [x] Component tests and the MCP administration browser suite (run locally); typecheck, lint, format and i18n
   audit on the changed files. The whole `pnpm --dir web check` (knip runs out of memory locally) is left to CI.
-- [ ] Screenshots in both themes reviewed; owner approval.
+- [x] Screenshots in both themes reviewed; owner approval.
 - [x] Runbook: the Google parameters are entered under Advanced. Roadmap row.
-- [ ] Staging: Google Drive MCP added from the form keeps working past an hour.
+- [x] Staging: Google Drive MCP added from the form keeps working past an hour.
+
+Evidence: [verification.md](verification.md).

@@ -34,4 +34,6 @@ Design: [design.md](design.md). Rides on the MEM-251 pull request.
 ## 5. Documents and checks
 
 - [x] Chat spec (MCP tools, streaming), matrix, roadmap.
-- [ ] CI gates; staging with Linear's `create_issue` asking first.
+- [x] CI gates; staging with Linear's `create_issue` asking first.
+
+Evidence: [verification.md](verification.md).
