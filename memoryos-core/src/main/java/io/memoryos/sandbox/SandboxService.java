@@ -13,6 +13,7 @@ import java.util.concurrent.Callable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -43,6 +44,7 @@ public class SandboxService {
     private final TransactionTemplate transactions;
     private final Clock clock;
 
+    @Autowired
     public SandboxService(ObjectProvider<SandboxRuntime> runtimes, JdbcSandboxRepository workspaces,
                           SandboxProperties properties, PlatformTransactionManager transactionManager) {
         this(runtimes, workspaces, properties, transactionManager, Clock.systemUTC());
