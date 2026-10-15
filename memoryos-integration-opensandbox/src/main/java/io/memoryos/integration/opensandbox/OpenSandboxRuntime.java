@@ -31,6 +31,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -203,14 +204,18 @@ public class OpenSandboxRuntime implements SandboxRuntime, AutoCloseable {
 
     /**
      * execd answered, so the sandbox is up: a missing path, a directory or a file the user may not touch comes back as
-     * an error with execd's message ({@code RUNTIME_ERROR}, HTTP 500, for "permission denied"). A rate limit or a proxy
-     * that could not reach execd (502 to 504) stays a runtime failure.
+     * an execd error ({@code RUNTIME_ERROR}, HTTP 500, for "permission denied"). Only those three are refusals, told in
+     * a fixed sentence: the raw message may come from the server or its proxy and is never handed to the model. Anything
+     * else stays a runtime failure.
      */
     private static RuntimeException refusal(SandboxApiException failed) {
-        Integer status = failed.getStatusCode();
         String message = failed.getError().getMessage();
-        if (status == null || status == 429 || status >= 502 || message == null || message.isBlank()) return failed;
-        return new SandboxFileException(message, failed);
+        if (message == null) return failed;
+        String lower = message.toLowerCase(Locale.ROOT);
+        if (lower.contains("permission denied")) return new SandboxFileException("Permission denied.", failed);
+        if (lower.contains("no such file") || lower.contains("not found")) return new SandboxFileException("No such file or directory.", failed);
+        if (lower.contains("is a directory")) return new SandboxFileException("The path is a directory.", failed);
+        return failed;
     }
 
     private Sandbox connect(String id) {

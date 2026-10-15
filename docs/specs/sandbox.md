@@ -23,7 +23,7 @@ work in it.
 - **Files.** `write`, `read`, `open` and `list` run as the same user through OpenSandbox's identity-bound file routes
   (`filesWithIdentity`, execd 1.1.1), so a file call has exactly a command's rights. execd itself runs as root, and its
   default routes follow a link a command planted: on 2026-10-16 they read `/etc/shadow` and overwrote `/etc/passwd`.
-  A path the user may not touch, a missing path or a directory is refused with execd's message as
+  A path the user may not touch, a missing path or a directory is refused in a fixed sentence (never execd's raw message) as
   `SandboxFileException`; only a sandbox that does not answer is `SANDBOX_UNAVAILABLE`.
 - **Network.** Every sandbox is created with a policy that denies egress except to the configured domains.
 - **Bound.** At most `memoryos.sandbox.max-running` sandboxes used within the idle timeout run at once; past it,
