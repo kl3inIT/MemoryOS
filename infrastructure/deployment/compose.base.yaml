@@ -15,7 +15,7 @@ x-service-defaults: &service-defaults
 
 services:
   postgres:
-    image: ${MEMORYOS_POSTGRES_IMAGE:-postgres:18.6-bookworm@sha256:3725f4e2499eef5134592b3b4ab79a543ed7f8e533b05b5b637af926630f6650}
+    image: ${MEMORYOS_POSTGRES_IMAGE:-postgres:18.6-bookworm@sha256:afc7e2d441324c0388fa80c3d24f733b4194a4eb7f47dd8ee2b08eb1a24a647c}
     container_name: memoryos-postgres
     # Every one of these was the stock default until now, on a machine that has far more memory
     # than the defaults assume. The defaults here stay modest because one environment shares its
@@ -85,7 +85,7 @@ services:
 
 
   postgres-backup:
-    image: ${MEMORYOS_POSTGRES_IMAGE:-postgres:18.6-bookworm@sha256:3725f4e2499eef5134592b3b4ab79a543ed7f8e533b05b5b637af926630f6650}
+    image: ${MEMORYOS_POSTGRES_IMAGE:-postgres:18.6-bookworm@sha256:afc7e2d441324c0388fa80c3d24f733b4194a4eb7f47dd8ee2b08eb1a24a647c}
     profiles:
       - ops
     user: "${MEMORYOS_BACKUP_UID:-1000}:${MEMORYOS_BACKUP_GID:-1000}"
