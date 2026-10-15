@@ -144,6 +144,8 @@ The controlled OpenAI fixture verifies MemoryOS protocol construction and fallba
 
 ## Editors, projects, assistants and sharing (V36)
 
+Project sidebar regressions are covered in `chat-projects-section.test.tsx` (explicit permanent-session creation and failed creation without navigation) and `web/tests/e2e/chat-projects.spec.ts` (empty new session, existing session and first-send promotion retain history after removal and reload; removal updates the open header's membership and transfers focus to the retained recent-history link). Browser coverage uses synthetic HTTP/model fixtures, not a deployed backend.
+
 | Contract | Verification |
 | --- | --- |
 | Persona/Project ownership, instruction precedence including empty custom instructions, admission snapshot, stale revisions and deletion preserving history | `ChatPersistenceIntegrationTest.projectsAndPersonasApplyAtAdmissionAndPreserveHistoryAcrossEditsAndDeletion` |
@@ -164,7 +166,7 @@ The controlled OpenAI fixture verifies MemoryOS protocol construction and fallba
 | The Projects page shows description, file count and update day, its loading and failed states, edit and delete from the row menu, and reorders with the same full-list write | `chat-projects-page.test.tsx`: real React Query/router/components, MSW |
 | The Projects page search narrows by name and description without case or Vietnamese marks, keeps the words in `?q=` (opened from the address too), offers no handles or dragging while narrowed, and shows a no-match state with *Xóa bộ lọc* | `chat-projects-page.test.tsx`; in the browser, the search scenario in `web/tests/e2e/chat-projects.spec.ts` (survives a reload, a pointer drag sends no order) |
 | In the browser the section closes and stays closed across a reload, a Project opens to its conversations, the open conversation's Project is revealed on a direct load, keyboard reordering on the Projects page survives a reload and the sidebar handle reorders by pointer | `web/tests/e2e/chat-projects.spec.ts`; synthetic fixture models `PUT /api/chat/projects/order` |
-| Rename Escape/focus restore, retained draft on error, header synchronization; inline edit failure preserves the UUID through retry | Draft recovery scenario in `chat-workspace.spec.ts` |
+| Rename has only a name field, saves once on Enter or blur, preserves outside focus, ignores blank/unchanged names, supports Escape/focus restore, retains drafts on error and synchronizes the header; inline edit failure preserves the UUID through retry | Inline rename and draft recovery scenarios in `chat-workspace.spec.ts` |
 | Separate reactions retain drafts on error, survive reload and can be removed; feedback remains answer-version-specific | Feedback recovery and saved-branch scenarios in `chat-workspace.spec.ts` |
 | Regenerate with another catalog model records that model and keeps the composer choice; answer time appears only on hover | Model regeneration scenario in `chat-workspace.spec.ts`; `chat-transport.test.ts` checks live `createdAt` metadata and history mapping |
 | External Markdown links render as source chips; a host that is not a Web source gets the letter fallback and no favicon request | Model regeneration scenario in `chat-workspace.spec.ts`; `sources.test.tsx` checks `SourceIcon` without favicon |
@@ -509,6 +511,7 @@ The file library is the `library` module ([ADR 0015 step 3](../decisions/0015-ca
 | The endpoint is owner-private and Tenant-scoped, rejects an unknown sort, names the Project holding an upload in `409 CHAT_FILE_IN_USE`, and the artifact delete routes require CSRF and owner authority | `ChatSessionApiIntegrationTest.fileLibraryListsOwnUploadsAndNamesWhatBlocksDeletingOne` |
 | A selection made on one page is dropped when the page changes, so a bulk delete cannot silently delete nothing | `library-page.test.tsx` |
 | A day heading chooses that day alone, leaves the other days unchosen and leaves the page's own box part-chosen; the page's box chooses every file on the page and says so on its label | `web/src/features/library/library-page.test.tsx` |
+| Selecting and clearing a 50-file page keeps checkbox indicators mounted without measuring their animation styles, while keyboard selection, mixed state, day selection and clear remain usable | `web/tests/e2e/library-hub.spec.ts` |
 | The page lists every source with size, total and conversation link, hides the link for an upload, labels and disables a file a Project holds, sends the filters/search/sort to the server, and deletes a selection through each source's route while naming a refusal | `web/src/features/library/library-page.test.tsx` |
 | A deleted generated file keeps its card without a download, preview or chart | `chat-code.test.tsx` |
 | V90 gives artifacts written before the library an owner and a conversation, and an image its creation-time name and stored size | `ChatFileLibraryMigrationTest` |

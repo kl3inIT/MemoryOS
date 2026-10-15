@@ -77,6 +77,7 @@ export function LibraryFiles({
           <div className="flex items-center gap-2 px-3.25">
             <Checkbox
               focus="soft"
+              forceMountIndicator
               id="library-select-page"
               // The scope is in the name, because a selection never leaves its page.
               aria-label={ui("Chọn tất cả trên trang này")}
