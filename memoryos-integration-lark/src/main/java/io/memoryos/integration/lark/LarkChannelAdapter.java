@@ -13,11 +13,14 @@ import com.lark.oapi.service.im.v1.model.GetChatReq;
 import com.lark.oapi.service.im.v1.model.P2MessageReceiveV1;
 import io.memoryos.channel.ChannelAdapter;
 import io.memoryos.channel.ChannelConnection;
+import io.memoryos.channel.ChannelCredentials;
 import io.memoryos.channel.ChannelException;
+import io.memoryos.channel.ChannelFeatures;
 import io.memoryos.channel.ChannelMessage;
 import io.memoryos.channel.ChannelProvider;
 import io.memoryos.channel.ChannelRegion;
 import io.memoryos.channel.ChannelReply;
+import io.memoryos.channel.ChannelSender;
 import io.memoryos.channel.ChannelTransport;
 import io.memoryos.channel.ChannelVerification;
 import io.memoryos.connector.LarkGateway;
@@ -28,8 +31,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
@@ -51,6 +54,9 @@ public final class LarkChannelAdapter implements ChannelAdapter, AutoCloseable {
     static final LarkTransport.Exchange CALL = new LarkTransport.Exchange(Duration.ofSeconds(30), 1_048_576);
     private static final Duration CHAT_TTL = Duration.ofHours(1);
     private static final String WAITING = "Get";
+    private static final Pattern APP_ID = Pattern.compile("^cli_[0-9a-z]{8,40}$");
+    /** A card's text may be far longer than an answer; the card is rewritten as the answer is written. */
+    private static final ChannelFeatures FEATURES = new ChannelFeatures(true, true, 150_000);
 
     private final LarkTransport transport;
     private final @Nullable RestLarkGateway gateway;
@@ -69,13 +75,25 @@ public final class LarkChannelAdapter implements ChannelAdapter, AutoCloseable {
     }
 
     @Override
-    public ChannelVerification verify(ChannelRegion region, String appId, String secret) {
+    public ChannelFeatures features() {
+        return FEATURES;
+    }
+
+    /** An app is its App ID, which starts with {@code cli_}, on Lark international or Feishu; the secret is its App Secret. */
+    @Override
+    public ChannelVerification verify(ChannelCredentials credentials) {
+        String appId = credentials.appId();
+        if (appId == null || !APP_ID.matcher(appId).matches()) {
+            throw ChannelException.invalid("Supply the App ID of the Lark app, which starts with cli_.");
+        }
+        var region = ChannelRegion.of(credentials.settings())
+                .orElseThrow(() -> ChannelException.invalid("Choose whether the app is on Lark or Feishu."));
         if (gateway == null) throw ChannelException.providerUnavailable();
-        byte[] bytes = secret.getBytes(StandardCharsets.UTF_8);
+        byte[] bytes = credentials.secret().getBytes(StandardCharsets.UTF_8);
         try {
             var check = gateway.checkBot(region == ChannelRegion.FEISHU ? LarkGateway.Region.FEISHU : LarkGateway.Region.LARK,
                     appId, bytes);
-            return new ChannelVerification(check.bot().appName(), check.bot().openId(), check.missingScopes());
+            return new ChannelVerification(appId, check.bot().appName(), check.bot().openId(), check.missingScopes());
         } catch (LarkProviderException refused) {
             throw switch (refused.failure()) {
                 case AUTHENTICATION, AUTHORIZATION, NOT_FOUND, MALFORMED -> ChannelException.rejected();
@@ -99,7 +117,7 @@ public final class LarkChannelAdapter implements ChannelAdapter, AutoCloseable {
         var safety = new LarkChannelOptions.SafetyConfig();
         safety.setChatQueueEnabled(false);
         var options = LarkChannelOptions.newBuilder(connection.appId(), secret)
-                .domain(baseUrl(connection.region())).httpTransport(transport)
+                .domain(baseUrl(region(connection))).httpTransport(transport)
                 .policy(policy).safety(safety).includeRawInMessage(true).build();
         var channel = new LarkChannel(options);
         channel.on("message", (NormalizedMessage message) -> {
@@ -140,7 +158,7 @@ public final class LarkChannelAdapter implements ChannelAdapter, AutoCloseable {
         String repliesTo = message.getReplyToMessageId() != null ? message.getReplyToMessageId() : message.getRootId();
         return new ChannelMessage(connection.id(), message.getMessageId(), message.getChatId(),
                 direct ? ChannelMessage.Kind.DIRECT : ChannelMessage.Kind.GROUP, message.getSenderId(), message.getSenderName(),
-                senderOrganisation, botOrganisation, direct || message.isMentionedBot(),
+                new ChannelMessage.Organisations(senderOrganisation, botOrganisation), direct || message.isMentionedBot(),
                 text ? ChannelMessage.Type.TEXT : ChannelMessage.Type.OTHER, content, repliesTo);
     }
 
@@ -197,20 +215,21 @@ public final class LarkChannelAdapter implements ChannelAdapter, AutoCloseable {
         channel(connection).sendSync(message.chatId(), SendInput.text(text), replyTo(message));
     }
 
+    /** The e-mail Lark's contact directory holds for the sender. */
     @Override
-    public Optional<String> senderEmail(ChannelConnection connection, String senderId) {
+    public ChannelSender sender(ChannelConnection connection, String senderId) {
         try {
             var answer = channel(connection).getRawClient().contact().v3().user()
                     .get(GetUserReq.newBuilder().userId(senderId).userIdType("open_id").build());
             if (answer == null || !answer.success() || answer.getData() == null || answer.getData().getUser() == null) {
-                return Optional.empty();
+                return ChannelSender.UNKNOWN;
             }
             String email = answer.getData().getUser().getEmail();
-            return email == null || email.isBlank() ? Optional.empty() : Optional.of(email);
+            return email == null || email.isBlank() ? ChannelSender.UNKNOWN : new ChannelSender(email);
         } catch (Exception unreadable) {
             LOG.atWarn().addKeyValue("event", "channel.lark.sender_unreadable")
                     .addKeyValue("error_type", unreadable.getClass().getName()).log("Lark sender could not be read");
-            return Optional.empty();
+            return ChannelSender.UNKNOWN;
         }
     }
 
@@ -250,6 +269,12 @@ public final class LarkChannelAdapter implements ChannelAdapter, AutoCloseable {
 
     private static SendOptions replyTo(ChannelMessage message) {
         return SendOptions.newBuilder().replyTo(message.messageId()).replyInThread(false).build();
+    }
+
+    /** A stored Lark bot always names its region; the database refuses one that does not. */
+    private static ChannelRegion region(ChannelConnection connection) {
+        return ChannelRegion.of(connection.settings())
+                .orElseThrow(() -> new IllegalStateException("the Lark bot names no region"));
     }
 
     static String baseUrl(ChannelRegion region) {

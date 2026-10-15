@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -137,12 +138,7 @@ public class ChannelInboundService {
 
     /** Why the message is not answered at all, or null. */
     private @Nullable Refusal refusal(ChannelConnection connection, ChannelAdapter adapter, ChannelMessage message) {
-        // The sender must belong to the organisation of the bot's app, which the provider names on every event; a bot
-        // whose organisation was recorded admits only that one. An event that names neither admits nobody.
-        boolean member = !message.botOrganisationKey().isBlank()
-                && message.botOrganisationKey().equals(message.organisationKey())
-                && (connection.organisationKey() == null || connection.organisationKey().equals(message.botOrganisationKey()));
-        if (!member) return new Refusal("OUTSIDER", ChannelNotice.OUTSIDER);
+        if (!member(connection, adapter, message)) return new Refusal("OUTSIDER", ChannelNotice.OUTSIDER);
         // This message is already claimed, so it is counted with the minute's others.
         if (inbound.receivedFrom(connection.id(), message.senderId(), clock.instant().minus(Duration.ofMinutes(1)))
                 > properties.senderRate()) {
@@ -157,6 +153,19 @@ public class ChannelInboundService {
         return null;
     }
 
+    /**
+     * Whether the sender may be answered at all. For a provider with organisations, the sender must belong to the
+     * organisation of the bot's app, which the provider names on every event; a bot whose organisation was recorded
+     * admits only that one, and an event that names neither admits nobody. A provider without organisations admits
+     * nobody until a sender can link an account (MEM-263).
+     */
+    private static boolean member(ChannelConnection connection, ChannelAdapter adapter, ChannelMessage message) {
+        if (!adapter.features().organisations()) return false;
+        var organisations = message.organisations();
+        return organisations != null && !organisations.bot().isBlank() && organisations.bot().equals(organisations.sender())
+                && (connection.organisationKey() == null || connection.organisationKey().equals(organisations.bot()));
+    }
+
     /** @return whether the message was answered */
     private boolean answer(TenantId tenant, ChannelConnection connection, ChannelAdapter adapter, ChannelMessage message)
             throws InterruptedException {
@@ -169,6 +178,7 @@ public class ChannelInboundService {
         // The reply is opened once the question is accepted, so it is written while the turn is prepared and is not
         // shown while the question waits for a turn its conversation is running.
         var opened = new AtomicReference<ChannelReply>();
+        var features = adapter.features();
         String question = actor.equals(connection.serviceAccount()) ? asked(message) : message.text();
         ChannelTurns.Answer answer;
         try {
@@ -177,7 +187,9 @@ public class ChannelInboundService {
                         var reply = step("reply", () -> adapter.reply(connection, message,
                                 ChannelNotice.WRITING.in(connection.noticeLanguage())));
                         opened.set(reply);
-                        return reply::append;
+                        // A reply that cannot be rewritten is written once, when the answer is whole.
+                        Consumer<String> text = features.editsReply() ? reply::append : _ -> {};
+                        return text;
                     }));
         } catch (RuntimeException failure) {
             var notice = noticeFor(failure);
@@ -197,7 +209,8 @@ public class ChannelInboundService {
             return false;
         }
         var answered = answer;
-        String replyId = step("finish", () -> reply.finish(answered.text(), sources(answered.sources()),
+        var pieces = features.editsReply() ? List.of(answered.text()) : ChannelText.pieces(answered.text(), features.maxText());
+        String replyId = step("finish", () -> reply.finish(pieces, sources(answered.sources()),
                 footer(connection, direct, sender, answered.session())));
         inbound.settle(connection.id(), message.messageId(), "ANSWERED", null, answer.session(), answer.assistantMessage(),
                 replyId);
@@ -211,8 +224,8 @@ public class ChannelInboundService {
                                      Instant now) {
         var known = inbound.identity(connection.id(), senderId).orElse(null);
         if (known != null && known.resolvedAt().plus(properties.identityTtl()).isAfter(now)) return known.actor();
-        ActorId actor = adapter.senderEmail(connection, senderId)
-                .flatMap(email -> members.activeMemberByVerifiedEmail(tenant, email)).orElse(null);
+        String email = adapter.sender(connection, senderId).email();
+        ActorId actor = email == null ? null : members.activeMemberByVerifiedEmail(tenant, email).orElse(null);
         inbound.remember(tenant, connection.id(), senderId, actor, now);
         return actor;
     }
