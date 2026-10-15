@@ -36,7 +36,7 @@ export function McpServerDetailPage() {
   const server = list.data?.find((candidate) => candidate.id === serverId);
 
   return (
-    <SettingsLayout wide>
+    <SettingsLayout>
       {list.isPending ? (
         <div role="status" className="flex justify-center px-6 py-20">
           <BrandLoader label={ui("Đang tải máy chủ MCP")} />

@@ -40,7 +40,7 @@ export function ConnectionsSettingsPage() {
   const [disconnecting, setDisconnecting] = useState<McpConnection | null>(null);
   const list = connections.data ?? [];
   return (
-    <SettingsLayout wide>
+    <SettingsLayout>
       <PageHeader icon={<Blocks />} title={ui("Ứng dụng đã kết nối")} />
       {connections.isError ? (
         <Alert variant="destructive" role="alert">

@@ -997,8 +997,6 @@ export const vietnameseUi: Record<string, string> = {
   "Thêm máy chủ": "Add server",
   "Thêm máy chủ MCP": "Add MCP server",
   "Sửa máy chủ MCP": "Edit MCP server",
-  "Máy chủ MCP cung cấp công cụ cho Chat. Chúng là bên thứ ba: chỉ thêm máy chủ mà tổ chức của bạn tin tưởng.":
-    "MCP servers give Chat its tools. They are third parties: add only servers your organization trusts.",
   "Chưa có máy chủ MCP nào. Thêm một máy chủ để Chat dùng công cụ của nó.":
     "No MCP servers yet. Add one so Chat can use its tools.",
   "Mã ngắn": "Short code",
