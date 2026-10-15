@@ -65,7 +65,9 @@ export function ChannelLinksSection() {
   if (links.isError) {
     return (
       <Alert variant="destructive" role="alert" className="max-w-2xl">
-        <AlertDescription>{problem(presentProblem(links.error, "initialLoad").message)}</AlertDescription>
+        <AlertDescription>
+          {problem(presentProblem(links.error, "initialLoad").message)}
+        </AlertDescription>
       </Alert>
     );
   }
@@ -119,7 +121,10 @@ export function ChannelLinksSection() {
               ) : (
                 <Button
                   prominence="secondary"
-                  pending={makeCode.isPending && makeCode.variables?.body.connectionId === link.connectionId}
+                  pending={
+                    makeCode.isPending &&
+                    makeCode.variables?.body.connectionId === link.connectionId
+                  }
                   disabled={makeCode.isPending}
                   onClick={() => void getCode(link).catch(() => undefined)}
                 >

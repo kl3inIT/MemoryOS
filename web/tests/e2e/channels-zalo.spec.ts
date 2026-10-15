@@ -237,10 +237,7 @@ test("a member gets a code for a Zalo bot, sees it link, and unlinks another", a
   await expect(section.getByText("Chưa liên kết")).toHaveCount(0);
 
   await section.getByRole("button", { name: "Bỏ liên kết" }).last().click();
-  await page
-    .getByRole("alertdialog")
-    .getByRole("button", { name: "Bỏ liên kết" })
-    .click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Bỏ liên kết" }).click();
   await expect.poll(() => calls.unlinked).toEqual([HR_ZALO]);
 });
 

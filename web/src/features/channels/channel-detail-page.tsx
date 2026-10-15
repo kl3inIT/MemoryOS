@@ -68,16 +68,16 @@ function ChannelDetail({ channel, admin }: { channel: ChannelResponse; admin: Ch
     ...(zalo
       ? ([
           [ui("Bot ID"), channel.appId],
-          [ui("Cách nhận tin"), <TransportSelect key="transport" channel={channel} admin={admin} />],
+          [
+            ui("Cách nhận tin"),
+            <TransportSelect key="transport" channel={channel} admin={admin} />,
+          ],
         ] as [string, ReactNode][])
       : ([
           [ui("Khu vực"), channel.region === "FEISHU" ? ui("Feishu") : ui("Lark")],
           [ui("App ID"), channel.appId],
         ] as [string, ReactNode][])),
-    [
-      ui("Ngôn ngữ thông báo"),
-      channel.noticeLanguage === "en" ? ui("English") : ui("Tiếng Việt"),
-    ],
+    [ui("Ngôn ngữ thông báo"), channel.noticeLanguage === "en" ? ui("English") : ui("Tiếng Việt")],
     [ui("Kết nối từ"), when(channel.connectedAt)],
     [ui("Tin nhắn gần nhất"), when(channel.lastMessageAt)],
     ...(channel.failureCode

@@ -51,7 +51,8 @@ export function ChannelMenu({ channel, admin }: { channel: ChannelResponse; admi
       <DropdownMenuContent align="end" className="min-w-44">
         <DropdownMenuGroup>
           <DropdownMenuItem onSelect={() => admin.replaceSecret(channel)}>
-            <KeyRound /> {channel.provider === "ZALO_BOT" ? ui("Thay token") : ui("Thay App Secret")}
+            <KeyRound />{" "}
+            {channel.provider === "ZALO_BOT" ? ui("Thay token") : ui("Thay App Secret")}
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
@@ -72,11 +73,7 @@ export function ChannelMark({ provider }: { provider: ChannelResponse["provider"
       className="grid size-10 shrink-0 place-items-center rounded-xl bg-white ring-1 ring-black/10"
       aria-hidden="true"
     >
-      {provider === "ZALO_BOT" ? (
-        <ZaloIcon className="size-7" />
-      ) : (
-        <LarkIcon className="size-6" />
-      )}
+      {provider === "ZALO_BOT" ? <ZaloIcon className="size-7" /> : <LarkIcon className="size-6" />}
     </span>
   );
 }

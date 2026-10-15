@@ -470,7 +470,9 @@ function ZaloForm({ replacing, onSaved, onBusyChange }: FormProps) {
       if (!active.current) return;
       if (isUnauthenticated(cause))
         void queryClient.resetQueries({ queryKey: getCurrentIdentityQueryKey(), exact: true });
-      setError(channelError(cause, "ZALO_BOT") ?? problem(presentProblem(cause, "mutation").message));
+      setError(
+        channelError(cause, "ZALO_BOT") ?? problem(presentProblem(cause, "mutation").message),
+      );
     }
   }
 
@@ -545,14 +547,22 @@ function ZaloForm({ replacing, onSaved, onBusyChange }: FormProps) {
                 <RadioGroup
                   value={transport}
                   disabled={saving}
-                  onValueChange={(value) => setTransport(value === "POLLING" ? "POLLING" : "WEBHOOK")}
+                  onValueChange={(value) =>
+                    setTransport(value === "POLLING" ? "POLLING" : "WEBHOOK")
+                  }
                 >
                   <div className="flex flex-wrap gap-3">
                     {TRANSPORTS.map((value) => (
-                      <FieldLabel key={value} htmlFor={`${id}-${value}`} className="min-w-40 flex-1">
+                      <FieldLabel
+                        key={value}
+                        htmlFor={`${id}-${value}`}
+                        className="min-w-40 flex-1"
+                      >
                         <Field orientation="horizontal">
                           <RadioGroupItem id={`${id}-${value}`} value={value} />
-                          <FieldTitle>{value === "WEBHOOK" ? ui("Webhook") : ui("Polling")}</FieldTitle>
+                          <FieldTitle>
+                            {value === "WEBHOOK" ? ui("Webhook") : ui("Polling")}
+                          </FieldTitle>
                         </Field>
                       </FieldLabel>
                     ))}
@@ -568,10 +578,16 @@ function ZaloForm({ replacing, onSaved, onBusyChange }: FormProps) {
                 >
                   <div className="flex flex-wrap gap-3">
                     {LANGUAGES.map((value) => (
-                      <FieldLabel key={value} htmlFor={`${id}-${value}`} className="min-w-40 flex-1">
+                      <FieldLabel
+                        key={value}
+                        htmlFor={`${id}-${value}`}
+                        className="min-w-40 flex-1"
+                      >
                         <Field orientation="horizontal">
                           <RadioGroupItem id={`${id}-${value}`} value={value} />
-                          <FieldTitle>{value === "vi" ? ui("Tiếng Việt") : ui("English")}</FieldTitle>
+                          <FieldTitle>
+                            {value === "vi" ? ui("Tiếng Việt") : ui("English")}
+                          </FieldTitle>
                         </Field>
                       </FieldLabel>
                     ))}

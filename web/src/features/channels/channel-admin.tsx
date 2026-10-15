@@ -61,7 +61,8 @@ export function useChannelAdmin({ onRemoved }: { onRemoved?: () => void } = {}) 
     },
   });
   const message = (failure: unknown) =>
-    channelError(failure, changed?.provider) ?? problem(presentProblem(failure, "mutation").message);
+    channelError(failure, changed?.provider) ??
+    problem(presentProblem(failure, "mutation").message);
   const failure = toggle.error ?? transport.error;
   const open = (replacing: ChannelResponse | null) => {
     trigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
