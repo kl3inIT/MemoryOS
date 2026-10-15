@@ -18,6 +18,6 @@ Design: [design.md](design.md).
 - [x] Adapter tests: an Anthropic answer request marks the tools and the last message; a helper request
   marks nothing; Chat Completions and Responses requests carry `prompt_cache_key`.
 - [x] Accounting test: written input costs 1.25 times the input rate on Anthropic.
-- [ ] Staging: a Claude conversation reads from the cache from its second call; luna's per-call read share; the
+- [x] Staging ([verification](verification.md)): a Claude conversation reads from the cache from its second call; luna's per-call read share; the
   fingerprints explain a miss.
 - [x] Spec `chat-models`, `ai-usage` and the observability guideline.
