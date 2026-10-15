@@ -1,4 +1,4 @@
-FROM python:3.14-slim
+FROM python:3.14-slim@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170
 
 ARG VCS_REF=unknown
 ARG BUILD_DATE=unknown
@@ -53,9 +53,10 @@ RUN apt-get update \
         zip \
     && ln -s /usr/bin/fdfind /usr/local/bin/fd \
     && fc-cache -f \
-    && rm -rf /var/lib/apt/lists/* \
-    && curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh \
-    && rm -rf /tmp/*
+    && rm -rf /var/lib/apt/lists/*
+
+# uv from its release image pinned by digest, as astral documents for Docker, instead of piping an install script.
+COPY --from=ghcr.io/astral-sh/uv:0.13.1@sha256:4a1f3666816dafadd20ceb71eac9a7d56d7ef30279f7d64048519ab901ada336 /uv /uvx /usr/local/bin/
 
 # pptxgenjs builds presentations from JavaScript, as Dust and Onyx Craft use it; same version as Dust.
 RUN npm install --global --no-audit --no-fund pptxgenjs@4.0.1 \
