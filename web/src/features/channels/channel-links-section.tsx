@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Copy } from "lucide-react";
 import { SettingRow, SettingRows } from "@/components/composites/setting-row";
-import { useActionNotifications } from "@/components/ui/action-notifications";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -16,7 +15,6 @@ import {
 } from "@/components/ui/dialog";
 import { IconButton } from "@/components/ui/icon-button";
 import { ZaloIcon } from "@/components/zalo-icon";
-import { appText } from "@/i18n/app-text";
 import { formatUiMoment } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
@@ -41,32 +39,23 @@ export function ChannelLinksSection() {
   const ui = useAppTranslation();
   const problem = useProblemMessage();
   const cache = useQueryClient();
-  const notify = useActionNotifications();
-  const [waiting, setWaiting] = useState<{ link: ChannelLinkResponse; code: ChannelLinkCodeResponse } | null>(
-    null,
-  );
+  const [waiting, setWaiting] = useState<{
+    link: ChannelLinkResponse;
+    code: ChannelLinkCodeResponse;
+  } | null>(null);
+  const linked = (rows: readonly ChannelLinkResponse[] | undefined, connectionId: string) =>
+    Boolean(rows?.find((link) => link.connectionId === connectionId)?.linkedAt);
   const links = useQuery({
     ...listChannelLinksOptions(),
-    refetchInterval: waiting ? WAITING_POLL_MS : false,
+    refetchInterval: (query) =>
+      waiting && !linked(query.state.data, waiting.link.connectionId) ? WAITING_POLL_MS : false,
   });
   const reread = () => cache.invalidateQueries({ queryKey: listChannelLinksQueryKey() });
   const makeCode = useMutation({ ...createChannelLinkCodeMutation() });
   const unlink = useMutation({ ...deleteChannelLinkMutation(), onSettled: reread });
 
-  const linkedNow = waiting
-    ? links.data?.find((link) => link.connectionId === waiting.link.connectionId)?.linkedAt
-    : undefined;
-  useEffect(() => {
-    if (!waiting || !linkedNow) return;
-    setWaiting(null);
-    notify({
-      title: "Đã liên kết",
-      description: appText("Tài khoản Zalo của bạn đã liên kết với {{v1}}.", {
-        v1: waiting.link.botName,
-      }),
-      tone: "success",
-    });
-  }, [waiting, linkedNow, notify]);
+  // The bot took the code: the row now says so, and the code is put away.
+  if (waiting && linked(links.data, waiting.link.connectionId)) setWaiting(null);
 
   async function getCode(link: ChannelLinkResponse) {
     const code = await makeCode.mutateAsync({ body: { connectionId: link.connectionId } });
@@ -200,8 +189,8 @@ function LinkCodeDialog({
             aria-label={ui("Mã liên kết")}
             className={
               expired
-                ? "font-mono text-3xl tracking-[0.2em] text-content-muted line-through"
-                : "font-mono text-3xl tracking-[0.2em] text-content-primary"
+                ? "font-mono text-3xl tracking-widest text-content-muted line-through"
+                : "font-mono text-3xl tracking-widest text-content-primary"
             }
           >
             {code.code}

@@ -1,5 +1,8 @@
 import type { SVGProps } from "react";
 
+/** Part of the mark, not copy: it reads the same in every language. */
+const WORDMARK = "Zalo";
+
 /**
  * A mark for Zalo in its product colors: the white speech bubble with the wordmark on Zalo blue. It is drawn
  * inline for the same reason the Lark mark is: no runtime asset fetch.
@@ -21,7 +24,7 @@ export function ZaloIcon(props: SVGProps<SVGSVGElement>) {
         fontSize="10.5"
         fontWeight="700"
       >
-        Zalo
+        {WORDMARK}
       </text>
     </svg>
   );

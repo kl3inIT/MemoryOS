@@ -3,9 +3,7 @@ import { ChannelLinksSection } from "@/features/channels/channel-links-section";
 import { ChatSettingsPage } from "@/features/chat/settings/chat-settings-page";
 
 export const Route = createFileRoute("/_authenticated/settings/chat")({
-  component: ChatSettings,
+  component: function ChatSettingsRoute() {
+    return <ChatSettingsPage channelLinks={<ChannelLinksSection />} />;
+  },
 });
-
-function ChatSettings() {
-  return <ChatSettingsPage channelLinks={<ChannelLinksSection />} />;
-}

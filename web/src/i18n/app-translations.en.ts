@@ -2206,10 +2206,8 @@ Object.assign(vietnameseUi, {
   "Bot ngừng trả lời trên Zalo, các liên kết tài khoản bị xóa và tài khoản của bot bị vô hiệu hóa; các hội thoại cũ vẫn giữ tên bot. Không hoàn tác được.":
     "The bot stops answering in Zalo, its account links are removed and its account is deactivated; past conversations keep its name. This cannot be undone.",
   "Liên kết Zalo": "Zalo links",
-  "Đã liên kết": "Linked",
   "Đã liên kết · {{time}}": "Linked · {{time}}",
   "Chưa liên kết": "Not linked",
-  "Tài khoản Zalo của bạn đã liên kết với {{v1}}.": "Your Zalo account is linked to {{v1}}.",
   "Lấy mã": "Get a code",
   "Lấy mã mới": "Get a new code",
   "Mã liên kết": "Link code",
