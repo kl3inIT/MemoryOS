@@ -115,9 +115,7 @@ describe("AgentAvatarStudio", () => {
     fireEvent.paste(screen.getByRole("dialog"), { clipboardData: { files: [image] } });
 
     await waitFor(() =>
-      expect(screen.getByTestId("image")).toHaveTextContent(
-        "80000000-0000-4000-8000-000000000001",
-      ),
+      expect(screen.getByTestId("image")).toHaveTextContent("80000000-0000-4000-8000-000000000001"),
     );
     expect(vi.mocked(uploadChatFile).mock.calls[0]?.[0]).toBe(image);
   });
@@ -131,7 +129,9 @@ describe("AgentAvatarStudio", () => {
     });
     fireEvent.paste(screen.getByRole("dialog"), { clipboardData: { files: [image] } });
 
-    expect(await screen.findByText("Dùng ảnh PNG, JPEG, WebP hoặc GIF tối đa 2 MiB.")).toBeVisible();
+    expect(
+      await screen.findByText("Dùng ảnh PNG, JPEG, WebP hoặc GIF tối đa 2 MiB."),
+    ).toBeVisible();
     expect(uploadChatFile).not.toHaveBeenCalled();
   });
 });

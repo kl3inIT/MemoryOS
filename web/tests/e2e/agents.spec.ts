@@ -371,7 +371,10 @@ test("creates an agent on its own page and shares it with a Group and the organi
   await page.getByRole("button", { name: "Đổi ảnh đại diện" }).click();
   const studio = page.getByRole("dialog", { name: "Ảnh đại diện" });
   await studio.getByRole("radio", { name: "Khuôn mặt 3" }).click();
-  await expect(studio.getByRole("radio", { name: "Khuôn mặt 3" })).toHaveAttribute("aria-checked", "true");
+  await expect(studio.getByRole("radio", { name: "Khuôn mặt 3" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
   await studio.getByRole("button", { name: "Xong" }).click();
   await page.getByLabel("Nhắc việc mỗi lượt").fill("Luôn trích số hiệu mẫu hợp đồng.");
   await page.getByLabel("Câu hỏi gợi ý 1").fill("Điều khoản phạt vi phạm trong mẫu HĐ-02 là gì?");

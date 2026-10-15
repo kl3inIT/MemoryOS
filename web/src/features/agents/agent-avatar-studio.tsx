@@ -76,7 +76,8 @@ export function AgentAvatarStudio({
     const abort = new AbortController();
     try {
       const saved = await uploadChatFile(file, crypto.randomUUID(), abort.signal, () => {});
-      const ready = saved.status === "READY" ? saved : await waitForChatFile(saved.id, abort.signal);
+      const ready =
+        saved.status === "READY" ? saved : await waitForChatFile(saved.id, abort.signal);
       onImage(ready.id);
     } catch {
       setError(ui("Không tải được ảnh lên. Thử lại."));
@@ -86,7 +87,9 @@ export function AgentAvatarStudio({
   }
 
   function onPaste(event: ClipboardEvent) {
-    const file = Array.from(event.clipboardData.files).find((item) => item.type.startsWith("image/"));
+    const file = Array.from(event.clipboardData.files).find((item) =>
+      item.type.startsWith("image/"),
+    );
     if (file) {
       event.preventDefault();
       void takeFile(file);
@@ -102,7 +105,10 @@ export function AgentAvatarStudio({
 
   const preview = (size: "xl") => (
     <span className="relative inline-grid">
-      <AgentAvatar agent={{ id: agentId, avatarSeed, hasAvatar: hasAvatar && !avatarFileId }} size={size} />
+      <AgentAvatar
+        agent={{ id: agentId, avatarSeed, hasAvatar: hasAvatar && !avatarFileId }}
+        size={size}
+      />
       {avatarFileId && (
         <span className="absolute inset-0 grid place-items-center rounded-3xl bg-surface-sunken font-secondary-action text-content-secondary">
           {ui("Ảnh mới")}
@@ -123,7 +129,7 @@ export function AgentAvatarStudio({
           setError(undefined);
           setOpen(true);
         }}
-        className="group relative rounded-3xl outline-none transition-transform hover:scale-[1.03] focus-visible:ring-3 focus-visible:ring-focus-ring/40 disabled:cursor-default disabled:hover:scale-100 motion-reduce:transition-none"
+        className="group relative rounded-3xl transition-transform outline-none hover:scale-102 focus-visible:ring-3 focus-visible:ring-focus-ring/40 disabled:cursor-default disabled:hover:scale-100 motion-reduce:transition-none"
       >
         {preview("xl")}
         {!disabled && (
@@ -133,7 +139,7 @@ export function AgentAvatarStudio({
         )}
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="gap-4 sm:max-w-[360px]" onPaste={allowImage ? onPaste : undefined}>
+        <DialogContent className="sm:max-w-90" onPaste={allowImage ? onPaste : undefined}>
           <DialogHeader>
             <DialogTitle>{ui("Ảnh đại diện")}</DialogTitle>
             <DialogDescription className="sr-only">
@@ -148,116 +154,128 @@ export function AgentAvatarStudio({
                 <TabsTrigger value="image">{ui("Ảnh")}</TabsTrigger>
               </TabsList>
             )}
-            <TabsContent value="faces" className="flex flex-col gap-3 pt-2">
-              <div role="radiogroup" aria-label={ui("Khuôn mặt")} className="grid grid-cols-4 gap-2">
-                {faces.map((seed, index) => {
-                  const checked = !usesImage && seed === avatarSeed;
-                  return (
-                    <button
-                      key={seed}
-                      type="button"
-                      role="radio"
-                      aria-checked={checked}
-                      aria-label={ui("Khuôn mặt {{v1}}", { v1: index + 1 })}
-                      onClick={() => onSeed(seed)}
-                      className={cn(
-                        "rounded-2xl outline-none transition-transform focus-visible:ring-3 focus-visible:ring-focus-ring/40 active:scale-95 motion-reduce:transition-none",
-                        checked
-                          ? "ring-2 ring-content-primary ring-offset-2 ring-offset-surface-overlay"
-                          : "hover:scale-105",
-                      )}
-                    >
-                      <img src={agentFace(seed)} alt="" className="aspect-square w-full rounded-2xl" />
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  prominence="tertiary"
-                  onClick={() => setFaces(candidates(avatarSeed))}
+            <TabsContent value="faces" className="mt-2">
+              <div className="flex flex-col gap-3">
+                <div
+                  role="radiogroup"
+                  aria-label={ui("Khuôn mặt")}
+                  className="grid grid-cols-4 gap-2"
                 >
-                  <RefreshCw data-icon="inline-start" aria-hidden="true" />
-                  {ui("Đổi bộ khác")}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  prominence="tertiary"
-                  disabled={!usesImage && avatarSeed === savedSeed}
-                  onClick={() => {
-                    onSeed(savedSeed);
-                    setFaces(candidates(savedSeed));
-                  }}
-                >
-                  {ui("Mặc định")}
-                </Button>
+                  {faces.map((seed, index) => {
+                    const checked = !usesImage && seed === avatarSeed;
+                    return (
+                      <button
+                        key={seed}
+                        type="button"
+                        role="radio"
+                        aria-checked={checked}
+                        aria-label={ui("Khuôn mặt {{v1}}", { v1: index + 1 })}
+                        onClick={() => onSeed(seed)}
+                        className={cn(
+                          "rounded-2xl transition-transform outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/40 active:scale-95 motion-reduce:transition-none",
+                          checked
+                            ? "ring-2 ring-content-primary ring-offset-2 ring-offset-surface-overlay"
+                            : "hover:scale-105",
+                        )}
+                      >
+                        <img
+                          src={agentFace(seed)}
+                          alt=""
+                          className="aspect-square w-full rounded-2xl"
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    prominence="tertiary"
+                    onClick={() => setFaces(candidates(avatarSeed))}
+                  >
+                    <RefreshCw data-icon="inline-start" aria-hidden="true" />
+                    {ui("Đổi bộ khác")}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    prominence="tertiary"
+                    disabled={!usesImage && avatarSeed === savedSeed}
+                    onClick={() => {
+                      onSeed(savedSeed);
+                      setFaces(candidates(savedSeed));
+                    }}
+                  >
+                    {ui("Mặc định")}
+                  </Button>
+                </div>
               </div>
             </TabsContent>
             {allowImage && (
-              <TabsContent value="image" className="flex flex-col gap-3 pt-2">
-                <button
-                  type="button"
-                  disabled={uploading}
-                  onClick={() => input.current?.click()}
-                  onDragOver={(event) => {
-                    event.preventDefault();
-                    setDragging(true);
-                  }}
-                  onDragLeave={() => setDragging(false)}
-                  onDrop={onDrop}
-                  className={cn(
-                    "flex flex-col items-center gap-2 rounded-xl border border-dashed border-border-default px-4 py-6 text-center outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/40",
-                    dragging ? "bg-surface-subtle" : "hover:bg-surface-subtle",
-                  )}
-                >
-                  <span className="grid size-10 place-items-center rounded-full bg-surface-sunken text-content-secondary">
-                    {uploading ? <Spinner /> : <Upload aria-hidden="true" className="size-4.5" />}
-                  </span>
-                  <span className="font-main-ui-action">{ui("Kéo thả, dán hoặc chọn ảnh")}</span>
-                  <span className="font-secondary-action text-content-muted">
-                    {ui("PNG, JPEG, WebP hoặc GIF, tối đa 2 MiB")}
-                  </span>
-                </button>
-                <input
-                  ref={input}
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,image/gif"
-                  className="sr-only"
-                  tabIndex={-1}
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    event.target.value = "";
-                    if (file) void takeFile(file);
-                  }}
-                />
-                <div className="flex items-center justify-between gap-2">
-                  <ChatFilePicker
-                    selected={avatarFileId ? [avatarFileId] : []}
-                    onSelect={(ids, files) => {
-                      const image = files.filter((file) => ids.includes(file.id)).at(-1);
-                      if (!image) return;
-                      if (!avatarTypes.has(image.mediaType) || image.sizeBytes > avatarMaxBytes) {
-                        setError(ui("Dùng ảnh PNG, JPEG, WebP hoặc GIF tối đa 2 MiB."));
-                        return;
-                      }
-                      setError(undefined);
-                      onImage(image.id);
+              <TabsContent value="image" className="mt-2">
+                <div className="flex flex-col gap-3">
+                  <button
+                    type="button"
+                    disabled={uploading}
+                    onClick={() => input.current?.click()}
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      setDragging(true);
                     }}
-                    trigger={
-                      <Button type="button" size="sm" prominence="tertiary">
-                        <ImagePlus data-icon="inline-start" aria-hidden="true" />
-                        {ui("Chọn từ thư viện")}
-                      </Button>
-                    }
+                    onDragLeave={() => setDragging(false)}
+                    onDrop={onDrop}
+                    className={cn(
+                      "flex flex-col items-center gap-2 rounded-xl border border-dashed border-border-default px-4 py-6 text-center outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/40",
+                      dragging ? "bg-surface-subtle" : "hover:bg-surface-subtle",
+                    )}
+                  >
+                    <span className="grid size-10 place-items-center rounded-full bg-surface-sunken text-content-secondary">
+                      {uploading ? <Spinner /> : <Upload aria-hidden="true" className="size-4.5" />}
+                    </span>
+                    <span className="font-main-ui-action">{ui("Kéo thả, dán hoặc chọn ảnh")}</span>
+                    <span className="font-secondary-action text-content-muted">
+                      {ui("PNG, JPEG, WebP hoặc GIF, tối đa 2 MiB")}
+                    </span>
+                  </button>
+                  <input
+                    ref={input}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    className="sr-only"
+                    tabIndex={-1}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      event.target.value = "";
+                      if (file) void takeFile(file);
+                    }}
                   />
-                  {usesImage && (
-                    <Button type="button" size="sm" prominence="tertiary" onClick={onClearImage}>
-                      {ui("Bỏ ảnh")}
-                    </Button>
-                  )}
+                  <div className="flex items-center justify-between gap-2">
+                    <ChatFilePicker
+                      selected={avatarFileId ? [avatarFileId] : []}
+                      onSelect={(ids, files) => {
+                        const image = files.filter((file) => ids.includes(file.id)).at(-1);
+                        if (!image) return;
+                        if (!avatarTypes.has(image.mediaType) || image.sizeBytes > avatarMaxBytes) {
+                          setError(ui("Dùng ảnh PNG, JPEG, WebP hoặc GIF tối đa 2 MiB."));
+                          return;
+                        }
+                        setError(undefined);
+                        onImage(image.id);
+                      }}
+                      trigger={
+                        <Button type="button" size="sm" prominence="tertiary">
+                          <ImagePlus data-icon="inline-start" aria-hidden="true" />
+                          {ui("Chọn từ thư viện")}
+                        </Button>
+                      }
+                    />
+                    {usesImage && (
+                      <Button type="button" size="sm" prominence="tertiary" onClick={onClearImage}>
+                        {ui("Bỏ ảnh")}
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </TabsContent>
             )}

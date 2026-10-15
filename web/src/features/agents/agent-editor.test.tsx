@@ -83,6 +83,7 @@ describe("AgentEditorPage", () => {
         sent = await request.json();
         const created: PersonaView = {
           ...sent,
+          avatarSeed: sent.avatarSeed ?? "contract-law",
           id: "70000000-0000-4000-8000-000000000099",
           revision: 0,
         };

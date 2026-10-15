@@ -1420,7 +1420,7 @@ export const vietnameseUi: Record<string, string> = {
   "Chọn từ thư viện": "Choose from library",
   "Bỏ ảnh": "Remove image",
   "Không tải được ảnh lên. Thử lại.": "Could not upload the image. Try again.",
-  "Xong": "Done",
+  Xong: "Done",
   "Dùng model mặc định của tổ chức": "Use the organization's default model",
   "Đường dẫn": "Breadcrumb",
   "Gửi kèm mỗi câu hỏi, dùng cho quy tắc ngắn mà trợ lý hay quên.":

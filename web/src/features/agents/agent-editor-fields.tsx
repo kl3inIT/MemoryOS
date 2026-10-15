@@ -22,7 +22,6 @@ import { cn } from "@/lib/utils";
 import type { NamedRef } from "@/features/identity/principals";
 import { maxStarterPrompts } from "./agent-form";
 
-
 /** A titled editor section; sections are divided by a rule, as in Langdock's agent builder. */
 export function EditorSection({
   id,
