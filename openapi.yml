@@ -28891,6 +28891,12 @@ components:
       properties:
         approved:
           type: boolean
+        alwaysAllow:
+          type:
+          - boolean
+          - "null"
+          description: "With approved, the tool also runs without asking from now\
+            \ on; needs MCP_MANAGE and a tool that is not destructive"
       required:
       - approved
     Cancellation:
@@ -31493,10 +31499,25 @@ components:
           description: "Why a COMPLETED reply declined instead of answering: no_evidence,\
             \ uncited or blocked_topic (answers from documents only, sensitive topics);\
             \ null otherwise"
+        contextTokens:
+          type:
+          - integer
+          - "null"
+          format: int32
+          description: Estimated input tokens of the reply's last model call; null
+            when unknown
+        contextLimit:
+          type:
+          - integer
+          - "null"
+          format: int32
+          description: The model's input limit for that call; null when unknown
       required:
       - activity
       - artifacts
       - content
+      - contextLimit
+      - contextTokens
       - createdAt
       - failureCode
       - files
@@ -31812,8 +31833,22 @@ components:
           - "null"
         hasArtifacts:
           type: boolean
+        contextTokens:
+          type:
+          - integer
+          - "null"
+          format: int32
+          description: Estimated input tokens of the reply's last model call
+        contextLimit:
+          type:
+          - integer
+          - "null"
+          format: int32
+          description: The model's input limit for that call
       required:
       - assistantMessageId
+      - contextLimit
+      - contextTokens
       - failureCode
       - hasArtifacts
       - sequence
@@ -32177,7 +32212,11 @@ components:
           - APPROVED
           - DECLINED
           - NO_DECISION
+        alwaysAllowable:
+          type: boolean
+          description: The reply's owner may answer with always allow
       required:
+      - alwaysAllowable
       - arguments
       - assistantMessageId
       - sequence

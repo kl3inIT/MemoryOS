@@ -352,7 +352,10 @@ public final class ChatModelExecutor {
                 if (!drained.isDone())
                     accounting.accept(new ModelAccounting(null, null, null, 0, guards.stream().anyMatch(ChatModelGuard::used)));
                 // A research agent that failed before its first inference leaves an unused guard, which must not hide known usage.
-                else accounting.accept(ModelAccounting.of(guards, process, metadata));
+                // The turn's own guard knows what its last call carried; research agents do not share a conversation.
+                else accounting.accept(guards.contains(guard)
+                        ? ModelAccounting.of(guards, process, metadata).withContext(guard.contextTokens(), guard.inputLimit())
+                        : ModelAccounting.of(guards, process, metadata));
             } finally { onDrained.accept(drained.thenRun(() -> processes.delete(process))); }
         }
     }

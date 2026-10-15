@@ -199,6 +199,20 @@ public class McpServerService {
         return toolView(server, saved);
     }
 
+    /** "Always allow" from an approval card: the named tool runs without asking from now on (MEM-267). */
+    @Transactional
+    public void allowAlways(ActorId actor, UUID serverId, String toolName) {
+        UUID tenant = write(actor);
+        var server = server(tenant, serverId);
+        var tool = tools.findByTenantIdAndServerIdAndName(tenant, serverId, toolName).orElseThrow(McpException::notFound);
+        if (!McpServerRules.allowed(risk(tool), McpToolPolicy.ALWAYS)) throw McpException.toolPolicyNotAllowed();
+        if (tool.policy() == McpToolPolicy.ALWAYS) return;
+        tool.policy(McpToolPolicy.ALWAYS, true);
+        tools.saveAndFlush(tool);
+        record(tenant, actor, AuditAction.MCP_TOOL_CHANGE, serverId, server.name(),
+                event -> event.detail("tools", List.of(tool.name())).detail("policy", McpToolPolicy.ALWAYS.name()));
+    }
+
     /** Sets every tool of one risk; a tool whose name cannot be exposed stays off. */
     @Transactional
     public List<ToolView> setGroupPolicy(ActorId actor, UUID serverId, McpToolRisk risk, McpToolPolicy policy) {

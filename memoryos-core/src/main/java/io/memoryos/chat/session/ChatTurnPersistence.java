@@ -17,6 +17,7 @@ import io.memoryos.chat.prompts.ChatPrompts;
 import io.memoryos.iam.ActorProfileReader;
 import io.memoryos.library.UserFileService;
 import io.memoryos.library.UserFile;
+import io.memoryos.chat.ChatContextUse;
 import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatSource;
 import io.memoryos.chat.ChatTurnOptions;
@@ -486,6 +487,12 @@ public class ChatTurnPersistence {
                     provider.providerId(), modelConfigurationId, provider.dataBoundary(), accounting.input(), accounting.output(),
                     Math.min(accounting.cacheRead(), accounting.input()), accounting.cost(), accounting.complete(), at);
         }
+    }
+
+    /** What the reply's last model call carried, for the composer's context gauge (MEM-267). */
+    @Transactional
+    public void recordContext(UUID session, UUID assistant, ChatContextUse context) {
+        chats.recordContext(session, assistant, context);
     }
 
     /** Finishes the turn and adds its usage in the same transaction, so spend is never lost or double counted. */

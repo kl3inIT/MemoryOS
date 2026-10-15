@@ -16,6 +16,7 @@ import {
   ChatComposerSend,
 } from "@/features/chat/composer/chat-composer";
 import { ChatComposerAttachments } from "@/features/chat/composer/chat-attachment-staging";
+import { ChatContextUsage } from "./chat-context-usage";
 import {
   ChatDictationButton,
   ChatDictationControls,
@@ -141,6 +142,7 @@ export function ChatThreadComposer({
                   <ChatDictationControls />
                 ) : (
                   <>
+                    <ChatContextUsage />
                     {modelPicker}
                     <ChatDictationButton />
                     <AuiIf condition={(state) => !state.thread.isRunning}>

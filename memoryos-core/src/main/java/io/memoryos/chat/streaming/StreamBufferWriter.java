@@ -1,5 +1,6 @@
 package io.memoryos.chat.streaming;
 
+import io.memoryos.chat.ChatContextUse;
 import io.memoryos.chat.ChatCodeEvent;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatImageEvent;
@@ -170,12 +171,18 @@ public final class StreamBufferWriter {
 
     /** Called after the terminal transaction commits; the outcome entry is the done marker readers trust. */
     public void finish(UUID id, Status status, @Nullable String failure, boolean hasArtifacts) {
+        finish(id, status, failure, hasArtifacts, null);
+    }
+
+    /** {@code context} is what the reply's last model call carried (MEM-267). */
+    public void finish(UUID id, Status status, @Nullable String failure, boolean hasArtifacts,
+                       @Nullable ChatContextUse context) {
         if (status == Status.RUNNING) throw new IllegalArgumentException("Terminal status required");
         var stream = require(id);
         synchronized (stream) {
             if (stream.done) return;
             chunk(stream);
-            publish(stream, new Outcome(id, stream.sequence + 1, status, failure, hasArtifacts));
+            publish(stream, new Outcome(id, stream.sequence + 1, status, failure, hasArtifacts, context));
             stream.done = true;
             stream.finishedAt = millis.getAsLong();
         }
@@ -188,8 +195,9 @@ public final class StreamBufferWriter {
 
     /** A call waiting for the person, or with {@code decision}, the person's answer to it. */
     public void approval(UUID id, String toolCallId, String serverName, String toolName, String arguments,
-                         ToolApproval.@Nullable Decision decision) {
-        publishNow(id, sequence -> new ToolApproval(id, sequence, toolCallId, serverName, toolName, arguments, decision));
+                         ToolApproval.@Nullable Decision decision, boolean alwaysAllowable) {
+        publishNow(id, sequence -> new ToolApproval(id, sequence, toolCallId, serverName, toolName, arguments, decision,
+                alwaysAllowable));
     }
 
     public void image(UUID id, ChatImageEvent event) {

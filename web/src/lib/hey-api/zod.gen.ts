@@ -2311,7 +2311,8 @@ export const zBranchChatSessionRequest = z.object({
 });
 
 export const zChatToolDecision = z.object({
-    approved: z.boolean()
+    approved: z.boolean(),
+    alwaysAllow: z.boolean().nullish()
 });
 
 export const zCancellation = z.object({
@@ -3456,7 +3457,9 @@ export const zChatMessage = z.object({
     generatedFiles: z.array(zGeneratedFileRef),
     research: zChatMessageResearch,
     failureCode: z.string().nullable(),
-    refusalReason: z.string().nullable()
+    refusalReason: z.string().nullable(),
+    contextTokens: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).nullable(),
+    contextLimit: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).nullable()
 });
 
 export const zTextEvent = z.object({
@@ -3474,7 +3477,9 @@ export const zOutcomeEvent = z.object({
         'FAILED'
     ]),
     failureCode: z.string().nullable(),
-    hasArtifacts: z.boolean()
+    hasArtifacts: z.boolean(),
+    contextTokens: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).nullable(),
+    contextLimit: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).nullable()
 });
 
 export const zResetEvent = z.object({
@@ -3619,7 +3624,8 @@ export const zToolApprovalEvent = z.object({
         'APPROVED',
         'DECLINED',
         'NO_DECISION'
-    ]).optional()
+    ]).optional(),
+    alwaysAllowable: z.boolean()
 });
 
 export const zChatBranch = z.object({

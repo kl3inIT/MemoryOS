@@ -68,6 +68,16 @@ import {
   type ResearchState,
 } from "@/features/chat/research/chat-research";
 
+/**
+ * The answers a person who manages MCP servers can give a call that asks first (MEM-267): once, always (the tool then
+ * runs without asking), or not. assistant-ui reads them from the gate's descriptor.
+ */
+const ALWAYS_ALLOW_OPTIONS = [
+  { id: "allow-once", kind: "allow-once" },
+  { id: "allow-always", kind: "allow-always" },
+  { id: "reject-once", kind: "reject-once" },
+];
+
 export type ConnectionState = "ready" | "sending" | "streaming" | "recovering" | "uncertain";
 type Callbacks = {
   state: (state: ConnectionState) => void;
@@ -357,11 +367,11 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
   }
 
   /** The person's answer to a tool call of the running reply that waits for approval (MEM-253). */
-  async decideToolCall(toolCallId: string, approved: boolean): Promise<void> {
+  async decideToolCall(toolCallId: string, approved: boolean, alwaysAllow = false): Promise<void> {
     if (!this.runId || !this.session) throw new Error("No running reply to answer");
     await decideChatToolCall({
       path: { sessionId: this.session.id, assistantMessageId: this.runId, toolCallId },
-      body: { approved },
+      body: { approved, ...(alwaysAllow && { alwaysAllow }) },
       throwOnError: true,
     });
   }
@@ -427,6 +437,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     let generatedFiles: GeneratedFile[] = [];
     let outcome: "COMPLETED" | "CANCELED" | "FAILED" | undefined;
     let failureCode: string | undefined;
+    let context: { tokens: number; limit: number } | undefined;
     let fallback = false;
     const createdAt = this.runCreatedAt;
     yield {
@@ -496,6 +507,8 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
             } else if (envelope.event === "outcome") {
               const terminal = outcomeSchema.parse(data);
               outcome = terminal.status;
+              if (terminal.contextTokens != null && terminal.contextLimit != null)
+                context = { tokens: terminal.contextTokens, limit: terminal.contextLimit };
               failureCode = terminal.failureCode ?? undefined;
               hasArtifacts = terminal.hasArtifacts;
               break;
@@ -554,18 +567,30 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
             } else if (envelope.event === "tool_approval") {
               // MEM-253: the AI SDK's own approval gate on the tool part; assistant-ui adds respondToApproval to it,
               // and the runtime's onRespondToToolApproval sends the answer to the server, which owns the paused call.
-              // The decided event needs nothing: the gate already holds the answer given here.
+              // MEM-267: the decided event settles the gate too, so an answer from another tab or a replay after a
+              // reconnect shows on the card, and a call nobody answered in time stops offering its buttons.
               const approval = toolApprovalSchema.parse(data);
-              if (!approval.decision)
+              const descriptor = {
+                serverName: approval.serverName,
+                toolName: approval.toolName,
+                arguments: approval.arguments,
+              };
+              if (!approval.decision || approval.decision === "NO_DECISION")
                 yield {
                   type: "tool-approval-request",
                   approvalId: approval.toolCallId,
                   toolCallId: approval.toolCallId,
-                  approvalDescriptor: {
-                    serverName: approval.serverName,
-                    toolName: approval.toolName,
-                    arguments: approval.arguments,
-                  },
+                  approvalDescriptor: approval.decision
+                    ? { ...descriptor, resolution: "expired" }
+                    : approval.alwaysAllowable
+                      ? { ...descriptor, options: ALWAYS_ALLOW_OPTIONS }
+                      : descriptor,
+                };
+              else
+                yield {
+                  type: "tool-approval-response",
+                  approvalId: approval.toolCallId,
+                  approved: approval.decision === "APPROVED",
                 };
             } else if (envelope.event === "waiting") {
               yield {
@@ -638,6 +663,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
         messageMetadata: {
           serverStatus: outcome,
           failureCode,
+          ...(context && { context }),
           sources,
           artifacts,
           images,
