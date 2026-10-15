@@ -17,6 +17,7 @@ public interface ChannelReply {
      * each piece a message, the sources and the closing line after the last.
      *
      * @return the provider's id of the answer's last message, by which a reply to it is recognised; null when unknown
+     * @throws Incomplete when some of the answer's messages were sent and a later one was not
      */
     @Nullable String finish(List<String> pieces, List<Source> sources, @Nullable String footer);
 
@@ -25,4 +26,22 @@ public interface ChannelReply {
 
     /** A source of the answer, with the address it opens at when it has one. */
     record Source(String title, @Nullable String url) {}
+
+    /**
+     * Part of an answer sent in several messages reached the chat and the rest did not. It carries no provider text.
+     *
+     * @param lastSent the provider's id of the last message that was sent, null when unknown
+     */
+    final class Incomplete extends RuntimeException {
+        private final @Nullable String lastSent;
+
+        public Incomplete(@Nullable String lastSent) {
+            super("The answer was sent in part", null, false, false);
+            this.lastSent = lastSent;
+        }
+
+        public @Nullable String lastSent() {
+            return lastSent;
+        }
+    }
 }

@@ -122,6 +122,18 @@ public class JdbcChannelInboundRepository {
                 .param("connection", connection).param("chat", chatId).param("sender", senderId).update();
     }
 
+    /**
+     * Settles as {@code FAILED}/{@code INTERRUPTED} every message claimed before {@code before} and never settled, which
+     * only a process that ended while handling it leaves; returns how many.
+     */
+    public int settleAbandoned(Instant before) {
+        return jdbc.sql("""
+                        UPDATE channel_messages SET outcome = 'FAILED', reason = 'INTERRUPTED'
+                        WHERE outcome = 'RECEIVED' AND received_at < :before
+                        """)
+                .param("before", Timestamp.from(before)).update();
+    }
+
     /** Deletes at most {@code limit} messages received before {@code before}; returns how many. */
     public int deleteMessagesBefore(Instant before, int limit) {
         return jdbc.sql("""

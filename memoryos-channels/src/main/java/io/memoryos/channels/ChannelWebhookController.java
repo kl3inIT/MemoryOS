@@ -31,20 +31,27 @@ final class ChannelWebhookController {
         this.supervisor = supervisor;
     }
 
+    /** The headers are checked before a byte of the body is read, so a stranger's request costs no read. */
     @PostMapping("/hooks/channels/{connectionId}")
     ResponseEntity<Void> push(@PathVariable UUID connectionId, HttpServletRequest request) throws IOException {
+        var headers = headers(request);
+        var authorized = supervisor.authorize(connectionId, headers);
+        if (authorized != ChannelSupervisor.Delivery.ACCEPTED) return ResponseEntity.status(status(authorized)).build();
         if (request.getContentLengthLong() > MAX_BODY) return ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE).build();
         byte[] body;
         try (InputStream in = request.getInputStream()) {
             body = in.readNBytes(MAX_BODY + 1);
         }
         if (body.length > MAX_BODY) return ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE).build();
-        var status = switch (supervisor.deliver(connectionId, headers(request), body)) {
+        return ResponseEntity.status(status(supervisor.deliver(connectionId, headers, body))).build();
+    }
+
+    private static HttpStatus status(ChannelSupervisor.Delivery delivery) {
+        return switch (delivery) {
             case ACCEPTED -> HttpStatus.OK;
             case REFUSED -> HttpStatus.FORBIDDEN;
             case UNKNOWN -> HttpStatus.NOT_FOUND;
         };
-        return ResponseEntity.status(status).build();
     }
 
     /** The request's headers by lower-case name, the first value of each. */

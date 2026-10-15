@@ -4,10 +4,12 @@ Design: [design.md](design.md). Each pull request is accepted when CI is green a
 
 ## 1. Probe a real bot
 
-- [ ] With the owner's bot: `getMe`, a direct text, an image, a sticker, the bot named in a group and a group
+- [x] With the owner's bot: `getMe`, a direct text, an image, a sticker, the bot named in a group and a group
   message that does not name it, over polling and over a webhook on staging; `sendMessage` with
   `parse_mode: markdown`, `sendChatAction`, a 2,000-character piece; record the payloads (ids only) and how a
-  mention reads in the design.
+  mention reads in the design. Done over polling on 2026-10-15 ([what it showed](design.md#what-a-real-bot-showed-2026-10-15)):
+  only mentioned group messages arrive, the mention is plain `@<display name>` text, markdown renders bold, italic
+  and lists but not links. The webhook is probed in step 6.
 
 ## 2. The port without Lark's shape
 

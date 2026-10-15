@@ -28,6 +28,8 @@ final class ZaloBot {
     static final Duration POLL_WAIT = Duration.ofSeconds(30);
     private static final Limits CALL = new Limits(Duration.ofSeconds(15), 1_048_576);
     private static final Limits POLL = new Limits(POLL_WAIT.plusSeconds(15), 1_048_576);
+    /** A typing mark is worth little late, so it waits briefly, as OpenClaw's. */
+    private static final Limits MARK = new Limits(Duration.ofSeconds(5), 65_536);
     private static final int ERROR_BODY_BYTES = 4_096;
     // Seen on a real bot (MEM-263 step 1): what Zalo answers when there is no webhook to delete or to describe.
     private static final int NO_WEBHOOK_TO_DELETE = 400;
@@ -36,11 +38,13 @@ final class ZaloBot {
 
     private final ZaloBotApi calls;
     private final ZaloBotApi polls;
+    private final ZaloBotApi marks;
 
     ZaloBot(String baseUrl, String token) {
         String root = baseUrl.replaceAll("/+$", "") + "/bot" + token;
         this.calls = OutboundHttp.service(ZaloBotApi.class, client(root, CALL));
         this.polls = OutboundHttp.service(ZaloBotApi.class, client(root, POLL));
+        this.marks = OutboundHttp.service(ZaloBotApi.class, client(root, MARK));
     }
 
     /** A failed status is read for Zalo's own code, within a small bound; its text is never kept. */
@@ -121,7 +125,7 @@ final class ZaloBot {
     }
 
     void typing(String chatId) {
-        result(() -> calls.sendChatAction(Map.of("chat_id", chatId, "action", "typing")));
+        result(() -> marks.sendChatAction(Map.of("chat_id", chatId, "action", "typing")));
     }
 
     /** The result of an envelope Zalo marked ok; anything else is its error code. */
