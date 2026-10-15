@@ -185,4 +185,7 @@ The Worker task `memoryos-channel-message-retention-v1` runs daily and deletes `
   sender cut to a plain label of at most 64 characters, so the answer addresses the right person. A turn that runs
   as the sender is asked the question alone. The session's title is the question either way.
 
-Not built yet: the link to a direct conversation on the web.
+- **The way to the web.** A direct answer that ran as the sender ends with a link, "Continue in MemoryOS", to the
+  same session at `memoryos.channel.web-url` (`MEMORYOS_CHANNEL_WEB_URL`) + `/chat/{session}`, which opens and continues
+  there although it is not in the sidebar; with no address configured there is no link. A group's session is the
+  bot's, so a group answer has none.

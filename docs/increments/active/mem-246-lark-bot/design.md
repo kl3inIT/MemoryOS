@@ -232,6 +232,11 @@ event again when its handler has not returned within three seconds, up to four m
    `email` unique within an organisation, but nothing read so far says whether a member can change their own;
    plan step 4 settles that on the test tenant before the adapter reads it, and uses only an address the
    organisation's administrator controls if a member's own is not safe;
+   what Lark publishes (read 2026-10-15) settles it in part: the contact `email` is unique within an organisation
+   (`邮箱不可重复`), so nobody can take the address of a person who has it in Lark, and it is the administrator who
+   assigns and changes it, with a field setting deciding whether members may edit a field. What is left is a
+   MemoryOS account whose address belongs to nobody in that Lark organisation, open only where the administrator
+   lets members edit `email`; the test tenant's own setting is to be read in its admin console;
 4. chooses who the turn runs as: the sender's account in a direct message when there is one, the bot's account
    in a group and for a sender without an account; then finds the conversation and its chat session (below);
 5. starts the turn with `ChatTurnService.command` (`SEND`, the session's current leaf, a request id derived from
