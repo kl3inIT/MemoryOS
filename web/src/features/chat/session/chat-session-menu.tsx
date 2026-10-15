@@ -1,5 +1,5 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import {
@@ -36,7 +36,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   archiveChatSessionMutation,
   deleteChatSessionMutation,
-  getChatSessionQueryKey,
   moveChatProjectMutation,
   unarchiveChatSessionMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
@@ -86,7 +85,6 @@ export function ChatSessionMenu({
   const unarchive = useMutation(unarchiveChatSessionMutation());
   const remove = useMutation(deleteChatSessionMutation());
   const move = useMutation(moveChatProjectMutation());
-  const cache = useQueryClient();
   const notify = useActionNotifications();
   const path = { sessionId: session.id };
   async function refresh(notify = true) {
@@ -119,9 +117,9 @@ export function ChatSessionMenu({
         body: { projectId },
         signal: AbortSignal.timeout(30000),
       });
-      // The sidebar reads the open conversation's Project from this entry, so the move is stored at once.
-      cache.setQueryData(getChatSessionQueryKey({ path }), moved);
-      await refresh();
+      // The returned session also reaches the open page and the thread list, which read the Project from it.
+      await refreshSessions(moved);
+      await onChange?.();
     } catch (failure) {
       notify({ title: actionErrorText(failure), tone: "error" });
     }

@@ -7,11 +7,12 @@ import {
 } from "@/components/ui/select";
 
 /** Rows-per-page control shared by every paginated table. */
-export function PageSizeSelect({
+export function PageSizeSelect<TSize extends number | string = number>({
   label,
   rowsLabel,
   value,
   sizes,
+  sizeLabel = String,
   disabled = false,
   onSizeChange,
 }: {
@@ -19,10 +20,12 @@ export function PageSizeSelect({
   label: string;
   /** Visible text before the control, such as "Rows". */
   rowsLabel: string;
-  value: number;
-  sizes: readonly number[];
+  value: TSize;
+  sizes: readonly TSize[];
+  /** How a size reads in the list, for a choice that is not a number such as "All". */
+  sizeLabel?: (size: TSize) => string;
   disabled?: boolean;
-  onSizeChange: (size: number) => void;
+  onSizeChange: (size: TSize) => void;
 }) {
   return (
     <div className="flex items-center gap-2 font-secondary-body text-content-secondary">
@@ -30,7 +33,10 @@ export function PageSizeSelect({
       <Select
         value={String(value)}
         disabled={disabled}
-        onValueChange={(next) => onSizeChange(Number(next))}
+        onValueChange={(next) => {
+          const size = sizes.find((offered) => String(offered) === next);
+          if (size !== undefined) onSizeChange(size);
+        }}
       >
         <SelectTrigger size="sm" aria-label={label} className="w-auto">
           <SelectValue />
@@ -38,7 +44,7 @@ export function PageSizeSelect({
         <SelectContent>
           {sizes.map((size) => (
             <SelectItem key={size} value={String(size)}>
-              {size}
+              {sizeLabel(size)}
             </SelectItem>
           ))}
         </SelectContent>

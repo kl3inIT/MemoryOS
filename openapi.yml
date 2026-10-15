@@ -6411,6 +6411,11 @@ paths:
           enum:
           - OPENAI_IMAGE
           - CLOUDFLARE_WORKERS_AI
+          - GEMINI_IMAGE
+          - OPENROUTER_IMAGE
+          - XAI_IMAGE
+          - FAL_AI
+          - CUSTOM_HTTP
       requestBody:
         content:
           application/json:
@@ -13970,6 +13975,11 @@ paths:
           enum:
           - OPENAI_IMAGE
           - CLOUDFLARE_WORKERS_AI
+          - GEMINI_IMAGE
+          - OPENROUTER_IMAGE
+          - XAI_IMAGE
+          - FAL_AI
+          - CUSTOM_HTTP
       requestBody:
         content:
           application/json:
@@ -26731,6 +26741,56 @@ components:
           enum:
           - OPENAI_IMAGE
           - CLOUDFLARE_WORKERS_AI
+          - GEMINI_IMAGE
+          - OPENROUTER_IMAGE
+          - XAI_IMAGE
+          - FAL_AI
+          - CUSTOM_HTTP
+    ImageTemplate:
+      type: object
+      properties:
+        authHeader:
+          type: string
+          maxLength: 64
+          minLength: 0
+        authPrefix:
+          type: string
+          maxLength: 32
+          minLength: 0
+        generate:
+          $ref: "#/components/schemas/ImageTemplateStep"
+        edit:
+          $ref: "#/components/schemas/ImageTemplateStep"
+      required:
+      - authHeader
+      - authPrefix
+      - generate
+    ImageTemplateStep:
+      type: object
+      properties:
+        path:
+          type: string
+          maxLength: 512
+          minLength: 0
+        body:
+          type: string
+          maxLength: 16384
+          minLength: 0
+        imagePointer:
+          type: string
+          maxLength: 200
+          minLength: 0
+        imageFormat:
+          type: string
+          enum:
+          - BASE64
+          - DATA_URI
+          - RAW
+      required:
+      - body
+      - imageFormat
+      - imagePointer
+      - path
     ImageConnectionRequest:
       type: object
       properties:
@@ -26742,6 +26802,8 @@ components:
           type: string
           maxLength: 200
           minLength: 0
+        template:
+          $ref: "#/components/schemas/ImageTemplate"
         credentialAction:
           type: string
           enum:
@@ -26768,10 +26830,17 @@ components:
           enum:
           - OPENAI_IMAGE
           - CLOUDFLARE_WORKERS_AI
+          - GEMINI_IMAGE
+          - OPENROUTER_IMAGE
+          - XAI_IMAGE
+          - FAL_AI
+          - CUSTOM_HTTP
         endpoint:
           type: string
         model:
           type: string
+        template:
+          $ref: "#/components/schemas/ImageTemplate"
         credentialConfigured:
           type: boolean
         active:
@@ -29409,6 +29478,8 @@ components:
           type: string
           maxLength: 200
           minLength: 0
+        template:
+          $ref: "#/components/schemas/ImageTemplate"
         credentialValue:
           type: string
           maxLength: 8192
@@ -33153,6 +33224,11 @@ components:
           enum:
           - OPENAI_IMAGE
           - CLOUDFLARE_WORKERS_AI
+          - GEMINI_IMAGE
+          - OPENROUTER_IMAGE
+          - XAI_IMAGE
+          - FAL_AI
+          - CUSTOM_HTTP
         model:
           type: string
       required:
@@ -33189,6 +33265,11 @@ components:
           enum:
           - OPENAI_IMAGE
           - CLOUDFLARE_WORKERS_AI
+          - GEMINI_IMAGE
+          - OPENROUTER_IMAGE
+          - XAI_IMAGE
+          - FAL_AI
+          - CUSTOM_HTTP
         credentialRequired:
           type: boolean
         defaultEndpoint:

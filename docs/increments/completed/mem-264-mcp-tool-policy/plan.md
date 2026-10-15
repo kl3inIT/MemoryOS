@@ -34,5 +34,7 @@ Design: [design.md](design.md).
 - [x] Core tests: defaults, refresh keeping customized policies, group and reset, destructive limit, discovery,
   the cut notice.
 - [x] Web tests for the tool list; e2e fixture updated.
-- [ ] Staging: Linear's write tools ask without manual changes; a fresh connection lists tools.
+- [x] Staging: Linear's write tools ask without manual changes; a fresh connection lists tools.
 - [x] Spec, tests matrix and runbook updated.
+
+Evidence: [verification.md](verification.md).

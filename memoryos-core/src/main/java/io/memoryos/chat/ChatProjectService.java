@@ -71,8 +71,7 @@ public class ChatProjectService {
         var distinct = new HashSet<>(ordered);
         if (distinct.size() != ordered.size() || !distinct.equals(new HashSet<>(settings.ids(tenant.value(), actor.value()))))
             throw ChatException.conflict();
-        for (int position = 0; position < ordered.size(); position++)
-            settings.place(tenant.value(), actor.value(), ordered.get(position), position);
+        if (!ordered.isEmpty()) settings.place(tenant.value(), actor.value(), ordered.toArray(UUID[]::new));
     }
 
     @Transactional(readOnly = true)

@@ -2,7 +2,7 @@
 
 Linear: [MEM-269](https://linear.app/memory-os/issue/MEM-269). Plan: [plan.md](plan.md). Related:
 [MEM-260](https://linear.app/memory-os/issue/MEM-260) (system prompt order) and
-[MEM-264](../../active/mem-264-mcp-tool-policy/design.md) (MCP tools in the request).
+[MEM-264](../mem-264-mcp-tool-policy/design.md) (MCP tools in the request).
 
 ## Problem
 

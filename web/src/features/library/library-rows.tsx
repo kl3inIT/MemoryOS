@@ -189,22 +189,25 @@ function FileGroup({
     <section aria-label={label}>
       {showLabel && (
         <div className="mb-1.5 flex items-center gap-2 px-3.25">
+          {onSelectDay && (
+            <Checkbox
+              focus="soft"
+              forceMountIndicator
+              id={dayId}
+              // Mount once, so starting a selection does not measure another indicator for every day.
+              hidden={selected.length === 0}
+              aria-label={ui("Chọn tất cả {{day}}", { day: label })}
+              checked={chosen === 0 ? false : chosen === files.length ? true : "indeterminate"}
+              onCheckedChange={(checked) => onSelectDay(files, checked === true)}
+            />
+          )}
+          {/* The day's heading is a larger pointer target for its checkbox once selection begins. */}
           {onSelectDay && selected.length > 0 ? (
-            <>
-              <Checkbox
-                focus="soft"
-                id={dayId}
-                aria-label={ui("Chọn tất cả {{day}}", { day: label })}
-                checked={chosen === 0 ? false : chosen === files.length ? true : "indeterminate"}
-                onCheckedChange={(checked) => onSelectDay(files, checked === true)}
-              />
-              {/* The day's heading is a larger pointer target for its checkbox. */}
-              <h2 className="font-secondary-body text-content-muted first-letter:uppercase">
-                <label htmlFor={dayId} className="cursor-pointer">
-                  {label}
-                </label>
-              </h2>
-            </>
+            <h2 className="font-secondary-body text-content-muted first-letter:uppercase">
+              <label htmlFor={dayId} className="cursor-pointer">
+                {label}
+              </label>
+            </h2>
           ) : (
             <h2 className="font-secondary-body text-content-muted first-letter:uppercase">
               {label}
@@ -275,6 +278,7 @@ function LibraryRow({
       <Item>
         <Checkbox
           focus="soft"
+          forceMountIndicator
           aria-label={ui("Chọn {{name}}", { name: file.filename })}
           checked={selected}
           onCheckedChange={() => onSelect(file)}
@@ -474,6 +478,7 @@ function LibraryCard({
       <div className="absolute top-4 left-4 z-10 opacity-100 transition-opacity md:opacity-0 md:group-hover/card:opacity-100 md:group-has-[:focus-visible]/card:opacity-100 md:group-has-[[data-state=open]]/card:opacity-100">
         <Checkbox
           focus="soft"
+          forceMountIndicator
           aria-label={ui("Chọn {{name}}", { name: file.filename })}
           checked={selected}
           onCheckedChange={() => onSelect(file)}

@@ -27,6 +27,17 @@ public final class ImageCall {
         return parse(http.postMultipart(URI.create(url), headers, fields, files));
     }
 
+    /** A request whose whole answer is the image. */
+    public byte[] raw(String url, Map<String, String> headers, JsonNode body) throws IOException {
+        var response = http.post(URI.create(url), headers, json.writeValueAsString(body));
+        if (response.status() < 200 || response.status() >= 300) throw new IOException("Image provider request failed");
+        return response.bytes();
+    }
+
+    public JsonNode json(String url, Map<String, String> headers, JsonNode body) throws IOException {
+        return parse(http.post(URI.create(url), headers, json.writeValueAsString(body)));
+    }
+
     private JsonNode parse(ImageHttp.Response response) throws IOException {
         if (response.status() < 200 || response.status() >= 300) throw new IOException("Image provider request failed");
         return json.readTree(response.bytes());
@@ -38,6 +49,17 @@ public final class ImageCall {
         if (value.isEmpty()) throw new IOException("Image provider returned no image");
         try { return Base64.getDecoder().decode(value); }
         catch (IllegalArgumentException invalid) { throw new IOException("Invalid image encoding"); }
+    }
+
+    /** A PNG as the inline {@code data:} URI providers take in place of an image URL. */
+    public static String pngDataUri(byte[] png) { return "data:image/png;base64," + Base64.getEncoder().encodeToString(png); }
+
+    /** The bytes of a base64 {@code data:} URI; a hosted URL is never fetched. */
+    public static byte[] fromDataUri(String uri) throws IOException {
+        int comma = uri.indexOf(',');
+        if (!uri.startsWith("data:") || comma < 0 || !uri.substring(0, comma).endsWith(";base64"))
+            throw new IOException("Image provider returned no inline image");
+        return base64(uri.substring(comma + 1));
     }
 
     /** The stored media type follows the returned bytes, not the provider's documentation. */

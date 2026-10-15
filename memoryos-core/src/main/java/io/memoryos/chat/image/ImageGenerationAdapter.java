@@ -23,10 +23,14 @@ public interface ImageGenerationAdapter {
         return edit && editModel != null ? editModel.modelName() : resolvedModel(model);
     }
 
+    /** The size or aspect ratio a tool shape asks of this model: a catalog entry's, else none. */
+    default @Nullable String size(String model, @Nullable String shape) { return capabilities().sizeFor(model, shape); }
+
+    /** @param template the connection's request shapes; null for every provider but {@link ImageProvider#CUSTOM_HTTP} */
     ImageProviderClient.Result generate(ImageCall call, String base, String key, String model, String prompt,
-                                        @Nullable String size) throws IOException;
+                                        @Nullable String size, @Nullable ImageTemplate template) throws IOException;
 
     /** Edits a normalized working image from an English instruction; a mask is applied afterwards by the caller. */
     ImageProviderClient.Result edit(ImageCall call, String base, String key, String model, String prompt,
-                                    ImageEditImages.Working image) throws IOException;
+                                    ImageEditImages.Working image, @Nullable ImageTemplate template) throws IOException;
 }

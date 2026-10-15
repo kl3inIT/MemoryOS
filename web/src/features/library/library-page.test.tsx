@@ -751,10 +751,47 @@ it("cuts the list into pages of the chosen size, from its first page", async () 
   );
 
   await user.click(screen.getByRole("combobox", { name: "Số tệp mỗi trang" }));
-  await user.click(await screen.findByRole("option", { name: "12" }));
+  await user.click(await screen.findByRole("option", { name: "70" }));
 
   await waitFor(() =>
-    expect(listed).toContainEqual(expect.objectContaining({ offset: "0", limit: "12" })),
+    expect(listed).toContainEqual(expect.objectContaining({ offset: "0", limit: "70" })),
   );
-  expect(screen.getByText("Hiển thị 1–12 trên 60 tệp")).toBeInTheDocument();
+  expect(await screen.findByText("Hiển thị 1–60 trên 60 tệp")).toBeInTheDocument();
+});
+
+it("shows no pager while the files fit one default page", async () => {
+  await show([file()]);
+
+  expect(await screen.findByText("doanh-thu.xlsx")).toBeInTheDocument();
+  expect(screen.queryByRole("navigation", { name: "Phân trang thư viện" })).toBeNull();
+  expect(screen.queryByRole("combobox", { name: "Số tệp mỗi trang" })).toBeNull();
+});
+
+it("reads every page of a hundred when the person asks for the whole list", async () => {
+  await show([file()], true);
+  server.use(
+    handleListChatLibrary(({ request }) => {
+      const query = queryOf(request);
+      listed.push(query);
+      const first = query.offset === "0";
+      return HttpResponse.json({
+        items: [first ? file() : upload],
+        totalCount: 60,
+        totalBytes: 4096,
+        hasMore: first,
+      });
+    }),
+  );
+  const user = userEvent.setup();
+
+  await user.click(screen.getByRole("combobox", { name: "Số tệp mỗi trang" }));
+  await user.click(await screen.findByRole("option", { name: "Tất cả" }));
+
+  await waitFor(() =>
+    expect(listed).toContainEqual(expect.objectContaining({ offset: "1", limit: "100" })),
+  );
+  expect(listed).toContainEqual(expect.objectContaining({ offset: "0", limit: "100" }));
+  expect(await screen.findByText(upload.filename)).toBeInTheDocument();
+  expect(screen.getByText("doanh-thu.xlsx")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Trang sau" })).toBeDisabled();
 });

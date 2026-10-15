@@ -62,11 +62,15 @@ public class DocumentSearchService {
         long started = System.nanoTime();
         String outcome = "failed";
         try {
-            SourceSearchScope scope = null;
+            // One readable Source scope serves the whole request: its access tokens filter the index and its Sources
+            // decide the readable origins below.
+            SourceSearchScope scope;
             List<SearchHit> raw;
             if (request.documentSetIds().isEmpty()) {
-                var tokens = timings.measure(SearchTimings.Stage.PREFETCH, () -> sourceSearch.accessTokens(tenant, actor));
-                raw = search.search(tenant, actor, request.query(), request.mediaTypes(), request.updated(), tokens);
+                scope = timings.measure(SearchTimings.Stage.PREFETCH, () -> sourceSearch.scope(actor));
+                if (!tenant.equals(scope.tenant())) throw new SearchDocumentUnavailableException();
+                // Direct Search filters the index by access tokens only, not by the scope's Source IDs.
+                raw = search.search(tenant, actor, request.query(), request.mediaTypes(), request.updated(), scope.accessTokens());
             } else {
                 scope = timings.measure(SearchTimings.Stage.PREFETCH, () -> documentSets.narrow(actor, request.documentSetIds()));
                 if (!tenant.equals(scope.tenant())) throw new SearchDocumentUnavailableException();
@@ -86,7 +90,7 @@ public class DocumentSearchService {
             // Connector counts, the connector and date filters and page metadata all come from the Source mappings this
             // actor may read, so a connector the actor cannot read is neither counted nor matched. The index applied the
             // date window already; this repeats it on the readable origins, and the connector counts follow it.
-            var origins = scope == null ? readableOrigins(actor, candidates) : readableOrigins(scope, candidates);
+            var origins = readableOrigins(scope, candidates);
             var now = Instant.now();
             var dated = request.updated() == null ? candidates
                     : matching(candidates, origins, new SearchFilters(Set.of(), null, request.updated()), now);
@@ -110,11 +114,6 @@ public class DocumentSearchService {
             Map<UUID, List<DocumentSourceMetadata>> origins, SearchFilters filters, Instant now) {
         return results.stream().filter(result -> origins.getOrDefault(result.documentId(), List.of()).stream()
                 .anyMatch(origin -> filters.matches(origin, now))).toList();
-    }
-
-    private Map<UUID, List<DocumentSourceMetadata>> readableOrigins(ActorId actor, List<SearchPage.Result> candidates) {
-        if (candidates.isEmpty()) return Map.of();
-        return readableOrigins(sourceSearch.scope(actor), candidates);
     }
 
     private Map<UUID, List<DocumentSourceMetadata>> readableOrigins(SourceSearchScope scope, List<SearchPage.Result> candidates) {

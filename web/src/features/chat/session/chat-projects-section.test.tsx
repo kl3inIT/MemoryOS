@@ -14,6 +14,8 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { ActionNotifications } from "@/components/ui/action-notifications";
 import { i18n } from "@/i18n/index";
 import {
+  handleCreateChatSession,
+  handleCreateProjectChatSession,
   handleListChatProjects,
   handleListProjectChatSessions,
   handleMoveChatProject,
@@ -96,7 +98,10 @@ async function show(projects: ProjectView[], path = "/", stored?: ChatSession) {
     history: createMemoryHistory({ initialEntries: [path] }),
   });
   await router.load();
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  // The application's stale time, so a prefetched list is reused when its project opens.
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
+  });
   if (stored)
     client.setQueryData(getChatSessionQueryKey({ path: { sessionId: stored.id } }), stored);
   render(
@@ -149,6 +154,28 @@ it("opens the project page from its row action menu", async () => {
   await user.click(screen.getByRole("menuitem", { name: "Xem dự án" }));
 
   await waitFor(() => expect(router.state.location.pathname).toBe(`/projects/${id(1)}`));
+});
+
+it("starts a conversation from the project menu on its page without creating a session", async () => {
+  const user = userEvent.setup();
+  const created: string[] = [];
+  server.use(
+    handleCreateChatSession(({ request }) => {
+      created.push(request.url);
+      return HttpResponse.json({ title: "Unexpected", status: 500 }, { status: 500 });
+    }),
+    handleCreateProjectChatSession(({ request }) => {
+      created.push(request.url);
+      return HttpResponse.json({ title: "Unexpected", status: 500 }, { status: 500 });
+    }),
+  );
+  const router = await show([project(1)], `/chat/${id(101)}`);
+
+  await user.click(await screen.findByRole("button", { name: "Thao tác với Dự án 1" }));
+  await user.click(screen.getByRole("menuitem", { name: "Hội thoại mới" }));
+
+  await waitFor(() => expect(router.state.location.pathname).toBe(`/projects/${id(1)}`));
+  expect(created).toEqual([]);
 });
 
 it("opens the project editor from its row action menu", async () => {
@@ -256,7 +283,28 @@ it("shows no 'Xem thêm' for a short page, and a muted line for an empty project
   expect(await screen.findByText("Chưa có hội thoại.")).toBeInTheDocument();
 });
 
-it("loads a project's conversations behind skeleton rows announced once", async () => {
+it("reads a project's conversations when its row is pointed at, so it opens without a skeleton", async () => {
+  const user = userEvent.setup();
+  let reads = 0;
+  server.use(
+    handleListProjectChatSessions(() => {
+      reads++;
+      return HttpResponse.json([]);
+    }),
+  );
+  await show([project(1)]);
+  const row = await screen.findByRole("button", { name: "Hội thoại trong Dự án 1" });
+
+  await user.hover(row);
+  await waitFor(() => expect(reads).toBe(1));
+  await user.click(row);
+
+  expect(screen.getByText("Chưa có hội thoại.")).toBeInTheDocument();
+  expect(screen.queryByText("Đang tải hội thoại…")).not.toBeInTheDocument();
+  expect(reads).toBe(1);
+});
+
+it("loads a project's conversations behind one skeleton row announced once", async () => {
   const user = userEvent.setup();
   let release = () => {};
   server.use(
@@ -274,7 +322,8 @@ it("loads a project's conversations behind skeleton rows announced once", async 
   // dnd-kit keeps a status region of its own, so the loading one is found by its text.
   const status = (await screen.findByText("Đang tải hội thoại…")).closest("[role=status]");
   expect(status).toHaveTextContent("Đang tải hội thoại…");
-  expect(status?.querySelectorAll("[data-slot=skeleton]")).toHaveLength(3);
+  // A project may hold nothing, so loading reserves one row and only grows.
+  expect(status?.querySelectorAll("[data-slot=skeleton]")).toHaveLength(1);
   release();
   await screen.findByText("Chưa có hội thoại.");
 });

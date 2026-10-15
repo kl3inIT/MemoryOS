@@ -17,6 +17,7 @@ import {
   deleteChatFile,
   deleteChatFileArtifact,
   deleteChatImageArtifact,
+  listChatLibrary,
 } from "@/lib/hey-api/sdk.gen";
 import type {
   ChatLibraryContentMatch,
@@ -50,9 +51,35 @@ export const LIBRARY_CATEGORIES = [
   "PRESENTATION",
   "OTHER",
 ] as const satisfies readonly LibraryCategory[];
+/** A page's size until the person picks another; a list no longer than it shows no pager at all. */
 export const LIBRARY_PAGE_SIZE = 50;
-/** How many files a page may hold; the server admits at most 100 rows in one listing. */
-export const LIBRARY_PAGE_SIZES = [12, 24, 50, 100] as const;
+/** How many rows a page may hold, besides `all`, which reads the whole list in pages of {@link LISTING_LIMIT}. */
+export const LIBRARY_PAGE_SIZES = [50, 70, 100] as const;
+export type LibraryPageSize = (typeof LIBRARY_PAGE_SIZES)[number] | "all";
+/** The most rows the server admits in one listing, and the furthest offset it accepts. */
+export const LISTING_LIMIT = 100;
+const LISTING_MAX_OFFSET = 10_000;
+
+/** Where a page starts: a list read whole has one page. */
+export function pageOffset(page: number, size: LibraryPageSize) {
+  return size === "all" ? 0 : page * size;
+}
+
+/**
+ * Every row of an offset-paged listing, read one page of {@link LISTING_LIMIT} after another until the server
+ * says there is no more or the next offset passes the furthest one it accepts.
+ */
+export async function readWholeListing<TItem, TPage extends { items: TItem[]; hasMore: boolean }>(
+  read: (offset: number, limit: number) => Promise<TPage>,
+): Promise<TPage> {
+  let page = await read(0, LISTING_LIMIT);
+  const items = [...page.items];
+  while (page.hasMore && items.length <= LISTING_MAX_OFFSET) {
+    page = await read(items.length, LISTING_LIMIT);
+    items.push(...page.items);
+  }
+  return { ...page, items };
+}
 
 export type LibraryFilter = {
   query: string;
@@ -70,8 +97,8 @@ export type LibraryFilter = {
   status?: LibraryStatus;
 };
 
-/** The listing's parameters for one page of a filter. */
-function libraryQuery(filter: LibraryFilter, offset: number, limit: number) {
+/** The listing's parameters for one page of a filter; no limit names the whole list. */
+function libraryQuery(filter: LibraryFilter, offset: number, limit: number | undefined) {
   return {
     query: filter.query,
     sources: filter.sources,
@@ -85,13 +112,27 @@ function libraryQuery(filter: LibraryFilter, offset: number, limit: number) {
   };
 }
 
-/** One page of the library as the generated query reads it. */
+/**
+ * One page of the library as the generated query reads it, or the whole list under a key that names no page, so
+ * it never shares a cache entry with one page of the same filter.
+ */
 export function libraryOptions(
   filter: LibraryFilter,
   offset: number,
-  limit: number = LIBRARY_PAGE_SIZE,
+  size: LibraryPageSize = LIBRARY_PAGE_SIZE,
 ) {
-  return listChatLibraryOptions({ query: libraryQuery(filter, offset, limit) });
+  if (size !== "all") return listChatLibraryOptions({ query: libraryQuery(filter, offset, size) });
+  return {
+    ...listChatLibraryOptions({ query: libraryQuery(filter, 0, undefined) }),
+    queryFn: ({ signal }: { signal: AbortSignal }) =>
+      readWholeListing((from, limit) =>
+        listChatLibrary({
+          query: libraryQuery(filter, from, limit),
+          signal,
+          throwOnError: true,
+        }).then((response) => response.data),
+      ),
+  };
 }
 
 /**

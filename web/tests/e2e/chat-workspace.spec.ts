@@ -226,8 +226,9 @@ test("edits, regenerates, selects saved branches, rates, shares, revokes and del
     .getByRole("button", { name: "Thao tác hội thoại Workspace versions" })
     .click();
   await page.getByRole("menuitem", { name: "Đổi tên", exact: true }).click();
-  await page.getByRole("textbox", { name: "Tên hội thoại" }).fill("Renamed workspace");
-  await page.getByRole("button", { name: "Lưu tên hội thoại" }).click();
+  const renameField = page.getByRole("textbox", { name: "Tên hội thoại" });
+  await renameField.fill("Renamed workspace");
+  await renameField.press("Enter");
   await expect(page.getByRole("banner")).toContainText("Renamed workspace");
   await expect(page.getByRole("link", { name: "Renamed workspace" })).toBeVisible();
   await page.getByRole("button", { name: "Chia sẻ", exact: true }).click();
@@ -538,6 +539,51 @@ test("moves and removes a conversation with keyboard menus and desktop drag and 
   const stats = await (await page.request.get(`/api/chat/sessions/${session.id}/stats`)).json();
   expect(stats.sends).toBe(0);
   await page.request.delete(`/api/chat/projects/${project.id}?revision=0`);
+});
+
+test("saves a conversation name on blur without action buttons or stealing focus", async ({
+  page,
+}) => {
+  const session = await (
+    await page.request.post("/api/chat/test-fixture", { data: { title: "Inline rename" } })
+  ).json();
+  await page.goto(`/chat/${session.id}`);
+  const sidebar = page.getByRole("complementary");
+  async function edit(name: string) {
+    await sidebar.getByRole("button", { name: `Thao tác hội thoại ${name}` }).click();
+    await page.getByRole("menuitem", { name: "Đổi tên", exact: true }).click();
+  }
+  let writes = 0;
+  await page.route(`**/api/chat/sessions/${session.id}/title`, async (route) => {
+    writes++;
+    await route.continue();
+  });
+  await edit("Inline rename");
+  const title = page.getByRole("textbox", { name: "Tên hội thoại" });
+  const row = sidebar.locator('[data-slot="thread-list-row"]').filter({ has: title });
+  await expect(row.getByRole("button")).toHaveCount(0);
+  await title.fill("   Saved outside   ");
+  const composer = page.getByRole("textbox", { name: "Câu hỏi", exact: true });
+  await composer.click();
+  await expect(sidebar.getByRole("link", { name: "Saved outside", exact: true })).toBeVisible();
+  await expect(composer).toBeFocused();
+  expect(writes).toBe(1);
+
+  await edit("Saved outside");
+  await title.fill("Saved with Enter");
+  await title.press("Enter");
+  await expect(sidebar.getByRole("link", { name: "Saved with Enter", exact: true })).toBeFocused();
+  expect(writes).toBe(2);
+
+  await edit("Saved with Enter");
+  await composer.click();
+  await expect(title).toHaveCount(0);
+  await edit("Saved with Enter");
+  await title.fill("   ");
+  await composer.click();
+  await expect(title).toHaveCount(0);
+  await expect(sidebar.getByRole("link", { name: "Saved with Enter", exact: true })).toBeVisible();
+  expect(writes).toBe(2);
 });
 
 test("preserves rename and inline edit drafts after errors and uses the same request ID on retry", async ({

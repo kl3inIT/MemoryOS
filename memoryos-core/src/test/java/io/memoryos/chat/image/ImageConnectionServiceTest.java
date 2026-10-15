@@ -63,7 +63,7 @@ class ImageConnectionServiceTest {
     void saveRejectsABlankEndpointWhenTheProviderRequiresOne() {
         when(authorization.lockAndRequireExclusive(actor, IamCapability.MODELS_MANAGE))
                 .thenReturn(new IamAccess(tenant, Authority.GLOBAL));
-        var input = new ImageConnectionService.Input("", "flux-1-schnell",
+        var input = new ImageConnectionService.Input("", "flux-1-schnell", null,
                 new ProviderCredentials.Change(ProviderCredentials.Action.KEEP, null), 0);
         var rejected = assertThrows(ChatException.class,
                 () -> service.save(actor, ImageProvider.CLOUDFLARE_WORKERS_AI, input));
@@ -79,7 +79,7 @@ class ImageConnectionServiceTest {
                 .thenReturn(Optional.empty());
         when(connections.saveAndFlush(any())).thenAnswer(call -> call.getArgument(0));
         var input = new ImageConnectionService.Input("b73a9841898f88f7cc2b731d7776f265",
-                "@cf/black-forest-labs/flux-1-schnell",
+                "@cf/black-forest-labs/flux-1-schnell", null,
                 new ProviderCredentials.Change(ProviderCredentials.Action.KEEP, null), 0);
         var view = service.save(actor, ImageProvider.CLOUDFLARE_WORKERS_AI, input);
         assertEquals("https://api.cloudflare.com/client/v4/accounts/b73a9841898f88f7cc2b731d7776f265",
@@ -93,7 +93,7 @@ class ImageConnectionServiceTest {
         when(connections.findByTenantIdAndProvider(tenant.value(), ImageProvider.OPENAI_IMAGE))
                 .thenReturn(Optional.empty());
         when(connections.saveAndFlush(any())).thenAnswer(call -> call.getArgument(0));
-        var input = new ImageConnectionService.Input("", "gpt-image-1",
+        var input = new ImageConnectionService.Input("", "gpt-image-1", null,
                 new ProviderCredentials.Change(ProviderCredentials.Action.KEEP, null), 0);
         var view = service.save(actor, ImageProvider.OPENAI_IMAGE, input);
         assertEquals("gpt-image-1", view.model());
@@ -104,7 +104,7 @@ class ImageConnectionServiceTest {
         when(authorization.require(actor, IamCapability.MODELS_MANAGE, false))
                 .thenReturn(new IamAccess(tenant, Authority.GLOBAL));
         var entity = new ImageConnectionEntity(tenant.value(), ImageProvider.OPENAI_IMAGE);
-        entity.configure("https://api.openai.com/v1", "gpt-image-1", "v1:abc");
+        entity.configure("https://api.openai.com/v1", "gpt-image-1", "v1:abc", null);
         when(connections.findByTenantIdAndProvider(tenant.value(), ImageProvider.OPENAI_IMAGE))
                 .thenReturn(Optional.of(entity));
         when(credentials.configured("v1:abc")).thenReturn(true);
@@ -120,7 +120,7 @@ class ImageConnectionServiceTest {
                 .thenReturn(new IamAccess(tenant, Authority.GLOBAL));
         var probe = service.forTest(actor, ImageProvider.CLOUDFLARE_WORKERS_AI,
                 new ImageConnectionService.ProbeInput("b73a9841898f88f7cc2b731d7776f265",
-                        "@cf/black-forest-labs/flux-1-schnell", "cf-key"));
+                        "@cf/black-forest-labs/flux-1-schnell", null, "cf-key"));
         assertEquals("https://api.cloudflare.com/client/v4/accounts/b73a9841898f88f7cc2b731d7776f265",
                 probe.connection().endpoint());
         assertEquals("cf-key", probe.credential());
@@ -133,12 +133,12 @@ class ImageConnectionServiceTest {
         when(authorization.require(actor, IamCapability.MODELS_MANAGE, false))
                 .thenReturn(new IamAccess(tenant, Authority.GLOBAL));
         var entity = new ImageConnectionEntity(tenant.value(), ImageProvider.OPENAI_IMAGE);
-        entity.configure("https://api.openai.com/v1", "gpt-image-1", "v1:abc");
+        entity.configure("https://api.openai.com/v1", "gpt-image-1", "v1:abc", null);
         when(connections.findByTenantIdAndProvider(tenant.value(), ImageProvider.OPENAI_IMAGE))
                 .thenReturn(Optional.of(entity));
         when(credentials.configured("v1:abc")).thenReturn(true);
         var probe = service.forTest(actor, ImageProvider.OPENAI_IMAGE,
-                new ImageConnectionService.ProbeInput("https://gateway.example/v1", "gpt-image-2", null));
+                new ImageConnectionService.ProbeInput("https://gateway.example/v1", "gpt-image-2", null, null));
         assertNull(probe.credential());
         assertEquals("v1:abc", probe.connection().encryptedCredential());
         assertEquals(entity.id(), probe.connection().id());
@@ -152,7 +152,37 @@ class ImageConnectionServiceTest {
                 .thenReturn(new IamAccess(tenant, Authority.GLOBAL));
         var rejected = assertThrows(ChatException.class,
                 () -> service.forTest(actor, ImageProvider.OPENAI_IMAGE,
-                        new ImageConnectionService.ProbeInput("", "gpt-image-1", null)));
+                        new ImageConnectionService.ProbeInput("", "gpt-image-1", null, null)));
         assertEquals(FailureCategory.VALIDATION, rejected.category());
+    }
+
+    private static final ImageTemplate TEMPLATE = new ImageTemplate("Authorization", "Bearer ",
+            new ImageTemplate.Step("/images/generations", "{\"prompt\":\"{{prompt}}\"}", "/data/0/b64_json", ImageTemplate.Format.BASE64), null);
+
+    @Test
+    void onlyACustomConnectionTakesARequestTemplateAndItMustBeValid() {
+        when(authorization.lockAndRequireExclusive(actor, IamCapability.MODELS_MANAGE))
+                .thenReturn(new IamAccess(tenant, Authority.GLOBAL));
+        var keep = new ProviderCredentials.Change(ProviderCredentials.Action.KEEP, null);
+        assertThrows(ChatException.class, () -> service.save(actor, ImageProvider.OPENAI_IMAGE,
+                new ImageConnectionService.Input("", "gpt-image-1", TEMPLATE, keep, 0)));
+        assertThrows(ChatException.class, () -> service.save(actor, ImageProvider.CUSTOM_HTTP,
+                new ImageConnectionService.Input("https://api.example/v1", "flux", null, keep, 0)));
+        var leaving = new ImageTemplate("Authorization", "Bearer ",
+                new ImageTemplate.Step("//evil.example/x", "{}", "/a", ImageTemplate.Format.BASE64), null);
+        assertThrows(ChatException.class, () -> service.save(actor, ImageProvider.CUSTOM_HTTP,
+                new ImageConnectionService.Input("https://api.example/v1", "flux", leaving, keep, 0)));
+        verify(connections, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void aCustomConnectionStoresItsTemplateAndReadsItBack() {
+        when(authorization.lockAndRequireExclusive(actor, IamCapability.MODELS_MANAGE))
+                .thenReturn(new IamAccess(tenant, Authority.GLOBAL));
+        when(connections.findByTenantIdAndProvider(tenant.value(), ImageProvider.CUSTOM_HTTP)).thenReturn(Optional.empty());
+        when(connections.saveAndFlush(any())).thenAnswer(call -> call.getArgument(0));
+        var view = service.save(actor, ImageProvider.CUSTOM_HTTP, new ImageConnectionService.Input("https://api.example/v1", "flux",
+                TEMPLATE, new ProviderCredentials.Change(ProviderCredentials.Action.KEEP, null), 0));
+        assertEquals(TEMPLATE, view.template());
     }
 }

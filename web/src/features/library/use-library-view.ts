@@ -7,7 +7,7 @@ import {
   getChatLibraryUsageOptions,
   searchChatLibraryContentOptions,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
-import { libraryOptions, type LibraryFilter } from "./library";
+import { libraryOptions, pageOffset, type LibraryFilter } from "./library";
 import { librarySearchDefaults, viewFilterDefaults, type LibrarySearch } from "./library-search";
 import { isOwnedView } from "./library-views";
 
@@ -34,7 +34,7 @@ export function useLibraryView() {
     setShownSearch(shown.q);
     if (search !== shown.q) setSearch(shown.q);
   }
-  const offset = shown.page * size;
+  const offset = pageOffset(shown.page, size);
   const query = useDebouncedValue(search.trim(), 250);
   const [selected, setSelected] = useState<string[]>([]);
 
@@ -78,7 +78,8 @@ export function useLibraryView() {
   const hasMore = owned && page.data?.hasMore === true && !page.isPlaceholderData;
   useEffect(() => {
     // The next page is fetched while this one is read, so the next-page button shows it without a wait.
-    if (hasMore) void cache.prefetchQuery({ ...libraryOptions(filter, offset + size, size) });
+    if (hasMore && size !== "all")
+      void cache.prefetchQuery({ ...libraryOptions(filter, offset + size, size) });
   }, [cache, filter, offset, size, hasMore]);
   const usage = useQuery(getChatLibraryUsageOptions());
   const trashWindow = useQuery({
@@ -136,7 +137,8 @@ export function useLibraryView() {
         ...(!isOwnedView(next) || !owned ? viewFilterDefaults : {}),
         ...and,
       }),
-    showPage: (nextOffset: number) => show({ page: Math.floor(nextOffset / size) }),
+    showPage: (nextOffset: number) =>
+      show({ page: size === "all" ? 0 : Math.floor(nextOffset / size) }),
     /** After a change to the files the list restarts in place, without an entry to return to. */
     showFirstPage: () => show({ page: 0 }, true),
     clearFilters: () => filterBy({ ...viewFilterDefaults, mode, sort, q: "" }),

@@ -33,6 +33,11 @@ Design: [design.md](design.md). Each pull request is accepted when CI is green a
 
 ## 4. Acceptance
 
-- [ ] On staging: a long web conversation and a Zalo group session cross the threshold; the next answer still knows the
-  early turns; the context ring drops; a regenerated answer above the cutoff ignores the summary.
-- [ ] Chat spec and matrix, the task models spec, `verification.md`, the roadmap.
+- [x] On staging, the web: a long conversation crosses the threshold; the next answer still knows the early turns; the
+  context drops; a regenerated or edited answer above the cutoff ignores the summary
+  ([verification](verification.md#step-4-acceptance-on-staging-2026-10-15)).
+- [ ] On staging, a Zalo group session crosses the threshold. This needs the owner: a long group conversation, or a
+  small-context agent for the bot after MEM-273.
+- [ ] The summary prompt files facts the person states as established facts and summarises only the turns before the
+  cutoff (two findings of the acceptance).
+- [x] Chat spec and matrix, the task models spec, `verification.md`, the roadmap.

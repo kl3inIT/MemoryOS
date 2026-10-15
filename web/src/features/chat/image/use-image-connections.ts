@@ -17,10 +17,20 @@ export type ImageProvider = ImageProviderResponse["provider"];
 export const imageProviderNames: Record<ImageProvider, string> = {
   OPENAI_IMAGE: "OpenAI Images",
   CLOUDFLARE_WORKERS_AI: "Cloudflare Workers AI",
+  GEMINI_IMAGE: "Google Gemini",
+  OPENROUTER_IMAGE: "OpenRouter",
+  XAI_IMAGE: "xAI Grok Imagine",
+  FAL_AI: "fal.ai",
+  CUSTOM_HTTP: "Custom HTTP",
 };
 export const imageProviderMarks = {
   OPENAI_IMAGE: "OPENAI",
   CLOUDFLARE_WORKERS_AI: "CLOUDFLARE",
+  GEMINI_IMAGE: "GEMINI",
+  OPENROUTER_IMAGE: "OPENROUTER",
+  XAI_IMAGE: "XAI",
+  FAL_AI: "FAL",
+  CUSTOM_HTTP: "CUSTOM_HTTP",
 } as const;
 
 /** A failed image connection request as the page shows it. */
@@ -78,6 +88,7 @@ export function useImageConnectionMutations() {
             model: current.model,
             revision: current.revision,
             credentialAction: "REMOVE",
+            template: current.template ?? undefined,
           },
         });
     },

@@ -77,6 +77,7 @@ class ImageConnectionController {
     ImageConnectionResponse save(@CurrentActor IdentityContext identity,
             @PathVariable ImageProvider provider, @Valid @RequestBody ImageConnectionRequest request) {
         return ImageConnectionResponse.from(connections.save(identity.actorId(), provider, new ImageConnectionService.Input(request.endpoint(), request.model(),
+                request.template() == null ? null : request.template().toTemplate(),
                 new ProviderCredentials.Change(request.credentialAction(), request.credentialValue()), request.revision())));
     }
     @PutMapping("/selection")
@@ -93,7 +94,8 @@ class ImageConnectionController {
     void test(@CurrentActor IdentityContext identity, @PathVariable ImageProvider provider,
             @Valid @RequestBody(required = false) ImageConnectionTestRequest request) {
         var probe = connections.forTest(identity.actorId(), provider,
-                request == null ? null : new ImageConnectionService.ProbeInput(request.endpoint(), request.model(), request.credentialValue()));
+                request == null ? null : new ImageConnectionService.ProbeInput(request.endpoint(), request.model(),
+                        request.template() == null ? null : request.template().toTemplate(), request.credentialValue()));
         try {
             if (client.generate(probe.connection(), "a small solid blue circle on a white background", null, probe.credential()).bytes().length == 0)
                 throw new IOException("No image produced");

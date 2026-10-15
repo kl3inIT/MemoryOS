@@ -1,5 +1,7 @@
 package io.memoryos.retrieval.opensearch;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import io.memoryos.shared.ActorId;
 import io.memoryos.document.DocumentChunk;
 import io.memoryos.connector.SourceSearchService;
@@ -27,6 +29,7 @@ import io.memoryos.retrieval.embedding.ValidatedEmbeddingService;
 import io.memoryos.retrieval.settings.SearchGeneration;
 import io.memoryos.retrieval.settings.SearchGenerations;
 import io.memoryos.usage.AiUsageFlow;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -72,6 +75,27 @@ public class OpenSearchIndexService implements SearchIndex {
     private final Map<String, UUID> ensured = new ConcurrentHashMap<>();
     /** One verification or creation at a time per index; other indexes and verified writes are not held up. */
     private final Map<String, Object> ensuring = new ConcurrentHashMap<>();
+    private static final Duration QUERY_VECTOR_TTL = Duration.ofMinutes(10);
+    private static final long QUERY_VECTOR_BYTES = 16L * 1024 * 1024;
+    /**
+     * Query vectors this process embedded, so a question asked again (another page, another filter, the next Chat
+     * Search) is not embedded again. A vector carries no access: every search still authorizes, and the index request
+     * is the one an uncached vector would make. Kept ten minutes after embedding, within 16 MiB.
+     */
+    private final Cache<QueryVectorKey, float[]> queryVectors = Caffeine.newBuilder()
+            .expireAfterWrite(QUERY_VECTOR_TTL).maximumWeight(QUERY_VECTOR_BYTES)
+            .weigher((QueryVectorKey key, float[] vector) -> vector.length * Float.BYTES + key.text().length() * Character.BYTES)
+            .build();
+
+    /**
+     * Whose vector of which text, under which generation and index. Another generation never reuses a vector, and the
+     * reader is part of the key so no one learns from a faster answer that someone else asked the same question.
+     */
+    private record QueryVectorKey(UUID generation, String identity, TenantId tenant, @Nullable ActorId actor, String text) {
+        QueryVectorKey(SearchGenerations.Active active, TenantId tenant, @Nullable ActorId actor, String text) {
+            this(active.generation().id(), active.identity(), tenant, actor, text);
+        }
+    }
 
     public OpenSearchIndexService(OpenSearchGateway gateway, SearchGenerations generations,
             SearchProperties properties, ObjectMapper mapper, DocumentChunkPort documents, SourceSearchService sourceSearch, SearchTimings timings) {
@@ -387,7 +411,7 @@ public class OpenSearchIndexService implements SearchIndex {
     public List<SearchHit> search(TenantId tenant, @Nullable ActorId actor, String query, List<String> mediaTypes,
             SearchFilters.@Nullable Interval updated, Collection<String> accessTokens) {
         var active = generations.present();
-        return searchPrepared(active, tenant, query, active.embeddings().query(query, queryCaller(tenant, actor)), mediaTypes,
+        return searchPrepared(active, tenant, query, queryVector(active, tenant, actor, query, queryCaller(tenant, actor)), mediaTypes,
                 new SearchFilters(Set.of(), null, updated), List.of(), accessTokens);
     }
 
@@ -396,12 +420,12 @@ public class OpenSearchIndexService implements SearchIndex {
             SearchFilters.@Nullable Interval updated) {
         var active = generations.present();
         if (scope.sources().isEmpty()) return List.of();
-        return searchPrepared(active, scope.tenant(), query, active.embeddings().query(query), mediaTypes,
+        return searchPrepared(active, scope.tenant(), query, queryVector(active, scope.tenant(), scope.actor(), query, null), mediaTypes,
                 new SearchFilters(Set.of(), null, updated), scope.sources().keySet().stream().map(UUID::toString).toList(),
                 scope.accessTokens());
     }
 
-    /** Embed each distinct text once for this Search call. */
+    /** Embed each distinct text once for this Search call, and only a text this reader has no kept vector of. */
     public List<List<SearchHit>> batch(SourceSearchScope scope, List<SearchQuery> queries, SearchFilters filters, Runnable checkActive) {
         if (queries.isEmpty() || queries.size() > 8) throw new SearchRequestException();
         checkActive.run();
@@ -409,11 +433,20 @@ public class OpenSearchIndexService implements SearchIndex {
         var embeddings = active.embeddings();
         var texts = queries.stream().map(SearchQuery::text).distinct().toList();
         var vectors = new LinkedHashMap<String, float[]>();
-        for (int offset = 0; offset < texts.size(); offset += embeddings.batchSize()) {
+        var missing = new ArrayList<String>();
+        for (var text : texts) {
+            var kept = queryVectors.getIfPresent(new QueryVectorKey(active, scope.tenant(), scope.actor(), text));
+            if (kept != null) vectors.put(text, kept);
+            else missing.add(text);
+        }
+        for (int offset = 0; offset < missing.size(); offset += embeddings.batchSize()) {
             checkActive.run();
-            var inputs = texts.subList(offset, Math.min(offset + embeddings.batchSize(), texts.size()));
+            var inputs = missing.subList(offset, Math.min(offset + embeddings.batchSize(), missing.size()));
             var output = timings.measure(SearchTimings.Stage.EMBEDDING, () -> embeddings.queries(inputs, queryCaller(scope.tenant(), scope.actor())));
-            for (int i = 0; i < inputs.size(); i++) vectors.put(inputs.get(i), output.get(i));
+            for (int i = 0; i < inputs.size(); i++) {
+                vectors.put(inputs.get(i), output.get(i));
+                queryVectors.put(new QueryVectorKey(active, scope.tenant(), scope.actor(), inputs.get(i)), output.get(i));
+            }
         }
         List<Callable<List<SearchHit>>> tasks = texts.stream().<Callable<List<SearchHit>>>map(text ->
                 () -> timings.measure(SearchTimings.Stage.HYBRID, () -> searchPrepared(active, scope.tenant(), text, vectors.get(text), List.of(), filters,
@@ -427,6 +460,21 @@ public class OpenSearchIndexService implements SearchIndex {
     private List<SearchHit> searchPrepared(SearchGenerations.Active active, TenantId tenant, String query, float[] vector,
             List<String> mediaTypes, SearchFilters restrictions, List<String> sourceIds, Collection<String> accessTokens) {
         return searchPrepared(active, tenant, query, vector, mediaTypes, restrictions, sourceIds, List.of(), accessTokens);
+    }
+
+    /**
+     * The vector of {@code text} under {@code active}: the one this reader's earlier search kept, or a new embedding.
+     * The model is called outside the cache so a slow provider never holds up another key; two concurrent first
+     * searches of one text may both embed it, as every search did before.
+     */
+    private float[] queryVector(SearchGenerations.Active active, TenantId tenant, @Nullable ActorId actor, String text,
+            ValidatedEmbeddingService.@Nullable Caller caller) {
+        var key = new QueryVectorKey(active, tenant, actor, text);
+        var kept = queryVectors.getIfPresent(key);
+        if (kept != null) return kept;
+        var vector = active.embeddings().query(text, caller);
+        queryVectors.put(key, vector);
+        return vector;
     }
 
     private static ValidatedEmbeddingService.@Nullable Caller queryCaller(TenantId tenant, @Nullable ActorId actor) {
@@ -444,7 +492,7 @@ public class OpenSearchIndexService implements SearchIndex {
         });
         if (allowed.isEmpty()) return List.of();
         // Owner-private files are authorized by the explicit owner file mappings, not by Source access.
-        return searchPrepared(active, tenant, query, active.embeddings().query(query, queryCaller(tenant, actor)), List.of(),
+        return searchPrepared(active, tenant, query, queryVector(active, tenant, actor, query, queryCaller(tenant, actor)), List.of(),
                 SearchFilters.NONE, List.of(), allowed, null);
     }
 

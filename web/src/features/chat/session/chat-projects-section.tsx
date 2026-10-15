@@ -1,7 +1,21 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  infiniteQueryOptions,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { Link, useNavigate, useParams, useRouterState } from "@tanstack/react-router";
-import { FolderOpen, GripVertical, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  FolderOpen,
+  GripVertical,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Trash2,
+} from "lucide-react";
 import { memo, useCallback, useRef, useState } from "react";
 import { ThreadList } from "@/components/assistant-ui/elements/thread-list";
 import { hoverReveal } from "@/components/composites/hover-reveal";
@@ -27,7 +41,6 @@ import { useRefreshChatSessions } from "@/features/chat/runtime/chat-threads-con
 import { actionErrorText } from "@/lib/action-errors";
 import {
   getChatSessionOptions,
-  getChatSessionQueryKey,
   listProjectChatSessionsInfiniteOptions,
   moveChatProjectMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
@@ -40,6 +53,8 @@ const PROJECT_SESSIONS = 5;
 const SECTION_STORAGE_KEY = "memoryos:chat-projects-section";
 
 const skeletonRows = [0, 1, 2];
+// An open project may hold no conversation at all, so it reserves one row and grows when rows arrive.
+const projectSkeletonRows = [0];
 
 function readSectionOpen() {
   try {
@@ -57,12 +72,27 @@ function storeSectionOpen(open: boolean) {
   }
 }
 
+/** The first conversations of a project, read when it opens and prefetched when its row is pointed at. */
+function projectSessionsOptions(projectId: string) {
+  return infiniteQueryOptions({
+    ...listProjectChatSessionsInfiniteOptions({
+      path: { projectId },
+      query: { limit: PROJECT_SESSIONS },
+    }),
+    initialPageParam: 0,
+    getNextPageParam: (last, pages) =>
+      last.length === PROJECT_SESSIONS && pages.length * PROJECT_SESSIONS <= 10000
+        ? pages.length * PROJECT_SESSIONS
+        : undefined,
+  });
+}
+
 /** Placeholder rows while a list loads; assistive technology hears the label once instead of each bar. */
-function LoadingRows({ label }: { label: string }) {
+function LoadingRows({ label, rows = skeletonRows }: { label: string; rows?: number[] }) {
   return (
     <div role="status" className="flex flex-col gap-1 px-2 py-1">
       <span className="sr-only">{label}</span>
-      {skeletonRows.map((row) => (
+      {rows.map((row) => (
         <Skeleton key={row} aria-hidden="true" className="h-7" />
       ))}
     </div>
@@ -216,14 +246,10 @@ const ProjectFolder = memo(function ProjectFolder({
 
   const [over, setOver] = useState(false);
   const refreshSessions = useRefreshChatSessions();
-  const cache = useQueryClient();
   const move = useMutation({
     ...moveChatProjectMutation(),
-    // The section reads the open conversation's Project from this entry, so the move is stored at once.
-    onSuccess: (moved, { path }) => {
-      cache.setQueryData(getChatSessionQueryKey({ path }), moved);
-      return refreshSessions(path.sessionId);
-    },
+    // The returned session also reaches the open page and the thread list, which read the Project from it.
+    onSuccess: (moved) => refreshSessions(moved),
   });
   const selected = useRouterState({
     select: (state) => state.location.pathname === `/projects/${project.id}`,
@@ -232,6 +258,12 @@ const ProjectFolder = memo(function ProjectFolder({
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const menuTrigger = useRef<HTMLButtonElement>(null);
+  const cache = useQueryClient();
+  // A fresh entry is not read again, so repeated pointing costs nothing within the stale time.
+  function prefetchSessions() {
+    if (!open) void cache.prefetchInfiniteQuery(projectSessionsOptions(project.id));
+  }
+  /** The Project's page holds an unsent conversation in it; the first send creates the session. */
   function openProject() {
     onNavigate?.();
     void navigate({ to: "/projects/$projectId", params: { projectId: project.id } });
@@ -283,6 +315,9 @@ const ProjectFolder = memo(function ProjectFolder({
             type="button"
             aria-label={ui("Hội thoại trong {{v1}}", { v1: project.name })}
             aria-current={selected ? "page" : undefined}
+            // Reading ahead lets the folder open once to its final height instead of growing after a skeleton.
+            onPointerEnter={prefetchSessions}
+            onFocus={prefetchSessions}
             className="group/project-row flex min-w-0 flex-1 items-center gap-2 rounded-lg py-2 pr-1 pl-3 text-left text-sm outline-none"
           >
             <ProjectIcon
@@ -313,6 +348,9 @@ const ProjectFolder = memo(function ProjectFolder({
             }}
           >
             <DropdownMenuGroup>
+              <DropdownMenuItem className="cursor-pointer" onSelect={openProject}>
+                <Plus /> {ui("Hội thoại mới")}
+              </DropdownMenuItem>
               <DropdownMenuItem className="cursor-pointer" onSelect={openProject}>
                 <FolderOpen /> {ui("Xem dự án")}
               </DropdownMenuItem>
@@ -366,27 +404,25 @@ function ProjectConversations({
   onNavigate?: () => void;
 }) {
   const ui = useAppTranslation();
-  const sessions = useInfiniteQuery({
-    ...listProjectChatSessionsInfiniteOptions({
-      path: { projectId: project.id },
-      query: { limit: PROJECT_SESSIONS },
-    }),
-    initialPageParam: 0,
-    getNextPageParam: (last, pages) =>
-      last.length === PROJECT_SESSIONS && pages.length * PROJECT_SESSIONS <= 10000
-        ? pages.length * PROJECT_SESSIONS
-        : undefined,
-  });
+  const sessions = useInfiniteQuery(projectSessionsOptions(project.id));
   const rows = sessions.data?.pages.flat();
   return (
     <div className="pl-6">
-      {sessions.isPending && <LoadingRows label={ui("Đang tải hội thoại…")} />}
+      {sessions.isPending && (
+        <LoadingRows label={ui("Đang tải hội thoại…")} rows={projectSkeletonRows} />
+      )}
       {sessions.isError && (
-        <div role="alert" className="flex items-center gap-2 px-2 py-1 text-xs">
-          <span>{ui("Không tải được hội thoại.")}</span>
-          <Button size="sm" prominence="internal" onClick={() => void sessions.refetch()}>
-            {ui("Tải lại")}
-          </Button>
+        <div role="alert" className="flex h-8 items-center gap-1 pl-2 text-xs text-content-muted">
+          <span className="min-w-0 flex-1 truncate">{ui("Không tải được hội thoại.")}</span>
+          <IconButton
+            size="sm"
+            prominence="internal"
+            aria-label={ui("Tải lại")}
+            pending={sessions.isFetching}
+            onClick={() => void sessions.refetch()}
+          >
+            <RotateCcw />
+          </IconButton>
         </div>
       )}
       {rows?.length === 0 && (

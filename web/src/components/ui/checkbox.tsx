@@ -6,10 +6,13 @@ import { CheckIcon, MinusIcon } from "lucide-react";
 function Checkbox({
   className,
   focus = "ring",
+  forceMountIndicator = false,
   ...props
 }: React.ComponentProps<typeof CheckboxPrimitive.Root> & {
   /** `soft` shows the focus as a button does: a faint ring and no dark border. */
   focus?: "ring" | "soft";
+  /** Keep a large, frequently toggled list's indicator mounted to avoid measuring animation styles per row. */
+  forceMountIndicator?: boolean;
 }) {
   return (
     <CheckboxPrimitive.Root
@@ -23,8 +26,10 @@ function Checkbox({
       {...props}
     >
       <CheckboxPrimitive.Indicator
+        // Presence otherwise reads animation styles for each newly checked box during bulk selection.
+        forceMount={forceMountIndicator ? true : undefined}
         data-slot="checkbox-indicator"
-        className="grid place-content-center text-current transition-none [&>svg]:size-3.5"
+        className="grid place-content-center text-current transition-none data-[state=unchecked]:invisible [&>svg]:size-3.5"
       >
         {/* Part of a group is a dash, not a tick: a tick would claim files the person did not choose. */}
         {props.checked === "indeterminate" ? <MinusIcon /> : <CheckIcon />}

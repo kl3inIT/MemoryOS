@@ -27,12 +27,16 @@ class ImageProviderTest {
     @Test
     void everyProviderPublishesADistinctNonEmptyCatalog() {
         for (var provider : ImageProvider.values()) {
+            if (provider == ImageProvider.CUSTOM_HTTP) continue;
             var names = registry.capabilities(provider).knownModels().stream().map(KnownModel::modelName).toList();
             assertFalse(names.isEmpty(), provider.name());
             assertEquals(names.size(), names.stream().distinct().count(), provider.name());
             assertTrue(registry.capabilities(provider).requiresKey(), provider.name());
         }
-        assertThrows(IllegalArgumentException.class, () -> new ImageProviderCapabilities(null, false, null, List.of()));
+        assertTrue(registry.capabilities(ImageProvider.CUSTOM_HTTP).knownModels().isEmpty());
+        assertTrue(registry.capabilities(ImageProvider.CUSTOM_HTTP).endpointRequired());
+        var duplicate = new KnownModel("m", "M", "image/png", List.of(), false, false);
+        assertThrows(IllegalArgumentException.class, () -> new ImageProviderCapabilities(null, false, null, List.of(duplicate, duplicate)));
     }
 
     @Test
@@ -62,6 +66,22 @@ class ImageProviderTest {
         assertNull(registry.capabilities(ImageProvider.CLOUDFLARE_WORKERS_AI).defaultEndpoint());
         assertFalse(registry.capabilities(ImageProvider.OPENAI_IMAGE).endpointRequired());
         assertEquals("https://api.openai.com/v1", registry.capabilities(ImageProvider.OPENAI_IMAGE).defaultEndpoint());
+        for (var provider : List.of(ImageProvider.GEMINI_IMAGE, ImageProvider.OPENROUTER_IMAGE, ImageProvider.XAI_IMAGE, ImageProvider.FAL_AI)) {
+            assertFalse(registry.capabilities(provider).endpointRequired(), provider.name());
+            assertNotNull(registry.capabilities(provider).defaultEndpoint(), provider.name());
+        }
+    }
+
+    @Test
+    void aspectRatioProvidersEditWithTheConfiguredModel() {
+        for (var provider : List.of(ImageProvider.GEMINI_IMAGE, ImageProvider.OPENROUTER_IMAGE, ImageProvider.XAI_IMAGE, ImageProvider.FAL_AI)) {
+            var adapter = registry.adapter(provider);
+            assertNull(adapter.capabilities().editModel(), provider.name());
+            assertTrue(adapter.capabilities().knownModels().stream().allMatch(KnownModel::edit), provider.name());
+            var first = adapter.capabilities().knownModels().getFirst().modelName();
+            assertEquals(first, adapter.resolvedModel(""), provider.name());
+            assertEquals(first, adapter.usageModel(first, true), provider.name());
+        }
     }
 
     @Test
@@ -85,6 +105,10 @@ class ImageProviderTest {
         assertNull(openAi.sizeFor("gpt-image-1", null));
         assertNull(openAi.sizeFor("undeclared-model", "square"));
         assertNull(registry.capabilities(ImageProvider.CLOUDFLARE_WORKERS_AI).sizeFor("@cf/black-forest-labs/flux-1-schnell", "square"));
+        var gemini = registry.capabilities(ImageProvider.GEMINI_IMAGE);
+        assertEquals("1:1", gemini.sizeFor("gemini-nano-banana-2.1", "square"));
+        assertEquals("16:9", gemini.sizeFor("gemini-nano-banana-2.1", "landscape"));
+        assertEquals("9:16", gemini.sizeFor("gemini-nano-banana-2.1", "portrait"));
     }
 
     @Test
@@ -92,6 +116,7 @@ class ImageProviderTest {
         assertThrows(IllegalArgumentException.class, () -> new KnownModel(" ", "Blank", "image/png", List.of(), false, false));
         assertThrows(IllegalArgumentException.class, () -> new KnownModel("model", "Model", "image/gif", List.of(), false, false));
         assertThrows(IllegalArgumentException.class, () -> new KnownModel("model", "Model", "image/png", List.of("large"), false, false));
+        assertThrows(IllegalArgumentException.class, () -> new KnownModel("model", "Model", "image/png", List.of("16/9"), false, false));
         assertThrows(IllegalArgumentException.class, () -> new KnownModel("model", " ", "image/png", List.of("1024x1024"), false, false));
     }
 }

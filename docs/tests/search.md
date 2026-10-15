@@ -75,6 +75,8 @@ The following acceptance evidence remains distinct: approved OpenAI embeddings o
 
 | Contract | Evidence |
 | --- | --- |
+| A question asked again (another page or filter, the next Chat Search) under the same generation by the same reader is embedded once and sends the same index request; another generation, text or reader embeds again; Chat's batch embeds only texts without a kept vector | `QueryVectorReuseTest` |
+| Direct Search resolves the reader's Source scope once: its access tokens filter the index and the same scope reads the origins; a scope of another Tenant stops before the index | `DocumentSearchServiceTest.directSearchResolvesOneSourceScopeForTheIndexTokensAndTheReadableOrigins`, `directSearchRejectsASourceScopeOfAnotherTenantBeforeTheIndex` |
 | Result `sourceTypes`/`authors`/`providerUrl` and `sourceFacets` come from one actor-readable metadata read for all grouped candidates; `sourceTypes` filters within those candidates and Document Set IDs first narrow the actor's Source scope; invalid/null/duplicate/bounded filters fail validation | `DocumentSearchServiceTest`, `SearchRequestTest`; OpenAPI contract |
 | Search original PDF requires `SEARCH_READ` before and after opening storage | `DocumentOriginalServiceTest.searchRequiresSearchReadBeforeAndAfterOpening` |
 | Original PDF ranges: one `bytes=first-[last]` gives 206 with `Content-Range`/`Content-Length`, whole responses advertise `Accept-Ranges` and disable proxy buffering, beyond-the-end gives 416 without body, suffix/multiple/malformed ranges serve the whole object | `DocumentOriginalResponsesTest` |

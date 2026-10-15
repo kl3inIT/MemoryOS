@@ -1484,21 +1484,37 @@ export type InterpreterSettingsResponse = {
 };
 
 export type ImageSelectionRequest = {
-    provider?: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI';
+    provider?: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI' | 'GEMINI_IMAGE' | 'OPENROUTER_IMAGE' | 'XAI_IMAGE' | 'FAL_AI' | 'CUSTOM_HTTP';
+};
+
+export type ImageTemplate = {
+    authHeader: string;
+    authPrefix: string;
+    generate: ImageTemplateStep;
+    edit?: ImageTemplateStep;
+};
+
+export type ImageTemplateStep = {
+    path: string;
+    body: string;
+    imagePointer: string;
+    imageFormat: 'BASE64' | 'DATA_URI' | 'RAW';
 };
 
 export type ImageConnectionRequest = {
     endpoint: string;
     model: string;
+    template?: ImageTemplate;
     credentialAction: 'KEEP' | 'REPLACE' | 'REMOVE';
     credentialValue?: string;
     revision?: number;
 };
 
 export type ImageConnectionResponse = {
-    provider: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI';
+    provider: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI' | 'GEMINI_IMAGE' | 'OPENROUTER_IMAGE' | 'XAI_IMAGE' | 'FAL_AI' | 'CUSTOM_HTTP';
     endpoint: string;
     model: string;
+    template?: ImageTemplate;
     credentialConfigured?: boolean;
     active?: boolean;
     revision?: number;
@@ -2523,6 +2539,7 @@ export type ChatLibraryArchive = {
 export type ImageConnectionTestRequest = {
     endpoint: string;
     model: string;
+    template?: ImageTemplate;
     credentialValue?: string;
 };
 
@@ -3933,7 +3950,7 @@ export type InterpreterHealthResponse = {
 
 export type ImageAvailabilityResponse = {
     available: boolean;
-    provider?: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI';
+    provider?: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI' | 'GEMINI_IMAGE' | 'OPENROUTER_IMAGE' | 'XAI_IMAGE' | 'FAL_AI' | 'CUSTOM_HTTP';
     model?: string;
 };
 
@@ -3947,7 +3964,7 @@ export type ImageKnownModelResponse = {
 };
 
 export type ImageProviderResponse = {
-    provider: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI';
+    provider: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI' | 'GEMINI_IMAGE' | 'OPENROUTER_IMAGE' | 'XAI_IMAGE' | 'FAL_AI' | 'CUSTOM_HTTP';
     credentialRequired: boolean;
     defaultEndpoint?: string;
     endpointRequired: boolean;
@@ -8891,7 +8908,7 @@ export type SelectChatImageProviderResponse = SelectChatImageProviderResponses[k
 export type SaveChatImageConnectionData = {
     body: ImageConnectionRequest;
     path: {
-        provider: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI';
+        provider: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI' | 'GEMINI_IMAGE' | 'OPENROUTER_IMAGE' | 'XAI_IMAGE' | 'FAL_AI' | 'CUSTOM_HTTP';
     };
     query?: never;
     url: '/api/chat/images/connections/{provider}';
@@ -14150,7 +14167,7 @@ export type RequestChatLibraryArchiveResponse = RequestChatLibraryArchiveRespons
 export type TestChatImageConnectionData = {
     body?: ImageConnectionTestRequest;
     path: {
-        provider: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI';
+        provider: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI' | 'GEMINI_IMAGE' | 'OPENROUTER_IMAGE' | 'XAI_IMAGE' | 'FAL_AI' | 'CUSTOM_HTTP';
     };
     query?: never;
     url: '/api/chat/images/connections/{provider}/test';
