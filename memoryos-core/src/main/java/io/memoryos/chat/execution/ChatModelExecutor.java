@@ -177,6 +177,40 @@ public final class ChatModelExecutor {
         }
     }
 
+    /**
+     * MEM-268: the summary of a conversation's earlier turns, from {@link ChatCompaction#request}: one call with no
+     * tools, at most {@code outputLimit} tokens. {@code accounting} receives its usage even when the call fails.
+     */
+    public String summarize(ModelBinding selected, List<Message> messages, int outputLimit, Duration timeout,
+                            Consumer<ModelAccounting> accounting) {
+        var context = contexts.getObject();
+        var process = context.getProcessContext().getAgentProcess();
+        var deadline = Instant.now().plus(timeout);
+        ChatModelGuard admitted = null;
+        try {
+            var metadata = selected.service();
+            var guard = new ChatModelGuard(metadata.getChatModel(), process, metadata,
+                    new Budget(limits.costCap(), Integer.MAX_VALUE, limits.tokenCap()), 1,
+                    () -> { if (!Instant.now().isBefore(deadline)) throw TurnFailure.DEADLINE.exception(); },
+                    selected.policy(), selected.contextWindow() - outputLimit, selected.finalRequest());
+            guard.outputLimit(outputLimit);
+            admitted = guard;
+            var runner = context.ai().withLlmService(new StreamingLlmService(selected.withModel(guard)));
+            var llm = Objects.requireNonNull(runner.getLlm()).withMaxTokens(outputLimit).withTimeout(timeout);
+            runner = runner.withLlm(selected.reasons() ? llm : llm.withoutThinking());
+            var output = new StringBuilder();
+            new StreamingPromptRunnerBuilder(runner).streaming().withMessages(messages).generateStream()
+                    .doOnNext(output::append)
+                    .blockLast(timeout);
+            String summary = output.toString().strip();
+            if (summary.isBlank()) throw TurnFailure.EMPTY_RESPONSE.exception();
+            return summary;
+        } finally {
+            try { accounting.accept(admitted == null ? ModelAccounting.NONE : ModelAccounting.of(List.of(admitted), process, selected.service())); }
+            finally { processes.delete(process); }
+        }
+    }
+
     /** One research agent's tools: its own evidence, step identity and guard; the turn's search, Web and file access. */
     private ResearchExecutor.AgentTools agentTools(ExecutingOperationContext context, ChatTurnSetup setup, ResearchExecutor.AgentScope agent,
             Mono<?> cancellation, SearchTasks.Scope fileWork, int maxOutput) {

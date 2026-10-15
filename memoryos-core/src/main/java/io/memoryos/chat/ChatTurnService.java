@@ -9,6 +9,7 @@ import io.memoryos.ai.ModelBinding;
 import io.memoryos.chat.image.ImageConnectionService;
 import io.memoryos.chat.research.ResearchProperties;
 import io.memoryos.chat.session.ChatTurnPersistence;
+import io.memoryos.chat.execution.ChatCompactions;
 import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.ai.systemone.SystemOneConnectionService;
@@ -76,6 +77,7 @@ public final class ChatTurnService implements AutoCloseable {
     private final @Nullable McpTurnService mcp;
     private final @Nullable ChatGuardrailCheck guardrails;
     private final @Nullable ChatTurnMetrics metrics;
+    private final @Nullable ChatCompactions compactions;
     private final ChatExecutionProperties limits;
     private final TaskExecutor executor;
     private final StreamBufferWriter streams;
@@ -147,6 +149,19 @@ public final class ChatTurnService implements AutoCloseable {
             @Nullable McpTurnService mcp,
             @Nullable AiUsageLimitService spending, @Nullable ChatGuardrailCheck guardrails,
             @Nullable ChatTurnMetrics metrics) {
+        this(persistence, model, limits, executor, streams, models, web, images, settings, research, mcp, spending,
+                guardrails, metrics, null);
+    }
+
+    public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
+            TaskExecutor executor, StreamBufferWriter streams, ChatModelSelector models,
+            @Nullable WebConnectionService web,
+            @Nullable ImageConnectionService images, @Nullable ChatSettingsService settings,
+            @Nullable ResearchProperties research,
+            @Nullable McpTurnService mcp,
+            @Nullable AiUsageLimitService spending, @Nullable ChatGuardrailCheck guardrails,
+            @Nullable ChatTurnMetrics metrics, @Nullable ChatCompactions compactions) {
+        this.compactions = compactions;
         this.guardrails = guardrails;
         this.metrics = metrics;
         this.spending = spending;
@@ -342,6 +357,7 @@ public final class ChatTurnService implements AutoCloseable {
             // Check 1 fails closed: a turn that needs it is not started without it.
             if (ChatGuardrailCheck.applies(setup, policy) && guardrails == null) throw ChatException.providerUnavailable();
             var run = new Active(setup, resolved, policy, question(context), earlier(context), context.uiLanguage(), actor, slot);
+            run.historyBudget = ChatTurnSetup.historyBudget(setup, contextLimit);
             streams.open(setup.assistantMessageId());
             active.put(setup.assistantMessageId(), run);
             transferred = true;
@@ -940,6 +956,11 @@ public final class ChatTurnService implements AutoCloseable {
                     if (!run.deleted) streams.finish(run.setup.assistantMessageId(), saved.status(), saved.failureCode(), false,
                             saved.status() == ChatMessage.Status.COMPLETED ? context : null);
                     run.persisted = true;
+                    // MEM-268: Deep research replays no summary, so only an ordinary answer may start a compaction.
+                    if (compactions != null && accepting.get() && !run.deleted && !run.setup.research().enabled()
+                            && saved.status() == ChatMessage.Status.COMPLETED)
+                        compactions.after(run.setup.actor(), run.setup.sessionId(), run.setup.assistantMessageId(),
+                                run.setup.binding().policy(), run.historyBudget);
                 }
                 releaseIfFinished(run);
             } catch (RuntimeException failure) {
@@ -988,6 +1009,8 @@ public final class ChatTurnService implements AutoCloseable {
     private static final class Active {
         // Replaced once, by the sending thread, when MCP tools open after registration and before dispatch.
         volatile ChatTurnSetup setup;
+        /** The history budget the turn was resolved with, which MEM-268 compaction measures the next turn against. */
+        volatile int historyBudget;
         final ModelResolver.Resolved resolved;
         final ChatSettingsService.TurnPolicy policy;
         final String question;

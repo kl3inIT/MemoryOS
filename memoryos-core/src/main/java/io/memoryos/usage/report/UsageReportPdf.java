@@ -52,6 +52,7 @@ public final class UsageReportPdf {
             Map.entry("CHAT", "Trò chuyện"),
             Map.entry("CHAT_NAMING", "Đặt tên cuộc trò chuyện"),
             Map.entry("CHAT_GUARDRAIL", "Kiểm tra câu hỏi"),
+            Map.entry("CHAT_COMPACTION", "Tóm tắt cuộc trò chuyện dài"),
             Map.entry("DEEP_RESEARCH", "Deep research"),
             Map.entry("EMBEDDING_QUERY", "Embedding khi tìm kiếm"),
             Map.entry("EMBEDDING_INDEXING", "Embedding khi lập chỉ mục"),

@@ -830,6 +830,34 @@ class ChatPersistenceIntegrationTest {
     }
 
     @Test
+    void oneCompactionHoldsASessionAndAFailureMakesItWait() {
+        var session = sessions.create(owner, "Claimed");
+        var first = answered(session, session.rootMessageId(), "First question");
+        var id = new TenantId(tenant);
+        assertTrue(turns.claimCompaction(id, session.id(), Duration.ofMinutes(5)));
+        assertFalse(turns.claimCompaction(id, session.id(), Duration.ofMinutes(5)), "a second compaction leaves it");
+        turns.releaseCompaction(session.id(), null);
+        assertTrue(turns.claimCompaction(id, session.id(), Duration.ofMinutes(5)), "a released claim is free");
+        turns.releaseCompaction(session.id(), Duration.ofMinutes(10));
+        assertFalse(turns.claimCompaction(id, session.id(), Duration.ofMinutes(5)), "a failure waits its cooldown");
+        jdbc.sql("UPDATE chat_session_compaction SET retry_after = CURRENT_TIMESTAMP - INTERVAL '1 second' WHERE session_id = :session")
+                .param("session", session.id()).update();
+        assertTrue(turns.claimCompaction(id, session.id(), Duration.ofMinutes(5)), "past its cooldown it is tried again");
+        jdbc.sql("UPDATE chat_session_compaction SET claimed_until = CURRENT_TIMESTAMP - INTERVAL '1 second' WHERE session_id = :session")
+                .param("session", session.id()).update();
+        assertTrue(turns.claimCompaction(id, session.id(), Duration.ofMinutes(5)), "a claim whose holder died lapses");
+
+        // The compaction reads the branch from the answer back, and saves a summary the next turn replays.
+        var input = turns.compactionInput(owner, session.id(), first.assistantMessageId()).orElseThrow();
+        assertEquals(List.of(first.assistantMessageId(), first.userMessageId()),
+                input.newestFirst().stream().map(ChatMessage::id).toList());
+        assertNull(input.summary());
+        turns.saveSummary(id, session.id(), first.userMessageId(), first.userMessageId(), "The person asked once.", 6, null);
+        var next = reserve(session, first.assistantMessageId(), UUID.randomUUID(), "Second question");
+        assertEquals("The person asked once.", Objects.requireNonNull(Objects.requireNonNull(next.context()).summary()).content());
+    }
+
+    @Test
     void deletingTheSessionDeletesItsSummariesAndCompactionState() {
         var session = sessions.create(owner, "Deleted");
         var first = answered(session, session.rootMessageId(), "First question");
