@@ -17,6 +17,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -74,23 +75,34 @@ public class ChannelInboundService {
      * thread of its own; a message handed over again, by this process or another, is dropped at the claim.
      */
     public void receive(ChannelMessage message) {
+        claim(message).ifPresent(Runnable::run);
+    }
+
+    /**
+     * Claims a message at once and answers the work that handles it to its end, so a provider that pushes over HTTP is
+     * answered only once the message is recorded (MEM-263). Empty for a message that is not for an enabled bot, not
+     * addressed to it, or claimed before.
+     */
+    public Optional<Runnable> claim(ChannelMessage message) {
         var enabled = connections.findEnabled(message.connectionId()).orElse(null);
-        if (enabled == null) return;
+        if (enabled == null) return Optional.empty();
         var tenant = enabled.tenant();
         var connection = enabled.connection();
         // A group message that does not name the bot is not for it, and is not even recorded.
-        if (message.kind() == ChannelMessage.Kind.GROUP && !message.addressed()) return;
-        if (!inbound.claim(tenant, message)) return;
-        // One span a message, whose steps and Chat turn are its children: where the time before an answer goes.
-        var observation = Observation.createNotStarted(MESSAGE, observations)
-                .lowCardinalityKeyValue("provider", connection.provider().name())
-                .lowCardinalityKeyValue("kind", message.kind().name()).start();
-        String outcome = "FAILED";
-        try (var ignored = observation.openScope()) {
-            outcome = handle(tenant, connection, message);
-        } finally {
-            observation.lowCardinalityKeyValue("outcome", outcome).stop();
-        }
+        if (message.kind() == ChannelMessage.Kind.GROUP && !message.addressed()) return Optional.empty();
+        if (!inbound.claim(tenant, message)) return Optional.empty();
+        return Optional.of(() -> {
+            // One span a message, whose steps and Chat turn are its children: where the time before an answer goes.
+            var observation = Observation.createNotStarted(MESSAGE, observations)
+                    .lowCardinalityKeyValue("provider", connection.provider().name())
+                    .lowCardinalityKeyValue("kind", message.kind().name()).start();
+            String outcome = "FAILED";
+            try (var ignored = observation.openScope()) {
+                outcome = handle(tenant, connection, message);
+            } finally {
+                observation.lowCardinalityKeyValue("outcome", outcome).stop();
+            }
+        });
     }
 
     /** @return the outcome: {@code ANSWERED}, {@code REFUSED}, {@code LINKED}, {@code NEW_CONVERSATION} or {@code FAILED} */
@@ -282,7 +294,7 @@ public class ChannelInboundService {
         var answered = answer;
         var pieces = features.editsReply() ? List.of(answered.text()) : ChannelText.pieces(answered.text(), features.maxText());
         String replyId = step("finish", () -> reply.finish(pieces, sources(answered.sources()),
-                footer(connection, direct, sender, answered.session())));
+                footer(connection, features, direct, sender, answered.session())));
         inbound.settle(connection.id(), message.messageId(), "ANSWERED", null, answer.session(), answer.assistantMessage(),
                 replyId);
         LOG.atInfo().addKeyValue("event", "channel.message.answered").addKeyValue("provider", connection.provider())
@@ -362,11 +374,15 @@ public class ChannelInboundService {
     }
 
     /**
-     * The closing line: in a group, how to continue; to a sender without an account, how to get one; to a sender's
+     * The closing line: in a group, how to continue, or only how to ask on one's own where nothing can be replied to;
+     * to a sender without an account, how to get one; to a sender's
      * own direct conversation, the link that opens it in MemoryOS, where it continues.
      */
-    private @Nullable String footer(ChannelConnection connection, boolean direct, @Nullable ActorId sender, UUID session) {
-        if (!direct) return ChannelNotice.GROUP_FOOTER.in(connection.noticeLanguage());
+    private @Nullable String footer(ChannelConnection connection, ChannelFeatures features, boolean direct,
+                                    @Nullable ActorId sender, UUID session) {
+        if (!direct) {
+            return (features.quotes() ? ChannelNotice.GROUP_FOOTER : ChannelNotice.GROUP_FOOTER_DIRECT).in(connection.noticeLanguage());
+        }
         if (sender == null) return ChannelNotice.UNMAPPED_FOOTER.in(connection.noticeLanguage());
         String url = properties.sessionUrl(session);
         return url == null ? null : "[" + ChannelNotice.CONTINUE_ON_WEB.in(connection.noticeLanguage()) + "](" + url + ")";

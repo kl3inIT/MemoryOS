@@ -4,12 +4,16 @@ import io.memoryos.api.channel.contract.ChannelAppCheckResponse;
 import io.memoryos.api.channel.contract.ChannelAppRequest;
 import io.memoryos.api.channel.contract.ChannelResponse;
 import io.memoryos.api.channel.contract.CreateChannelRequest;
+import io.memoryos.api.channel.contract.CreateZaloChannelRequest;
 import io.memoryos.api.channel.contract.ReplaceChannelSecretRequest;
 import io.memoryos.api.channel.contract.UpdateChannelEnabledRequest;
+import io.memoryos.api.channel.contract.UpdateChannelTransportRequest;
+import io.memoryos.api.channel.contract.ZaloBotRequest;
 import io.memoryos.api.security.CurrentActor;
 import io.memoryos.channel.ChannelConnectionDraft;
 import io.memoryos.channel.ChannelConnectionService;
 import io.memoryos.channel.ChannelCredentials;
+import io.memoryos.channel.ChannelDelivery;
 import io.memoryos.channel.ChannelException;
 import io.memoryos.channel.ChannelProvider;
 import io.memoryos.channel.ChannelRegion;
@@ -23,6 +27,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -83,6 +88,37 @@ final class ChannelController {
         return ResponseEntity.status(HttpStatus.CREATED).body(find(identity, created.id()));
     }
 
+    @Operation(operationId = "testZaloChannelBot", summary = "Check a Zalo bot's token with Zalo without storing anything")
+    @ApiResponse(responseCode = "200", description = "Zalo accepts the token", useReturnTypeSchema = true)
+    @PostMapping(value = "/zalo/test", consumes = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ChannelAppCheckResponse> testZalo(@CurrentActor IdentityContext identity,
+            @Valid @RequestBody ZaloBotRequest body) {
+        return ResponseEntity.ok().body(ChannelAppCheckResponse.from(channels.test(identity.actorId(),
+                ChannelProvider.ZALO_BOT, zalo(body.token(), null))));
+    }
+
+    @Operation(operationId = "createZaloChannel",
+            summary = "Check a Zalo bot's token with Zalo and add the bot, switched off; nothing is stored when Zalo rejects it")
+    @ApiResponse(responseCode = "201", description = "Added bot", useReturnTypeSchema = true)
+    @PostMapping(value = "/zalo", consumes = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ChannelResponse> createZalo(@CurrentActor IdentityContext identity,
+            @Valid @RequestBody CreateZaloChannelRequest body) {
+        var created = channels.create(identity.actorId(), new ChannelConnectionDraft(ChannelProvider.ZALO_BOT, body.name(),
+                zalo(body.token(), body.transport()), body.noticeLanguage()));
+        return ResponseEntity.status(HttpStatus.CREATED).body(find(identity, created.id()));
+    }
+
+    @Operation(operationId = "updateChannelTransport",
+            summary = "Change how a bot receives, for a platform that offers both, with a revision precondition")
+    @ApiResponse(responseCode = "200", description = "Updated bot", useReturnTypeSchema = true)
+    @PutMapping(value = "/{channelId}/transport", consumes = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ChannelResponse> setTransport(@CurrentActor IdentityContext identity, @PathVariable UUID channelId,
+            @RequestHeader("If-Match") String ifMatch, @Valid @RequestBody UpdateChannelTransportRequest body) {
+        channels.updateSettings(identity.actorId(), channelId, revision(ifMatch),
+                Map.of(ChannelDelivery.SETTING, body.transport().name()));
+        return ResponseEntity.ok().body(find(identity, channelId));
+    }
+
     @Operation(operationId = "replaceChannelSecret",
             summary = "Replace the App Secret of a bot's app once the platform accepts it, with a revision precondition")
     @ApiResponse(responseCode = "200", description = "Updated bot", useReturnTypeSchema = true)
@@ -129,6 +165,12 @@ final class ChannelController {
     /** A Lark app's credentials: its region is one of the provider's settings. */
     private static ChannelCredentials lark(ChannelRegion region, String appId, String appSecret) {
         return new ChannelCredentials(appId, appSecret, Map.of(ChannelRegion.SETTING, region.name()));
+    }
+
+    /** A Zalo bot's credentials: its token alone, and how it receives when the administrator chose. */
+    private static ChannelCredentials zalo(String token, @Nullable ChannelDelivery transport) {
+        return new ChannelCredentials(null, token,
+                transport == null ? Map.of() : Map.of(ChannelDelivery.SETTING, transport.name()));
     }
 
     private static ChannelException invalidRevision() {

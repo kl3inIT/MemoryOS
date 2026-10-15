@@ -32,6 +32,8 @@ dependencies {
     runtimeOnly(project(":memoryos-integration-lark"))
     runtimeOnly(project(":memoryos-integration-google"))
     runtimeOnly(project(":memoryos-integration-microsoft"))
+    // MEM-263: the Zalo bot, which no Source type uses.
+    runtimeOnly(project(":memoryos-integration-zalo"))
     runtimeOnly(libs.postgresql)
     testAndDevelopmentOnly(platform(libs.arconia.bom))
     testAndDevelopmentOnly(libs.arconia.spring.boot)

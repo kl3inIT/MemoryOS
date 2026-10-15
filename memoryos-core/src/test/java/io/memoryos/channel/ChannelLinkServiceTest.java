@@ -28,6 +28,7 @@ import io.memoryos.shared.TenantId;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -242,7 +243,7 @@ class ChannelLinkServiceTest {
     }
 
     private ChannelLinkService service(boolean organisations) {
-        var adapters = new ChannelAdapters(List.of(new Platform(new ChannelFeatures(organisations, false, 2_000))));
+        var adapters = new ChannelAdapters(List.of(new Platform(new ChannelFeatures(organisations, false, false, 2_000))));
         var transactions = new DataSourceTransactionManager(dataSource);
         return new ChannelLinkService(authorization, new JdbcChannelConnectionRepository(jdbc), new JdbcChannelLinkRepository(jdbc),
                 adapters, TestDatabase.audit(jdbc, transactions), transactions);
@@ -279,5 +280,7 @@ class ChannelLinkServiceTest {
         @Override public ChannelSender sender(ChannelConnection connection, String senderId) { return new ChannelSender(null); }
 
         @Override public boolean externalChat(ChannelConnection connection, String chatId) { return false; }
+
+        @Override public Map<String, String> settings(Map<String, String> requested) { return requested; }
     }
 }

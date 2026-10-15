@@ -258,7 +258,7 @@ jobs:
             tasks: ':memoryos-api:check'
           - leg: integrations-worker
             tasks: >-
-              :memoryos-integration-lark:check :memoryos-integration-google:check :memoryos-integration-microsoft:check :memoryos-extraction:check :memoryos-worker:check :memoryos-channels:check
+              :memoryos-integration-lark:check :memoryos-integration-google:check :memoryos-integration-microsoft:check :memoryos-integration-zalo:check :memoryos-extraction:check :memoryos-worker:check :memoryos-channels:check
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

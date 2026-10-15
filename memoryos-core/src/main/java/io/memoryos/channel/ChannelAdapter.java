@@ -1,5 +1,6 @@
 package io.memoryos.channel;
 
+import java.util.Map;
 import java.util.function.Consumer;
 
 /**
@@ -31,6 +32,15 @@ public interface ChannelAdapter {
      *         {@code CHANNEL_PROVIDER_UNAVAILABLE} when it does not answer
      */
     ChannelVerification verify(ChannelCredentials credentials);
+
+    /**
+     * A bot's public settings as they are kept: the given ones checked and completed with the provider's defaults.
+     * Asked when a bot is added and when an administrator changes one.
+     *
+     * @throws ChannelException {@code CHANNEL_INVALID} for a setting the provider does not have or a value it does not
+     *         take, or a typed code for a value this deployment cannot serve
+     */
+    Map<String, String> settings(Map<String, String> requested);
 
     /**
      * Marks a message as taken while it waits for the turn its conversation is already running. Best effort: a mark

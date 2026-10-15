@@ -184,6 +184,18 @@ public class JdbcChannelConnectionRepository {
                 .query(JdbcChannelConnectionRepository::connection).optional();
     }
 
+    /** Empty when the bot is gone or its revision moved on. */
+    public Optional<ChannelConnection> updateSettings(TenantId tenant, UUID id, long revision, Map<String, String> settings) {
+        return jdbc.sql("""
+                        UPDATE channel_connections SET settings = CAST(:settings AS JSONB), revision = revision + 1,
+                               updated_at = now()
+                        WHERE tenant_id = :tenant AND id = :id AND revision = :revision
+                        RETURNING\s""" + COLUMNS)
+                .param("settings", JSON.writeValueAsString(settings)).param("tenant", tenant.value()).param("id", id)
+                .param("revision", revision)
+                .query(JdbcChannelConnectionRepository::connection).optional();
+    }
+
     /** False when the bot is gone or its revision moved on. */
     public boolean delete(TenantId tenant, UUID id, long revision) {
         return jdbc.sql("DELETE FROM channel_connections WHERE tenant_id = :tenant AND id = :id AND revision = :revision")
