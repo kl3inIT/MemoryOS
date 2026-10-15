@@ -17,16 +17,22 @@ import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.channel.persistence.JdbcChannelConnectionRepository;
 import io.memoryos.channel.persistence.JdbcChannelInboundRepository;
+import io.memoryos.channel.persistence.JdbcChannelLinkRepository;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatSurface;
 import io.memoryos.chat.session.persistence.JdbcChatRepository;
+import io.memoryos.iam.Authority;
+import io.memoryos.iam.IamAccess;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationHandler;
 import io.micrometer.observation.ObservationRegistry;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -62,6 +68,7 @@ class ChannelInboundServiceTest {
     private final ChannelTurns turns = mock(ChannelTurns.class);
     private final FakeAdapter adapter = new FakeAdapter();
     private ChannelInboundService service;
+    private ChannelLinkService links;
     private TenantId tenant;
     private UUID persona;
     private UUID connection;
@@ -113,8 +120,13 @@ class ChannelInboundServiceTest {
                 spans.add(context.getName() + ":" + (step != null ? step.getValue() : outcome == null ? "" : outcome.getValue()));
             }
         });
-        service = new ChannelInboundService(new JdbcChannelConnectionRepository(jdbc), inbound, new ChannelAdapters(List.of(adapter)),
-                (ignored, email) -> "ha@tasco.vn".equals(email) ? Optional.of(ha) : Optional.empty(), turns,
+        var authorization = mock(IamAuthorization.class);
+        when(authorization.require(any(), eq(IamCapability.CHAT_WRITE), eq(false))).thenReturn(new IamAccess(tenant, Authority.GLOBAL));
+        var adapters = new ChannelAdapters(List.of(adapter));
+        links = new ChannelLinkService(authorization, new JdbcChannelConnectionRepository(jdbc), new JdbcChannelLinkRepository(jdbc),
+                adapters, TestDatabase.noAudit(), new DataSourceTransactionManager(dataSource));
+        service = new ChannelInboundService(new JdbcChannelConnectionRepository(jdbc), inbound, adapters,
+                (ignored, email) -> "ha@tasco.vn".equals(email) ? Optional.of(ha) : Optional.empty(), links, turns,
                 new ChannelProperties(Duration.ofHours(1), Duration.ofHours(1), Duration.ofDays(90), 10, Duration.ofSeconds(3),
                 "https://memoryos.example/"), observations);
     }
@@ -246,13 +258,179 @@ class ChannelInboundServiceTest {
     }
 
     @Test
-    void aProviderWithoutOrganisationsAnswersNobodyUntilASenderCanLinkAnAccount() throws Exception {
+    void onAPlatformWithoutOrganisationsAStrangerIsToldHowToLinkOnceAMinuteAndNotAnswered() throws Exception {
         adapter.features = new ChannelFeatures(false, false, 2_000);
-        service.receive(new ChannelMessage(connection, "z1", DIRECT_CHAT, ChannelMessage.Kind.DIRECT, "ou_ha", null, null, true,
-                ChannelMessage.Type.TEXT, "Question", null));
+        service.receive(zalo("z1", "zu_ha", "Question"));
+        service.receive(zalo("z2", "zu_ha", "Hello?"));
 
-        assertEquals("REFUSED:OUTSIDER", outcome("z1") + ":" + reason("z1"));
+        assertEquals("REFUSED:LINK_REQUIRED", outcome("z1") + ":" + reason("z1"));
+        // Told once; the next message within the minute is refused without another notice.
+        assertEquals("REFUSED:LINK_REQUIRED_QUIET", outcome("z2") + ":" + reason("z2"));
+        assertEquals(1, adapter.notices.size());
+        assertTrue(adapter.notices.getFirst().startsWith("To ask the assistant, link your MemoryOS account"));
         verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void aLiveCodeLinksItsSenderOnceWhoIsThenAnsweredAsThemself() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, 2_000);
+        String code = links.code(ha, connection).code();
+        service.receive(zalo("z1", "zu_ha", " " + code.substring(0, 4).toLowerCase() + "-" + code.substring(4) + " "));
+        assertEquals("ANSWERED:LINKED", outcome("z1") + ":" + reason("z1"));
+        assertEquals("Your MemoryOS account is linked. You can ask the assistant now.", adapter.notices.getLast());
+
+        service.receive(zalo("z2", "zu_ha", "How many leave days?"));
+        verify(turns).ask(eq(ha), any(), any(), any(), eq("How many leave days?"), any(), any(), any());
+        assertEquals(ha.value(), owner(session("z2")));
+
+        // The code is used up: another account sending it is told it is wrong.
+        service.receive(zalo("z3", "zu_other", code));
+        assertEquals("REFUSED:LINK_CODE_INVALID", outcome("z3") + ":" + reason("z3"));
+        assertEquals("The linking code is wrong or has expired. Get a new one in Settings › Chat in MemoryOS.",
+                adapter.notices.getLast());
+    }
+
+    @Test
+    void anExpiredCodeOrOneSentInAGroupDoesNotLink() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, 2_000);
+        String code = links.code(ha, connection).code();
+        service.receive(new ChannelMessage(connection, "g1", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_ha", null, null, true,
+                ChannelMessage.Type.TEXT, code, null));
+        assertEquals("REFUSED:LINK_REQUIRED", outcome("g1") + ":" + reason("g1"));
+
+        jdbc.sql("UPDATE channel_link_codes SET expires_at = now() - INTERVAL '1 second'").update();
+        service.receive(zalo("z1", "zu_ha", code));
+        assertEquals("REFUSED:LINK_CODE_INVALID", outcome("z1") + ":" + reason("z1"));
+        assertEquals(0L, jdbc.sql("SELECT count(*) FROM channel_account_links").query(Long.class).single());
+    }
+
+    @Test
+    void aSenderWithFiveWrongCodesInAnHourIsNotHeardEvenWithALiveOne() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, 2_000);
+        for (int i = 1; i <= 5; i++) service.receive(zalo("w" + i, "zu_guess", "ABCDEFG" + (i + 1)));
+        String code = links.code(ha, connection).code();
+        service.receive(zalo("w6", "zu_guess", code));
+
+        assertEquals("REFUSED:LINK_LOCKED", outcome("w6") + ":" + reason("w6"));
+        assertEquals(5, adapter.notices.size(), "the locked sender is not answered");
+        assertEquals(0L, jdbc.sql("SELECT count(*) FROM channel_account_links").query(Long.class).single());
+    }
+
+    @Test
+    void aLinkedSenderInAGroupIsAnsweredAsTheBotAndAStrangerIsToldHowToLink() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, 2_000);
+        service.receive(zalo("z1", "zu_ha", links.code(ha, connection).code()));
+
+        service.receive(new ChannelMessage(connection, "g1", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_ha", "Hà", null, true,
+                ChannelMessage.Type.TEXT, "Leave policy?", null));
+        verify(turns).ask(eq(bot), any(), any(), any(), eq("[Hà]: Leave policy?"), any(), any(), any());
+
+        service.receive(new ChannelMessage(connection, "g2", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_guest", null, null, true,
+                ChannelMessage.Type.TEXT, "Leave policy?", null));
+        assertEquals("REFUSED:LINK_REQUIRED", outcome("g2") + ":" + reason("g2"));
+        verify(turns, times(1)).ask(any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void aLinkIsLeftOutOnceItsMemberIsNoLongerActive() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, 2_000);
+        service.receive(zalo("z1", "zu_ha", links.code(ha, connection).code()));
+        jdbc.sql("UPDATE tenant_memberships SET status = 'INACTIVE' WHERE actor_id = :actor").param("actor", ha.value()).update();
+
+        service.receive(zalo("z2", "zu_ha", "Question"));
+        assertEquals("REFUSED:LINK_REQUIRED", outcome("z2") + ":" + reason("z2"));
+        verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void aLinkedAccountIsNotMovedByAnotherCodeAndLearnsNothingOfIt() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, 2_000);
+        var quan = member();
+        service.receive(zalo("z0", "zu_ha", links.code(ha, connection).code()));
+        String quans = links.code(quan, connection).code();
+
+        // A live code of another member and a wrong one get the same answer, and neither is tried.
+        service.receive(zalo("c1", "zu_ha", quans));
+        service.receive(zalo("c2", "zu_ha", "ABCDEFG2"));
+        assertEquals("REFUSED:LINK_ALREADY", outcome("c1") + ":" + reason("c1"));
+        assertEquals("REFUSED:LINK_ALREADY", outcome("c2") + ":" + reason("c2"));
+        assertEquals(adapter.notices.get(1), adapter.notices.get(2));
+        assertTrue(adapter.notices.getLast().startsWith("This account is already linked to a MemoryOS account."));
+        verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any());
+
+        // Ha's account is still Ha's, and Quan's code still links an account of Quan's.
+        service.receive(zalo("q1", "zu_ha", "How many leave days?"));
+        verify(turns).ask(eq(ha), any(), any(), any(), any(), any(), any(), any());
+        service.receive(zalo("z1", "zu_quan", quans));
+        assertEquals("ANSWERED:LINKED", outcome("z1") + ":" + reason("z1"));
+    }
+
+    @Test
+    void everyCodeThatDoesNotLinkGetsTheSameNotice() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, 2_000);
+        String used = links.code(ha, connection).code();
+        service.receive(zalo("u0", "zu_ha", used));
+        String expired = links.code(member(), connection).code();
+        jdbc.sql("UPDATE channel_link_codes SET expires_at = now() - INTERVAL '1 second'").update();
+
+        service.receive(zalo("c1", "zu_guess", used));
+        service.receive(zalo("c2", "zu_guess", expired));
+        service.receive(zalo("c3", "zu_guess", "ABCDEFG2"));
+        assertEquals(List.of("REFUSED:LINK_CODE_INVALID", "REFUSED:LINK_CODE_INVALID", "REFUSED:LINK_CODE_INVALID"),
+                List.of(outcome("c1") + ":" + reason("c1"), outcome("c2") + ":" + reason("c2"), outcome("c3") + ":" + reason("c3")));
+        assertEquals(1, adapter.notices.subList(1, 4).stream().distinct().count());
+    }
+
+    @Test
+    void codesStillBeingTriedCountTowardTheLock() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, 2_000);
+        // Five attempts of the sender in flight: recorded as wrong until they link, not yet settled otherwise.
+        for (int i = 1; i <= 5; i++) {
+            jdbc.sql("""
+                    INSERT INTO channel_messages(tenant_id, connection_id, external_message_id, external_chat_id, external_user_id,
+                                                 outcome, reason)
+                    VALUES (:tenant, :connection, :id, :chat, 'zu_guess', 'REFUSED', 'LINK_CODE_INVALID')
+                    """).param("tenant", tenant.value()).param("connection", connection).param("id", "f" + i)
+                    .param("chat", DIRECT_CHAT).update();
+        }
+        service.receive(zalo("z1", "zu_guess", links.code(ha, connection).code()));
+
+        assertEquals("REFUSED:LINK_LOCKED", outcome("z1") + ":" + reason("z1"));
+        assertEquals(0L, jdbc.sql("SELECT count(*) FROM channel_account_links").query(Long.class).single());
+    }
+
+    @Test
+    void aPlatformWithoutOrganisationsNeverAnswersFromAnEmailOrARememberedAccount() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, 2_000);
+        adapter.emails.put("zu_ha", "ha@tasco.vn");
+        inbound.remember(tenant, connection, "zu_ha", ha, Instant.now());
+
+        service.receive(zalo("z1", "zu_ha", "Question"));
+        assertEquals("REFUSED:LINK_REQUIRED", outcome("z1") + ":" + reason("z1"));
+        verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void anAccountRelinkedToAnotherMemberNeverContinuesTheFirstMembersConversation() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, 2_000);
+        var quan = member();
+        service.receive(zalo("z1", "zu_shared", links.code(ha, connection).code()));
+        service.receive(zalo("z2", "zu_shared", "Ha's question"));
+        String answer = adapter.replyIds.getLast();
+
+        links.unlink(ha, connection);
+        service.receive(zalo("z3", "zu_shared", links.code(quan, connection).code()));
+        // A reply to Ha's answer, and a new direct message, both start Quan's own conversation.
+        service.receive(new ChannelMessage(connection, "z4", DIRECT_CHAT, ChannelMessage.Kind.DIRECT, "zu_shared", null, null, true,
+                ChannelMessage.Type.TEXT, "And then?", answer));
+        service.receive(zalo("z5", "zu_shared", "Another"));
+
+        assertEquals("ANSWERED:LINKED", outcome("z3") + ":" + reason("z3"));
+        assertEquals(ha.value(), owner(session("z2")));
+        assertEquals(quan.value(), owner(session("z4")));
+        assertNotEquals(session("z2"), session("z4"));
+        assertEquals(quan.value(), owner(session("z5")));
+        assertNotEquals(session("z2"), session("z5"));
     }
 
     @Test
@@ -325,6 +503,11 @@ class ChannelInboundServiceTest {
     private ChannelMessage group(String id, String sender, String text, boolean addressed, @Nullable String repliesTo) {
         return new ChannelMessage(connection, id, GROUP_CHAT, ChannelMessage.Kind.GROUP, sender, null, MEMBER, addressed,
                 ChannelMessage.Type.TEXT, text, repliesTo);
+    }
+
+    private ChannelMessage zalo(String id, String sender, String text) {
+        return new ChannelMessage(connection, id, DIRECT_CHAT, ChannelMessage.Kind.DIRECT, sender, null, null, true,
+                ChannelMessage.Type.TEXT, text, null);
     }
 
     /** A session and its root message are written together: the one refers to the other until the transaction ends. */

@@ -98,7 +98,7 @@ minute (GoClaw).
 A link belongs to one bot (a Zalo user id is not known to be the same across bots), is durable (no expiry, unlike
 the e-mail answers Lark's adapter remembers for an hour), and is shown in Settings › Chat with "Bỏ liên kết". It is
 removed with the member's membership or the bot; one Zalo account links to one member and a member to one Zalo
-account a bot, and linking again replaces the old link. The bot's page shows how many members linked, not who.
+account a bot. A member who links another account of theirs replaces their old link; an account linked to another member is not taken by a code until that member unlinks it, so an account never changes hands without its member knowing (a security review of 2026-10-15). The bot's page shows how many members linked, not who.
 
 The link is the capability's: any provider whose sender has no e-mail uses it. `ChannelInboundService.sender`
 reads a link first, then the e-mail.
@@ -174,6 +174,8 @@ the linked-member count. Settings › Chat gains the Zalo link rows.
 - `channel_account_links (tenant_id, connection_id, external_user_id, actor_id, linked_at)`, unique on
   `(connection_id, external_user_id)` and on `(connection_id, actor_id)`; cascades from the connection and the
   membership.
+- One app serves one bot by `(provider, app_id)` alone: the settings, where a Zalo bot keeps its transport, are no
+  part of it, so one bot is never stored twice with two transports.
 
 ## Not in scope
 

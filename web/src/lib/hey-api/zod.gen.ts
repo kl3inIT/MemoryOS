@@ -4210,6 +4210,22 @@ export const zChannelAppCheckResponse = z.object({
     missingScopes: z.array(z.string())
 });
 
+export const zCreateChannelLinkCodeRequest = z.object({
+    connectionId: z.uuid()
+});
+
+export const zChannelLinkCodeResponse = z.object({
+    code: z.string(),
+    expiresAt: z.iso.datetime()
+});
+
+export const zChannelLinkResponse = z.object({
+    connectionId: z.uuid(),
+    botName: z.string(),
+    provider: z.enum(['LARK']),
+    linkedAt: z.iso.datetime().optional()
+});
+
 export const zReplaceSharePointScopeBody = zReplaceSharePointScopeRequest;
 
 export const zReplaceSharePointScopeHeaders = z.object({
@@ -8479,3 +8495,24 @@ export const zDeleteChannelPath = z.object({
  * Bot removed
  */
 export const zDeleteChannelResponse = z.void();
+
+/**
+ * Bots and links
+ */
+export const zListChannelLinksResponse = z.array(zChannelLinkResponse);
+
+export const zCreateChannelLinkCodeBody = zCreateChannelLinkCodeRequest;
+
+/**
+ * Linking code
+ */
+export const zCreateChannelLinkCodeResponse = zChannelLinkCodeResponse;
+
+export const zDeleteChannelLinkPath = z.object({
+    connectionId: z.uuid()
+});
+
+/**
+ * Link removed
+ */
+export const zDeleteChannelLinkResponse = z.void();

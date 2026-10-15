@@ -4255,6 +4255,22 @@ export type ChannelAppCheckResponse = {
     missingScopes: Array<string>;
 };
 
+export type CreateChannelLinkCodeRequest = {
+    connectionId: string;
+};
+
+export type ChannelLinkCodeResponse = {
+    code: string;
+    expiresAt: string;
+};
+
+export type ChannelLinkResponse = {
+    connectionId: string;
+    botName: string;
+    provider: 'LARK';
+    linkedAt?: string;
+};
+
 export type ReplaceSharePointScopeData = {
     body: ReplaceSharePointScopeRequest;
     headers: {
@@ -20725,3 +20741,116 @@ export type DeleteChannelResponses = {
 };
 
 export type DeleteChannelResponse = DeleteChannelResponses[keyof DeleteChannelResponses];
+
+export type ListChannelLinksData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/channel-links';
+};
+
+export type ListChannelLinksErrors = {
+    /**
+     * Invalid request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * No bot of the Tenant that takes a linked account
+     */
+    404: ApiProblem;
+};
+
+export type ListChannelLinksError = ListChannelLinksErrors[keyof ListChannelLinksErrors];
+
+export type ListChannelLinksResponses = {
+    /**
+     * Bots and links
+     */
+    200: Array<ChannelLinkResponse>;
+};
+
+export type ListChannelLinksResponse = ListChannelLinksResponses[keyof ListChannelLinksResponses];
+
+export type CreateChannelLinkCodeData = {
+    body: CreateChannelLinkCodeRequest;
+    path?: never;
+    query?: never;
+    url: '/api/channel-links';
+};
+
+export type CreateChannelLinkCodeErrors = {
+    /**
+     * Invalid request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * No bot of the Tenant that takes a linked account
+     */
+    404: ApiProblem;
+};
+
+export type CreateChannelLinkCodeError = CreateChannelLinkCodeErrors[keyof CreateChannelLinkCodeErrors];
+
+export type CreateChannelLinkCodeResponses = {
+    /**
+     * Linking code
+     */
+    201: ChannelLinkCodeResponse;
+};
+
+export type CreateChannelLinkCodeResponse = CreateChannelLinkCodeResponses[keyof CreateChannelLinkCodeResponses];
+
+export type DeleteChannelLinkData = {
+    body?: never;
+    path: {
+        connectionId: string;
+    };
+    query?: never;
+    url: '/api/channel-links/{connectionId}';
+};
+
+export type DeleteChannelLinkErrors = {
+    /**
+     * Invalid request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * No bot of the Tenant that takes a linked account
+     */
+    404: ApiProblem;
+};
+
+export type DeleteChannelLinkError = DeleteChannelLinkErrors[keyof DeleteChannelLinkErrors];
+
+export type DeleteChannelLinkResponses = {
+    /**
+     * Link removed
+     */
+    204: void;
+};
+
+export type DeleteChannelLinkResponse = DeleteChannelLinkResponses[keyof DeleteChannelLinkResponses];

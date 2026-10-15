@@ -25,7 +25,30 @@
 | A conversation is continued only by the account it belongs to | `ChannelInboundServiceTest.aConversationIsContinuedOnlyByWhoeverItBelongsTo` |
 | An outsider, a message that is not text and an external group are refused with a notice and a reason, and no turn runs | `ChannelInboundServiceTest.outsidersOtherMessageTypesAndExternalGroupsAreRefusedWithANotice` |
 | A bot of another organisation than its event names, or that is switched off, answers nobody | `ChannelInboundServiceTest.aBotOfAnotherOrganisationOrThatIsSwitchedOffAnswersNobody` |
-| A provider without organisations answers nobody until a sender can link an account | `ChannelInboundServiceTest.aProviderWithoutOrganisationsAnswersNobodyUntilASenderCanLinkAnAccount` |
+| On a platform without organisations a stranger is told how to link once a minute and not answered | `ChannelInboundServiceTest.onAPlatformWithoutOrganisationsAStrangerIsToldHowToLinkOnceAMinuteAndNotAnswered` |
+| A live code links its sender once, who is then answered as themself; a used code is wrong | `ChannelInboundServiceTest.aLiveCodeLinksItsSenderOnceWhoIsThenAnsweredAsThemself` |
+| An expired code, or one sent in a group, does not link | `ChannelInboundServiceTest.anExpiredCodeOrOneSentInAGroupDoesNotLink` |
+| Five wrong codes in an hour lock the sender out, even with a live code | `ChannelInboundServiceTest.aSenderWithFiveWrongCodesInAnHourIsNotHeardEvenWithALiveOne` |
+| A linked sender in a group is answered as the bot; a stranger there is told how to link | `ChannelInboundServiceTest.aLinkedSenderInAGroupIsAnsweredAsTheBotAndAStrangerIsToldHowToLink` |
+| A link is ignored once its member is not active | `ChannelInboundServiceTest.aLinkIsLeftOutOnceItsMemberIsNoLongerActive` |
+| A linked account is not moved by another member's code, and a live code and a wrong one get the same answer | `ChannelInboundServiceTest.aLinkedAccountIsNotMovedByAnotherCodeAndLearnsNothingOfIt` |
+| A used, an expired and a wrong code get the same notice | `ChannelInboundServiceTest.everyCodeThatDoesNotLinkGetsTheSameNotice` |
+| Codes still being tried count toward the lock | `ChannelInboundServiceTest.codesStillBeingTriedCountTowardTheLock` |
+| A platform without organisations never answers from an e-mail or a remembered account | `ChannelInboundServiceTest.aPlatformWithoutOrganisationsNeverAnswersFromAnEmailOrARememberedAccount` |
+| An account relinked to another member, after the first unlinked it, never continues the first member's conversation | `ChannelInboundServiceTest.anAccountRelinkedToAnotherMemberNeverContinuesTheFirstMembersConversation` |
+| A code made for one bot does not link on another | `ChannelLinkServiceTest.aCodeMadeForOneBotDoesNotLinkOnAnother` |
+| A code is eight unambiguous characters, live ten minutes, kept as a hash | `ChannelLinkServiceTest.aCodeIsEightUnambiguousCharactersLiveTenMinutesAndKeptOnlyAsAHash` |
+| A new code replaces the member's older one, and a code is used once | `ChannelLinkServiceTest.aNewCodeReplacesTheMembersOlderOneAndACodeIsUsedOnce` |
+| An expired code does not link | `ChannelLinkServiceTest.anExpiredCodeDoesNotLink` |
+| A member relinks their own account, but no code takes an account linked to another member until it is unlinked | `ChannelLinkServiceTest.aMemberRelinksTheirOwnAccountButNoCodeTakesAnAccountLinkedToAnotherMember` |
+| An account linked to a member no longer active can be linked again | `ChannelLinkServiceTest.anAccountLinkedToAMemberNoLongerActiveCanBeLinkedAgain` |
+| The database never moves a link to another member | `ChannelLinkServiceTest.theDatabaseNeverMovesALinkToAnotherMember` |
+| A member sees the bots that take a link, their own link only, and unlinks | `ChannelLinkServiceTest.theMemberSeesTheBotsThatTakeALinkAndUnlinks` |
+| A bot of a platform with organisations, or no bot, takes no link | `ChannelLinkServiceTest.aBotOfAPlatformWithOrganisationsOrOfNoBotTakesNoLink` |
+| Codes and links go with the membership and with the bot | `ChannelLinkServiceTest.codesAndLinksGoWithTheMembershipAndWithTheBot` |
+| A message is a code only when it is one code alone | `ChannelLinkServiceTest.aMessageIsReadAsACodeOnlyWhenItIsOneCodeAlone` |
+| Linking and unlinking are audited with the member and the bot only, never the platform account or the code; an unlinking that removes nothing is not | `ChannelLinkServiceTest.linkingAndUnlinkingAreAuditedWithTheMemberAndTheBotOnly` |
+| The API makes a code (`201`, CSRF), lists a member's links and unlinks; another bot is `404` | `ChannelApiTest.aMemberMakesACodeSeesTheirLinksAndUnlinks` |
 | A reply that cannot be rewritten gets no partial text and the whole answer in pieces | `ChannelInboundServiceTest.aReplyThatCannotBeRewrittenGetsTheWholeAnswerInPiecesAndNoPartialText` |
 | An answer is cut at the last paragraph, line, sentence or space that fits, never inside a character, and keeps every word | `ChannelTextTest` |
 | A refused or failed turn becomes a notice and a recorded reason | `ChannelInboundServiceTest.aTurnThatIsRefusedOrFailsBecomesANoticeAndARecordedReason` |

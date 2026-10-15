@@ -2047,6 +2047,8 @@ Object.assign(englishUi, {
   "Added a chat bot": "Đã thêm bot chat",
   "Updated a chat bot": "Đã cập nhật bot chat",
   "Removed a chat bot": "Đã gỡ bot chat",
+  "Linked an account to a chat bot": "Đã liên kết tài khoản với bot chat",
+  "Unlinked an account from a chat bot": "Đã bỏ liên kết tài khoản với bot chat",
   "Exported the audit log": "Đã xuất nhật ký audit",
   "Access refused": "Bị từ chối truy cập",
   "Read and export who changed sign-in, users, Groups, models, connections and Sources within the organization.":

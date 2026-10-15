@@ -22771,6 +22771,143 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/channel-links:
+    get:
+      tags:
+      - Channels
+      summary: "List the Tenant's bots that take a linked account, with the member's\
+        \ own link on each"
+      operationId: listChannelLinks
+      responses:
+        "400":
+          description: Invalid request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Chat access or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: No bot of the Tenant that takes a linked account
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Bots and links
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChannelLinkResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - Channels
+      summary: "Make a code, valid ten minutes, that links the platform account sending\
+        \ it to the bot to the member"
+      operationId: createChannelLinkCode
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateChannelLinkCodeRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Chat access or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: No bot of the Tenant that takes a linked account
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "201":
+          description: Linking code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelLinkCodeResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/channel-links/{connectionId}:
+    delete:
+      tags:
+      - Channels
+      summary: "Remove the member's link on a bot, and any code they made for it"
+      operationId: deleteChannelLink
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: connectionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Chat access or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: No bot of the Tenant that takes a linked account
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Link removed
+      security:
+      - bearerAuth: []
+      - browserSession: []
 components:
   schemas:
     ReplaceSharePointScopeRequest:
@@ -33514,6 +33651,47 @@ components:
       required:
       - botName
       - missingScopes
+    CreateChannelLinkCodeRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        connectionId:
+          type: string
+          format: uuid
+      required:
+      - connectionId
+    ChannelLinkCodeResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+      - code
+      - expiresAt
+    ChannelLinkResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        connectionId:
+          type: string
+          format: uuid
+        botName:
+          type: string
+        provider:
+          type: string
+          enum:
+          - LARK
+        linkedAt:
+          type: string
+          format: date-time
+      required:
+      - botName
+      - connectionId
+      - provider
   securitySchemes:
     browserSession:
       type: apiKey
