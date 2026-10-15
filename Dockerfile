@@ -14,6 +14,7 @@ COPY memoryos-integration-lark/build.gradle.kts ./memoryos-integration-lark/
 COPY memoryos-integration-google/build.gradle.kts ./memoryos-integration-google/
 COPY memoryos-integration-microsoft/build.gradle.kts ./memoryos-integration-microsoft/
 COPY memoryos-integration-zalo/build.gradle.kts ./memoryos-integration-zalo/
+COPY memoryos-integration-opensandbox/build.gradle.kts ./memoryos-integration-opensandbox/
 COPY memoryos-extraction/build.gradle.kts ./memoryos-extraction/
 COPY memoryos-api/build.gradle.kts ./memoryos-api/
 COPY memoryos-worker/build.gradle.kts ./memoryos-worker/
@@ -27,6 +28,7 @@ COPY memoryos-integration-lark ./memoryos-integration-lark
 COPY memoryos-integration-google ./memoryos-integration-google
 COPY memoryos-integration-microsoft ./memoryos-integration-microsoft
 COPY memoryos-integration-zalo ./memoryos-integration-zalo
+COPY memoryos-integration-opensandbox ./memoryos-integration-opensandbox
 COPY memoryos-extraction ./memoryos-extraction
 COPY memoryos-api ./memoryos-api
 COPY memoryos-worker ./memoryos-worker
