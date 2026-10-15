@@ -38,9 +38,10 @@ final class OpenAiFailures {
     }
 
     /**
-     * MEM-255: what a failure means for the turn. A refused credential is HTTP 401 or 403; a rate limit is HTTP 429 or a
-     * {@code rate_limit_exceeded} error inside the stream, which arrives with HTTP 200 (an exhausted quota,
-     * {@code insufficient_quota}, is not a limit that passes and stays unnamed).
+     * MEM-255: what a failure means for the turn. A refused credential is HTTP 401 or 403. A rate limit is OpenAI's
+     * {@code rate_limit_exceeded}, as HTTP 429 or inside the stream with HTTP 200, or an HTTP 429 that names no code.
+     * Any other 429 code ({@code insufficient_quota}, {@code credit_balance_exhausted},
+     * {@code organization_spend_limit_exceeded}) is billing, which waiting does not fix, and stays unnamed.
      */
     static Optional<TurnFailure> read(@Nullable Throwable failure) {
         for (int depth = 0; failure != null && depth < MAX_CAUSES; depth++, failure = failure.getCause()) {
@@ -48,7 +49,7 @@ final class OpenAiFailures {
                 if (service.statusCode() == 401 || service.statusCode() == 403)
                     return Optional.of(TurnFailure.PROVIDER_CREDENTIAL_REJECTED);
                 String code = service.code().orElse("");
-                if ("rate_limit_exceeded".equals(code) || service.statusCode() == 429 && !"insufficient_quota".equals(code))
+                if ("rate_limit_exceeded".equals(code) || service.statusCode() == 429 && code.isEmpty())
                     return Optional.of(TurnFailure.PROVIDER_RATE_LIMITED);
             }
         }

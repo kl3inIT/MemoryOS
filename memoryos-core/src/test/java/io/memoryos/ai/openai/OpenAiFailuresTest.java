@@ -38,10 +38,11 @@ class OpenAiFailuresTest {
     }
 
     @Test
-    void anExhaustedQuotaOrAnyOtherFailureIsNotNamed() {
-        var quota = SseException.builder().statusCode(429).headers(NONE)
-                .error(error("insufficient_quota", "insufficient_quota")).build();
-        assertEquals(Optional.empty(), OpenAiFailures.read(quota));
+    void billingAndAnyOtherFailureAreNotNamed() {
+        for (var billing : new String[] {"insufficient_quota", "credit_balance_exhausted", "organization_spend_limit_exceeded"}) {
+            var refused = SseException.builder().statusCode(429).headers(NONE).error(error(billing, billing)).build();
+            assertEquals(Optional.empty(), OpenAiFailures.read(refused), billing);
+        }
         assertEquals(Optional.empty(), OpenAiFailures.read(InternalServerException.builder().statusCode(500).headers(NONE).build()));
         assertEquals(Optional.empty(), OpenAiFailures.read(new IllegalStateException("timeout")));
         assertEquals(Optional.empty(), OpenAiFailures.read(null));
