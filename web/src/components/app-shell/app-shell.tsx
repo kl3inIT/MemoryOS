@@ -81,7 +81,7 @@ const settingsPages: readonly SettingsEntry[] = [
   {
     id: "connections",
     to: "/settings/connections",
-    label: appText("Ứng dụng đã kết nối"),
+    label: appText("Ứng dụng"),
     icon: Blocks,
   },
   { id: "mcp", to: "/settings/mcp", label: appText("MemoryOS MCP"), icon: Cable },

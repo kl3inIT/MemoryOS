@@ -40,12 +40,12 @@ export function McpServersPage() {
   return (
     <SettingsLayout>
       <PageHeader
-        title={ui("Máy chủ MCP")}
+        title={ui("Ứng dụng MCP")}
         icon={<Blocks />}
         actions={
           <Button onClick={admin.add}>
             <Plus data-icon="inline-start" />
-            {ui("Thêm máy chủ")}
+            {ui("Thêm ứng dụng")}
           </Button>
         }
       />

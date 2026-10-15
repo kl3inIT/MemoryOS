@@ -41,7 +41,7 @@ export function ConnectionsSettingsPage() {
   const list = connections.data ?? [];
   return (
     <SettingsLayout>
-      <PageHeader icon={<Blocks />} title={ui("Ứng dụng đã kết nối")} />
+      <PageHeader icon={<Blocks />} title={ui("Ứng dụng")} />
       {connections.isError ? (
         <Alert variant="destructive" role="alert">
           <AlertDescription>

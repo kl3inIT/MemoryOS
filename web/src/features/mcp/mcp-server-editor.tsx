@@ -226,7 +226,7 @@ export function McpServerEditor({
           ? ui("Sửa máy chủ MCP")
           : preset
             ? ui("Thêm {{name}}", { name: preset.name })
-            : ui("Thêm máy chủ MCP")
+            : ui("Thêm ứng dụng MCP")
       }
       onClose={onClose}
     >
@@ -325,7 +325,7 @@ function AuthFields({
         <form.AppField name="performer">
           {(field) => (
             <Choice<Performer>
-              label={ui("Tài khoản nào")}
+              label={ui("Tài khoản")}
               value={field.state.value}
               onChange={field.handleChange}
               options={[
