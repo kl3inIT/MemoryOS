@@ -11,6 +11,7 @@
     "check:knip": "knip",
     "dev": "pnpm generate:api && vite",
     "dev:e2e": "pnpm generate:api && node scripts/start-e2e-server.ts",
+    "mock-api": "node scripts/start-mock-api.ts",
     "typecheck": "tsc -b",
     "build": "vite build && node scripts/assert-font-assets.mjs && node scripts/assert-bundle-budget.mjs && tsc -b",
     "check:routes": "node scripts/assert-generated-stable.mjs src/routeTree.gen.ts src/lib/cn-tables.ts -- pnpm build",
