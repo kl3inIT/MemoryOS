@@ -39,7 +39,7 @@ const failureSchema = z.enum([
 ]);
 
 /** MEM-275: the MCP Apps view of a completed call, with the arguments and whole result it receives. */
-export const toolAppSchema = z.object({
+const toolAppSchema = z.object({
   toolCallId: z.string().min(1).max(256),
   resourceUri: z.string().startsWith("ui://").max(1024),
   input: z.record(z.string(), z.unknown()),
