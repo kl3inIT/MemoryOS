@@ -15,5 +15,7 @@
 | The Worker kills orphans older than the grace and clears rows whose sandbox is gone | `PostgresSandboxServiceTest.theReconciliationKillsOrphansAndClearsRowsWhoseSandboxIsGone` |
 | Deleting a conversation deletes its row | `PostgresSandboxServiceTest.deletingTheConversationDeletesItsRow` |
 | The OpenSandbox runtime: user 1000 in `/workspace`, exit codes and stderr, a timed-out command reported and stopped, binary files exact and writable by the sandbox user, the read bound, listing, a planted link to a root file neither read nor written but refused as a file (`SandboxFileException`), an unlisted domain blocked, renewal, labels, and `SandboxGoneException` once killed | `OpenSandboxRuntimeContractTest`, run against a server with `MEMORYOS_SANDBOX_TEST_ENDPOINT`, `_API_KEY` and `_IMAGE` set; skipped elsewhere |
+| The computer image has its tools, and user 1000 owns the venv so `uv pip install` can write to it | CI `sandbox` job, "Check the computer image's tools" |
+| On staging, a command adds a package with `uv pip install` from PyPI and a domain outside the list stays blocked | Chat scenario `pip` (`run.py`), recorded in the MEM-270 plan |
 | The integration uses only the sandbox contract | `OpenSandboxDependencyRulesTest` |
 | `sandbox` is a closed module whose persistence only it reads | `ModulithArchitectureTest`, `CoreDependencyRulesTest` |

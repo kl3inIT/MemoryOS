@@ -25,7 +25,12 @@ work in it.
   default routes follow a link a command planted: on 2026-10-16 they read `/etc/shadow` and overwrote `/etc/passwd`.
   A path the user may not touch, a missing path or a directory is refused in a fixed sentence (never execd's raw message) as
   `SandboxFileException`; only a sandbox that does not answer is `SANDBOX_UNAVAILABLE`.
-- **Network.** Every sandbox is created with a policy that denies egress except to the configured domains.
+- **Network.** Every sandbox is created with a policy that denies egress except to the configured domains. The
+  default is PyPI (`pypi.org`, `files.pythonhosted.org`), and the image's venv `/opt/sandbox-venv` belongs to user 1000,
+  so a command adds a package with `uv pip install`, as Onyx Craft's sandbox user owns its venv and installs what its
+  image leaves out and ChatGPT installs from a package index while other egress is blocked; a package lasts as long as
+  its sandbox. Like Dust's workspace allowlist, the list is the deployment's: empty denies all egress. An allowed index
+  also accepts uploads; `open_url` already reaches any public URL, so it opens no new path out of a conversation.
 - **Bound.** At most `memoryos.sandbox.max-running` sandboxes used within the idle timeout run at once; past it,
   acquiring a new one fails with `SANDBOX_BUSY`. Taking a place is serialised across conversations by a transaction-scoped advisory lock, so two conversations cannot both take the last place; the lock is never held while the runtime creates a sandbox. A deployment without a computer image or a runtime answers
   `SANDBOX_NOT_CONFIGURED`; a runtime failure is `SANDBOX_UNAVAILABLE`.
@@ -41,7 +46,7 @@ work in it.
 | `memoryos.sandbox.max-lifetime` | | 4 hours |
 | `memoryos.sandbox.max-running` | `MEMORYOS_SANDBOX_MAX_RUNNING` | 3; Compose sets 12, staging 6 |
 | `memoryos.sandbox.cpu`, `memory` | | `1`, `1Gi` |
-| `memoryos.sandbox.allowed-domains` | | none |
+| `memoryos.sandbox.allowed-domains` | `MEMORYOS_SANDBOX_ALLOWED_DOMAINS` | `pypi.org,files.pythonhosted.org`; empty denies all egress |
 | `memoryos.sandbox.opensandbox.endpoint` | `MEMORYOS_SANDBOX_ENDPOINT` | empty: no OpenSandbox runtime |
 | `memoryos.sandbox.opensandbox.api-key` | `MEMORYOS_SANDBOX_API_KEY_FILE` through the launcher | |
 | `memoryos.sandbox.opensandbox.ready-timeout` | | 60 s, at most 90 s (under the reconciliation's two-minute grace) |

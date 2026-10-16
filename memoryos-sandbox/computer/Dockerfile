@@ -88,7 +88,9 @@ RUN mkdir -p /opt/matplotlib \
     && chmod -R a+rX /opt/matplotlib \
     && groupadd --gid 1000 sandbox \
     && useradd --uid 1000 --gid 1000 --home-dir /workspace --no-create-home --shell /bin/bash sandbox \
-    && install -d -o 1000 -g 1000 -m 0755 /workspace
+    && install -d -o 1000 -g 1000 -m 0755 /workspace     && chown -R 1000:1000 /opt/sandbox-venv
+# The venv belongs to the command user, as Onyx Craft's /workspace/.venv belongs to its sandbox user, so `uv pip install`
+# adds packages from the allowed index domains. Every command runs as that user; nothing root runs from the venv.
 
 # Models trained on ChatGPT's Code Interpreter write outputs to /mnt/data.
 RUN mkdir -p /mnt && ln -s /workspace /mnt/data
