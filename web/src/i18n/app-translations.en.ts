@@ -1,6 +1,10 @@
 // English for the Vietnamese source keys. Natural source keys are static UI copy, never document text, filenames or API identifiers.
 // Natural source keys are static UI copy, never document text, filenames or API identifiers.
 export const vietnameseUi: Record<string, string> = {
+  // MEM-273 the assistant editor's test chat
+  "Chat thử": "Test chat",
+  "Đang dùng bản chưa lưu": "Using unsaved changes",
+  "Đang mở chat thử…": "Opening the test chat…",
   // MEM-114 MemoryOS MCP: the endpoint, its connection guide and authorized apps
   "Ẩn {{label}}": "Hide {{label}}",
   "Hiện {{label}}": "Show {{label}}",

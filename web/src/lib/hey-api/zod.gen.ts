@@ -2341,7 +2341,8 @@ export const zSend = z.object({
         'required'
     ]).optional(),
     deepResearch: z.boolean().optional(),
-    mcpServerIds: z.array(z.uuid()).min(0).max(8).optional()
+    mcpServerIds: z.array(z.uuid()).min(0).max(8).optional(),
+    draftPersona: zPersonaInput.optional()
 });
 
 export const zAccepted = z.object({

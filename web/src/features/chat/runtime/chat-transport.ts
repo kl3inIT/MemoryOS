@@ -13,6 +13,7 @@ import type {
   Accepted,
   ChatMessage,
   ChatSession,
+  PersonaInput,
   ReasoningSelection,
 } from "@/lib/hey-api/types.gen";
 import { newChatSession, type ChatUiMessage } from "@/features/chat/chat-api";
@@ -148,6 +149,11 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
   projectId?: string;
   /** Assistant of the session created by the first send; the default assistant when unset. */
   personaId?: string;
+  /**
+   * The assistant editor's unsaved settings, read at each send of its test chat (MEM-273): the turn runs them in place
+   * of the saved ones. Only a temporary conversation may carry them.
+   */
+  draftPersona?: () => PersonaInput;
   onSessionCreated?: (session: ChatSession) => void;
   /** Any failure before the first session exists, so thread initialization can be retried. */
   onSessionFailed?: (error: unknown) => void;
@@ -246,6 +252,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
       (id) => !allowed?.mcpServerIds || allowed.mcpServerIds.includes(id),
     );
     const deepResearch = this.deepResearch;
+    const draftPersona = this.draftPersona?.();
     const creating = !this.session;
     try {
       return await this.submit(
@@ -256,6 +263,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
         mcpServerIds,
         deepResearch,
         reasoningEffort,
+        draftPersona,
       );
     } catch (error) {
       if (creating && !this.session) this.onSessionFailed?.(error);
@@ -271,6 +279,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     mcpServerIds: string[],
     deepResearch: boolean,
     reasoningEffort: ReasoningSelection["reasoningEffort"] | undefined,
+    draftPersona: PersonaInput | undefined,
   ) {
     if (options.trigger !== "submit-message")
       throw new Error("Use the conversation's message actions to create a saved version");
@@ -332,6 +341,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
         fileIds: fileIds as string[],
         mcpServerIds,
         image,
+        ...(draftPersona && { draftPersona }),
       };
       const { data } = await sendChatMessage({
         path: { sessionId: this.session.id },

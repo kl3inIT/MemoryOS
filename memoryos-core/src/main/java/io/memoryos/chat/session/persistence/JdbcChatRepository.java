@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.TreeSet;
 
 import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -538,6 +539,68 @@ public class JdbcChatRepository {
                             List.of(JSON.readValue(row.getString("file_ids"), UUID[].class)), tools,
                             builtin ? null : List.of((UUID[]) row.getArray("mcp_servers").getArray()),
                             effort == null ? null : ReasoningEffort.valueOf(effort));
+                })
+                .optional().orElseThrow(ChatException::unavailable);
+    }
+
+    /**
+     * An assistant's unsaved settings, already checked by its editor's Save rules (MEM-273). {@code mcpServerIds} is
+     * null for the builtin agent, which reaches every accessible server.
+     */
+    public record DraftAgent(String instructions, Set<String> tools, @Nullable List<UUID> mcpServerIds,
+                             List<UUID> sourceIds, List<UUID> documentSetIds, @Nullable UUID modelConfigurationId,
+                             @Nullable ReasoningEffort reasoningEffort, List<UUID> fileIds, boolean grounded) {
+        public DraftAgent {
+            tools = Set.copyOf(tools);
+            mcpServerIds = mcpServerIds == null ? null : List.copyOf(mcpServerIds);
+            sourceIds = List.copyOf(sourceIds);
+            documentSetIds = List.copyOf(documentSetIds);
+            fileIds = List.copyOf(fileIds);
+        }
+    }
+
+    /**
+     * A turn's agent built from unsaved settings, as {@link #persona} builds it from the saved ones: the session must
+     * still be usable under its owner's authority, its pinned level outranks the draft's, the Tenant's grounded
+     * answers still apply and Document Sets add only the Sources the owner may use. The revision is the saved
+     * assistant's, so the reservation's share-locked recheck still holds.
+     */
+    public Persona draftPersona(UUID session, boolean agentsManage, DraftAgent draft) {
+        boolean sets = !draft.documentSetIds().isEmpty();
+        String attached = sets ? "d.id IN (:sets)" : "FALSE";
+        var statement = jdbc.sql("""
+                        SELECT p.builtin_key, s.reasoning_effort AS pinned_effort,
+                            COALESCE((SELECT cs.grounded_answers FROM chat_settings cs
+                                      WHERE cs.tenant_id = p.tenant_id), FALSE) AS tenant_grounded,
+                            %s AS revision,
+                            EXISTS (SELECT 1 FROM document_set d
+                                    WHERE d.tenant_id = p.tenant_id AND %s AND d.deleted_at IS NULL) AS restricts_sets,
+                            ARRAY(SELECT source.source_id FROM document_set d
+                                  JOIN document_set_source source ON source.tenant_id = d.tenant_id AND source.document_set_id = d.id
+                                  WHERE d.tenant_id = p.tenant_id AND %s AND d.deleted_at IS NULL AND %s
+                                  ORDER BY 1) AS set_sources
+                        """.formatted(REVISION, attached, attached,
+                        DocumentSetAccessSql.USES.replace(":actor", "s.owner_actor_id"))
+                        + SESSION_AGENT)
+                .param("session", session).param("agentsManage", agentsManage);
+        if (sets) statement = statement.param("sets", draft.documentSetIds());
+        return statement.query((row, ignored) -> {
+                    boolean builtin = row.getString("builtin_key") != null;
+                    var sources = new TreeSet<>(draft.sourceIds());
+                    sources.addAll(List.of((UUID[]) row.getArray("set_sources").getArray()));
+                    String pinned = row.getString("pinned_effort");
+                    return new Persona(builtin ? draft.instructions()
+                            : String.join("\n", ChatPrompts.DEFAULT_SYSTEM, draft.instructions()),
+                            ChatTurnOptions.builder()
+                                    .searchEnabled(draft.tools().contains("search"))
+                                    .sourceIds(List.copyOf(sources))
+                                    .sourcesRestricted(!draft.sourceIds().isEmpty() || row.getBoolean("restricts_sets"))
+                                    .codeInterpreter(draft.tools().contains("code_interpreter"))
+                                    .grounded(draft.grounded() || row.getBoolean("tenant_grounded"))
+                                    .build(),
+                            row.getString("revision"), draft.modelConfigurationId(), draft.fileIds(), draft.tools(),
+                            builtin ? null : draft.mcpServerIds() == null ? List.of() : draft.mcpServerIds(),
+                            pinned != null ? ReasoningEffort.valueOf(pinned) : draft.reasoningEffort());
                 })
                 .optional().orElseThrow(ChatException::unavailable);
     }

@@ -147,6 +147,29 @@ public class ChatTurnPersistence {
                 capabilities.contains(IamCapability.MODELS_MANAGE), owned.projectId() != null);
     }
 
+    /**
+     * The assistant of a temporary conversation the caller owns, whose unsaved settings a test turn may run (MEM-273);
+     * a conversation that is kept is refused.
+     */
+    @Transactional(readOnly = true)
+    public UUID testedAssistant(ActorId actor, UUID session) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
+        var owned = chats.findOwned(tenant, actor, session, false).orElseThrow(ChatException::unavailable);
+        if (!owned.temporary()) throw ChatException.invalid("Only a temporary conversation runs unsaved assistant settings.");
+        return owned.personaId();
+    }
+
+    /** The session agent built from its assistant's checked, unsaved settings instead of the saved ones. */
+    @Transactional(readOnly = true)
+    public SessionAgent agent(ActorId actor, UUID session, JdbcChatRepository.DraftAgent draft) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
+        var owned = chats.findOwned(tenant, actor, session, false).orElseThrow(ChatException::unavailable);
+        var capabilities = authorization.effectiveCapabilities(actor);
+        boolean agentsManage = capabilities.contains(IamCapability.AGENTS_MANAGE);
+        return new SessionAgent(chats.draftPersona(session, agentsManage, draft), agentsManage,
+                capabilities.contains(IamCapability.MODELS_MANAGE), owned.projectId() != null);
+    }
+
     private boolean agentsManage(ActorId actor) {
         return authorization.effectiveCapabilities(actor).contains(IamCapability.AGENTS_MANAGE);
     }

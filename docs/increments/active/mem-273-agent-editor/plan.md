@@ -40,10 +40,11 @@ owner checks the editor on staging after the third.
 
 ## 3. Test chat
 
-- [ ] Backend: `draftPersona` on the temporary send command, editor-only, validated as Save, no revision check.
-- [ ] Web: a single-thread runtime with its own transport inside the editor; greeting, starters, "đang dùng bản chưa
-  lưu", "Làm mới"; `Drawer` on phones.
-- [ ] Tests: a draft changes the answer without changing the stored assistant; a non-editor is refused; a draft
+- [x] Backend: `draftPersona` on the temporary send command, editor-only, validated as Save, no revision check.
+- [x] Web: a single-thread runtime with its own transport inside the editor; greeting, starters, "đang dùng bản chưa
+  lưu", "Làm mới"; a `Drawer` below `lg`, a `ResizablePanelGroup` from `lg` up. `ChatThread` follows its own width
+  with container queries, so the panel reuses it unchanged.
+- [x] Tests: a draft changes the answer without changing the stored assistant; a non-editor is refused; a draft
   source the editor cannot read is refused.
 
 ## 4. Channels

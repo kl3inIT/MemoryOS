@@ -10,7 +10,7 @@ import {
 } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HttpResponse } from "msw";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppShellHeaderSlot } from "@/components/app-shell/app-shell-header-slot";
 import type { ApplicationSession } from "@/features/identity/application-session-context";
 import { ApplicationSessionProvider } from "@/features/identity/application-session-provider";
@@ -150,6 +150,8 @@ beforeEach(() => {
   );
 });
 
+afterEach(() => vi.restoreAllMocks());
+
 describe("AgentEditorPage", () => {
   it("saves in place, then starts again from what the server kept", async () => {
     let sent: PersonaInput | undefined;
@@ -256,6 +258,44 @@ describe("AgentEditorPage", () => {
       }),
     );
   }, 15_000);
+
+  it("shows the test chat beside the form on a wide screen, following unsaved edits", async () => {
+    vi.spyOn(window, "matchMedia").mockImplementation(
+      (query: string) =>
+        ({
+          matches: query === "(min-width: 1024px)",
+          media: query,
+          onchange: null,
+          addEventListener() {},
+          removeEventListener() {},
+          addListener() {},
+          removeListener() {},
+          dispatchEvent: () => false,
+        }) as MediaQueryList,
+    );
+    const user = await renderEditor();
+    const chat = await screen.findByRole("region", { name: "Test chat" }, { timeout: 15_000 });
+    expect(await within(chat).findByRole("heading", { name: "Contract law" })).toBeVisible();
+    expect(within(chat).getByText("Contract lawyer")).toBeVisible();
+    expect(within(chat).queryByText("Using unsaved changes")).not.toBeInTheDocument();
+
+    // jsdom lays everything out at 0×0, so a click would land on the panels' separator; type in place instead.
+    const greeting = screen.getByRole("textbox", { name: "Greeting" });
+    greeting.focus();
+    await user.type(greeting, "Ask me about a clause.", { skipClick: true });
+    expect(within(chat).getByText("Ask me about a clause.")).toBeVisible();
+    expect(within(chat).getByText("Using unsaved changes")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Test chat" })).not.toBeInTheDocument();
+  }, 30_000);
+
+  it("opens the test chat from a button on a narrow screen", async () => {
+    const user = await renderEditor();
+    await screen.findByRole("textbox", { name: "Assistant name" });
+    expect(screen.queryByRole("region", { name: "Test chat" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Test chat" }));
+    const chat = await screen.findByRole("region", { name: "Test chat" }, { timeout: 15_000 });
+    expect(await within(chat).findByRole("heading", { name: "Contract law" })).toBeVisible();
+  }, 30_000);
 
   it("saves a sharing change at once and keeps the configuration's next save in step", async () => {
     let shared: SharingInput | undefined;

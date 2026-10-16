@@ -540,6 +540,46 @@ test("edits an agent in place, saving only changes and guarding unsaved edits", 
   await expect.poll(() => state.deleted).toBe(hr);
 });
 
+test("tests the unsaved assistant beside the editor without saving it", async ({ page }) => {
+  const state = await mockAgents(page, ["AGENTS_CREATE"], tascoAgents());
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/agents/${hr}/edit`);
+  const chat = page.getByRole("region", { name: "Chat thử" });
+  await expect(chat.getByRole("heading", { name: "Chính sách nhân sự" })).toBeVisible();
+  await expect(chat.getByText("Đang dùng bản chưa lưu")).toHaveCount(0);
+
+  await page.getByLabel("Lời chào").fill("Chào bạn, hỏi mình về nghỉ phép nhé.");
+  await page
+    .getByRole("textbox", { name: "Hướng dẫn", exact: true })
+    .fill("Trả lời ngắn gọn, ghi rõ điều khoản.");
+  await expect(chat.getByText("Chào bạn, hỏi mình về nghỉ phép nhé.")).toBeVisible();
+  await expect(chat.getByText("Đang dùng bản chưa lưu")).toBeVisible();
+
+  const created = page.waitForRequest(
+    (request) =>
+      request.method() === "POST" && new URL(request.url()).pathname === "/api/chat/sessions",
+  );
+  const sent = page.waitForRequest(
+    (request) => request.method() === "POST" && request.url().endsWith("/messages"),
+  );
+  await chat.getByRole("textbox", { name: "Câu hỏi", exact: true }).fill("Nghỉ phép năm mấy ngày?");
+  await chat.getByRole("button", { name: "Gửi câu hỏi" }).click();
+  expect((await created).postDataJSON()).toMatchObject({ personaId: hr, temporary: true });
+  expect((await sent).postDataJSON()).toMatchObject({
+    text: "Nghỉ phép năm mấy ngày?",
+    draftPersona: {
+      instructions: "Trả lời ngắn gọn, ghi rõ điều khoản.",
+      greeting: "Chào bạn, hỏi mình về nghỉ phép nhé.",
+    },
+  });
+  await expect(chat.getByText("Hello 👋")).toBeVisible();
+  expect(state.updated).toBeUndefined();
+
+  await chat.getByRole("button", { name: "Làm mới" }).click();
+  await expect(chat.getByText("Nghỉ phép năm mấy ngày?")).toHaveCount(0);
+  await expect(chat.getByText("Chào bạn, hỏi mình về nghỉ phép nhé.")).toBeVisible();
+});
+
 test("manages prompt shortcuts inline and inserts them from /", async ({ page }) => {
   await mockAgents(page, ["AGENTS_CREATE"], tascoAgents());
   const shortcuts = [

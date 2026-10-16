@@ -2448,6 +2448,10 @@ export type Send = {
      */
     deepResearch?: boolean;
     mcpServerIds?: Array<string>;
+    /**
+     * The assistant's unsaved settings for this turn: only in a temporary conversation, for a person who may edit its assistant; checked as a save is, never stored
+     */
+    draftPersona?: PersonaInput;
 };
 
 export type Accepted = {

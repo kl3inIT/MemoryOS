@@ -268,9 +268,21 @@ export function ChatStarterPrompts({
     composer.setText(firstQuestion);
     composer.send();
   }, [firstQuestion, newTopicPersona, persona, disabled, aui, navigate]);
+  return <StarterPromptButtons prompts={persona?.starterPrompts ?? []} disabled={disabled} />;
+}
+
+/** An assistant's conversation starters; choosing one puts it in the composer. */
+export function StarterPromptButtons({
+  prompts,
+  disabled,
+}: {
+  prompts: string[];
+  disabled: boolean;
+}) {
+  const aui = useAui();
   return (
-    <div className="mt-5 flex flex-wrap justify-center gap-2">
-      {persona?.starterPrompts.map((text, index) => (
+    <div className="mt-5 flex flex-wrap justify-center gap-2 empty:hidden">
+      {prompts.map((text, index) => (
         <Button
           key={index}
           prominence="secondary"

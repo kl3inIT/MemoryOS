@@ -87,7 +87,9 @@ Field coverage (✓ has it):
    The URL keeps the tab (`?tab=`).
 10. **Cấu hình: config left, test chat right** (Dify, Coze, FastGPT), in a `ResizablePanelGroup`. There is no sticky
     section nav: no reference product has one (Onyx, Dify, FastGPT, LobeHub), and beside the test chat it would squeeze
-    the form. The owner dropped it on 2026-10-16. On phones the form is one column and a floating "Chat thử" button opens the test chat in a `Drawer`, as Dify does.
+    the form. The owner dropped it on 2026-10-16. Below the `lg` breakpoint (phones and narrow tablets, where two
+    panes leave the form too narrow) the form is one column and a floating "Chat thử" button opens the test chat in a
+    `Drawer`, as Dify does.
 11. **Section contents, top to bottom:**
     - Danh tính: avatar, name, title, description.
     - Hướng dẫn: instructions with their counter.
@@ -110,7 +112,9 @@ Field coverage (✓ has it):
     configuration (FastGPT's chat test sends the unsaved app; Dify's debug runs the draft). The panel shows the
     greeting and starters as people will see them, marks "đang dùng bản chưa lưu" while the form differs from the
     saved one, and has "Làm mới" to start again. Only people who can edit the assistant can test it. Temporary
-    conversations are already hidden from lists and purged after 24 hours.
+    conversations are already hidden from lists and purged after 24 hours. The panel offers no edit, regenerate or
+    branch actions: those commands would run the saved assistant, not the form, and "Làm mới" covers starting over.
+    It has no tool menu or model picker either; the form's own tools and model decide, as they will for people.
 14. **Create is a short dialog**: name, title and description, with no explanatory line under the title (Rakazo
     `CreateBotForm`). Create saves the assistant
     with the defaults of decision 5 and opens its editor. `/agents/create` redirects to the agents page with the dialog

@@ -2706,6 +2706,73 @@ class ChatSessionApiIntegrationTest {
         assertEquals(sent, sendWithModel(session, request, second.path("id").asText(), 202));
     }
 
+    /** MEM-273: the editor's test chat runs unsaved settings in a temporary conversation and keeps none of them. */
+    @Test
+    void aTestTurnRunsTheUnsavedAssistantWithoutSavingItAndOnlyForItsEditors() throws Exception {
+        var asked = new AtomicReference<String>();
+        when(model.stream(any(Prompt.class))).thenAnswer(call -> {
+            asked.set(call.getArgument(0, Prompt.class).getInstructions().stream().map(Message::getText)
+                    .filter(Objects::nonNull).collect(Collectors.joining(" ")));
+            return Flux.just(response("Draft answer", "stop", 4));
+        });
+        grantCapability("AGENTS_CREATE");
+        var persona = Json.mapper().readTree(mockMvc.perform(post("/api/chat/personas").with(authentication(actor)).with(csrf())
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("""
+                                {"name":"Kế toán thuế","description":"","instructions":"SAVED INSTRUCTIONS",
+                                 "starterPrompts":[],"sourceIds":[],"tools":[]}
+                                """))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+        String personaId = persona.path("id").asText();
+        var draft = Json.mapper().createObjectNode().put("name", "Kế toán thuế").put("description", "")
+                .put("instructions", "DRAFT INSTRUCTIONS");
+        draft.putArray("starterPrompts");
+        draft.putArray("sourceIds");
+        draft.putArray("tools");
+
+        var tested = testSession(actor, personaId, true);
+        var sent = sendDraft(actor, tested, draft, 202);
+        awaitOutcome(sent.path("assistantMessageId").asText(), "COMPLETED");
+        assertTrue(asked.get().contains("DRAFT INSTRUCTIONS"), "the turn runs the unsaved instructions");
+        assertFalse(asked.get().contains("SAVED INSTRUCTIONS"));
+        mockMvc.perform(get("/api/chat/personas/" + personaId).with(authentication(actor))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.instructions").value("SAVED INSTRUCTIONS"))
+                .andExpect(jsonPath("$.revision").value(persona.path("revision").asLong()));
+
+        // A kept conversation never runs unsaved settings, and a draft is checked as a save is.
+        sendDraft(actor, testSession(actor, personaId, false), draft, 400);
+        var unreadable = draft.deepCopy();
+        unreadable.putArray("sourceIds").add(UUID.randomUUID().toString());
+        assertEquals("CHAT_INVALID_REQUEST", sendDraft(actor, testSession(actor, personaId, true), unreadable, 400)
+                .path("code").asText());
+
+        // Someone who may only use the assistant cannot test unsaved settings on it.
+        var share = Json.mapper().createObjectNode();
+        share.putArray("users").addObject().put("actorId", other.getPrincipal().actorId().value().toString())
+                .put("permission", "VIEWER");
+        share.putArray("groups");
+        mockMvc.perform(put("/api/chat/personas/" + personaId + "/sharing").param("revision", persona.path("revision").asText())
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(share.toString())).andExpect(status().isOk());
+        assertEquals("CHAT_UNAVAILABLE", sendDraft(other, testSession(other, personaId, true), draft, 404)
+                .path("code").asText());
+    }
+
+    private JsonNode testSession(ActorAuthenticationToken who, String personaId, boolean temporary) throws Exception {
+        var body = Json.mapper().createObjectNode().put("title", "Chat thử").put("personaId", personaId).put("temporary", temporary);
+        return Json.mapper().readTree(mockMvc.perform(post("/api/chat/sessions").with(authentication(who)).with(csrf())
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+    }
+
+    private JsonNode sendDraft(ActorAuthenticationToken who, JsonNode session, JsonNode draft, int expectedStatus) throws Exception {
+        var body = Json.mapper().createObjectNode().put("parentMessageId", session.path("rootMessageId").asText())
+                .put("clientRequestId", UUID.randomUUID().toString()).put("text", "Hạn nộp tờ khai quý 3?");
+        body.set("draftPersona", draft);
+        return Json.mapper().readTree(mockMvc.perform(post("/api/chat/sessions/" + session.path("id").asText() + "/messages")
+                .with(authentication(who)).with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                .content(body.toString())).andExpect(status().is(expectedStatus)).andReturn().getResponse().getContentAsString());
+    }
+
     @Test
     void personaSelectionAndUnavailableExplicitSelectionUseOnlyAuthorizedDefault() throws Exception {
         grantModelManagement();
