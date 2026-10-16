@@ -1,4 +1,4 @@
-@ApplicationModule(displayName = "Chat", type = ApplicationModule.Type.CLOSED, allowedDependencies = {"shared", "ai", "ai::systemone", "library", "iam", "retrieval", "connector", "objectstorage", "document", "mcp", "usage", "audit"})
+@ApplicationModule(displayName = "Chat", type = ApplicationModule.Type.CLOSED, allowedDependencies = {"shared", "ai", "ai::systemone", "library", "iam", "retrieval", "connector", "objectstorage", "document", "mcp", "usage", "audit", "sandbox"})
 @NullMarked
 package io.memoryos.chat;
 

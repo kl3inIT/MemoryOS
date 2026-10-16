@@ -32532,6 +32532,11 @@ components:
           enum:
           - stdout
           - stderr
+        title:
+          type:
+          - string
+          - "null"
+          description: "A sandbox command's title, on its running stage"
       required:
       - assistantMessageId
       - code
@@ -32540,6 +32545,7 @@ components:
       - sequence
       - stage
       - stream
+      - title
       - toolCallId
     GeneratedFile:
       type: object

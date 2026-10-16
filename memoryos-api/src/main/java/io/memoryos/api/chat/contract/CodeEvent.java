@@ -14,4 +14,5 @@ public record CodeEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId
                         @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable String code,
                         @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable String output,
                         @Schema(requiredMode = REQUIRED) List<ChatCodeEvent.GeneratedFile> files,
-                        @Schema(requiredMode = REQUIRED, types = {"string", "null"}, allowableValues = {"stdout", "stderr"}) @Nullable String stream) {}
+                        @Schema(requiredMode = REQUIRED, types = {"string", "null"}, allowableValues = {"stdout", "stderr"}) @Nullable String stream,
+                        @Schema(requiredMode = REQUIRED, types = {"string", "null"}, description = "A sandbox command's title, on its running stage") @Nullable String title) {}

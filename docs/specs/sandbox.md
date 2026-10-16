@@ -2,7 +2,8 @@
 
 The Chat sandbox ([MEM-270](../increments/active/mem-270-chat-sandbox/design.md),
 [ADR 0029](../decisions/0029-chat-sandbox-through-opensandbox.md)): one runtime sandbox a Chat conversation, a
-computer that keeps its files while the conversation works in it. No Chat tool calls it yet (MEM-270 step 3).
+computer that keeps its files while the conversation works in it. The [Sandbox tools](chat.md#sandbox-tools) of Chat
+work in it.
 
 ## Contract
 
@@ -19,6 +20,11 @@ computer that keeps its files while the conversation works in it. No Chat tool c
   renewal and the call, acquire once more and repeat the call.
 - **Commands.** A command runs with `bash -c` as the computer image's user 1000 in `/workspace`, stopped at its
   timeout; a command stopped at its timeout is reported as `timedOut`.
+- **Files.** `write`, `read`, `open` and `list` run as the same user through OpenSandbox's identity-bound file routes
+  (`filesWithIdentity`, execd 1.1.1), so a file call has exactly a command's rights. execd itself runs as root, and its
+  default routes follow a link a command planted: on 2026-10-16 they read `/etc/shadow` and overwrote `/etc/passwd`.
+  A path the user may not touch, a missing path or a directory is refused in a fixed sentence (never execd's raw message) as
+  `SandboxFileException`; only a sandbox that does not answer is `SANDBOX_UNAVAILABLE`.
 - **Network.** Every sandbox is created with a policy that denies egress except to the configured domains.
 - **Bound.** At most `memoryos.sandbox.max-running` sandboxes used within the idle timeout run at once; past it,
   acquiring a new one fails with `SANDBOX_BUSY`. Taking a place is serialised across conversations by a transaction-scoped advisory lock, so two conversations cannot both take the last place; the lock is never held while the runtime creates a sandbox. A deployment without a computer image or a runtime answers

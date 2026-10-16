@@ -3643,7 +3643,8 @@ export const zCodeEvent = z.object({
     code: z.string().nullable(),
     output: z.string().nullable(),
     files: z.array(zGeneratedFile),
-    stream: z.enum(['stdout', 'stderr'])
+    stream: z.enum(['stdout', 'stderr']),
+    title: z.string().nullable()
 });
 
 export const zResearchPlanEvent = z.object({

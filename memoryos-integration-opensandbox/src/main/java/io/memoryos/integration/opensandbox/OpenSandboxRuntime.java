@@ -2,7 +2,9 @@ package io.memoryos.integration.opensandbox;
 
 import com.alibaba.opensandbox.sandbox.Sandbox;
 import com.alibaba.opensandbox.sandbox.SandboxManager;
+import com.alibaba.opensandbox.sandbox.domain.services.Filesystem;
 import com.alibaba.opensandbox.sandbox.config.ConnectionConfig;
+import com.alibaba.opensandbox.sandbox.domain.exceptions.SandboxApiException;
 import com.alibaba.opensandbox.sandbox.domain.exceptions.SandboxNotFoundException;
 import com.alibaba.opensandbox.sandbox.domain.models.execd.executions.Execution;
 import com.alibaba.opensandbox.sandbox.domain.models.execd.executions.OutputMessage;
@@ -15,8 +17,10 @@ import com.alibaba.opensandbox.sandbox.domain.models.sandboxes.SandboxState;
 import io.memoryos.sandbox.SandboxCommand;
 import io.memoryos.sandbox.SandboxCommandResult;
 import io.memoryos.sandbox.SandboxEntry;
+import io.memoryos.sandbox.SandboxFileException;
 import io.memoryos.sandbox.SandboxGoneException;
 import io.memoryos.sandbox.SandboxRuntime;
+import io.memoryos.sandbox.SandboxService;
 import io.memoryos.sandbox.SandboxSpec;
 import java.io.FilterInputStream;
 import java.io.IOException;
@@ -27,6 +31,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -35,15 +40,12 @@ import java.util.stream.Collectors;
  * {@link SandboxRuntime} on an OpenSandbox server (MEM-270). Every call after creation goes through the server's
  * proxy ({@code useServerProxy}), because the API, the Worker and the channels process sit on an internal network
  * that cannot reach the ports sandboxes publish (MEM-270 probe, topology). Each sandbox is created with a network
- * policy that denies everything but the allowed domains.
+ * policy that denies everything but the allowed domains. File calls run as the sandbox user
+ * ({@code filesWithIdentity}, OpenSandbox 1.1.1): execd itself runs as root, and its default file routes would follow
+ * a link the user's commands planted to any file of the sandbox.
  */
 public class OpenSandboxRuntime implements SandboxRuntime, AutoCloseable {
     public static final String NAME = "OPENSANDBOX";
-    /**
-     * Files the sandbox user may change: owned by the computer image's {@code sandbox} user (uid 1000), mode 644.
-     * execd looks the owner up by name; a numeric uid is refused ("unknown user 1000").
-     */
-    private static final String OWNER = "sandbox";
     private static final int FILE_MODE = 644;
     private static final int PAGE = 100;
 
@@ -101,9 +103,8 @@ public class OpenSandboxRuntime implements SandboxRuntime, AutoCloseable {
 
     @Override
     public void write(String id, String path, byte[] content) {
-        on(id, sandbox -> {
-            sandbox.files().write(List.of(WriteEntry.builder().path(path).data(content).mode(FILE_MODE)
-                    .owner(OWNER).group(OWNER).build()));
+        onFile(id, sandbox -> {
+            files(sandbox).write(List.of(WriteEntry.builder().path(path).data(content).mode(FILE_MODE).build()));
             return path;
         });
     }
@@ -124,7 +125,7 @@ public class OpenSandboxRuntime implements SandboxRuntime, AutoCloseable {
     public InputStream open(String id, String path) {
         Sandbox sandbox = connect(id);
         try {
-            return new FilterInputStream(sandbox.files().readStream(path)) {
+            return new FilterInputStream(files(sandbox).readStream(path)) {
                 @Override
                 public void close() throws IOException {
                     try {
@@ -137,6 +138,9 @@ public class OpenSandboxRuntime implements SandboxRuntime, AutoCloseable {
         } catch (SandboxNotFoundException gone) {
             sandbox.close();
             throw new SandboxGoneException(id, gone);
+        } catch (SandboxApiException failed) {
+            sandbox.close();
+            throw refusal(failed);
         } catch (RuntimeException failed) {
             sandbox.close();
             throw failed;
@@ -145,7 +149,7 @@ public class OpenSandboxRuntime implements SandboxRuntime, AutoCloseable {
 
     @Override
     public List<SandboxEntry> list(String id, String path, int depth) {
-        return on(id, sandbox -> sandbox.files().listDirectory(path, depth).stream()
+        return onFile(id, sandbox -> files(sandbox).listDirectory(path, depth).stream()
                 .map(entry -> new SandboxEntry(entry.getPath(), "directory".equalsIgnoreCase(entry.getType()),
                         entry.getSize()))
                 .toList());
@@ -185,6 +189,35 @@ public class OpenSandboxRuntime implements SandboxRuntime, AutoCloseable {
         }
     }
 
+    private static Filesystem files(Sandbox sandbox) {
+        return sandbox.filesWithIdentity(SandboxService.USER, SandboxService.USER);
+    }
+
+    /** {@link #on} for a file call, whose refusal by execd is the file's, not the sandbox's. */
+    private <T> T onFile(String id, Function<Sandbox, T> operation) {
+        try {
+            return on(id, operation);
+        } catch (SandboxApiException failed) {
+            throw refusal(failed);
+        }
+    }
+
+    /**
+     * execd answered, so the sandbox is up: a missing path, a directory or a file the user may not touch comes back as
+     * an execd error ({@code RUNTIME_ERROR}, HTTP 500, for "permission denied"). Only those three are refusals, told in
+     * a fixed sentence: the raw message may come from the server or its proxy and is never handed to the model. Anything
+     * else stays a runtime failure.
+     */
+    private static RuntimeException refusal(SandboxApiException failed) {
+        String message = failed.getError().getMessage();
+        if (message == null) return failed;
+        String lower = message.toLowerCase(Locale.ROOT);
+        if (lower.contains("permission denied")) return new SandboxFileException("Permission denied.", failed);
+        if (lower.contains("no such file") || lower.contains("not found")) return new SandboxFileException("No such file or directory.", failed);
+        if (lower.contains("is a directory")) return new SandboxFileException("The path is a directory.", failed);
+        return failed;
+    }
+
     private Sandbox connect(String id) {
         try {
             return Sandbox.connector().sandboxId(id).connectionConfig(connection).skipHealthCheck(true).connect();
@@ -205,8 +238,12 @@ public class OpenSandboxRuntime implements SandboxRuntime, AutoCloseable {
         return 0;
     }
 
-    /** Each output line arrives as its own message without its newline (MEM-270 probe). */
+    /**
+     * The messages joined as written: execd 1.1.1 keeps each line's newline in its message (OpenSandbox #2033). The
+     * final newline is dropped, as a shell's command substitution drops it.
+     */
     private static String lines(List<OutputMessage> messages) {
-        return messages.stream().map(OutputMessage::getText).collect(Collectors.joining("\n"));
+        String text = messages.stream().map(OutputMessage::getText).collect(Collectors.joining());
+        return text.endsWith("\n") ? text.substring(0, text.length() - 1) : text;
     }
 }

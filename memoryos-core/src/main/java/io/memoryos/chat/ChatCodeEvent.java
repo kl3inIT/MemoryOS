@@ -6,14 +6,17 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Progress of one {@code run_python} call: the code the model wrote, its stdout and stderr as they are produced, and
- * the files it generated. As in Onyx, a failed call reports its error text on stderr before the failed stage.
+ * Progress of one {@code run_python} or sandbox {@code bash} call: the code or command the model wrote, its stdout
+ * and stderr as they are produced, and the files it generated. As in Onyx, a failed call reports its error text on
+ * stderr before the failed stage. A {@code bash} call's running stage carries the model's {@code description} as the
+ * step's title (MEM-270, as Dust and Claude Code title a command).
  */
 public record ChatCodeEvent(String toolCallId, Stage stage, @Nullable String code, @Nullable String output,
-        List<GeneratedFile> files, @Nullable String stream) {
+        List<GeneratedFile> files, @Nullable String stream, @Nullable String title) {
     /** Largest code and accumulated output the timeline carries; the model still receives the full result. */
     public static final int MAX_CODE_CHARACTERS = 8_000;
     public static final int MAX_OUTPUT_CHARACTERS = 16_000;
+    public static final int MAX_TITLE_CHARACTERS = 200;
     public static final String STDOUT = "stdout";
     public static final String STDERR = "stderr";
     private static final Set<String> STREAMS = Set.of(STDOUT, STDERR);
@@ -44,13 +47,26 @@ public record ChatCodeEvent(String toolCallId, Stage stage, @Nullable String cod
                 || stream != null && !STREAMS.contains(stream)
                 || code != null && code.length() > MAX_CODE_CHARACTERS
                 || output != null && output.length() > MAX_OUTPUT_CHARACTERS
+                || title != null && (stage != Stage.RUNNING || title.isBlank() || title.length() > MAX_TITLE_CHARACTERS)
                 || files.size() > 25
                 || !files.isEmpty() && stage != Stage.COMPLETED && stage != Stage.FAILED)
             throw new IllegalArgumentException("Invalid code event");
     }
 
+    public ChatCodeEvent(String toolCallId, Stage stage, @Nullable String code, @Nullable String output,
+                         List<GeneratedFile> files, @Nullable String stream) {
+        this(toolCallId, stage, code, output, files, stream, null);
+    }
+
     public static ChatCodeEvent running(String toolCallId, String code) {
         return new ChatCodeEvent(toolCallId, Stage.RUNNING, truncate(code, MAX_CODE_CHARACTERS), null, List.of(), null);
+    }
+
+    /** A sandbox command starting, titled by what the model said it does. */
+    public static ChatCodeEvent running(String toolCallId, String command, @Nullable String title) {
+        String shown = title == null || title.isBlank() ? null : truncate(title.strip(), MAX_TITLE_CHARACTERS);
+        return new ChatCodeEvent(toolCallId, Stage.RUNNING, truncate(command, MAX_CODE_CHARACTERS), null, List.of(), null,
+                shown);
     }
 
     public static ChatCodeEvent output(String toolCallId, String stream, String output) {

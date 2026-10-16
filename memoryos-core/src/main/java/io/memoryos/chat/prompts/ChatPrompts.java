@@ -188,6 +188,28 @@ public final class ChatPrompts {
             Memory is limited to about 1 GiB; process large files in chunks.
             CPU time is limited to 30 seconds per run. A run killed by the memory or CPU limit exits with code 137 and no error message.
             """;
+    /**
+     * MEM-270: the Sandbox group (bash, bash_output, edit_file, publish_file). The working rules follow Claude Code's
+     * Bash and text editor descriptions and agents-flex's publish_file; the tool list is Dust's tool manifest for the
+     * MemoryOS computer image.
+     */
+    private static final String SANDBOX_GUIDANCE = """
+            ## Sandbox (bash, bash_output, edit_file, publish_file)
+            This conversation has its own Linux sandbox. Its working directory `/workspace` and every file in it persist across your tool calls and across turns of this conversation; files the user attached are not copied there unless you write them. Commands run as an unprivileged user; packages cannot be installed with root.
+            Use `bash` for shell commands: one command or a script, with a short `description` of what it does. A command stops after `timeout_seconds` (default 60, at most 120); for longer work set `run_in_background`, then read its new output with `bash_output` and stop it with `kill`. Output longer than 30,000 characters is cut in the middle, and the result names the file holding all of it: search that file with `rg` or `tail` instead of printing it again.
+            Use `edit_file` to view a file with line numbers or a directory, create a file, replace one exact passage (`str_replace`, which must match exactly once: include enough surrounding lines) or insert after a line. Prefer it to sed or echo for editing files.
+            Search with `rg` (content) and `fd` (file names) in bash.
+            Network access is limited to the domains the administrator allowed; other requests fail.
+            When a file is ready for the user, call `publish_file` as the final delivery step. Internal paths such as `/workspace/...` are not reachable by the user and must never appear in your answer; give the returned link instead. If publishing fails, fix the problem and retry; never claim a file was delivered when the tool failed.
+            `run_python`, when it is offered, runs in a separate, stateless sandbox that cannot see `/workspace`; for work on files in `/workspace`, run `python3` through bash.
+            Installed in the sandbox:
+            - Shell: bash, coreutils, git, jq, rg (ripgrep), fd, file, 7z, zip and unzip, bc, sqlite3.
+            - Documents: pandoc; LibreOffice (`soffice --headless --convert-to pdf`); poppler-utils (pdftotext, pdftoppm); qpdf; `recalc-xlsx` (recalculates .xlsx formula values), `check-docx` (reports .docx formatting faults), `pptx-to-pdf`.
+            - Images, audio and video: ImageMagick (`magick`, `convert`), ffmpeg, Tesseract OCR with Vietnamese (`tesseract file.png - -l vie+eng`).
+            - Python 3.14 (`python3`): pandas, numpy, scipy, scikit-learn, statsmodels, matplotlib, seaborn, plotly, duckdb, pyarrow, openpyxl, xlrd, xlsxwriter, python-docx, python-pptx, reportlab, fpdf2, pypdf, pdfplumber, pypdfium2, pdf2image, pytesseract, markitdown, beautifulsoup4, sympy.
+            - Node: pptxgenjs, available to `node` scripts.
+            Vietnamese text needs a TTF font in PDFs: register `/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf`.
+            """;
     private static final String OPEN_URL_REMINDER = """
             After web_search, open promising, reputable pages with open_url unless the query is
             completely answered by the snippets. Use an array of URLs to read multiple pages.
@@ -219,6 +241,7 @@ public final class ChatPrompts {
         if (tools.contains("open_url")) { heading(text); text.append(OPEN_URL_GUIDANCE); }
         if (tools.contains("search_files") || tools.contains("read_file")) { heading(text); text.append(FILES_GUIDANCE); }
         if (tools.contains("run_python")) { heading(text); text.append(RUN_PYTHON_GUIDANCE); }
+        if (tools.contains("bash")) { heading(text); text.append(SANDBOX_GUIDANCE); }
         if (tools.contains("generate_image")) { heading(text); text.append(IMAGE_GUIDANCE); }
         if (tools.contains("edit_image")) { heading(text); text.append(EDIT_IMAGE_GUIDANCE); }
         if (tools.contains("update_memory")) { heading(text); text.append(MEMORY_GUIDANCE); }

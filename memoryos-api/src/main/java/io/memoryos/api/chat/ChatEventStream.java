@@ -102,7 +102,7 @@ final class ChatEventStream {
             case CodeRun progress -> {
                 var run = progress.code();
                 yield new CodeEvent(assistant, sequence, run.toolCallId(), run.stage(), run.code(), run.output(), run.files(),
-                        run.stream());
+                        run.stream(), run.title());
             }
             case TurnWaiting turn -> new WaitingEvent(assistant, sequence, turn.waiting());
             case ToolApproval approval -> new ToolApprovalEvent(assistant, sequence, approval.toolCallId(),

@@ -662,6 +662,32 @@ With image mode on, the model also gets an `edit_image` tool (`imageId`, `prompt
 
 A mask is an attached PNG named `mask-for-<image_id>.png`: white may change, black or transparent stays, and its name chooses the image it was painted on. The provider edits the whole image and the server takes its result only inside the mask, feathered inward, so every pixel outside the mask equals the source. A mask that selects nothing is refused; one that selects the whole image is a whole-image edit. The result is a new `chat_image_artifact` on the current answer recording `source_artifact_id` or `source_file_id` (provenance only, no foreign key), streamed with the same `ChatImageEvent`; the `memoryos.chat.image.request` timer is tagged `operation` `generate` or `edit`. On a generated image the UI offers an edit action: an optional brush mask and an instruction go to the composer as the mask attachment and the message text, and image mode is turned on for the session.
 
+## Sandbox tools
+
+MEM-270 ([design](../increments/active/mem-270-chat-sandbox/design.md#tools), [sandbox](sandbox.md)): the agent tool key
+`code_interpreter` and the Tenant's Code Interpreter switch govern one group, labelled "Sandbox" in every language. It
+is `run_python` (below) and four tools working in the conversation's sandbox, registered when the model supports tool
+calling and the deployment has a sandbox (`SandboxService.available()`); a turn without them still runs.
+
+- `bash(command, description, timeout_seconds, run_in_background)`: the command is written to
+  `/workspace/.memoryos/run/<id>/cmd.sh` and run as the sandbox user under `setsid timeout -k 5` (60 s by default,
+  at most 120) with files capped at 100 MiB; the result is the exit code, stdout and stderr, a timeout (exit 124 or
+  137) said as such with the output so far, and output over 30,000 characters cut to its head and tail with the path
+  of the whole. In the background it returns a `bash_id` at once, runs up to 30 minutes in its own session, and keeps
+  the sandbox alive for 35 minutes.
+- `bash_output(bash_id, filter, kill)`: the output written since the last read (at most 30,000 bytes a call) and
+  whether the command runs or how it ended; `kill` ends every process of its session (TERM, then KILL after 1 s).
+- `edit_file(command, path, …)`: `view` (numbered lines, 2,000 by default, at most 4 MiB, or a directory two levels
+  deep), `create`, `str_replace` (the old text must occur exactly once) and `insert`; relative paths are under
+  `/workspace`.
+- `publish_file(path, filename)`: the file (at most 100 MiB) becomes a generated-file artifact of the answer, linked
+  like a `run_python` file.
+- **File rights.** `edit_file` and `publish_file` read and write as the sandbox user, as `bash` does
+  ([sandbox](sandbox.md#contract)).
+- **Timeline.** `bash` and `publish_file` publish the same code events as `run_python`; a `bash` running event carries
+  the model's `description` as `title`, which titles the step. The four tools share the terminal and file icons.
+- **Guidance.** The prompt's Sandbox section lists the working rules and the tools installed in the computer image.
+
 ## Code Interpreter
 
 `run_python` follows the Onyx 40eb240df Code Interpreter. It calls the `memoryos-interpreter` service (`interpreter/`), which runs model-written Python in a disposable, network-less executor. Design decisions and phases are in [MEM-110](../increments/completed/mem-110-memoryos-interpreter/design.md).

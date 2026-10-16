@@ -3619,6 +3619,10 @@ export type CodeEvent = {
     output: string | null;
     files: Array<GeneratedFile>;
     stream: 'stdout' | 'stderr';
+    /**
+     * A sandbox command's title, on its running stage
+     */
+    title: string | null;
 };
 
 export type GeneratedFile = {
