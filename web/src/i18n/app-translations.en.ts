@@ -5,6 +5,19 @@ export const vietnameseUi: Record<string, string> = {
   "Chat thử": "Test chat",
   "Đang dùng bản chưa lưu": "Using unsaved changes",
   "Đang mở chat thử…": "Opening the test chat…",
+  // MEM-273 the bots that answer with an assistant
+  Kênh: "Channels",
+  "Chưa có bot nào trả lời bằng trợ lý này.": "No bot answers with this assistant yet.",
+  "Gỡ {{v1}}": "Remove {{v1}}",
+  "Chuyển bot sang trợ lý này?": "Move the bot to this assistant?",
+  "{{bot}} đang trả lời bằng {{from}}. Sau khi chuyển, bot sẽ trả lời bằng {{to}}.":
+    "{{bot}} answers with {{from}}. Once moved, it answers with {{to}}.",
+  Chuyển: "Move",
+  "Đang chuyển…": "Moving…",
+  "Thêm kênh": "Add channel",
+  "Tìm bot…": "Search bots…",
+  "Không còn bot nào để thêm.": "No other bot to add.",
+  "Đang trả lời bằng {{v1}}": "Answers with {{v1}}",
   // MEM-273 the documents switch: state line and upload from the editor
   "Tìm trong mọi tài liệu được phép đọc": "Searches every document you may read",
   "Tìm thêm trong mọi tài liệu được phép đọc": "Also searches every document you may read",
