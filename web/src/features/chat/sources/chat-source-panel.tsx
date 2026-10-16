@@ -31,6 +31,7 @@ export function ChatSourcePanel({
   sources,
   artifact,
   citationId,
+  roomy,
   onSelect,
   onClose,
   restoreFocus,
@@ -39,6 +40,8 @@ export function ChatSourcePanel({
   sources: ChatSource[];
   artifact?: ChatArtifact;
   citationId?: number;
+  /** The conversation is wide enough to keep the panel beside it. */
+  roomy: boolean;
   onSelect: (citationId?: number) => void;
   onClose: () => void;
   restoreFocus: () => void;
@@ -46,11 +49,13 @@ export function ChatSourcePanel({
   const ui = useAppTranslation();
   const { t, i18n } = useTranslation("reader");
   const { t: rendererText } = useTranslation("renderers");
-  const wide = useSyncExternalStore(
+  const wideScreen = useSyncExternalStore(
     subscribeWidth,
     () => window.matchMedia(wideQuery).matches,
     () => false,
   );
+  // Docked beside the conversation on a wide screen with room for both; otherwise a sheet over it.
+  const wide = wideScreen && roomy;
   const titleRef = useRef<HTMLHeadingElement>(null);
   const expandRef = useRef<HTMLButtonElement>(null);
   // Stepping between sources keeps focus on the pressed arrow instead of moving it to the title.

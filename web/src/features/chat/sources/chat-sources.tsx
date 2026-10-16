@@ -1,4 +1,4 @@
-import { lazy, Suspense, use, useId, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, use, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useAuiState } from "@assistant-ui/react";
 import { Sources } from "@/components/assistant-ui/elements/sources";
 import { ChatSourcePanel } from "./chat-source-panel";
@@ -9,6 +9,12 @@ import type { ChatArtifact } from "@/features/chat/thread/chat-artifacts";
 import type { PreviewTarget } from "@/features/library/file-preview";
 
 export { ChatMarkdownLink } from "./chat-citation";
+
+/**
+ * The width a conversation needs before the source panel docks beside it: a 25rem panel next to a thread that keeps
+ * room to read. A narrower conversation, such as the editor's test chat, opens sources in a sheet over it instead.
+ */
+const dockedSourcesWidth = 720;
 
 // The file viewers are needed only once a file is opened, so they stay out of the conversation's own code.
 const ChatFilePreviewModal = lazy(() =>
@@ -28,6 +34,20 @@ export function ChatSourcesWorkspace({ children }: { children: ReactNode }) {
   const previewTriggerRef = useRef<HTMLElement>(null);
   const returnFocusRef = useRef<HTMLElement>(null);
   const fallbackFocusRef = useRef<HTMLDivElement>(null);
+  const [roomy, setRoomy] = useState(true);
+  useEffect(() => {
+    const target = fallbackFocusRef.current;
+    if (!target) return undefined;
+    // A box that is not laid out yet (or never, as in jsdom) measures 0 and keeps the screen's choice.
+    const measure = () => {
+      const width = target.getBoundingClientRect().width;
+      if (width > 0) setRoomy(width >= dockedSourcesWidth);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, []);
   // Read the selected message from the native runtime so an open panel follows
   // newly committed sources during streaming without copying message state.
   const sources = useAuiState(
@@ -85,6 +105,7 @@ export function ChatSourcesWorkspace({ children }: { children: ReactNode }) {
             sources={sources}
             artifact={artifact}
             citationId={selection.citationId}
+            roomy={roomy}
             onSelect={(citationId) => setSelection({ ...selection, citationId })}
             onClose={close}
             restoreFocus={restoreFocus}

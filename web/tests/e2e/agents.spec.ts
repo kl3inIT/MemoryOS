@@ -711,3 +711,60 @@ test.describe("on a phone", () => {
     await page.screenshot({ path: "../output/playwright/agents-card-phone.png" });
   });
 });
+
+test("the editor keeps the shell header in view and Lưu says why it is off", async ({ page }) => {
+  await mockAgents(page, ["AGENTS_CREATE"], tascoAgents());
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/agents/${hr}/edit`);
+  await expect(page.getByRole("region", { name: "Chat thử" })).toBeVisible();
+  const banner = page.getByRole("banner");
+  const save = page.getByRole("button", { name: "Lưu", exact: true });
+  // The switches' hidden inputs sit low in the form; they overflow the form's scroller, never the frame around the
+  // header, so bringing a header control into view (as a hover retry or a screen reader does) cannot move it.
+  await page.getByRole("switch", { name: "Sandbox" }).focus();
+  expect(
+    await page.evaluate(() => {
+      const frame = document.querySelector("[data-slot=sidebar-inset]")!;
+      return frame.scrollHeight - frame.clientHeight;
+    }),
+  ).toBe(0);
+  await save.evaluate((element) => element.scrollIntoView({ block: "center" }));
+  expect((await banner.boundingBox())?.y).toBe(0);
+
+  await save.locator("..").hover();
+  await expect(page.getByRole("tooltip", { name: "Chưa có thay đổi" })).toBeVisible();
+  expect((await banner.boundingBox())?.y).toBe(0);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("tooltip", { name: "Chưa có thay đổi" })).toHaveCount(0);
+  await page.mouse.move(700, 600);
+  await page.getByRole("link", { name: "Hủy" }).focus();
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("tooltip", { name: "Chưa có thay đổi" })).toBeVisible();
+});
+
+test("opens the test chat's sources over it instead of beside it", async ({ page }) => {
+  await mockAgents(page, ["AGENTS_CREATE"], tascoAgents());
+  await page.setViewportSize({ width: 1440, height: 900 });
+  // The fixture server answers a "grounded" conversation with one cited source.
+  await page.route("**/api/chat/sessions", async (route) => {
+    const request = route.request();
+    if (request.method() !== "POST") return route.fallback();
+    return route.fallback({
+      postData: JSON.stringify({ ...request.postDataJSON(), mode: "grounded" }),
+    });
+  });
+  await page.goto(`/agents/${hr}/edit`);
+  const chat = page.getByRole("region", { name: "Chat thử" });
+  await chat.getByRole("textbox", { name: "Câu hỏi", exact: true }).fill("Nghỉ phép năm mấy ngày?");
+  await chat.getByRole("button", { name: "Gửi câu hỏi" }).click();
+  await expect(chat.getByText("17 days")).toBeVisible();
+  const width = (await chat.boundingBox())!.width;
+  await chat.getByRole("button", { name: /^Nguồn/ }).click();
+  const sheet = page.getByRole("dialog");
+  await expect(sheet).toBeVisible();
+  await expect(sheet.locator('[data-slot="source-row"]')).toHaveCount(1);
+  await expect(page.getByRole("complementary", { name: "Nguồn" })).toHaveCount(0);
+  expect((await chat.boundingBox())!.width).toBe(width);
+  await page.keyboard.press("Escape");
+  await expect(sheet).toHaveCount(0);
+});

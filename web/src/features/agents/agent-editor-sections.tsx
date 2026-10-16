@@ -391,7 +391,6 @@ export function ModelSection({ form, choices, editable }: SectionProps) {
                 return (
                   <SettingRow
                     title={ui("Model mặc định")}
-                    description={ui("Người dùng vẫn đổi được model khi chat.")}
                     control={
                       <ModelSelectorRoot
                         models={options}

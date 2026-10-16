@@ -311,7 +311,6 @@ export function StarterPromptsField({
     <EditorField
       label={ui("Câu hỏi gợi ý")}
       counter={`${value.filter((prompt) => prompt.trim()).length}/${maxStarterPrompts}`}
-      hint={ui("Hiện dưới ô chat để người dùng bấm hỏi ngay.")}
     >
       <ol className="flex flex-col gap-2">
         {rows.map((prompt, index) => (

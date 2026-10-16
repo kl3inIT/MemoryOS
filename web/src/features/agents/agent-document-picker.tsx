@@ -13,7 +13,6 @@ import {
   Plus,
   X,
 } from "lucide-react";
-import { EmptyState } from "@/components/composites/empty-state";
 import { SettingRow, SettingRows } from "@/components/composites/setting-row";
 import { Button } from "@/components/ui/button";
 import {
@@ -157,11 +156,7 @@ export function AgentDocumentPicker({
     <div className="flex flex-col gap-3">
       {failed && <LoadFailure onRetry={onRetry}>{ui("Không tải được tài liệu.")}</LoadFailure>}
       {chosen.length === 0 ? (
-        <EmptyState
-          icon={<Library />}
-          title={ui("Tìm trong mọi tài liệu người dùng được phép đọc")}
-          action={add || undefined}
-        />
+        add && <div>{add}</div>
       ) : (
         <>
           <SettingRows>

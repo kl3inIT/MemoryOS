@@ -78,6 +78,8 @@ Field coverage (✓ has it):
 6. **Documents are one control.** A "Tìm trong tài liệu nội bộ" switch heads the section and, when on, one picker
    adds sources, document sets and files, each row tagged with its kind. With the switch off the section is disabled
    instead of silently ignored (Onyx `AgentKnowledgePane` and its "Use Knowledge" switch). Storage is unchanged.
+   With nothing chosen the section shows only "Thêm tài liệu", with no empty-state card (staging acceptance,
+   2026-10-16).
 7. **"Chỉ trả lời có căn cứ"** stays as one switch row under the documents list, with no fold (owner, 2026-10-16).
 8. **Labels move to the Chia sẻ tab**, where they serve discovery (Onyx puts labels with Share and Feature).
 
@@ -101,7 +103,8 @@ Field coverage (✓ has it):
     - Model và suy luận: model and reasoning effort, visible (LobeHub puts both at the top of the profile). The
       title names reasoning beside "Model", which the Vietnamese catalog otherwise renders "Mô hình".
 12. **Save stays on the page.** The header shows "Đã lưu" or "Có thay đổi chưa lưu"; Save is disabled with a tooltip
-    that says why ("Cần nhập tên", "Chưa có thay đổi"), as Onyx does. Leaving with changes asks, as today. An uploaded
+    that says why ("Cần nhập tên", "Chưa có thay đổi"), as Onyx does. The unavailable Lưu is `aria-disabled`, not
+    `disabled`, so it stays in the tab order and its reason opens on keyboard focus as well as on hover. Leaving with changes asks, as today. An uploaded
     image applies only on Save, so Cancel undoes it; labels live in the Chia sẻ tab and save on change there. Draft
     and publish for shared assistants is MEM-279; until then Save applies at once, as today.
 12a. **One header.** The breadcrumb (Trợ lý › name), the state, Hủy and Lưu sit in the shell header through the
@@ -115,6 +118,8 @@ Field coverage (✓ has it):
     conversations are already hidden from lists and purged after 24 hours. The panel offers no edit, regenerate or
     branch actions: those commands would run the saved assistant, not the form, and "Làm mới" covers starting over.
     It has no tool menu or model picker either; the form's own tools and model decide, as they will for people.
+    Its sources open in a sheet over the panel rather than docked beside the thread: the source panel docks only when
+    the conversation itself is at least 720px wide, which the main chat is on a wide screen and the test chat is not.
 14. **Create is a short dialog**: name, title and description, with no explanatory line under the title (Rakazo
     `CreateBotForm`). Create saves the assistant
     with the defaults of decision 5 and opens its editor. `/agents/create` redirects to the agents page with the dialog

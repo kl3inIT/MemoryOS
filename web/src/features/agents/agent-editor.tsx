@@ -126,11 +126,14 @@ function AgentEditor({ agent, tab, onTabChange }: { agent: Persona } & TabProps)
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          {/* A disabled Lưu stays focusable (aria-disabled), so its reason is reachable. */}
+                          {/* An unavailable Lưu stays in the tab order (aria-disabled, not disabled) and lets the
+                              pointer through to this wrapper, so focus and hover both reach its reason. */}
                           <span className="inline-flex">
                             {reason ? (
-                              <Button asChild size="sm" disabled>
-                                <button type="button">{ui("Lưu")}</button>
+                              <Button asChild size="sm">
+                                <button type="button" aria-disabled="true">
+                                  {ui("Lưu")}
+                                </button>
                               </Button>
                             ) : (
                               <form.AppForm>
@@ -187,7 +190,7 @@ function AgentEditor({ agent, tab, onTabChange }: { agent: Persona } & TabProps)
               </form>
             </ConfigLayout>
           </TabsContent>
-          <TabsContent value="share" className="min-h-0 flex-1 overflow-y-auto">
+          <TabsContent value="share" className="relative min-h-0 flex-1 overflow-y-auto">
             <div className="max-w-3xl px-(--page-gutter) pt-6 pb-24">
               <AgentSharePanel agent={agent} choices={choices} revision={revision} />
             </div>
@@ -213,6 +216,9 @@ function AgentEditor({ agent, tab, onTabChange }: { agent: Persona } & TabProps)
 /**
  * Cấu hình beside its test chat (Dify, FastGPT): two resizable panes from `lg` up, and below it one column with a
  * "Chat thử" button that opens the test chat in a drawer, as Dify does on phones. Only an editor may test.
+ *
+ * Each scroller is `relative`: the visually hidden inputs behind switches and checkboxes are positioned absolutely,
+ * and without a positioned scroller they escape it, so focusing one scrolls the shell and pushes its header away.
  */
 function ConfigLayout({
   agent,
@@ -241,12 +247,12 @@ function ConfigLayout({
       <AgentTestChat agent={agent} form={form} dirty={dirty} />
     </Suspense>
   );
-  if (!editable) return <div className="h-full overflow-y-auto">{children}</div>;
+  if (!editable) return <div className="relative h-full overflow-y-auto">{children}</div>;
   if (wide)
     return (
       <ResizablePanelGroup orientation="horizontal">
         <ResizablePanel defaultSize="58%" minSize="40%">
-          <div className="h-full overflow-y-auto">{children}</div>
+          <div className="relative h-full overflow-y-auto">{children}</div>
         </ResizablePanel>
         <ResizableHandle withHandle />
         <ResizablePanel defaultSize="42%" minSize="28%" maxSize="60%">
