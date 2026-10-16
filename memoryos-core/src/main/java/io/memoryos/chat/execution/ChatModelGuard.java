@@ -19,7 +19,6 @@ import org.springframework.ai.chat.prompt.Prompt;
 public final class ChatModelGuard extends ModelGuard {
     private BooleanSupplier hasEvidence = () -> false;
     private boolean webSiteFilter = true;
-    private String taskPrompt = "";
     private boolean grounded;
     private String topicRules = "";
 
@@ -36,9 +35,6 @@ public final class ChatModelGuard extends ModelGuard {
 
     public void webSiteFilter(boolean supported) { webSiteFilter = supported; }
 
-    /** Agent task prompt repeated as the final reminder of every inference (Onyx {@code task_prompt}). */
-    public void taskPrompt(String value) { taskPrompt = value; }
-
     public void evidenceAvailable(BooleanSupplier value) { this.hasEvidence = value; }
 
     /** MEM-195: every inference of this turn carries the answer-from-documents instruction. */
@@ -49,7 +45,7 @@ public final class ChatModelGuard extends ModelGuard {
 
     @Override
     protected Prompt guide(Prompt original, boolean lastCycle) {
-        return ChatPrompts.forInference(original, hasEvidence.getAsBoolean(), lastCycle, webSiteFilter, taskPrompt, grounded,
+        return ChatPrompts.forInference(original, hasEvidence.getAsBoolean(), lastCycle, webSiteFilter, grounded,
                 topicRules);
     }
 

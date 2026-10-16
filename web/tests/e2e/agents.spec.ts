@@ -40,7 +40,6 @@ function agent(overrides: Record<string, unknown>) {
     revision: 0,
     description: "",
     instructions: "",
-    taskPrompt: "",
     starterPrompts: [],
     sourceIds: [],
     sources: [],
@@ -58,7 +57,6 @@ function agent(overrides: Record<string, unknown>) {
     publicPermission: "VIEWER",
     listed: true,
     featured: false,
-    replaceBaseSystemPrompt: false,
     pinned: false,
     ...overrides,
   };
@@ -390,6 +388,7 @@ test("creates an agent on its own page and shares it with a Group and the organi
   await page.getByRole("button", { name: "Tạo trợ lý" }).click();
   await expect(page).toHaveURL(/\/agents\/create$/);
   await page.getByLabel("Tên trợ lý", { exact: true }).fill("Pháp chế hợp đồng");
+  await page.getByLabel("Chức danh").fill("Chuyên viên pháp chế");
   await page.getByLabel("Mô tả").fill("Rà soát điều khoản theo mẫu hợp đồng đã ban hành.");
   await page.getByRole("button", { name: "Đổi ảnh đại diện" }).click();
   const studio = page.getByRole("dialog", { name: "Ảnh đại diện" });
@@ -399,7 +398,9 @@ test("creates an agent on its own page and shares it with a Group and the organi
     "true",
   );
   await studio.getByRole("button", { name: "Xong" }).click();
-  await page.getByLabel("Nhắc việc mỗi lượt").fill("Luôn trích số hiệu mẫu hợp đồng.");
+  await page
+    .getByLabel("Lời chào")
+    .fill("Chào bạn, gửi mình điều khoản cần rà soát và số hiệu mẫu hợp đồng nhé.");
   await page.getByLabel("Câu hỏi gợi ý 1").fill("Điều khoản phạt vi phạm trong mẫu HĐ-02 là gì?");
 
   // The unsaved new agent survives a reload as a browser draft.
@@ -410,9 +411,12 @@ test("creates an agent on its own page and shares it with a Group and the organi
   await page.getByRole("button", { name: "Thêm nguồn" }).click();
   await page.getByRole("option", { name: "Báo cáo tài chính Q2/2026" }).click();
   await page.keyboard.press("Escape");
-  await page.getByLabel("Chỉ dùng tài liệu cập nhật từ ngày").fill("2026-01-01");
-  await page.getByRole("switch", { name: "Tạo ảnh" }).click();
+  // A new agent searches documents and the web; images and the Sandbox start off.
   await expect(page.getByRole("switch", { name: "Tạo ảnh" })).toHaveAttribute(
+    "aria-checked",
+    "false",
+  );
+  await expect(page.getByRole("switch", { name: "Sandbox" })).toHaveAttribute(
     "aria-checked",
     "false",
   );
@@ -421,12 +425,14 @@ test("creates an agent on its own page and shares it with a Group and the organi
   expect(state.created).toMatchObject({
     name: "Pháp chế hợp đồng",
     avatarSeed: expect.stringMatching(/^[A-Za-z0-9_-]{1,64}$/),
-    taskPrompt: "Luôn trích số hiệu mẫu hợp đồng.",
+    title: "Chuyên viên pháp chế",
+    greeting: "Chào bạn, gửi mình điều khoản cần rà soát và số hiệu mẫu hợp đồng nhé.",
     starterPrompts: ["Điều khoản phạt vi phạm trong mẫu HĐ-02 là gì?"],
     sourceIds: [sources[1]!.id],
-    tools: ["search", "web_search", "code_interpreter"],
-    knowledgeCutoff: "2026-01-01T00:00:00Z",
+    tools: ["search", "web_search"],
   });
+  expect(state.created).not.toHaveProperty("taskPrompt");
+  expect(state.created).not.toHaveProperty("reasoningEffort");
 
   const hrCard = page.getByRole("article").filter({ hasText: "Chính sách nhân sự" });
   await hrCard.getByRole("button", { name: "Chia sẻ Chính sách nhân sự" }).click();
@@ -468,7 +474,7 @@ test("edits an agent on its own page, saving only changes and guarding unsaved e
   await expect(page.getByLabel(/^Câu hỏi gợi ý \d$/)).toHaveCount(8);
   await expect(addStarter).toBeDisabled();
   await page.getByLabel("Câu hỏi gợi ý 1", { exact: true }).fill("Chế độ nghỉ phép năm 2026?");
-  await page.getByLabel("Max output (token)").fill("2048");
+  await page.getByLabel("Chức danh").fill("Chuyên viên nhân sự");
 
   await page.getByRole("link", { name: "Trợ lý", exact: true }).first().click();
   const guard = page.getByRole("alertdialog", { name: "Bỏ thay đổi chưa lưu?" });
@@ -482,7 +488,7 @@ test("edits an agent on its own page, saving only changes and guarding unsaved e
     name: "Chính sách nhân sự",
     description: "Giải đáp chính sách lương và nghỉ phép năm 2026.",
     starterPrompts: ["Chế độ nghỉ phép năm 2026?"],
-    outputTokenLimit: 2048,
+    title: "Chuyên viên nhân sự",
   });
 
   const card = page.getByRole("article").filter({ hasText: "Chính sách nhân sự" });

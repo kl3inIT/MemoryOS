@@ -116,10 +116,11 @@ public class ChatTurnPersistence {
     }
 
     /**
-     * The creativity and reasoning level for one turn, in Onyx's order: the level pinned on this conversation, then
-     * the model configuration (which the adapter keeps when nothing outranks it), then the member's own defaults.
+     * The creativity and reasoning level for one turn: the level pinned on this conversation, then the agent's own
+     * (MEM-273), either outranking the model configuration; then, as Onyx orders it, the model configuration (which the
+     * adapter keeps when nothing outranks it) and the member's own defaults.
      */
-    private static ModelSampling sampling(JdbcChatRepository.Persona settings, ChatPreferences own) {
+    static ModelSampling sampling(JdbcChatRepository.Persona settings, ChatPreferences own) {
         var pinned = settings.reasoningEffort();
         var effort = pinned != null ? pinned : own.reasoningEffortDefault();
         if (own.temperatureDefault() == null && effort == null) return ModelSampling.NONE;
@@ -247,17 +248,15 @@ public class ChatTurnPersistence {
         }
         var own = preferences(tenant, actor);
         String language = languages.read(actor);
-        int effectiveContext = settings.options().contextTokenLimit() == null ? contextTokenLimit
-                : Math.min(contextTokenLimit, settings.options().contextTokenLimit());
         String instructions = settings.instructions();
-        if (selection == null) ChatTurnSetup.validateQuestion(instructions, text, effectiveContext);
+        if (selection == null) ChatTurnSetup.validateQuestion(instructions, text, contextTokenLimit);
         else {
-            var binding = selection.binding().forOptions(settings.options().sampling(), settings.options().outputTokenLimit());
+            var binding = selection.binding().forOptions(settings.options().sampling());
             instructions = ChatPrompts.resolve(instructions,
                     binding.toolCalling() && settings.options().searches(), Instant.now(), language);
             instructions = ChatPrompts.withChannel(instructions, command.channel());
             instructions = userInformation(tenant, actor, instructions, own, sessionId);
-            ChatTurnSetup.validateQuestion(instructions, text, effectiveContext, binding, selection.promptContribution());
+            ChatTurnSetup.validateQuestion(instructions, text, contextTokenLimit, binding, selection.promptContribution());
         }
         UUID user = command.operation() == ChatCommand.Operation.REGENERATE ? target.id() : UUID.randomUUID();
         var attachments = command.operation() == ChatCommand.Operation.REGENERATE ? target.files()

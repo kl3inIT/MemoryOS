@@ -90,6 +90,9 @@ export function AgentViewer({
             <AgentAvatar agent={agent} size="xl" />
             <div>
               <DialogTitle>{agent.name}</DialogTitle>
+              {agent.title && (
+                <p className="mt-0.5 font-main-ui-body text-content-secondary">{agent.title}</p>
+              )}
               <p className="mt-1 flex items-center justify-center gap-1.5 font-secondary-body text-content-muted">
                 <PersonAvatar
                   name={owner}
@@ -208,13 +211,6 @@ export function AgentViewer({
                     <Detail label={ui("Hướng dẫn")}>
                       <p className="max-h-48 overflow-y-auto rounded-lg bg-surface-sunken p-3 whitespace-pre-wrap">
                         {agent.instructions}
-                      </p>
-                    </Detail>
-                  )}
-                  {agent.taskPrompt && (
-                    <Detail label={ui("Nhắc việc mỗi lượt")}>
-                      <p className="rounded-lg bg-surface-sunken p-3 whitespace-pre-wrap">
-                        {agent.taskPrompt}
                       </p>
                     </Detail>
                   )}

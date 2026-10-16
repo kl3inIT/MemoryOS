@@ -58,6 +58,11 @@ export function AgentCard({
                   </span>
                 )}
               </div>
+              {agent.title && (
+                <p className="truncate pr-7 font-secondary-body text-content-secondary no-hover:pr-0">
+                  {agent.title}
+                </p>
+              )}
               <p className="mt-1 line-clamp-2 font-secondary-body text-content-muted">
                 {agent.description || ui("Chưa có mô tả.")}
               </p>

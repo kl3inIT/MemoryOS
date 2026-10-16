@@ -435,7 +435,8 @@ public class JdbcChatRepository {
      *
      * @param tools          agent tool keys ({@code search}, {@code web_search}, {@code image_generation})
      * @param mcpServerIds   attached MCP servers; null for the builtin agent, which reaches every accessible server
-     * @param reasoningEffort the level pinned on this conversation, which outranks the model configuration
+     * @param reasoningEffort the level pinned on this conversation, else the agent's own; either outranks the model
+     *                        configuration (MEM-273)
      */
     public record Persona(String instructions, ChatTurnOptions options, String revision,
                           @Nullable UUID modelConfigurationId, List<UUID> fileIds, Set<String> tools,
@@ -490,18 +491,13 @@ public class JdbcChatRepository {
      */
     public Persona persona(UUID session, boolean lock, boolean agentsManage) {
         return jdbc.sql("""
-                        SELECT p.builtin_key, p.model_configuration_id, p.context_token_limit, p.output_token_limit,
-                            s.reasoning_effort,
-                            p.task_prompt, p.knowledge_cutoff,
+                        SELECT p.builtin_key, p.model_configuration_id,
+                            COALESCE(s.reasoning_effort, p.reasoning_effort) AS reasoning_effort,
                             p.grounded OR COALESCE((SELECT cs.grounded_answers FROM chat_settings cs
                                                     WHERE cs.tenant_id = p.tenant_id), FALSE) AS grounded,
                             CASE WHEN p.builtin_key IS NULL THEN p.file_ids ELSE COALESCE(pr.file_ids,'[]'::jsonb) END AS file_ids,
                             %s AS revision,
-                            CASE WHEN p.builtin_key IS NULL AND p.replace_base_system_prompt
-                                      AND position('{{CURRENT_DATETIME}}' IN p.instructions) = 0
-                                     THEN concat_ws(chr(10), p.instructions, 'The current date is {{CURRENT_DATETIME}}.')
-                                 WHEN p.builtin_key IS NULL AND p.replace_base_system_prompt THEN p.instructions
-                                 WHEN p.builtin_key IS NULL THEN concat_ws(chr(10), :base, p.instructions)
+                            CASE WHEN p.builtin_key IS NULL THEN concat_ws(chr(10), :base, p.instructions)
                                  WHEN pr.id IS NOT NULL THEN concat_ws(chr(10), p.instructions, pr.instructions)
                                  ELSE p.instructions END AS instructions,
                             ARRAY(SELECT tool.tool_key FROM persona_tool tool WHERE tool.persona_id = p.id) AS tools,
@@ -524,25 +520,20 @@ public class JdbcChatRepository {
                 .param("agentsManage", agentsManage)
                 .query((row, ignored) -> {
                     boolean builtin = row.getString("builtin_key") != null;
-                    var cutoff = row.getTimestamp("knowledge_cutoff");
                     var tools = Set.copyOf(List.of((String[]) row.getArray("tools").getArray()));
-                    String pinned = row.getString("reasoning_effort");
+                    String effort = row.getString("reasoning_effort");
                     return new Persona(row.getString("instructions"),
                             ChatTurnOptions.builder()
                                     .searchEnabled(tools.contains("search"))
                                     .sourceIds(List.of((UUID[]) row.getArray("sources").getArray()))
                                     .sourcesRestricted(row.getBoolean("restricts_sources"))
-                                    .contextTokenLimit(row.getObject("context_token_limit", Integer.class))
-                                    .outputTokenLimit(row.getObject("output_token_limit", Integer.class))
-                                    .knowledgeCutoff(cutoff == null ? null : cutoff.toInstant())
-                                    .taskPrompt(row.getString("task_prompt"))
                                     .codeInterpreter(tools.contains("code_interpreter"))
                                     .grounded(row.getBoolean("grounded"))
                                     .build(),
                             row.getString("revision"), row.getObject("model_configuration_id", UUID.class),
                             List.of(JSON.readValue(row.getString("file_ids"), UUID[].class)), tools,
                             builtin ? null : List.of((UUID[]) row.getArray("mcp_servers").getArray()),
-                            pinned == null ? null : ReasoningEffort.valueOf(pinned));
+                            effort == null ? null : ReasoningEffort.valueOf(effort));
                 })
                 .optional().orElseThrow(ChatException::unavailable);
     }

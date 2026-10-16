@@ -13,6 +13,9 @@ import org.jspecify.annotations.Nullable;
 public record ChatAssistantResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"},
+                description = "The role line under the name; null when unset or the assistant is not usable")
+        @Nullable String title,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Empty when the assistant is not usable")
         String description,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Seed of the assistant's generated face")
@@ -48,7 +51,7 @@ public record ChatAssistantResponse(
     }
 
     public static ChatAssistantResponse from(ChatAssistant assistant) {
-        return new ChatAssistantResponse(assistant.id(), assistant.name(), assistant.description(),
+        return new ChatAssistantResponse(assistant.id(), assistant.name(), assistant.title(), assistant.description(),
                 assistant.avatarSeed(), assistant.hasAvatar(), assistant.builtin(), ownerName(assistant.owner()),
                 assistant.usable(), assistant.latestTopic() == null ? null : Topic.from(assistant.latestTopic()));
     }

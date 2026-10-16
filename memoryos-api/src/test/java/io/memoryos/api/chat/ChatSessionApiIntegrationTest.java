@@ -2109,21 +2109,25 @@ class ChatSessionApiIntegrationTest {
             var project = workspaceRequest(http, ownerToken, "POST", "/api/chat/projects",
                     "{\"name\":\"Work\",\"description\":\"\",\"instructions\":\"PROJECT INSTRUCTIONS\"}", 201);
             var persona = workspaceRequest(http, ownerToken, "POST", "/api/chat/personas", """
-                    {"name":"Personal","description":"","instructions":"ASSISTANT INSTRUCTIONS",
-                     "starterPrompts":["Start here"],"sourceIds":[],"tools":[],
-                     "contextTokenLimit":8000,"outputTokenLimit":1000}
+                    {"name":"Personal","title":"Trợ lý nhân sự","description":"","instructions":"ASSISTANT INSTRUCTIONS",
+                     "greeting":"Chào bạn, hỏi mình về nghỉ phép nhé.","starterPrompts":["Start here"],"sourceIds":[],
+                     "tools":[]}
                     """, 201);
-            var outOfRange = workspaceRequest(http, ownerToken, "POST", "/api/chat/personas", """
-                    {"name":"Limits","description":"","instructions":"","starterPrompts":[],"sourceIds":[],
-                     "contextTokenLimit":255,"outputTokenLimit":200001}
-                    """, 400);
+            assertEquals("Trợ lý nhân sự", persona.path("title").asText());
+            assertEquals("Chào bạn, hỏi mình về nghỉ phép nhé.", persona.path("greeting").asText());
+            assertFalse(persona.path("reasoningEffort").isTextual());
+            assertTrue(persona.path("taskPrompt").isMissingNode());
+            var outOfRange = workspaceRequest(http, ownerToken, "POST", "/api/chat/personas",
+                    Json.mapper().createObjectNode().put("name", "Limits").put("title", "t".repeat(81)).put("description", "")
+                            .put("instructions", "").set("starterPrompts", Json.mapper().createArrayNode()).toString(), 400);
             assertEquals("REQUEST_VALIDATION", outOfRange.path("code").asText());
-            assertEquals("contextTokenLimit", outOfRange.path("errors").path(0).path("field").asText());
-            assertEquals("MIN", outOfRange.path("errors").path(0).path("code").asText());
-            assertEquals(256, outOfRange.path("errors").path(0).path("params").path("min").asInt());
-            assertEquals("outputTokenLimit", outOfRange.path("errors").path(1).path("field").asText());
-            assertEquals("MAX", outOfRange.path("errors").path(1).path("code").asText());
-            assertEquals(200000, outOfRange.path("errors").path(1).path("params").path("max").asInt());
+            assertEquals("title", outOfRange.path("errors").path(0).path("field").asText());
+            assertEquals("SIZE", outOfRange.path("errors").path(0).path("code").asText());
+            assertEquals(80, outOfRange.path("errors").path(0).path("params").path("max").asInt());
+            workspaceRequest(http, ownerToken, "POST", "/api/chat/personas", """
+                    {"name":"Levels","description":"","instructions":"","starterPrompts":[],"sourceIds":[],
+                     "reasoningEffort":"EXTREME"}
+                    """, 400);
             String projectId = project.path("id").asText(), personaId = persona.path("id").asText();
             assertTrue(persona.path("permissions").path("edit").asBoolean());
             assertTrue(persona.path("permissions").path("delete").asBoolean());

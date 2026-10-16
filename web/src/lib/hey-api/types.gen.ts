@@ -1030,6 +1030,10 @@ export type ChatAssistant = {
     id: string;
     name: string;
     /**
+     * The role line under the name; null when unset or the assistant is not usable
+     */
+    title: string | null;
+    /**
      * Empty when the assistant is not usable
      */
     description: string;
@@ -1299,17 +1303,26 @@ export type ChatPreferences = {
 
 export type PersonaInput = {
     name?: string;
+    /**
+     * The role line under the name; null or blank clears it
+     */
+    title?: string | null;
     description?: string;
     instructions?: string;
-    taskPrompt?: string;
+    /**
+     * What an empty conversation opens with; null or blank shows the default heading
+     */
+    greeting?: string | null;
     starterPrompts?: Array<string>;
     sourceIds?: Array<string>;
     documentSetIds?: Array<string>;
     tools?: Array<string>;
     mcpServerIds?: Array<string>;
     modelConfigurationId?: string | null;
-    contextTokenLimit?: number | null;
-    outputTokenLimit?: number | null;
+    /**
+     * The agent's own reasoning level; null leaves it to the conversation, the member and the model
+     */
+    reasoningEffort?: 'OFF' | 'LOW' | 'MEDIUM' | 'HIGH';
     fileIds?: Array<string>;
     /**
      * The seed of the agent's face; null keeps it, and a new agent gets a random one
@@ -1321,8 +1334,6 @@ export type PersonaInput = {
      */
     removeAvatar?: boolean | null;
     labelIds?: Array<string>;
-    replaceBaseSystemPrompt?: boolean;
-    knowledgeCutoff?: string;
     grounded?: boolean;
 };
 
@@ -1378,9 +1389,10 @@ export type PersonaView = {
     permissions?: PersonaPermissions;
     revision?: number;
     name?: string;
+    title?: string;
     description?: string;
     instructions?: string;
-    taskPrompt?: string;
+    greeting?: string;
     starterPrompts?: Array<string>;
     sourceIds?: Array<string>;
     sources?: Array<AgentSourceRef>;
@@ -1389,8 +1401,7 @@ export type PersonaView = {
     tools?: Array<string>;
     mcpServers?: Array<AgentRef>;
     modelConfigurationId?: string | null;
-    contextTokenLimit?: number | null;
-    outputTokenLimit?: number | null;
+    reasoningEffort?: 'OFF' | 'LOW' | 'MEDIUM' | 'HIGH' | null;
     fileIds?: Array<string>;
     avatarSeed?: string;
     hasAvatar?: boolean;
@@ -1404,9 +1415,7 @@ export type PersonaView = {
     listed?: boolean;
     featured?: boolean;
     displayPriority?: number;
-    replaceBaseSystemPrompt?: boolean;
     grounded?: boolean;
-    knowledgeCutoff?: string;
     pinned?: boolean;
     deletedAt?: string;
 };

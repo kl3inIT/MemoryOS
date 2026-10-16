@@ -33,6 +33,7 @@ const names = ["MemoryOS", ...[1, 2, 3, 4, 5, 6, 7].map((n) => `Trợ lý ${n}`)
 const assistant = (n: number, running = false): ChatAssistant => ({
   id: id(n),
   name: names[n]!,
+  title: null,
   description: "",
   avatarSeed: names[n]!,
   hasAvatar: false,

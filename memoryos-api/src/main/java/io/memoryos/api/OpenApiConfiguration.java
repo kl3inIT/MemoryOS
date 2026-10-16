@@ -1,5 +1,6 @@
 package io.memoryos.api;
 
+import io.memoryos.ai.ReasoningEffort;
 import io.memoryos.api.security.BrowserMutation;
 import io.memoryos.connector.SourceRunTrigger;
 import io.memoryos.usage.AiUsageLimitScope;
@@ -83,8 +84,8 @@ class OpenApiConfiguration {
                     // here cannot: core-owned schemas (no OpenAPI annotations in core), and references and enums,
                     // whose null must be a oneOf branch because a sibling type or enum would reject it.
                     configureNullableProperty(components, "PersonaView", "modelConfigurationId", new StringSchema().format("uuid"));
-                    configureNullableProperty(components, "PersonaView", "contextTokenLimit", new IntegerSchema());
-                    configureNullableProperty(components, "PersonaView", "outputTokenLimit", new IntegerSchema());
+                    configureNullableProperty(components, "PersonaView", "reasoningEffort",
+                            new StringSchema()._enum(Arrays.stream(ReasoningEffort.values()).map(Enum::name).toList()));
                     for (String property : List.of("parentMessageId", "latestChildMessageId"))
                         configureNullableProperty(components, "ChatBranch", property, new StringSchema().format("uuid"));
                     configureNullableProperty(components, "Feedback", "positive", new BooleanSchema());

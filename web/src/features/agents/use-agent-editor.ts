@@ -22,7 +22,6 @@ import {
   updateChatPersonaMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { can } from "@/lib/resource-permissions";
-import { useProblemMessage } from "@/lib/use-problem-message";
 import { agentRequest, agentValidation, initialValues, readDraft, writeDraft } from "./agent-form";
 import { agentDocumentSetsOptions } from "./agent-queries";
 import { withRequestTimeout } from "@/lib/api";
@@ -59,7 +58,6 @@ export function useAgentForm(agent?: Persona) {
   const cache = useQueryClient();
   const navigate = useNavigate();
   const problemErrors = useProblemErrors();
-  const problemMessage = useProblemMessage();
   const { actorId } = useApplicationSession();
   const create = useMutation(withRequestTimeout(createChatPersonaMutation()));
   const update = useMutation(withRequestTimeout(updateChatPersonaMutation()));
@@ -69,7 +67,7 @@ export function useAgentForm(agent?: Persona) {
   const form = useAppForm({
     defaultValues: restored ?? initial,
     validationLogic: revalidateLogic(),
-    validators: { onDynamic: agentValidation(problemMessage) },
+    validators: { onDynamic: agentValidation },
     onSubmit: async ({ value, formApi }) => {
       if (!value.name.trim()) return;
       const body = agentRequest(value, agent);

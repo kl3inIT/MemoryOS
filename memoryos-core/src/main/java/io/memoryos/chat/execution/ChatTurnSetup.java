@@ -164,8 +164,7 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
      * MEM-268 compaction measures the next turn's replay against.
      */
     public static int historyBudget(ChatTurnSetup setup, int contextTokenLimit) {
-        Integer agentLimit = setup.options().contextTokenLimit();
-        return historyLimit(agentLimit == null ? contextTokenLimit : Math.min(contextTokenLimit, agentLimit), setup.binding());
+        return historyLimit(contextTokenLimit, setup.binding());
     }
 
     private static int historyLimit(int limit, ModelBinding binding) {
@@ -174,8 +173,7 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
 
     public static ChatTurnSetup resolve(UUID session, UUID assistant, TurnContext context, int contextTokenLimit,
                                         ModelBinding binding, String contribution) {
-        binding = binding.forOptions(context.options().sampling(), context.options().outputTokenLimit());
-        if (context.options().contextTokenLimit() != null) contextTokenLimit = Math.min(contextTokenLimit, context.options().contextTokenLimit());
+        binding = binding.forOptions(context.options().sampling());
         var policy = binding.policy();
         var selected = new ArrayList<Message>();
         var nativeMessages = new ArrayList<org.springframework.ai.chat.messages.Message>();

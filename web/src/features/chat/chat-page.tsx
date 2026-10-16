@@ -271,6 +271,7 @@ function ChatConversationBody({
       <ChatThread
         sendDisabled={!conversation.persona}
         readOnly={conversation.personaGone}
+        greeting={conversation.persona?.greeting}
         welcome={
           project && !session ? (
             <ProjectContextPanel project={project} />
@@ -365,7 +366,10 @@ function ChatConversationBody({
   );
 }
 
-/** The opening of a new topic with an assistant: its face, name and description above its starters. */
+/**
+ * The opening of a new topic with an assistant: its face, name and title, then its greeting (its description when
+ * it has none) above its starters.
+ */
 function AssistantWelcome({
   assistant,
   children,
@@ -373,18 +377,24 @@ function AssistantWelcome({
   assistant: {
     id: string;
     name: string;
+    title: string;
     description: string;
+    greeting: string;
     avatarSeed: string;
     hasAvatar: boolean;
   };
   children: ReactNode;
 }) {
+  const opening = assistant.greeting || assistant.description;
   return (
     <div className="flex flex-col items-center gap-3">
       <AgentAvatar agent={assistant} size="lg" />
-      <h1 className="text-2xl font-medium tracking-tight text-balance">{assistant.name}</h1>
-      {assistant.description && (
-        <p className="max-w-xl text-pretty text-content-secondary">{assistant.description}</p>
+      <div className="flex flex-col items-center gap-1">
+        <h1 className="text-2xl font-medium tracking-tight text-balance">{assistant.name}</h1>
+        {assistant.title && <p className="text-content-muted">{assistant.title}</p>}
+      </div>
+      {opening && (
+        <p className="max-w-xl text-pretty whitespace-pre-line text-content-secondary">{opening}</p>
       )}
       {children}
     </div>
