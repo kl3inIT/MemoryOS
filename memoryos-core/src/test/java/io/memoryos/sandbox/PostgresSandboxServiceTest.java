@@ -17,6 +17,7 @@ import io.memoryos.objectstorage.UploadAuthorization;
 import io.memoryos.objectstorage.UploadConstraints;
 import io.memoryos.sandbox.persistence.JdbcSandboxRepository;
 import io.memoryos.shared.ActorId;
+import io.memoryos.shared.Sha256;
 import io.memoryos.shared.TenantId;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -441,7 +442,8 @@ class PostgresSandboxServiceTest {
             }
             commands.computeIfAbsent(id, _ -> Collections.synchronizedList(new ArrayList<>())).add(command.command());
             if (command.command().equals(WorkspaceArchives.TAKE))
-                return new SandboxCommandResult(archiveExit, archiveExit == 0 ? "12\n" : "600000000\n", "", false,
+                return new SandboxCommandResult(archiveExit,
+                        archiveExit == 0 ? "12 " + Sha256.hex(new byte[12]) + "\n" : "600000000\n", "", false,
                         Duration.ofMillis(5));
             return new SandboxCommandResult(0, "ok", "", false, Duration.ofMillis(5));
         }

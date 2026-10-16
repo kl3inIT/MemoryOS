@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.memoryos.objectstorage.ContentSha256;
 import io.memoryos.objectstorage.ObjectKey;
+import io.memoryos.objectstorage.ObjectMetadata;
 import io.memoryos.objectstorage.ObjectStorageException;
 import io.memoryos.objectstorage.ObjectStorageFailureCode;
 import io.memoryos.objectstorage.ObjectUploadSpecification;
@@ -109,13 +110,21 @@ class S3ObjectStorageIntegrationTest {
             byte[] content = new byte[3 * 1024 * 1024 + 17];
             new Random(52).nextBytes(content);
             var key = new ObjectKey("sandbox/10000000-0000-0000-0000-000000000052/archive.tar.gz");
-            storage.write(key, new ByteArrayInputStream(content), content.length, "application/gzip");
+            var declared = new ObjectMetadata(content.length, "application/gzip",
+                    new ContentSha256(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content))));
+            storage.writeStream(key, new ByteArrayInputStream(content), declared);
             try (var stored = storage.open(key)) {
                 assertArrayEquals(content, stored.inputStream().readAllBytes());
             }
             assertThrows(ObjectStorageException.class,
-                    () -> storage.write(key, new ByteArrayInputStream(content), content.length, "application/gzip"));
+                    () -> storage.writeStream(key, new ByteArrayInputStream(content), declared));
             storage.delete(key);
+
+            var corrupted = content.clone();
+            corrupted[0] ^= 1;
+            var other = new ObjectKey("sandbox/10000000-0000-0000-0000-000000000052/corrupted.tar.gz");
+            assertThrows(ObjectStorageException.class,
+                    () -> storage.writeStream(other, new ByteArrayInputStream(corrupted), declared));
         }
     }
 

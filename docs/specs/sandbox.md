@@ -20,7 +20,7 @@ work in it.
   store and extracts them into the next sandbox (`sandbox_daemon/snapshot.py`). A turn that used a Sandbox tool ends,
   after its reply and before the run gives its place back, with `SandboxService.save`: tar, run in the sandbox as user
   1000, writes `/workspace` without `attachments` (copied in again every turn), `.memoryos` (run files),
-  `node_modules`, `.next`, `__pycache__` and `.venv`; the archive is streamed to Object Storage under a new key
+  `node_modules`, `.next`, `__pycache__` and `.venv`; the archive, with the size and SHA-256 tar's command prints, is streamed to Object Storage under a new key
   `sandbox/{tenant}/{conversation}/{uuid}.tar.gz`, recorded in `sandbox_workspace_archives` (V183) before its upload,
   and becomes `sandbox_workspaces.archive_key` once written. Onyx's bounds apply: a workspace over 500 MiB of files or an
   archive over 100 MiB is not saved, and the previous archive stays. A new sandbox of the conversation is not recorded

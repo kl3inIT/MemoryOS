@@ -122,17 +122,18 @@ public final class S3ObjectStorage implements ObjectStorage, AutoCloseable {
     }
 
     @Override
-    public void write(ObjectKey key, InputStream content, long length, String mediaType) {
+    public void writeStream(ObjectKey key, InputStream content, ObjectMetadata declared) {
         Objects.requireNonNull(content, "content must not be null");
-        if (length < 1 || length > ObjectUploadSpecification.MAX_SIZE_BYTES) {
+        if (declared.sizeBytes() < 1 || declared.sizeBytes() > ObjectUploadSpecification.MAX_SIZE_BYTES) {
             throw new IllegalArgumentException("object write exceeds bounds");
         }
         try {
-            // No SHA-256 up front: the stream is read once. The SDK checks the body against the declared length.
+            // The declared SHA-256 travels with the request, so the store refuses a body that does not match it.
             client.putObject(PutObjectRequest.builder().bucket(bucket).key(key.value())
                             .overrideConfiguration(c -> c.apiCallTimeout(Duration.ofMinutes(5)))
-                            .contentType(mediaType).contentLength(length).ifNoneMatch("*").build(),
-                    RequestBody.fromInputStream(content, length));
+                            .contentType(declared.mediaType()).contentLength(declared.sizeBytes())
+                            .checksumSHA256(declared.checksum().base64()).ifNoneMatch("*").build(),
+                    RequestBody.fromInputStream(content, declared.sizeBytes()));
         } catch (S3Exception | SdkClientException exception) {
             throw translate(exception);
         }

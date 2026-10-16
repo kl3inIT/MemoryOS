@@ -1,7 +1,9 @@
 package io.memoryos.sandbox;
 
+import io.memoryos.objectstorage.ContentSha256;
 import io.memoryos.objectstorage.ObjectContent;
 import io.memoryos.objectstorage.ObjectKey;
+import io.memoryos.objectstorage.ObjectMetadata;
 import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.ObjectStorageException;
 import io.memoryos.objectstorage.ObjectStorageFailureCode;
@@ -36,6 +38,7 @@ final class WorkspaceArchives {
     static final String ARCHIVE = SandboxService.WORKSPACE + "/.memoryos/workspace.tar.gz";
     static final String INCOMING = SandboxService.WORKSPACE + "/.memoryos-restore.tar.gz";
     private static final int TOO_LARGE = 3;
+    private static final String MEDIA_TYPE = "application/gzip";
     private static final String EXCLUDED = "--exclude=./attachments --exclude=./.memoryos --exclude=./.memoryos-restore.tar.gz"
             + " --exclude=node_modules --exclude=.next --exclude=__pycache__ --exclude=.venv";
     /** tar exits 1 when a file changed while it was read; the archive is still whole. */
@@ -45,7 +48,7 @@ final class WorkspaceArchives {
             size=$(du -sb %2$s . | cut -f1)
             if [ "$size" -gt %3$d ]; then echo "$size"; exit %4$d; fi
             tar --create --gzip --file %1$s %2$s --warning=no-file-changed . || [ $? -eq 1 ] || exit 2
-            stat -c %%s %1$s
+            echo "$(stat -c %%s %1$s) $(sha256sum %1$s | cut -d' ' -f1)"
             """.formatted(ARCHIVE, EXCLUDED, MAX_FILES_BYTES, TOO_LARGE);
     static final String EXTRACT = """
             set -eu
@@ -74,11 +77,12 @@ final class WorkspaceArchives {
             notSaved("too_large", null);
             return;
         }
-        long size = taken.exitCode() == 0 && !taken.timedOut() ? size(taken.stdout()) : -1;
-        if (size < 1) {
+        ObjectMetadata declared = taken.exitCode() == 0 && !taken.timedOut() ? declared(taken.stdout()) : null;
+        if (declared == null) {
             notSaved("command_failed", null);
             return;
         }
+        long size = declared.sizeBytes();
         if (size > MAX_ARCHIVE_BYTES) {
             notSaved("too_large", null);
             return;
@@ -86,7 +90,7 @@ final class WorkspaceArchives {
         String key = "sandbox/" + tenant.value() + "/" + conversation + "/" + UUID.randomUUID() + ".tar.gz";
         transactions.executeWithoutResult(_ -> workspaces.archiveBegun(tenant, conversation, key, clock.instant()));
         try (InputStream archive = runtime.open(id, ARCHIVE)) {
-            storage.write(new ObjectKey(key), archive, size, "application/gzip");
+            storage.writeStream(new ObjectKey(key), archive, declared);
         } catch (Exception failed) {
             notSaved("upload_failed", failed);
             return;
@@ -137,12 +141,15 @@ final class WorkspaceArchives {
         return deleted;
     }
 
-    private static long size(String stdout) {
+    /** The archive's size and SHA-256, as the last line of {@link #TAKE} prints them. */
+    private static @Nullable ObjectMetadata declared(String stdout) {
+        String[] lines = stdout.strip().split("\n");
+        String[] fields = lines[lines.length - 1].strip().split(" ");
         try {
-            String[] lines = stdout.strip().split("\n");
-            return Long.parseLong(lines[lines.length - 1].strip());
-        } catch (NumberFormatException unreadable) {
-            return -1;
+            long size = Long.parseLong(fields[0]);
+            return fields.length == 2 && size > 0 ? new ObjectMetadata(size, MEDIA_TYPE, new ContentSha256(fields[1])) : null;
+        } catch (IllegalArgumentException unreadable) {
+            return null;
         }
     }
 
