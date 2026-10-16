@@ -666,10 +666,12 @@ A mask is an attached PNG named `mask-for-<image_id>.png`: white may change, bla
 
 [MEM-287](../increments/active/mem-287-tool-history/design.md): a later turn sees what earlier answers did, as Dust,
 LibreChat, OpenHands, Onyx Craft and Anthropic replay earlier tool work. Each tool call of an answer is kept in
-`chat_message_tool_calls` (V182) with its arguments, and with its result only for `bash`, `bash_output`, `edit_file`,
-`publish_file`, `run_python`, `web_search`, `open_url`, `generate_image` and `edit_image`; every other result
-(`search_knowledge`, `read_file`, `search_files`, MCP tools, `update_memory`) is replayed as "This tool call completed but
-its result is not kept.", so a revoked permission, a deleted file or a forgotten memory is never replayed. Arguments and a
+`chat_message_tool_calls` (V182), with its result only for `bash`, `bash_output`, `edit_file`, `publish_file`,
+`run_python`, `web_search`, `open_url`, `generate_image` and `edit_image`, and only before the answer first calls
+`search_knowledge` or an MCP tool, since later output may quote what they brought in. Every other result is replayed as
+"This tool call completed but its result is not kept.", so a revoked permission, a deleted file or a forgotten memory is
+never replayed. Arguments are kept for those tools and for `search_knowledge`, `read_file` and `search_files`; the
+arguments of `update_memory` and of MCP tools are replaced by a note. Arguments and a
 result are each bounded to 64 KiB (arguments over it are replaced, never cut, as they are JSON), an answer to 256 KiB.
 The calls are written when the turn finishes, whatever its status, and deleted with their message.
 

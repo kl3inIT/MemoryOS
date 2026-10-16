@@ -36,12 +36,15 @@ As Dust and Anthropic, with one restriction for organization knowledge.
   arguments and `resultAsString` from Embabel's `AfterToolCallContext`, in call order. Quiet calls (an MCP server's
   opening tool) are not kept, as they are no step. Deep research runs its own loop and keeps nothing; its turns replay
   as today.
-- **What is kept.** The arguments of every call. The result only of tools whose output is the turn's own work or public:
-  `bash`, `bash_output`, `edit_file`, `publish_file`, `run_python`, `web_search`, `open_url`, `generate_image`,
-  `edit_image`. Every other result (`search_knowledge`, `read_file`, `search_files`, MCP tools, `update_memory`) is
-  replayed as "This tool call completed but its result is not kept.": replaying stored organization or personal content
-  would outlive a revoked permission, a deleted file or a forgotten memory. This is the one departure from Dust, which
-  keeps every result.
+- **What is kept.** The result only of tools whose output is the turn's own work or public: `bash`, `bash_output`,
+  `edit_file`, `publish_file`, `run_python`, `web_search`, `open_url`, `generate_image`, `edit_image`, and only until
+  the answer first calls `search_knowledge` or an MCP tool: after that, a script's output may print what they brought in
+  (`run_python` also receives the found documents' files), so no later result is kept. Every other result is replayed
+  as "This tool call completed but its result is not kept.": replaying stored organization or personal content would
+  outlive a revoked permission, a deleted file or a forgotten memory. Arguments are kept for those tools and for
+  `search_knowledge`, `read_file` and `search_files`, which name only queries and files; `update_memory` (the memory's
+  text) and MCP tools (any payload) keep a note instead. This is the one departure from Dust, which keeps every result
+  and argument. Files the person attached stay readable: they belong to the conversation and go with it.
 - **Bounds.** Arguments and a result are each stored up to 64 KiB (the tools already bound their output to 30,000 to
   50,000 characters); a call's result past that is cut with a marker. A message keeps at most 256 KiB of calls in total;
   past it the remaining results are not kept.
