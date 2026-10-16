@@ -15,7 +15,7 @@ dependencies = [
   "httpx>=0.28.1",
   "python-multipart>=0.0.31",
   "uvicorn==0.54.0",
-  "kubernetes>=36.0.3,<37",
+  "kubernetes>=36.0.3,<38",
   "python-json-logger>=3.1.0",
 ]
 
