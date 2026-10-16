@@ -69,6 +69,8 @@ services:
       MEMORYOS_CHANNEL_CREDENTIAL_KEY_VERSION: ${MEMORYOS_CHANNEL_CREDENTIAL_KEY_VERSION:?Set MEMORYOS_CHANNEL_CREDENTIAL_KEY_VERSION}
       # MEM-263: a Zalo bot may receive by webhook only where this public address is set.
       MEMORYOS_CHANNEL_WEB_URL: ${MEMORYOS_CHANNEL_WEB_URL:-}
+      # MEM-270: this host has about 4 GiB free beside the stack; each sandbox may use 1 GiB.
+      MEMORYOS_SANDBOX_MAX_RUNNING: ${MEMORYOS_SANDBOX_MAX_RUNNING:-6}
     secrets:
       - channel_credential_encryption_key
     depends_on:
@@ -117,6 +119,7 @@ services:
       MEMORYOS_SANDBOX_ENDPOINT: http://memoryos-sandbox:8090
       MEMORYOS_SANDBOX_API_KEY_FILE: /run/secrets/sandbox_api_key
       MEMORYOS_SANDBOX_COMPUTER_IMAGE: ${MEMORYOS_SANDBOX_COMPUTER_IMAGE:?Set MEMORYOS_SANDBOX_COMPUTER_IMAGE}
+      MEMORYOS_SANDBOX_MAX_RUNNING: ${MEMORYOS_SANDBOX_MAX_RUNNING:-6}
       MEMORYOS_REDIS_HOST: redis
       MEMORYOS_REDIS_PORT: "6379"
       MEMORYOS_REDIS_USERNAME: memoryos-api

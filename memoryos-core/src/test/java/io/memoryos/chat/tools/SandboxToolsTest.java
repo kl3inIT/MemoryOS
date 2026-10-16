@@ -8,20 +8,28 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.memoryos.chat.ChatToolActivity;
 import io.memoryos.chat.interpreter.InterpreterService;
+import io.memoryos.library.UserFile;
+import io.memoryos.library.UserFileContentService;
+import io.memoryos.objectstorage.ObjectContent;
 import io.memoryos.sandbox.SandboxCommand;
 import io.memoryos.sandbox.SandboxCommandResult;
 import io.memoryos.sandbox.SandboxService;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -46,11 +54,14 @@ class SandboxToolsTest {
     /** The commands' captured streams, outside the workspace so a listing of it does not show them. */
     @TempDir
     Path streams;
+    private final UserFileContentService files = mock(UserFileContentService.class);
+    private final UUID attachment = UUID.randomUUID();
+    private SandboxService sandboxes;
     private SandboxTools tools;
 
     @BeforeEach
     void setUp() {
-        SandboxService sandboxes = mock(SandboxService.class);
+        sandboxes = mock(SandboxService.class);
         when(sandboxes.run(eq(tenant), eq(actor), eq(conversation), any())).thenAnswer(call -> run(call.getArgument(3)));
         doAnswer(call -> {
             Path file = local(call.getArgument(3));
@@ -63,8 +74,35 @@ class SandboxToolsTest {
             if (bytes.length > (long) call.getArgument(4)) throw new IllegalArgumentException("too large");
             return bytes;
         });
-        tools = new SandboxTools(sandboxes, artifacts, tenant, actor, conversation, UUID.randomUUID(), () -> {},
-                new ChatToolActivity(ignored -> {}), ignored -> {});
+        tools = tools(List.of());
+    }
+
+    private SandboxTools tools(List<UUID> fileIds) {
+        return new SandboxTools(sandboxes, artifacts, files, fileIds, tenant, actor, conversation, UUID.randomUUID(),
+                () -> {}, new ChatToolActivity(ignored -> {}), ignored -> {});
+    }
+
+    @Test
+    void theConversationsAttachmentsAreInTheWorkspaceOnceATurn() {
+        byte[] sheet = "Ngày,Doanh thu\n2026-01-03,120000\n".getBytes(StandardCharsets.UTF_8);
+        var file = new UserFile(attachment, "doanh thu/2026.csv", "text/csv", sheet.length, UserFile.Status.READY,
+                Instant.parse("2026-10-16T00:00:00Z"), Instant.parse("2026-10-16T00:00:00Z"), null);
+        when(files.readable(actor, tenant, List.of(attachment))).thenReturn(List.of(file));
+        when(files.open(actor, tenant, attachment)).thenAnswer(call -> content(sheet));
+        var withFile = tools(List.of(attachment));
+        String first = withFile.bash("ls attachments; tail -1 attachments/*", null, null, null);
+        assertTrue(first.contains("doanh thu_2026.csv") && first.contains("2026-01-03,120000"), first);
+        withFile.bash("true", null, null, null);
+        // A later turn finds the copy in place and does not send it again.
+        tools(List.of(attachment)).bash("true", null, null, null);
+        verify(files, times(1)).open(actor, tenant, attachment);
+    }
+
+    private static ObjectContent content(byte[] bytes) {
+        var stream = new ByteArrayInputStream(bytes);
+        var content = mock(ObjectContent.class);
+        when(content.inputStream()).thenReturn(stream);
+        return content;
     }
 
     @Test

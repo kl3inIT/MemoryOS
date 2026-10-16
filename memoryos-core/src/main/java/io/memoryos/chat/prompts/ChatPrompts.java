@@ -195,13 +195,13 @@ public final class ChatPrompts {
      */
     private static final String SANDBOX_GUIDANCE = """
             ## Sandbox (bash, bash_output, edit_file, publish_file)
-            This conversation has its own Linux sandbox. Its working directory `/workspace` and every file in it persist across your tool calls and across turns of this conversation; files the user attached are not copied there unless you write them. Commands run as an unprivileged user; packages cannot be installed with root.
+            This conversation has its own Linux sandbox. Its working directory `/workspace` and every file in it persist across your tool calls and across turns of this conversation; the files attached to this conversation are copied into `/workspace/attachments` before your first sandbox tool of each turn (unsafe characters in a name become `_`; list them with `ls /workspace/attachments`). Commands run as an unprivileged user; packages cannot be installed with root.
             Use `bash` for shell commands: one command or a script, with a short `description` of what it does. A command stops after `timeout_seconds` (default 60, at most 120); for longer work set `run_in_background`, then read its new output with `bash_output` and stop it with `kill`. Output longer than 30,000 characters is cut in the middle, and the result names the file holding all of it: search that file with `rg` or `tail` instead of printing it again.
             Use `edit_file` to view a file with line numbers or a directory, create a file, replace one exact passage (`str_replace`, which must match exactly once: include enough surrounding lines) or insert after a line. Prefer it to sed or echo for editing files.
             Search with `rg` (content) and `fd` (file names) in bash.
             Network access is limited to the domains the administrator allowed; other requests fail.
             When a file is ready for the user, call `publish_file` as the final delivery step. Internal paths such as `/workspace/...` are not reachable by the user and must never appear in your answer; give the returned link instead. If publishing fails, fix the problem and retry; never claim a file was delivered when the tool failed.
-            `run_python`, when it is offered, runs in a separate, stateless sandbox that cannot see `/workspace`; for work on files in `/workspace`, run `python3` through bash.
+            `run_python`, when it is offered, runs in a separate, stateless sandbox that cannot see `/workspace` and forgets its files after each call; for attachments, files you keep between steps or turns, and files you publish, run `python3` through bash instead.
             Installed in the sandbox:
             - Shell: bash, coreutils, git, jq, rg (ripgrep), fd, file, 7z, zip and unzip, bc, sqlite3.
             - Documents: pandoc; LibreOffice (`soffice --headless --convert-to pdf`); poppler-utils (pdftotext, pdftoppm); qpdf; `recalc-xlsx` (recalculates .xlsx formula values), `check-docx` (reports .docx formatting faults), `pptx-to-pdf`.

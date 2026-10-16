@@ -369,8 +369,8 @@ public final class ChatModelExecutor {
                         activity, codeEvents).withSandbox(sandbox)));
             }
             if (sandboxTools) {
-                runner = runner.withTools(Tool.fromInstance(new SandboxTools(sandboxes, interpreterSettings, setup.tenant(),
-                        setup.actor(), setup.sessionId(), setup.assistantMessageId(), fileActive, activity, codeEvents)));
+                runner = runner.withTools(Tool.fromInstance(new SandboxTools(sandboxes, interpreterSettings, fileContent,
+                        setup.fileIds(), setup.tenant(), setup.actor(), setup.sessionId(), setup.assistantMessageId(), fileActive, activity, codeEvents)));
             }
             // MEM-250: only the owner's own, non-temporary conversation edits their memory, and only while it is on.
             if (selected.toolCalling() && memories != null && memories.usableIn(setup.tenant(), setup.actor(), setup.sessionId())) {

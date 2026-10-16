@@ -301,6 +301,9 @@ services:
       MEMORYOS_SANDBOX_ENDPOINT: http://memoryos-sandbox:8090
       MEMORYOS_SANDBOX_API_KEY_FILE: /run/secrets/sandbox_api_key
       MEMORYOS_SANDBOX_COMPUTER_IMAGE: ${MEMORYOS_SANDBOX_COMPUTER_IMAGE:?Set MEMORYOS_SANDBOX_COMPUTER_IMAGE}
+      # Sandboxes used in the last 30 minutes that may run at once, each capped at 1 CPU and 1 GiB: the application
+      # node has 12 vCPUs and 31 GiB. An idle one costs a few MiB.
+      MEMORYOS_SANDBOX_MAX_RUNNING: ${MEMORYOS_SANDBOX_MAX_RUNNING:-12}
       # MEM-26: Chat reply replay. The memoryos-api ACL user reaches only memoryos:chat:stream:* keys.
       MEMORYOS_REDIS_HOST: redis
       MEMORYOS_REDIS_PORT: "6379"

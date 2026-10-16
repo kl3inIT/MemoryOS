@@ -150,6 +150,8 @@ logging:
   level:
     Embabel: OFF
     com.embabel: OFF
+    # MEM-270: the OpenSandbox SDK logs every connect and renewal at INFO, several lines a tool call.
+    com.alibaba.opensandbox: WARN
 
 server:
   forward-headers-strategy: framework
