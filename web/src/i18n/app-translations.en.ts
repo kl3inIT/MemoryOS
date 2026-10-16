@@ -768,6 +768,8 @@ export const vietnameseUi: Record<string, string> = {
   "Xem trước {{name}}": "Preview {{name}}",
   "Trang trước": "Previous page",
   "Trang sau": "Next page",
+  "Mục trước": "Previous item",
+  "Mục sau": "Next item",
   "Xóa tệp?": "Delete file?",
   "Tệp sẽ bị xóa khỏi mọi cuộc hội thoại và không thể khôi phục. Đã chọn {{count}} tệp.":
     "The file is removed from every conversation and cannot be restored. {{count}} files selected.",
