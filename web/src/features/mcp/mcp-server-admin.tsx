@@ -10,6 +10,7 @@ import {
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { McpConnection, McpServerInput, McpServerView } from "@/lib/hey-api/types.gen";
 import { presentProblem } from "@/lib/problem-presentation";
+import { mcpMessages } from "./mcp-errors";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import { type McpCatalogEntry, type McpServerPreset, presetOf } from "./mcp-catalog";
 import { McpApiKeyDialog } from "./mcp-connect-actions";
@@ -83,7 +84,11 @@ export function useServerAdmin({
           server={editing === "new" ? undefined : editing}
           preset={editing === "new" ? preset : undefined}
           saving={create.isPending || update.isPending}
-          error={saveError ? problem(presentProblem(saveError, "mutation").message) : undefined}
+          error={
+            saveError
+              ? problem(presentProblem(saveError, "mutation", mcpMessages).message)
+              : undefined
+          }
           onSave={save}
           onClose={closeEditor}
         />

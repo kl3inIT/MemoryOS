@@ -211,7 +211,7 @@ class ChannelApiTest {
                 enabled, new ActorId(UUID.randomUUID()), 3, Instant.now(), Instant.now(), null, "MemoryOS Bot", "ou_bot",
                 List.of("contact:user.email:readonly"));
         var state = new ChannelConnectionState(Instant.now(), null, null, null, Instant.now());
-        return new Listed(bot, state, status);
+        return new Listed(bot, state, status, null, null);
     }
 
     @Test
@@ -230,6 +230,39 @@ class ChannelApiTest {
         when(channels.listWithState(any())).thenThrow(new IamException(IamFailureReason.ACCESS_DENIED, "no CHANNELS_MANAGE"));
         mockMvc.perform(get("/api/channels").with(authentication(member))).andExpect(status().isForbidden());
         mockMvc.perform(get("/api/channels")).andExpect(status().isUnauthorized());
+    }
+
+    /** MEM-273: a bot answers with the assistant it is bound to, which its assistant's page lists. */
+    @Test
+    void aBotIsBoundToAnAssistantAndTheAssistantListsItsBots() throws Exception {
+        var id = UUID.randomUUID();
+        var hr = UUID.randomUUID();
+        var plain = listed(id, true, Listed.Status.CONNECTED);
+        var bot = new ChannelConnection(id, ChannelProvider.LARK, "Trợ lý", "cli_a1b2c3d4e5f6",
+                Map.of(ChannelRegion.SETTING, "LARK"), "vi", true, new ActorId(UUID.randomUUID()), 3, Instant.now(),
+                Instant.now(), null, "MemoryOS Bot", "ou_bot", List.of());
+        when(channels.bindPersona(any(), eq(id), eq(hr))).thenReturn(bot);
+        when(channels.listWithState(any())).thenReturn(List.of(new Listed(bot, plain.state(), Listed.Status.CONNECTED, hr, "Nhân sự")));
+        mockMvc.perform(put("/api/channels/{id}/persona", id).with(authentication(owner)).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"personaId\":\"%s\"}".formatted(hr)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.assistant.id").value(hr.toString()))
+                .andExpect(jsonPath("$.assistant.name").value("Nhân sự"));
+
+        when(channels.bindPersona(any(), eq(id), eq(null))).thenThrow(ChannelException.assistantNotEditable());
+        mockMvc.perform(put("/api/channels/{id}/persona", id).with(authentication(owner)).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"personaId\":null}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("CHANNEL_ASSISTANT_NOT_EDITABLE"));
+
+        when(channels.boundTo(any(), eq(hr))).thenReturn(List.of(bot));
+        mockMvc.perform(get("/api/chat/personas/{id}/channels", hr).with(authentication(member)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(id.toString()))
+                .andExpect(jsonPath("$[0].provider").value("LARK"))
+                .andExpect(jsonPath("$[0].botName").value("MemoryOS Bot"))
+                .andExpect(jsonPath("$[0].appId").doesNotExist())
+                .andExpect(jsonPath("$[0].serviceAccountId").doesNotExist());
     }
 
     @Test
@@ -288,7 +321,7 @@ class ChannelApiTest {
         var bot = new ChannelConnection(id, ChannelProvider.ZALO_BOT, "Bot Zalo", "1234567890",
                 Map.of(ChannelDelivery.SETTING, "WEBHOOK"), "vi", false, new ActorId(UUID.randomUUID()), 1, Instant.now(),
                 Instant.now(), null, "Bot MemoryOS", "1234567890", List.of());
-        var created = new Listed(bot, ChannelConnectionState.NONE, Listed.Status.OFF);
+        var created = new Listed(bot, ChannelConnectionState.NONE, Listed.Status.OFF, null, null);
         when(channels.create(any(), any())).thenReturn(bot);
         when(channels.listWithState(any())).thenReturn(List.of(created));
         when(channels.test(any(), eq(ChannelProvider.ZALO_BOT), eq(new ChannelCredentials(null, token, Map.of()))))

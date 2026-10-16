@@ -1043,6 +1043,46 @@ class ChatPersistenceIntegrationTest {
     }
 
     @Test
+    void aChannelConversationUsesItsBotsAssistantOnlyWhileTheBotIsBoundToItAndOnlyFromTheChannel() {
+        var agent = personas.create(owner, new ChatPersonaService.PersonaInput("Nhân sự", null, "", "Trả lời theo quy chế.",
+                null, List.of(), List.of(), null, Set.of("search"), null, null, null, null, null, null, null, null, null));
+        var finance = personas.create(owner, new ChatPersonaService.PersonaInput("Tài chính", null, "", "Trả lời theo báo cáo.",
+                null, List.of(), List.of(), null, Set.of("search"), null, null, null, null, null, null, null, null, null));
+        assertThrows(ChatException.class, () -> personas.get(other, agent.id()), "the assistant is the owner's alone");
+        var bindings = new ChatChannelBindings(new JdbcChatRepository(jdbc));
+        var tenantId = new TenantId(tenant);
+        UUID bot = UUID.randomUUID();
+        UUID builtin = sessions.create(other, "Web").personaId();
+        assertEquals(builtin, sessions.channelPersona(other, bot), "a bot bound to nothing answers with the built-in one");
+
+        tx.executeWithoutResult(_ -> bindings.bind(tenantId, bot, agent.id()));
+        var held = sessions.createInChannel(other, "Nghỉ phép từ Zalo", bot);
+        assertEquals(agent.id(), held.personaId());
+        // While the bot is bound to it, a question asked through the bot runs with the assistant.
+        assertTrue(snapshot(held.id()).instructions().contains("Trả lời theo quy chế."));
+        assertTrue(turns.agent(other, held.id(), true).persona().instructions().contains("Trả lời theo quy chế."));
+        // The same conversation continued from the web needs the owner to be able to use the assistant.
+        assertEquals("CHAT_UNAVAILABLE", assertThrows(ChatException.class, () -> turns.agent(other, held.id(), false)).code());
+
+        // Moving the bot ends the old conversation's use of the assistant, instructions and files alike.
+        tx.executeWithoutResult(_ -> bindings.bind(tenantId, bot, finance.id()));
+        assertEquals("CHAT_UNAVAILABLE", assertThrows(ChatException.class, () -> snapshot(held.id())).code());
+        assertEquals(finance.id(), sessions.createInChannel(other, "Sau khi chuyển", bot).personaId());
+        // So does unbinding it, and a deleted assistant is the built-in one.
+        var onFinance = sessions.createInChannel(other, "Tài chính từ Zalo", bot);
+        tx.executeWithoutResult(_ -> bindings.bind(tenantId, bot, null));
+        assertEquals("CHAT_UNAVAILABLE", assertThrows(ChatException.class, () -> snapshot(onFinance.id())).code());
+        tx.executeWithoutResult(_ -> bindings.bind(tenantId, bot, agent.id()));
+        personas.delete(owner, agent.id(), personas.get(owner, agent.id()).revision());
+        assertEquals(builtin, sessions.channelPersona(other, bot));
+        assertEquals(builtin, sessions.createInChannel(other, "Sau khi xoá", bot).personaId());
+    }
+
+    private JdbcChatRepository.Persona snapshot(UUID session) {
+        return tx.execute(_ -> new JdbcChatRepository(jdbc).persona(session, false, false));
+    }
+
+    @Test
     void reservesPairOnceAndPreservesHistoryCursorAndPartialOutcome() {
         var session = sessions.create(owner, "History");
         var request = UUID.randomUUID();
@@ -1681,7 +1721,7 @@ class ChatPersistenceIntegrationTest {
 
         clearInvocations(authorization);
         statements.reset();
-        var agent = turns.agent(owner, session.id());
+        var agent = turns.agent(owner, session.id(), false);
         var selection = new ChatTurnPersistence.ModelSelection(null, UUID.randomUUID(), null, binding,
                 agent.persona().revision(), "", agent);
         var reserved = turns.reserve(owner, session.id(), session.rootMessageId(), UUID.randomUUID(), "Question",

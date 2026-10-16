@@ -301,7 +301,8 @@ public final class ChatTurnService implements AutoCloseable {
         if (command.deepResearch() && (settings == null || !settings.read(actor).deepResearchEnabled()))
             throw ChatException.researchUnavailable();
         // Onyx attaches tools to the agent: a command may only use tools the session agent allows.
-        var agent = draft == null ? persistence.agent(actor, session) : draftAgent(actor, session, draft);
+        var agent = draft == null ? persistence.agent(actor, session, command.channel() != null)
+                : draftAgent(actor, session, draft);
         var tools = agent.persona();
         // MEM-195: answers from documents only are refused Deep research and, unless allowed, Web search.
         var policy = settings == null ? ChatSettingsService.TurnPolicy.NONE : settings.turnPolicy(actor);

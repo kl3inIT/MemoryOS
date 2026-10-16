@@ -1631,6 +1631,11 @@ export type UpdateChannelTransportRequest = {
     transport: 'WEBHOOK' | 'POLLING';
 };
 
+export type ChannelAssistantResponse = {
+    id: string;
+    name: string;
+};
+
 export type AiUsageLimitRequest = {
     scope: 'TENANT' | 'GROUP' | 'PERSON';
     groupId?: string;
@@ -3802,6 +3807,17 @@ export type AvailableModel = {
     isDefault: boolean;
 };
 
+export type AssistantChannelResponse = {
+    id: string;
+    provider: 'LARK' | 'ZALO_BOT';
+    name: string;
+    /**
+     * The bot the platform named at the last check
+     */
+    botName?: string;
+    enabled: boolean;
+};
+
 export type SourceOption = {
     id?: string;
     name?: string;
@@ -4339,6 +4355,13 @@ export type ReplaceChannelSecretRequest = {
     appSecret: string;
 };
 
+export type BindChannelAssistantRequest = {
+    /**
+     * The assistant; null answers with the built-in one, and a bot bound elsewhere moves
+     */
+    personaId?: string | null;
+};
+
 export type ChannelResponse = {
     id: string;
     provider: 'LARK' | 'ZALO_BOT';
@@ -4389,6 +4412,10 @@ export type ChannelResponse = {
      * When the bot last received a message
      */
     lastMessageAt?: string;
+    /**
+     * The assistant the bot answers with; absent when it answers with the built-in one
+     */
+    assistant?: ChannelAssistantResponse;
     revision: number;
     createdAt: string;
     updatedAt: string;
@@ -17375,6 +17402,45 @@ export type ListChatPersonaModelsResponses = {
 
 export type ListChatPersonaModelsResponse = ListChatPersonaModelsResponses[keyof ListChatPersonaModelsResponses];
 
+export type ListAssistantChannelsData = {
+    body?: never;
+    path: {
+        personaId: string;
+    };
+    query?: never;
+    url: '/api/chat/personas/{personaId}/channels';
+};
+
+export type ListAssistantChannelsErrors = {
+    /**
+     * Invalid assistant id
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership required
+     */
+    403: ApiProblem;
+    /**
+     * Assistant unavailable
+     */
+    404: ApiProblem;
+};
+
+export type ListAssistantChannelsError = ListAssistantChannelsErrors[keyof ListAssistantChannelsErrors];
+
+export type ListAssistantChannelsResponses = {
+    /**
+     * Bots
+     */
+    200: Array<AssistantChannelResponse>;
+};
+
+export type ListAssistantChannelsResponse = ListAssistantChannelsResponses[keyof ListAssistantChannelsResponses];
+
 export type GetChatPersonaAvatarData = {
     body?: never;
     path: {
@@ -20928,6 +20994,53 @@ export type ReplaceChannelSecretResponses = {
 };
 
 export type ReplaceChannelSecretResponse = ReplaceChannelSecretResponses[keyof ReplaceChannelSecretResponses];
+
+export type BindChannelAssistantData = {
+    body: BindChannelAssistantRequest;
+    path: {
+        channelId: string;
+    };
+    query?: never;
+    url: '/api/channels/{channelId}/persona';
+};
+
+export type BindChannelAssistantErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type BindChannelAssistantError = BindChannelAssistantErrors[keyof BindChannelAssistantErrors];
+
+export type BindChannelAssistantResponses = {
+    /**
+     * Updated bot
+     */
+    200: ChannelResponse;
+};
+
+export type BindChannelAssistantResponse = BindChannelAssistantResponses[keyof BindChannelAssistantResponses];
 
 export type UpdateChannelEnabledData = {
     body: UpdateChannelEnabledRequest;

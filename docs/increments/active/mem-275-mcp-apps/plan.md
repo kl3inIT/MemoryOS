@@ -4,7 +4,7 @@ Design: [design.md](design.md).
 
 ## 1. Tool metadata
 
-- [x] V183: `mcp_server_tool.app_resource_uri`, `model_visible`, `app_visible`.
+- [x] V184: `mcp_server_tool.app_resource_uri`, `model_visible`, `app_visible`.
 - [x] Sync reads `_meta.ui.resourceUri`, then `ui/resourceUri`, then `openai/outputTemplate` (only `ui://`, at most 1,024
   characters), and `ui.visibility`. `McpToolDescriptor` and `McpTurnTools.Binding` carry them.
 - [x] `McpTools` never offers a tool hidden from the model.
@@ -13,7 +13,7 @@ Design: [design.md](design.md).
 ## 2. Result and step
 
 - [x] `McpToolResult` carries the whole `CallToolResult` as JSON. The model's text is unchanged.
-- [x] V183: `chat_message_tool_apps` with 64 KB checks, cascading from `chat_message` and `mcp_server`.
+- [x] V184: `chat_message_tool_apps` with 64 KB checks, cascading from `chat_message` and `mcp_server`.
 - [x] `ChatToolEvent` finished carries `app` (`ChatToolApp`) for a completed call of a tool with a view when it fits. The
   answer stores it with its tool calls (at most 1 MB per answer). The history returns it as `apps`.
 

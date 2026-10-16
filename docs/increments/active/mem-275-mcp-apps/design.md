@@ -45,7 +45,7 @@ Tool sync already reads `tools/list`. It now also keeps three fields from each t
   `openai/outputTemplate`. Canva declares both forms.
 - `ui.visibility`. The default is `["model", "app"]`.
 
-Migration V183 adds three columns to `mcp_server_tool`:
+Migration V184 adds three columns to `mcp_server_tool`:
 
 - `app_resource_uri VARCHAR(1024) NULL`, accepting only `ui://` URIs. Anything else is dropped at sync.
 - `model_visible` and `app_visible`, both `BOOLEAN NOT NULL DEFAULT true`, from the visibility. A visibility that names

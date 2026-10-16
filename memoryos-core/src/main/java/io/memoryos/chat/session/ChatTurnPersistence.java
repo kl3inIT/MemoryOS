@@ -137,13 +137,22 @@ public class ChatTurnPersistence {
     public record SessionAgent(JdbcChatRepository.Persona persona, boolean agentsManage, boolean modelsManage,
                                boolean inProject) {}
 
-    /** The session agent's tool policy, read under the owner's agent use authority before a command is admitted. */
+    /**
+     * The session agent's tool policy, read under the owner's agent use authority before a command is admitted;
+     * {@code fromChannel} when the channel asks. A conversation held in a channel may
+     * use its bot's assistant only for questions asked through the bot (MEM-273): a command from anywhere else, such as
+     * the web, needs the owner to be able to use the assistant themself.
+     */
     @Transactional(readOnly = true)
-    public SessionAgent agent(ActorId actor, UUID session) {
+    public SessionAgent agent(ActorId actor, UUID session, boolean fromChannel) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
         var owned = chats.findOwned(tenant, actor, session, false).orElseThrow(ChatException::unavailable);
         var capabilities = authorization.effectiveCapabilities(actor);
         boolean agentsManage = capabilities.contains(IamCapability.AGENTS_MANAGE);
+        if (!fromChannel && chats.heldInChannel(session)
+                && !chats.usablePersona(tenant, actor, owned.personaId(), agentsManage)) {
+            throw ChatException.unavailable();
+        }
         return new SessionAgent(chats.persona(session, false, agentsManage), agentsManage,
                 capabilities.contains(IamCapability.MODELS_MANAGE), owned.projectId() != null);
     }

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const agentEditorTabs = ["config", "share"] as const;
+const agentEditorTabs = ["config", "channels", "share"] as const;
 export type AgentEditorTab = (typeof agentEditorTabs)[number];
 
 export const DEFAULT_AGENT_EDITOR_SEARCH = { tab: "config" } as const;
