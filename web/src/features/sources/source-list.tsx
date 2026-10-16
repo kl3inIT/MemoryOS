@@ -10,7 +10,13 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
-import { StatStrip, StatTile, StatToggleTile } from "@/components/composites/stat-strip";
+import {
+  statLabelClass,
+  statValueClass,
+  StatStrip,
+  StatTile,
+  StatToggleTile,
+} from "@/components/composites/stat-strip";
 import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
@@ -33,6 +39,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PageSizeSelect } from "@/components/ui/page-size-select";
+import { cn } from "@/lib/utils";
 import { TablePagination } from "@/components/ui/table-pagination";
 import type { SourceSummary } from "@/lib/hey-api/types.gen";
 import {
@@ -198,8 +205,8 @@ export function SourceList<T extends SourceListItem>({
         <SourceFilterFields value={filters} statuses={statuses} onChange={onFilters} />
       ) : null}
 
-      {/* Each provider is a section of its own: its heading, its table and its pages. */}
-      <section aria-label={ui("Connected sources")} className="flex flex-col gap-8">
+      {/* Each provider is a card of its own: its heading and figures, its table and its pages. */}
+      <section aria-label={ui("Connected sources")} className="flex flex-col gap-4">
         {groups.map((group) => (
           <SourceGroupSection
             key={group.type}
@@ -217,6 +224,16 @@ export function SourceList<T extends SourceListItem>({
         ) : null}
       </section>
     </>
+  );
+}
+
+/** One figure of a provider's first row: what it counts over the count. */
+function GroupFigure({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <dt className={cn("whitespace-nowrap", statLabelClass)}>{label}</dt>
+      <dd className={statValueClass}>{value}</dd>
+    </div>
   );
 }
 
@@ -317,8 +334,8 @@ type RowRendering<T> = {
 const GROUP_PAGE_SIZES = [10, 20, 50] as const;
 
 /**
- * One provider's Sources: a heading that folds them, their table, and the pages of that table when there are more
- * than one page holds.
+ * One provider's Sources as a card: a first row that folds them and carries the provider's figures, their table,
+ * and the pages of that table when there are more than one page holds.
  */
 function SourceGroupSection<T extends SourceListItem>({
   group,
@@ -347,36 +364,53 @@ function SourceGroupSection<T extends SourceListItem>({
   const first = page * size;
   const shown = failuresFirst(group.sources).slice(first, first + size);
 
+  const activeCount = group.sources.filter((source) => source.status === "ACTIVE").length;
+  const memberWideCount = group.sources.filter((source) => source.access === "PUBLIC").length;
+
   return (
-    <div className="flex flex-col gap-3">
-      <h2>
-        <button
-          type="button"
-          aria-expanded={!collapsed}
-          aria-label={ui("{{v1}} group, {{v2}} sources, {{v3}} documents", {
-            v1: providerName,
-            v2: group.sources.length,
-            v3: documentCount,
-          })}
-          onClick={onToggle}
-          className="flex items-center gap-2 rounded-sm text-left focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none"
-        >
-          {collapsed ? (
-            <ChevronRight className="size-4 text-content-secondary" aria-hidden="true" />
-          ) : (
-            <ChevronDown className="size-4 text-content-secondary" aria-hidden="true" />
-          )}
-          <ProviderIcon className="size-5 text-content-secondary" aria-hidden="true" />
-          <span className="font-heading-h3 text-content-primary">{providerName}</span>
-          <span className="font-secondary-body text-content-muted tabular-nums">
-            {group.sources.length}
-          </span>
-        </button>
-      </h2>
+    // The provider is one card, as in Onyx's connector list: its name and its figures on the first row, which
+    // stays when the provider is folded, and its table under it. The card's own width picks the layout: from 56rem
+    // the figures and every column show; narrower, the row keeps the name and the count, and the name cell
+    // carries the access, count and date on a second line, so nothing scrolls sideways on a phone.
+    <div className="@container overflow-hidden rounded-lg border border-border-subtle">
+      {/* The whole row toggles its provider: the button's hit area covers the row. */}
+      <div className="relative flex min-h-18 items-center gap-6 px-4 py-3 hover:bg-surface-subtle">
+        <h2 className="min-w-0 flex-1">
+          <button
+            type="button"
+            aria-expanded={!collapsed}
+            aria-label={ui("{{v1}} group, {{v2}} sources, {{v3}} documents", {
+              v1: providerName,
+              v2: group.sources.length,
+              v3: documentCount,
+            })}
+            onClick={onToggle}
+            className="flex items-center gap-2 rounded-sm text-left after:absolute after:inset-0 focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none"
+          >
+            {collapsed ? (
+              <ChevronRight className="size-4 text-content-secondary" aria-hidden="true" />
+            ) : (
+              <ChevronDown className="size-4 text-content-secondary" aria-hidden="true" />
+            )}
+            <ProviderIcon className="size-5 text-content-secondary" aria-hidden="true" />
+            <span className="font-heading-h3 text-content-primary">{providerName}</span>
+            <span className="font-secondary-body text-content-muted tabular-nums @4xl:hidden">
+              {group.sources.length}
+            </span>
+          </button>
+        </h2>
+        <dl className="hidden gap-10 @4xl:flex">
+          <GroupFigure label={ui("Total sources")} value={group.sources.length} />
+          <GroupFigure label={ui("Active")} value={`${activeCount}/${group.sources.length}`} />
+          <GroupFigure
+            label={ui("All members")}
+            value={`${memberWideCount}/${group.sources.length}`}
+          />
+          <GroupFigure label={documentsLabel} value={documentCount} />
+        </dl>
+      </div>
       {collapsed ? null : (
-        // The table's own width picks its layout: from 56rem every column shows; narrower, the name cell carries
-        // the access, count and date on a second line, so nothing scrolls sideways on a phone or beside the sidebar.
-        <div className="@container overflow-hidden rounded-lg border border-border-subtle">
+        <div className="border-t border-border-subtle">
           <Table aria-label={providerName} className="@4xl:table-fixed">
             <TableHeader>
               <TableRow className="h-10.5">
