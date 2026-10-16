@@ -691,6 +691,9 @@ calling and the deployment has a sandbox (`SandboxService.available()`); a turn 
 - **Timeline.** `bash` and `publish_file` publish the same code events as `run_python`; a `bash` running event carries
   the model's `description` as `title`, which titles the step. The four tools share the terminal and file icons.
 - **Guidance.** The prompt's Sandbox section lists the working rules and the tools installed in the computer image.
+  It says that earlier turns' files are still in `/workspace` and to list it before calling a file missing: the
+  conversation keeps only earlier answers, not their tool calls, and on 2026-10-16 staging a follow-up ("add a chart to
+  that workbook") was refused after the model listed only `/workspace/attachments`.
 
 ## Code Interpreter
 
