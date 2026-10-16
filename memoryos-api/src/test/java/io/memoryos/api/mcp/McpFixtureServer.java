@@ -27,6 +27,8 @@ import org.jspecify.annotations.Nullable;
  */
 public final class McpFixtureServer implements AutoCloseable {
     public static final String LONG_TOOL_NAME = "tool_name_that_cannot_fit_inside_the_model_tool_name_limit";
+    /** The MCP Apps view of {@code pick_design} (MEM-275). */
+    public static final String VIEW = "ui://fixture/picker";
     private static final String METADATA_PATH = "/.well-known/oauth-protected-resource/mcp";
 
     /** Tool calls the fixture served, so a turn can assert what actually reached the server. */
@@ -64,21 +66,43 @@ public final class McpFixtureServer implements AutoCloseable {
     }
 
     public static McpFixtureServer start(Map<String, String> requiredHeaders) throws Exception {
-        return start(requiredHeaders, null);
+        return start(requiredHeaders, null, false);
     }
 
     public static McpFixtureServer startOAuth(String requiredAuthorization, String authorizationServer) throws Exception {
-        return start(Map.of("Authorization", requiredAuthorization), authorizationServer);
+        return start(Map.of("Authorization", requiredAuthorization), authorizationServer, false);
     }
 
-    private static McpFixtureServer start(Map<String, String> requiredHeaders, @Nullable String authorizationServer) throws Exception {
+    /**
+     * Also serves MCP Apps views: {@code pick_design} shows {@link #VIEW}, and {@code select_design} may be called by
+     * that view only.
+     */
+    public static McpFixtureServer startWithViews(Map<String, String> requiredHeaders) throws Exception {
+        return start(requiredHeaders, null, true);
+    }
+
+    private static McpFixtureServer start(Map<String, String> requiredHeaders, @Nullable String authorizationServer,
+                                          boolean views) throws Exception {
         var transport = HttpServletStreamableServerTransportProvider.builder().mcpEndpoint("/mcp").build();
         var schema = Map.<String, Object>of("type", "object", "properties", Map.of("query", Map.of("type", "string")));
-        var server = McpServer.sync(transport)
-                .serverInfo("fixture", "1")
-                .capabilities(McpSchema.ServerCapabilities.builder().tools(true).build())
-                .tools(tool("search_files", "Search files", schema, true), tool(LONG_TOOL_NAME, null, schema, false))
-                .build();
+        var tools = new ArrayList<>(List.of(tool("search_files", "Search files", schema, true, null),
+                tool(LONG_TOOL_NAME, null, schema, false, null)));
+        var specification = McpServer.sync(transport).serverInfo("fixture", "1");
+        if (views) {
+            tools.add(tool("pick_design", "Pick a design", schema, true, Map.of("ui", Map.of("resourceUri", VIEW))));
+            tools.add(tool("select_design", "Select a design", schema, true, Map.of("ui", Map.of("visibility", List.of("app")))));
+            var view = McpSchema.Resource.builder(VIEW, "picker").mimeType("text/html;profile=mcp-app").build();
+            specification = specification
+                    .capabilities(McpSchema.ServerCapabilities.builder().tools(true).resources(false, false).build())
+                    .resources(new McpServerFeatures.SyncResourceSpecification(view, (exchange, request) ->
+                            new McpSchema.ReadResourceResult(List.of(new McpSchema.TextResourceContents(VIEW,
+                                    "text/html;profile=mcp-app", "<html><body>picker</body></html>",
+                                    Map.of("ui", Map.of("csp", Map.of("connectDomains", List.of("https://api.fixture.example")))))),
+                                    null)));
+        } else {
+            specification = specification.capabilities(McpSchema.ServerCapabilities.builder().tools(true).build());
+        }
+        var server = specification.tools(tools.toArray(McpServerFeatures.SyncToolSpecification[]::new)).build();
         var tomcat = new Tomcat();
         tomcat.setBaseDir(Files.createTempDirectory("mcp-fixture").toString());
         tomcat.setPort(0);
@@ -107,8 +131,9 @@ public final class McpFixtureServer implements AutoCloseable {
         tomcat.destroy();
     }
 
-    private static McpServerFeatures.SyncToolSpecification tool(String name, String title, Map<String, Object> schema, boolean readOnly) {
-        var tool = McpSchema.Tool.builder(name, schema).title(title).description(name + " fixture")
+    private static McpServerFeatures.SyncToolSpecification tool(String name, @Nullable String title, Map<String, Object> schema,
+                                                                boolean readOnly, @Nullable Map<String, Object> meta) {
+        var tool = McpSchema.Tool.builder(name, schema).title(title).description(name + " fixture").meta(meta)
                 .annotations(McpSchema.ToolAnnotations.builder().readOnlyHint(readOnly).destructiveHint(!readOnly).build()).build();
         return McpServerFeatures.SyncToolSpecification.builder().tool(tool)
                 .callHandler((exchange, request) -> {

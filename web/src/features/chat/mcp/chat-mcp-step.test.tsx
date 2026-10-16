@@ -138,7 +138,7 @@ it("restores the failure category from saved history", () => {
 });
 
 it("carries the streamed failure category into the step input", () => {
-  const chunks = new ActivityChunks("run-1");
+  const chunks = new ActivityChunks("run-1", "session-1");
   const event = (stage: string, failure: string | null) =>
     toolEventSchema.parse({
       toolCallId: "call_1",

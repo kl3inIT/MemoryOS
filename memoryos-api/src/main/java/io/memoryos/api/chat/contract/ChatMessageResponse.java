@@ -27,6 +27,8 @@ public record ChatMessageResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) ChatActivity activity,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<ImageRef> images,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<GeneratedFileRef> generatedFiles,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The MCP Apps views of the answer's tool calls")
+        List<ToolApp> apps,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Research research,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"},
                 description = "Why a FAILED reply ended, for example CHAT_MODEL_OUTPUT_LIMIT; null otherwise") @Nullable String failureCode,
@@ -84,9 +86,15 @@ public record ChatMessageResponse(
     }
 
     public static ChatMessageResponse from(ChatMessage message, List<ImageRef> images, List<GeneratedFileRef> generatedFiles) {
+        return from(message, images, generatedFiles, List.of());
+    }
+
+    public static ChatMessageResponse from(ChatMessage message, List<ImageRef> images, List<GeneratedFileRef> generatedFiles,
+                                           List<ToolApp> apps) {
         return new ChatMessageResponse(message.id(), message.sessionId(), message.parentMessageId(),
                 message.latestChildMessageId(), message.role().name(), message.content() == null ? "" : message.content(), message.status().name(),
                 message.createdAt(), message.finishedAt(), message.sources().stream().map(ChatSourceResponse::from).toList(), message.files(), message.artifacts(), message.activity(), images, generatedFiles,
+                apps,
                 new Research(message.research().clarification(), message.research().plan(), message.research().agents().stream()
                         .map(agent -> new Agent(agent.toolCallId(), agent.cycle(), agent.tabIndex(), agent.task(), agent.status().name(),
                                 agent.durationMs(), agent.report(), agent.citations().stream()

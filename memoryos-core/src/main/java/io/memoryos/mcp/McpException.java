@@ -137,4 +137,22 @@ public final class McpException extends BusinessException {
         return new McpException("MCP_UNAVAILABLE", FailureCategory.SERVICE_UNAVAILABLE,
                 "The MCP server is unavailable.", cause);
     }
+
+    /** A view resource that is not an MCP Apps HTML document, or larger than MemoryOS renders (MEM-275). */
+    public static McpException appResourceInvalid() {
+        return new McpException("MCP_APP_RESOURCE_INVALID", FailureCategory.VALIDATION,
+                "The MCP server's view is not a document MemoryOS can show.");
+    }
+
+    /** A view asked for a tool it may not call: another server's, a model-only one, or one that is turned off. */
+    public static McpException appToolNotAllowed() {
+        return new McpException("MCP_APP_TOOL_NOT_ALLOWED", FailureCategory.NOT_PERMITTED,
+                "This view cannot run that tool.");
+    }
+
+    /** A view asked for a tool that asks first, and the person has not approved this call yet. */
+    public static McpException appApprovalRequired() {
+        return new McpException("MCP_APP_APPROVAL_REQUIRED", FailureCategory.CONFLICT,
+                "Approve this call before the view runs it.");
+    }
 }

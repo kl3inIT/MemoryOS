@@ -22,6 +22,7 @@ import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.memoryos.chat.ChatToolActivity;
 import io.memoryos.chat.ChatToolEvent;
+import io.memoryos.chat.ChatToolTranscript;
 import io.memoryos.mcp.McpTurnTools;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -43,7 +44,7 @@ class McpToolsTest {
     private final List<ChatToolEvent> events = new ArrayList<>();
     private final MeterRegistry meters = new SimpleMeterRegistry();
     private final McpTurnTools.Binding binding = new McpTurnTools.Binding(SERVER, "drive", "Drive", "search_files",
-            "mcp_drive_search_files", "Search files.", "{\"type\":\"object\"}", true, false, null);
+            "mcp_drive_search_files", "Search files.", "{\"type\":\"object\"}", true, false, null, null, true, true);
 
     private McpTools tools(int maxCalls, int contextTokens) {
         when(turn.bindings()).thenReturn(List.of(binding));
@@ -65,7 +66,7 @@ class McpToolsTest {
                 events::add, new ChatToolActivity(ignored -> {}), () -> 8000,
                 Tokenizers.o200k(), meters);
         when(turn.bindings()).thenReturn(List.of(new McpTurnTools.Binding(SERVER, "drive", "Drive", "delete_file",
-                "mcp_drive_delete_file", "Delete a file.", "{\"type\":\"object\"}", false, false, null)));
+                "mcp_drive_delete_file", "Delete a file.", "{\"type\":\"object\"}", false, false, null, null, true, true)));
         assertTrue(writeTool.tools().getFirst().getDefinition().getDescription()
                 .startsWith("This tool can change or delete data."));
     }
@@ -76,7 +77,7 @@ class McpToolsTest {
         var bindings = new ArrayList<McpTurnTools.Binding>();
         for (int i = 0; i <= McpTools.DIRECT_TOOLS; i++)
             bindings.add(new McpTurnTools.Binding(linear, "linear", "Linear", "tool_" + i, "mcp_linear_tool_" + i,
-                    "Tool " + i + ".", "{\"type\":\"object\"}", i > 0, false, null));
+                    "Tool " + i + ".", "{\"type\":\"object\"}", i > 0, false, null, null, true, true));
         bindings.add(binding);
         when(turn.bindings()).thenReturn(bindings);
         when(turn.unavailable()).thenReturn(List.of());
@@ -146,10 +147,10 @@ class McpToolsTest {
     @Test
     void runsACallThatRequiresApprovalOnlyOnceThePersonApproves() {
         var send = new McpTurnTools.Binding(SERVER, "gmail", "Gmail", "send_email", "mcp_gmail_send_email",
-                "Send an email.", "{\"type\":\"object\"}", false, true, null);
+                "Send an email.", "{\"type\":\"object\"}", false, true, null, null, true, true);
         when(turn.bindings()).thenReturn(List.of(send));
         when(turn.unavailable()).thenReturn(List.of());
-        when(turn.call(any(), any(), any())).thenReturn(new McpTurnTools.Outcome("sent", false));
+        when(turn.call(any(), any(), any())).thenReturn(new McpTurnTools.Outcome("sent", false, "{}"));
         var activity = new ChatToolActivity(ignored -> {});
         var tool = new McpTools(turn, () -> {}, Duration.ofSeconds(30), 10, events::add, activity, () -> 8000,
                 Tokenizers.o200k(), meters).tools().getFirst();
@@ -172,15 +173,44 @@ class McpToolsTest {
     }
 
     @Test
+    void showsTheViewOfACallWhoseToolHasOneAndNeverOffersAViewOnlyTool() {
+        var picker = new McpTurnTools.Binding(SERVER, "canva", "Canva", "create-design", "mcp_canva_create_design",
+                "Create a design.", "{\"type\":\"object\"}", true, false, null, "ui://canva/create-design", true, true);
+        var select = new McpTurnTools.Binding(SERVER, "canva", "Canva", "select", "mcp_canva_select",
+                "Select a candidate.", "{\"type\":\"object\"}", false, false, null, null, false, true);
+        when(turn.bindings()).thenReturn(List.of(picker, select));
+        when(turn.unavailable()).thenReturn(List.of());
+        when(turn.call(any(), any(), any())).thenReturn(
+                new McpTurnTools.Outcome("made", false, "{\"structuredContent\":{\"id\":1}}"));
+        var shown = new ArrayList<ChatToolEvent>();
+        var transcript = new ChatToolTranscript();
+        var activity = new ChatToolActivity(shown::add, transcript);
+        var offered = new McpTools(turn, () -> {}, Duration.ofSeconds(30), 10, events::add, activity, () -> 8000,
+                Tokenizers.o200k(), meters).tools();
+
+        assertEquals(List.of("mcp_canva_create_design"), offered.stream().map(tool -> tool.getDefinition().getName()).toList());
+        var call = activity.begin("call_1", "mcp_canva_create_design");
+        offered.getFirst().call("{\"query\":\"poster\"}");
+        activity.end(call, false, 5);
+
+        var app = shown.getLast().app();
+        assertEquals("ui://canva/create-design", app.resourceUri());
+        assertEquals(SERVER, app.serverId());
+        assertEquals("{\"query\":\"poster\"}", app.input());
+        assertEquals("{\"structuredContent\":{\"id\":1}}", app.output());
+        assertEquals(List.of(app), transcript.apps());
+    }
+
+    @Test
     void neverAsksBeforeACallThatDoesNotRequireApproval() {
-        when(turn.call(any(), any(), any())).thenReturn(new McpTurnTools.Outcome("ok", false));
+        when(turn.call(any(), any(), any())).thenReturn(new McpTurnTools.Outcome("ok", false, "{}"));
         tools(10, 8000).tools().getFirst().call("{}");
         verify(turn, Mockito.never()).decide(any(), any(), any());
     }
 
     @Test
     void stopsCallingAfterTheTurnLimit() {
-        when(turn.call(any(), any(), any())).thenReturn(new McpTurnTools.Outcome("ok", false));
+        when(turn.call(any(), any(), any())).thenReturn(new McpTurnTools.Outcome("ok", false, "{}"));
         var tool = tools(2, 8000).tools().getFirst();
         assertInstanceOf(Tool.Result.Text.class, tool.call("{}"));
         assertInstanceOf(Tool.Result.Text.class, tool.call("{}"));
@@ -191,7 +221,7 @@ class McpToolsTest {
 
     @Test
     void capsOneResultAgainstTheRemainingContextAndRejectsUnparseableArguments() {
-        when(turn.call(any(), any(), any())).thenReturn(new McpTurnTools.Outcome("x".repeat(200_000), false));
+        when(turn.call(any(), any(), any())).thenReturn(new McpTurnTools.Outcome("x".repeat(200_000), false, "{}"));
         var capped = assertInstanceOf(Tool.Result.Text.class, tools(10, 500).tools().getFirst().call("{}")).getContent();
         assertTrue(capped.length() < 200_000);
         assertTrue(capped.contains("untrusted data"));
@@ -218,7 +248,7 @@ class McpToolsTest {
 
     @Test
     void recordsOneTimerPerOutcomeWithBoundedLabels() {
-        when(turn.call(any(), any(), any())).thenReturn(new McpTurnTools.Outcome("ok", false));
+        when(turn.call(any(), any(), any())).thenReturn(new McpTurnTools.Outcome("ok", false, "{}"));
         var tools = tools(1, 8000);
         tools.tools().getFirst().call("{}");
         // Over this turn's limit: refused before the arguments are even parsed, so it counts as call_limit.

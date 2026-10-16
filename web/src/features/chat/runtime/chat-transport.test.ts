@@ -73,6 +73,7 @@ const row: ChatMessage = {
   contextLimit: null,
   images: [],
   generatedFiles: [],
+  apps: [],
   id: runId,
   sessionId: session.id,
   parentMessageId: userId,

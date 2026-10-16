@@ -109,6 +109,7 @@ function seedResearch(value: Session) {
     images: [],
     activity: { steps: [], reasoning: [] },
     generatedFiles: [],
+    apps: [],
     research: { clarification: false, plan: null, agents: [] },
     failureCode: null,
     refusalReason: null,
@@ -132,6 +133,7 @@ function seedResearch(value: Session) {
     images: [],
     activity: { steps: [], reasoning: [] },
     generatedFiles: [],
+    apps: [],
     failureCode: null,
     refusalReason: null,
     contextTokens: null,
@@ -202,6 +204,7 @@ function seedMcp(value: Session) {
     files: [],
     images: [],
     generatedFiles: [],
+    apps: [],
     activity: { steps: [], reasoning: [] },
     research: { clarification: false, plan: null, agents: [] },
     failureCode: null,
@@ -225,6 +228,7 @@ function seedMcp(value: Session) {
     files: [],
     images: [],
     generatedFiles: [],
+    apps: [],
     activity: {
       steps: [
         {
@@ -775,6 +779,7 @@ export async function handleChatFixture(
         activity: { steps: [], reasoning: [] },
         images: [],
         generatedFiles: [],
+        apps: [],
         research: { clarification: false, plan: null, agents: [] },
         failureCode: null,
         refusalReason: null,
@@ -797,6 +802,7 @@ export async function handleChatFixture(
         activity: { steps: [], reasoning: [] },
         images: [],
         generatedFiles: [],
+        apps: [],
         research: { clarification: false, plan: null, agents: [] },
         failureCode: null,
         refusalReason: null,

@@ -12101,6 +12101,80 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/sessions/{sessionId}/messages/{messageId}/apps/{callId}:
+    post:
+      tags:
+      - Chat
+      summary: Run one request of an MCP Apps view in an owned answer
+      operationId: hostChatToolApp
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: messageId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: callId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatToolAppRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid view request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Tenant membership, CSRF requirement or tool policy not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: View not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "The tool asks first, or the server must be connected again"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: "The MCP result, or the view's document for mcp-apps/read-resource"
+          content:
+            application/json:
+              schema:
+                type: object
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/sessions/{sessionId}/messages/{assistantMessageId}/tool-calls/{toolCallId}/decision:
     post:
       tags:
@@ -29341,6 +29415,28 @@ components:
             when absent
           maxLength: 200
           minLength: 0
+    ChatToolAppRequest:
+      type: object
+      properties:
+        method:
+          type: string
+          enum:
+          - mcp-apps/read-resource
+          - tools/call
+          - resources/read
+          - resources/list
+        params:
+          type:
+          - object
+          - "null"
+          additionalProperties: {}
+        approved:
+          type:
+          - boolean
+          - "null"
+          description: The person approved this call of a tool that asks first
+      required:
+      - method
     ChatToolDecision:
       type: object
       properties:
@@ -31984,6 +32080,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/GeneratedFileRef"
+        apps:
+          type: array
+          description: The MCP Apps views of the answer's tool calls
+          items:
+            $ref: "#/components/schemas/ChatToolApp"
         research:
           $ref: "#/components/schemas/ChatMessageResearch"
         failureCode:
@@ -32014,6 +32115,7 @@ components:
           description: The model's input limit for that call; null when unknown
       required:
       - activity
+      - apps
       - artifacts
       - content
       - contextLimit
@@ -32159,6 +32261,22 @@ components:
       - sourceTypes
       - startOrdinal
       - title
+    ChatToolApp:
+      type: object
+      properties:
+        toolCallId:
+          type: string
+        resourceUri:
+          type: string
+        input:
+          type: string
+        output:
+          type: string
+      required:
+      - input
+      - output
+      - resourceUri
+      - toolCallId
     FileLocation:
       type: object
       properties:
@@ -32437,7 +32555,14 @@ components:
           - AUTHORIZATION_REQUIRED
           - TIMEOUT
           - UNAVAILABLE
+        app:
+          type:
+          - object
+          - "null"
+          $ref: "#/components/schemas/ChatToolApp"
+          description: The MCP Apps view of a COMPLETED MCP call whose tool has one
       required:
+      - app
       - assistantMessageId
       - documents
       - durationMs

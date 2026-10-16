@@ -2384,6 +2384,17 @@ export const zBranchChatSessionRequest = z.object({
     title: z.string().min(0).max(200).optional()
 });
 
+export const zChatToolAppRequest = z.object({
+    method: z.enum([
+        'mcp-apps/read-resource',
+        'tools/call',
+        'resources/read',
+        'resources/list'
+    ]),
+    params: z.record(z.string(), z.unknown()).nullish(),
+    approved: z.boolean().nullish()
+});
+
 export const zChatToolDecision = z.object({
     approved: z.boolean(),
     alwaysAllow: z.boolean().nullish()
@@ -3383,6 +3394,13 @@ export const zChatMessageResearchCitation = z.object({
     citationId: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
 });
 
+export const zChatToolApp = z.object({
+    toolCallId: z.string(),
+    resourceUri: z.string(),
+    input: z.string(),
+    output: z.string()
+});
+
 export const zFileLocation = z.object({
     offset: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).optional(),
     count: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).optional(),
@@ -3541,6 +3559,7 @@ export const zChatMessage = z.object({
     activity: zChatActivity,
     images: z.array(zImageRef),
     generatedFiles: z.array(zGeneratedFileRef),
+    apps: z.array(zChatToolApp),
     research: zChatMessageResearch,
     failureCode: z.string().nullable(),
     refusalReason: z.string().nullable(),
@@ -3606,7 +3625,8 @@ export const zToolEvent = z.object({
         'AUTHORIZATION_REQUIRED',
         'TIMEOUT',
         'UNAVAILABLE'
-    ])
+    ]),
+    app: zChatToolApp.nullable()
 });
 
 export const zReasoningEvent = z.object({
@@ -6611,6 +6631,19 @@ export const zBranchChatSessionPath = z.object({
  * The new conversation
  */
 export const zBranchChatSessionResponse = zChatSession;
+
+export const zHostChatToolAppBody = zChatToolAppRequest;
+
+export const zHostChatToolAppPath = z.object({
+    sessionId: z.uuid(),
+    messageId: z.uuid(),
+    callId: z.string()
+});
+
+/**
+ * The MCP result, or the view's document for mcp-apps/read-resource
+ */
+export const zHostChatToolAppResponse = z.record(z.string(), z.unknown());
 
 export const zDecideChatToolCallBody = zChatToolDecision;
 

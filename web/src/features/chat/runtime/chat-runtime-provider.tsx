@@ -12,6 +12,7 @@ import { useApplicationSession } from "@/features/identity/application-session-c
 import { useChatDictationAdapter } from "@/features/voice/use-chat-dictation-adapter";
 import { useChatSpeechAdapter } from "@/features/voice/use-chat-speech-adapter";
 import type { ChatUiMessage } from "@/features/chat/chat-api";
+import { ChatMcpApps } from "@/features/chat/mcp/chat-mcp-apps";
 import { createChatAttachmentAdapter } from "@/features/library/files";
 import { ChatThreadRegistry } from "./chat-thread-controller";
 import { chatHistoryAdapter, createChatThreadListAdapter } from "./chat-thread-list-adapter";
@@ -99,7 +100,9 @@ export function ChatRuntimeProvider({ children }: { children: ReactNode }) {
   );
   return (
     <ChatThreadsContext value={value}>
-      <AssistantRuntimeProvider runtime={runtime}>{children}</AssistantRuntimeProvider>
+      <AssistantRuntimeProvider runtime={runtime}>
+        <ChatMcpApps>{children}</ChatMcpApps>
+      </AssistantRuntimeProvider>
     </ChatThreadsContext>
   );
 }

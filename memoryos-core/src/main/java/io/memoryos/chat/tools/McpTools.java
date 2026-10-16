@@ -67,7 +67,7 @@ public final class McpTools {
      */
     public List<Tool> tools() {
         var servers = new LinkedHashMap<UUID, List<McpTurnTools.Binding>>();
-        for (var binding : turn.bindings()) servers.computeIfAbsent(binding.serverId(), ignored -> new ArrayList<>()).add(binding);
+        for (var binding : offered()) servers.computeIfAbsent(binding.serverId(), ignored -> new ArrayList<>()).add(binding);
         var offered = new ArrayList<Tool>();
         for (var bindings : servers.values()) {
             if (bindings.size() <= DIRECT_TOOLS) bindings.forEach(binding -> offered.add(tool(binding)));
@@ -87,10 +87,15 @@ public final class McpTools {
     /** The names of the opening tools {@link #tools()} offers, whose calls are not steps of their own. */
     public Set<String> openers() {
         var counts = new LinkedHashMap<String, Integer>();
-        for (var binding : turn.bindings()) counts.merge(opener(binding.slug()), 1, Integer::sum);
+        for (var binding : offered()) counts.merge(opener(binding.slug()), 1, Integer::sum);
         var names = new LinkedHashSet<String>();
         counts.forEach((name, count) -> { if (count > DIRECT_TOOLS) names.add(name); });
         return names;
+    }
+
+    /** The tools the model may call: an MCP Apps tool only its view may call is never offered (SEP-1865, MEM-275). */
+    private List<McpTurnTools.Binding> offered() {
+        return turn.bindings().stream().filter(McpTurnTools.Binding::modelVisible).toList();
     }
 
     private static String opener(String slug) {
@@ -226,6 +231,9 @@ public final class McpTools {
                 outcome = result.error() ? "tool_error" : "succeeded";
                 failed = result.error();
                 if (failed) activity.fail();
+                // MEM-275: a tool with a view shows it in the answer with the call's arguments and whole result.
+                else if (binding.appResourceUri() != null)
+                    activity.app(binding.serverId(), binding.appResourceUri(), JSON.writeValueAsString(arguments), result.result());
                 return Tool.Result.text(cap(binding, result.text()));
             } catch (McpTurnTools.CallFailure rejected) {
                 failure = switch (rejected.reason()) {

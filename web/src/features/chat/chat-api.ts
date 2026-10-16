@@ -2,7 +2,11 @@ import type { QueryClient } from "@tanstack/react-query";
 import type { UIMessage } from "ai";
 import { i18n } from "@/i18n";
 import { sourcesSchema, type ChatSource } from "@/features/chat/sources/chat-evidence";
-import { activitySchema, historyParts } from "@/features/chat/activity/chat-activity";
+import {
+  activitySchema,
+  historyParts,
+  toolAppsSchema,
+} from "@/features/chat/activity/chat-activity";
 import { createChatSession, getChatHistory, getChatSession } from "@/lib/hey-api/sdk.gen";
 import {
   getChatBranchesQueryKey,
@@ -196,7 +200,11 @@ export function toUiMessages(messages: ChatMessage[]): ChatUiMessage[] {
       })),
       // historyParts builds text, reasoning and tool parts only; its data-part type stays the AI SDK default.
       ...((message.role === "ASSISTANT"
-        ? historyParts(message.content, activitySchema.parse(message.activity))
+        ? historyParts(message.content, activitySchema.parse(message.activity), {
+            sessionId: message.sessionId,
+            messageId: message.id,
+            views: toolAppsSchema.parse(message.apps),
+          })
         : [{ type: "text" as const, text: message.content }]) as ChatUiMessage["parts"]),
     ],
     metadata: {

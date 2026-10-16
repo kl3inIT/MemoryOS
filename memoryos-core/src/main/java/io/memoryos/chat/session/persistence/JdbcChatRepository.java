@@ -20,6 +20,7 @@ import io.memoryos.chat.ChatCommand;
 import io.memoryos.chat.ChatTurnOptions;
 import io.memoryos.chat.ChatSource;
 import io.memoryos.chat.ChatToolTranscript;
+import io.memoryos.chat.ChatToolApp;
 import io.memoryos.chat.ChatFileDescriptor;
 import io.memoryos.chat.prompts.ChatPrompts;
 import java.sql.Timestamp;
@@ -726,6 +727,47 @@ public class JdbcChatRepository {
                             row.getString("arguments"), row.getString("result")));
         });
         return calls;
+    }
+
+    /** MEM-275: the MCP Apps views of an answer's tool calls. */
+    public void saveToolApps(UUID message, List<ChatToolApp> apps) {
+        for (var app : apps) {
+            jdbc.sql("""
+                    INSERT INTO chat_message_tool_apps (message_id, call_id, server_id, resource_uri, input, output)
+                    VALUES (:message, :callId, :server, :uri, :input, :output)
+                    ON CONFLICT (message_id, call_id) DO NOTHING
+                    """).param("message", message).param("callId", app.callId()).param("server", app.serverId())
+                    .param("uri", app.resourceUri()).param("input", app.input()).param("output", app.output()).update();
+        }
+    }
+
+    /** The views of {@code messages} of {@code session}, by message; an answer without views is absent. */
+    public Map<UUID, List<ChatToolApp>> toolApps(UUID session, Collection<UUID> messages) {
+        if (messages.isEmpty()) return Map.of();
+        var apps = new LinkedHashMap<UUID, List<ChatToolApp>>();
+        jdbc.sql("""
+                SELECT a.message_id, a.call_id, a.server_id, a.resource_uri, a.input, a.output
+                FROM chat_message_tool_apps a JOIN chat_message m ON m.id = a.message_id
+                WHERE m.session_id = :session AND a.message_id IN (:messages) ORDER BY a.message_id, a.call_id
+                """).param("session", session).param("messages", messages).query(row -> {
+            apps.computeIfAbsent(row.getObject("message_id", UUID.class), ignored -> new ArrayList<>()).add(toolApp(row));
+        });
+        return apps;
+    }
+
+    /** One view of an answer of {@code session}. */
+    public Optional<ChatToolApp> toolApp(UUID session, UUID message, String callId) {
+        return jdbc.sql("""
+                SELECT a.call_id, a.server_id, a.resource_uri, a.input, a.output
+                FROM chat_message_tool_apps a JOIN chat_message m ON m.id = a.message_id
+                WHERE m.session_id = :session AND a.message_id = :message AND a.call_id = :callId
+                """).param("session", session).param("message", message).param("callId", callId)
+                .query((row, ignored) -> toolApp(row)).optional();
+    }
+
+    private static ChatToolApp toolApp(ResultSet row) throws SQLException {
+        return new ChatToolApp(row.getString("call_id"), row.getObject("server_id", UUID.class),
+                row.getString("resource_uri"), row.getString("input"), row.getString("output"));
     }
 
     public List<ChatMessage> context(UUID session, UUID user, int limit) {

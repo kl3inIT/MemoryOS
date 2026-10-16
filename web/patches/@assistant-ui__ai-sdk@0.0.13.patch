@@ -1,8 +1,8 @@
 diff --git a/dist/runtime/useAISDKRuntime.js b/dist/runtime/useAISDKRuntime.js
-index 28aa640ad8bbdf83fdcd5283ee0bab1d21cbe09d..0a3d8c917a65bd2c458d3ab17577a9e4507b0c0c 100644
+index ea4c2e1d90615f4585ce5fe556c866ab33896a19..c66596fe309bc27bbbdffc0755320d33ca01bce2 100644
 --- a/dist/runtime/useAISDKRuntime.js
 +++ b/dist/runtime/useAISDKRuntime.js
-@@ -253,12 +253,15 @@ const useAISDKRuntime = (chatHelpers, adapter = {}) => {
+@@ -384,13 +384,16 @@ const useAISDKRuntime = (chatHelpers, adapter = {}) => {
  	const [runtimeRef] = useState(() => ({ get current() {
  		return runtime;
  	} }));
@@ -12,13 +12,14 @@ index 28aa640ad8bbdf83fdcd5283ee0bab1d21cbe09d..0a3d8c917a65bd2c458d3ab17577a9e4
 +	// useExternalHistory lists this callback among its load effect's dependencies; a new function each render
 +	// re-ran that effect, whose setHasLoaded(true) rendered again: Maximum update depth on a thread without remoteId.
 +	const markToolApprovalResponsesRestored = useCallback(() => {
+ 		for (const [id_4, entry_0] of ownedApprovals ?? []) toolApprovalResponsesRef.current.set(id_4, entry_0.response);
  		hostApprovalIdsRef.current = new Set(toolApprovalResponsesRef.current.keys());
  		setToolApprovalResponses(new Map(toolApprovalResponsesRef.current));
 -	});
-+	}, []);
++	}, [ownedApprovals]);
 +	const { isLoading, deleteMessage: deleteHistoryMessage, persistToolInteractions, persistToolApprovalResponses } = useExternalHistory(runtimeRef, adapters?.history ?? contextAdapters?.history, toThreadMessages, aiSDKV6FormatAdapter, (messages_0) => {
 +		chatHelpers.setMessages(messages_0);
 +	}, toolArtifactsRef.current, markToolArtifactsChanged, toolInteractionsRef.current, markToolInteractionsChanged, toolApprovalResponsesRef.current, markToolApprovalResponsesRestored);
- 	const { id: chatId_0, messages: chatMessages, status: chatStatus, error } = chatHelpers;
+ 	const { id: chatId_0, messages: chatMessages, status: chatStatus } = chatHelpers;
  	const extras = useMemo(() => aiSDKExtras.provide({
  		chat: chatHelpers,

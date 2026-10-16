@@ -38,6 +38,47 @@ const failureSchema = z.enum([
   "NO_DECISION",
 ]);
 
+/** MEM-275: the MCP Apps view of a completed call, with the arguments and whole result it receives. */
+export const toolAppSchema = z.object({
+  toolCallId: z.string().min(1).max(256),
+  resourceUri: z.string().startsWith("ui://").max(1024),
+  input: z.record(z.string(), z.unknown()),
+  output: z.record(z.string(), z.unknown()),
+});
+export type ToolApp = z.infer<typeof toolAppSchema>;
+/** A saved answer's views; one the browser cannot read leaves its steps without views. */
+export const toolAppsSchema = z.array(toolAppSchema).catch([]);
+
+/**
+ * A view shows as its own tool part beside its step, outside the collapsed activity, as Claude shows it in the answer.
+ * Its ID is the call's with this suffix.
+ */
+export const APP_PART_SUFFIX = ":app";
+
+/**
+ * Where a view's requests go. assistant-ui hands the host only the part's server ID, so it carries the answer, the call
+ * and the step's tool, which names the app for the person; the server behind them is resolved on the API, never named
+ * by the browser.
+ */
+export function appRoute(
+  sessionId: string,
+  messageId: string,
+  toolCallId: string,
+  toolName: string,
+): string {
+  return [sessionId, messageId, toolCallId, toolName].map(encodeURIComponent).join("/");
+}
+
+export function parseAppRoute(
+  route: unknown,
+): { sessionId: string; messageId: string; callId: string; toolName: string } | undefined {
+  if (typeof route !== "string") return undefined;
+  const parts = route.split("/").map(decodeURIComponent);
+  if (parts.length !== 4 || parts.some((part) => part === "")) return undefined;
+  const [sessionId, messageId, callId, toolName] = parts as [string, string, string, string];
+  return { sessionId, messageId, callId, toolName };
+}
+
 export const toolEventSchema = z.object({
   toolCallId: z.string().min(1).max(256),
   toolName: toolNameSchema,
@@ -56,6 +97,7 @@ export const toolEventSchema = z.object({
   parentToolCallId: z.string().min(1).max(256).nullable().default(null),
   tabIndex: z.number().int().min(0).max(2).nullable().default(null),
   failure: failureSchema.nullable().default(null),
+  app: toolAppSchema.nullable().default(null),
 });
 // Reasoning shares the answer chunking, so one event can exceed a single provider delta.
 export const reasoningEventSchema = z.object({
@@ -146,9 +188,11 @@ export class ActivityChunks {
     { name: string; progress: ToolProgress; done: boolean }
   >();
   private readonly runId: string;
+  private readonly sessionId: string;
 
-  constructor(runId: string) {
+  constructor(runId: string, sessionId: string) {
     this.runId = runId;
+    this.sessionId = sessionId;
   }
 
   text(delta: string): UIMessageChunk[] {
@@ -212,6 +256,31 @@ export class ActivityChunks {
     chunks.push(this.input(event.toolCallId, tool));
     if (event.stage === "COMPLETED" || event.stage === "FAILED")
       chunks.push(this.output(event.toolCallId, tool, event.stage === "FAILED"));
+    if (event.stage === "COMPLETED" && event.app) {
+      const app = appPart(
+        tool.name,
+        event.app,
+        appRoute(this.sessionId, this.runId, event.toolCallId, tool.name),
+      );
+      chunks.push(
+        {
+          type: "tool-input-available",
+          toolCallId: app.toolCallId,
+          toolName: app.toolName,
+          input: app.input,
+          providerExecuted: true,
+          dynamic: true,
+          providerMetadata: app.callProviderMetadata,
+        },
+        {
+          type: "tool-output-available",
+          toolCallId: app.toolCallId,
+          output: app.output,
+          providerExecuted: true,
+          dynamic: true,
+        },
+      );
+    }
     return chunks;
   }
 
@@ -289,13 +358,39 @@ export class ActivityChunks {
 
 type Part = UIMessage["parts"][number];
 
-/** Rebuilds a saved answer's reasoning, tool steps and text in streamed order; legacy answers have no activity. */
-export function historyParts(content: string, activity: ChatActivity): Part[] {
+/** The part that shows a call's view; the AI SDK converter reads `mcp.app` from its call provider metadata. */
+function appPart(toolName: string, app: ToolApp, route: string) {
+  return {
+    type: "dynamic-tool",
+    toolName,
+    toolCallId: `${app.toolCallId}${APP_PART_SUFFIX}`,
+    providerExecuted: true,
+    state: "output-available",
+    input: app.input,
+    output: app.output,
+    callProviderMetadata: { mcp: { app: { resourceUri: app.resourceUri, serverId: route } } },
+  } as const;
+}
+
+/**
+ * Rebuilds a saved answer's reasoning, tool steps and text in streamed order; legacy answers have no activity. A
+ * completed step with a view is followed by its view's part.
+ */
+export function historyParts(
+  content: string,
+  activity: ChatActivity,
+  apps: { sessionId: string; messageId: string; views: ToolApp[] } = {
+    sessionId: "",
+    messageId: "",
+    views: [],
+  },
+): Part[] {
   const items = [
     ...activity.reasoning.map((segment) => ({
       position: segment.position,
       offset: segment.textOffset,
       part: { type: "reasoning", text: segment.text, state: "done" } satisfies Part as Part,
+      viewPart: undefined as Part | undefined,
     })),
     ...activity.steps.map((step) => {
       const input: ToolProgress = {
@@ -336,7 +431,18 @@ export function historyParts(content: string, activity: ChatActivity): Part[] {
                 output: { durationMs: input.durationMs },
               }
             : { ...base, state: "output-error", input, errorText: TOOL_FAILED };
-      return { position: step.position, offset: step.textOffset, part };
+      const view =
+        step.status === "COMPLETED"
+          ? apps.views.find((candidate) => candidate.toolCallId === step.toolCallId)
+          : undefined;
+      const viewPart = view
+        ? (appPart(
+            step.toolName,
+            view,
+            appRoute(apps.sessionId, apps.messageId, step.toolCallId, step.toolName),
+          ) as Part)
+        : undefined;
+      return { position: step.position, offset: step.textOffset, part, viewPart };
     }),
   ].sort((left, right) => left.position - right.position);
   const parts: Part[] = [];
@@ -346,6 +452,7 @@ export function historyParts(content: string, activity: ChatActivity): Part[] {
     if (offset > consumed) parts.push({ type: "text", text: content.slice(consumed, offset) });
     consumed = offset;
     parts.push(item.part);
+    if (item.viewPart) parts.push(item.viewPart);
   }
   parts.push({ type: "text", text: content.slice(consumed) });
   return parts;

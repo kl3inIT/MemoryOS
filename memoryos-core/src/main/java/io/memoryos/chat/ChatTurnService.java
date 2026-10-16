@@ -973,7 +973,8 @@ public final class ChatTurnService implements AutoCloseable {
     private void recordToolCalls(Active run) {
         if (run.deleted) return;
         try {
-            persistence.recordToolCalls(run.setup.assistantMessageId(), run.setup.transcript().calls());
+            persistence.recordToolCalls(run.setup.assistantMessageId(), run.setup.transcript().calls(),
+                    run.setup.transcript().apps());
         } catch (RuntimeException failure) {
             LOG.atWarn().addKeyValue("event", "chat.tool_calls.not_recorded")
                     .addKeyValue("message_id", run.setup.assistantMessageId())

@@ -353,6 +353,7 @@ public class McpServerService {
             var entity = existing.get(tool.name());
             if (entity == null) entity = new McpServerToolEntity(UUID.randomUUID(), tenant, server.getId(), tool.name());
             entity.snapshot(tool.title(), tool.description(), tool.inputSchema(), tool.annotations(), tool.readOnly(), now);
+            entity.app(tool.appResourceUri(), tool.modelVisible(), tool.appVisible());
             var risk = risk(entity);
             var policy = defaultPolicy(server, tool.name(), risk);
             if (entity.policyCustomized() && policy != McpToolPolicy.OFF)

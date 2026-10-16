@@ -66,21 +66,39 @@ class McpServerRulesTest {
     void snapshotsKeepHintsAndRejectInvalidTools() {
         var schema = Map.<String, Object>of("type", "object", "properties", Map.of());
         var snapshot = McpServerRules.snapshot(List.of(
-                new McpToolDescriptor("search", " Search ", "Finds files", schema, true, false, null, null)));
+                new McpToolDescriptor("search", " Search ", "Finds files", schema, true, false, null, null, null, true, true)));
         assertEquals("Search", snapshot.getFirst().title());
         assertTrue(snapshot.getFirst().readOnly());
         assertEquals(Boolean.FALSE, McpServerRules.hint(snapshot.getFirst().annotations(), "destructiveHint"));
         assertNull(McpServerRules.hint(snapshot.getFirst().annotations(), "openWorldHint"));
         assertFalse(snapshot.getFirst().inputSchema().isBlank());
 
-        var tool = new McpToolDescriptor("search", null, "", schema, null, null, null, null);
+        var tool = new McpToolDescriptor("search", null, "", schema, null, null, null, null, null, true, true);
         assertCode("MCP_TOOL_SNAPSHOT_INVALID", () -> McpServerRules.snapshot(List.of(tool, tool)));
         assertCode("MCP_TOOL_SNAPSHOT_INVALID", () -> McpServerRules.snapshot(List.of(
-                new McpToolDescriptor("search", null, "", Map.of("type", "string"), null, null, null, null))));
+                new McpToolDescriptor("search", null, "", Map.of("type", "string"), null, null, null, null, null, true, true))));
         assertCode("MCP_TOOL_SNAPSHOT_INVALID", () -> McpServerRules.snapshot(List.of(
-                new McpToolDescriptor("search", null, "d".repeat(16385), schema, null, null, null, null))));
+                new McpToolDescriptor("search", null, "d".repeat(16385), schema, null, null, null, null, null, true, true))));
         assertCode("MCP_TOOL_SNAPSHOT_INVALID", () -> McpServerRules.snapshot(List.of(
-                new McpToolDescriptor("search", null, "", Map.of("type", "object", "description", "s".repeat(40000)), null, null, null, null))));
+                new McpToolDescriptor("search", null, "", Map.of("type", "object", "description", "s".repeat(40000)), null, null, null, null, null, true, true))));
+    }
+
+    @Test
+    void snapshotsKeepOnlyBoundedViewUrisAndAVisibleSide() {
+        var schema = Map.<String, Object>of("type", "object");
+        var snapshot = McpServerRules.snapshot(List.of(
+                new McpToolDescriptor("picker", null, "", schema, null, null, null, null, "ui://canva/picker", true, true),
+                new McpToolDescriptor("page", null, "", schema, null, null, null, null, "https://canva.com/view", true, true),
+                new McpToolDescriptor("long", null, "", schema, null, null, null, null, "ui://" + "x".repeat(1020), true, true),
+                new McpToolDescriptor("select", null, "", schema, null, null, null, null, null, false, true),
+                new McpToolDescriptor("hidden", null, "", schema, null, null, null, null, null, false, false)));
+        assertEquals("ui://canva/picker", snapshot.get(0).appResourceUri());
+        assertNull(snapshot.get(1).appResourceUri());
+        assertNull(snapshot.get(2).appResourceUri());
+        assertFalse(snapshot.get(3).modelVisible());
+        assertTrue(snapshot.get(3).appVisible());
+        // Hidden from both sides is read as the specification's default, visible to both.
+        assertTrue(snapshot.get(4).modelVisible() && snapshot.get(4).appVisible());
     }
 
     @Test
