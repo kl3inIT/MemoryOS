@@ -78,19 +78,47 @@ beforeEach(async () => {
   vi.clearAllMocks();
 });
 
-it("selects a connected server for the turn", async () => {
+it("selects a connected server for the turn by its row", async () => {
   const onChange = show([connection({})]);
-  const toggle = await screen.findByRole("switch", { name: "Drive" });
-  await userEvent.click(toggle);
+  const row = await screen.findByRole("button", { name: "Drive" });
+  expect(row).toHaveAttribute("aria-pressed", "false");
+  await userEvent.click(row);
   expect(onChange).toHaveBeenCalledWith(["11111111-1111-4111-8111-111111111111"]);
 });
 
-it("offers Connect instead of a switch until the User has connected", async () => {
+it("marks a selected server and clears it from the same row", async () => {
+  const onChange = show([connection({})], vi.fn(), ["11111111-1111-4111-8111-111111111111"]);
+  const row = await screen.findByRole("button", { name: "Drive" });
+  expect(row).toHaveAttribute("aria-pressed", "true");
+  await userEvent.click(row);
+  expect(onChange).toHaveBeenCalledWith([]);
+});
+
+it("lists servers still to connect after the usable ones, under their own heading", async () => {
+  show([
+    connection({
+      id: "22222222-2222-4222-8222-222222222222",
+      name: "Gmail",
+      connectionState: "REAUTH_REQUIRED",
+      oauthClients: [{ id: "c1", label: "Org A" }],
+    }),
+    connection({}),
+  ]);
+  const usable = await screen.findByRole("button", { name: "Drive" });
+  const heading = screen.getByText("Chưa kết nối");
+  expect(usable.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(heading.compareDocumentPosition(screen.getByText("Gmail"))).toBe(
+    Node.DOCUMENT_POSITION_FOLLOWING,
+  );
+  expect(screen.queryByRole("button", { name: "Gmail" })).not.toBeInTheDocument();
+});
+
+it("offers Connect instead of a selectable row until the User has connected", async () => {
   show([
     connection({ connectionState: "NOT_CONNECTED", oauthClients: [{ id: "c1", label: "Org A" }] }),
   ]);
   expect(await screen.findByRole("button", { name: "Kết nối" })).toBeInTheDocument();
-  expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Drive" })).not.toBeInTheDocument();
 });
 
 it("asks which account to use only when the server has several", async () => {
@@ -111,7 +139,7 @@ it("asks which account to use only when the server has several", async () => {
 
 it("cannot be selected when the administrator enabled no tools", async () => {
   show([connection({ enabledToolCount: 0 })]);
-  expect(await screen.findByRole("switch", { name: "Drive" })).toBeDisabled();
+  expect(await screen.findByRole("button", { name: /Drive/ })).toBeDisabled();
 });
 
 it("says an OAuth server is waiting on an administrator when it has no client", async () => {

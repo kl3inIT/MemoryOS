@@ -297,7 +297,7 @@ for (const theme of ["light", "dark"] as const) {
       await page.goto("/");
       await page.getByRole("button", { name: "Thêm vào câu hỏi" }).click();
       await page.getByRole("button", { name: /Ứng dụng/ }).click();
-      await expect(page.getByRole("switch", { name: "Google Drive" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Google Drive", exact: true })).toBeVisible();
       await page.screenshot({ path: `${OUTPUT}/mem112-mcp-composer-${theme}-${width}.png` });
 
       await page.goto("/admin/mcp");
@@ -382,9 +382,11 @@ test("The composer lists MCP servers with their own connection state", async ({ 
 
   await page.getByRole("button", { name: "Thêm vào câu hỏi" }).click();
   await page.getByRole("button", { name: /Ứng dụng/ }).click();
-  await expect(page.getByRole("switch", { name: "Google Drive" })).toBeVisible();
-  // Jira needs the User's own key and Figma expired, so both offer Connect instead of a switch.
-  await expect(page.getByRole("switch", { name: "Jira Cloud" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Google Drive", exact: true })).toBeVisible();
+  // Jira needs the User's own key and Figma expired, so both wait under "Chưa kết nối" with Connect instead of a row
+  // that selects them.
+  await expect(page.getByText("Chưa kết nối", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Jira Cloud", exact: true })).toHaveCount(0);
   await expect(page.getByText("Cần kết nối lại")).toBeVisible();
   await page.screenshot({ path: "test-results/mcp-composer.png" });
 });

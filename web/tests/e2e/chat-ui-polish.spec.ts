@@ -45,8 +45,7 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole("button", { name: "Chọn tệp đã có", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Tìm kiếm Web", exact: true })).toBeVisible();
     await page.screenshot({ path: `../output/playwright/composer-menu-${width}.png` });
-    await page.getByRole("button", { name: "Tùy chọn Web" }).click();
-    await page.getByRole("radio", { name: "Tự động dùng Web" }).click();
+    await page.getByRole("button", { name: "Tìm kiếm Web", exact: true }).click();
     await expect(page.getByRole("button", { name: "Tắt Web" })).toBeVisible();
     await page
       .getByRole("textbox", { name: "Câu hỏi", exact: true })

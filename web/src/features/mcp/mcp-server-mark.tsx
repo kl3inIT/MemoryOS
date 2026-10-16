@@ -33,9 +33,10 @@ import { cn } from "@/lib/utils";
 
 /**
  * A service's own full-colour logo on a white tile, as ChatGPT shows its plugins; `tile` is used where the colour
- * logo set has only a wordmark or nothing, drawing the one-colour mark white on the brand's colour.
+ * logo set has only a wordmark or nothing, drawing the one-colour mark white on the brand's colour. `monochrome` marks
+ * a near-black logo, inverted on a dark surface when it is drawn without its tile.
  */
-type Brand = { logo: IconifyIcon } | { tile: IconifyIcon; color: string };
+type Brand = { logo: IconifyIcon; monochrome?: true } | { tile: IconifyIcon; color: string };
 
 /**
  * Known services by a word of their MCP address or name, first match wins, so the more specific entries come
@@ -52,8 +53,8 @@ const brands: [string, Brand][] = [
   ["jira", { logo: jiraLogo }],
   ["atlassian", { logo: atlassianLogo }],
   ["linear", { logo: linearLogo }],
-  ["notion", { logo: notionLogo }],
-  ["github", { logo: githubLogo }],
+  ["notion", { logo: notionLogo, monochrome: true }],
+  ["github", { logo: githubLogo, monochrome: true }],
   ["gitlab", { logo: gitlabLogo }],
   ["slack", { logo: slackLogo }],
   ["figma", { logo: figmaLogo }],
@@ -61,7 +62,7 @@ const brands: [string, Brand][] = [
   ["asana", { logo: asanaLogo }],
   ["stripe", { tile: stripeIcon, color: "#635BFF" }],
   ["supabase", { logo: supabaseLogo }],
-  ["sentry", { logo: sentryLogo }],
+  ["sentry", { logo: sentryLogo, monochrome: true }],
   ["miro", { logo: miroLogo }],
   ["canva", { tile: canvaIcon, color: "#00C4CC" }],
   ["intercom", { logo: intercomLogo }],
@@ -72,7 +73,7 @@ const brands: [string, Brand][] = [
   ["clickup", { logo: clickupLogo }],
   ["trello", { logo: trelloLogo }],
   ["zapier", { logo: zapierLogo }],
-  ["zendesk", { logo: zendeskLogo }],
+  ["zendesk", { logo: zendeskLogo, monochrome: true }],
 ];
 
 function brandOf(url: string, name: string): Brand | undefined {
@@ -96,16 +97,26 @@ export function McpServerMark({
   url = "",
   name = "",
   size = "md",
+  bare = false,
   className,
 }: {
   slug: string;
   url?: string;
   name?: string;
   size?: keyof typeof tileSize;
+  /** Draws a full-colour logo without its white tile; brand-colour tiles and monograms keep theirs. */
+  bare?: boolean;
   className?: string;
 }) {
   const brand = brandOf(url, name);
   const sized = tileSize[size];
+  if (brand && "logo" in brand && bare) {
+    return (
+      <span aria-hidden="true" className={cn(tileClass, sized.tile, className)}>
+        <Icon icon={brand.logo} className={cn(sized.logo, brand.monochrome && "dark:invert")} />
+      </span>
+    );
+  }
   if (brand && "logo" in brand) {
     return (
       <span
