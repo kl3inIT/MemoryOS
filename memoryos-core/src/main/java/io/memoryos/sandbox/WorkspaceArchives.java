@@ -87,7 +87,8 @@ final class WorkspaceArchives {
             notSaved("too_large", null);
             return;
         }
-        String key = "sandbox/" + tenant.value() + "/" + conversation + "/" + UUID.randomUUID() + ".tar.gz";
+        // The key every stored object has, under the prefix the API may write and the Worker may delete.
+        String key = "raw/" + tenant.value() + "/" + UUID.randomUUID();
         transactions.executeWithoutResult(_ -> workspaces.archiveBegun(tenant, conversation, key, clock.instant()));
         try (InputStream archive = runtime.open(id, ARCHIVE)) {
             storage.writeStream(new ObjectKey(key), archive, declared);
