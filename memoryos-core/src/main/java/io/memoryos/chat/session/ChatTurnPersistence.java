@@ -136,14 +136,9 @@ public class ChatTurnPersistence {
     public record SessionAgent(JdbcChatRepository.Persona persona, boolean agentsManage, boolean modelsManage,
                                boolean inProject) {}
 
-    /** The session agent's tool policy, read under the owner's agent use authority before a command is admitted. */
-    @Transactional(readOnly = true)
-    public SessionAgent agent(ActorId actor, UUID session) {
-        return agent(actor, session, false);
-    }
-
     /**
-     * The session agent of a command; {@code fromChannel} when the channel asks. A conversation held in a channel may
+     * The session agent's tool policy, read under the owner's agent use authority before a command is admitted;
+     * {@code fromChannel} when the channel asks. A conversation held in a channel may
      * use its bot's assistant only for questions asked through the bot (MEM-273): a command from anywhere else, such as
      * the web, needs the owner to be able to use the assistant themself.
      */

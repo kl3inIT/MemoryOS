@@ -1693,7 +1693,7 @@ class ChatPersistenceIntegrationTest {
 
         clearInvocations(authorization);
         statements.reset();
-        var agent = turns.agent(owner, session.id());
+        var agent = turns.agent(owner, session.id(), false);
         var selection = new ChatTurnPersistence.ModelSelection(null, UUID.randomUUID(), null, binding,
                 agent.persona().revision(), "", agent);
         var reserved = turns.reserve(owner, session.id(), session.rootMessageId(), UUID.randomUUID(), "Question",
