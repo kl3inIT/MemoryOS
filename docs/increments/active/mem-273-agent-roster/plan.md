@@ -71,6 +71,9 @@ and staging has deployed it. The web pull request is accepted when the owner has
   and remembers it. Tests: `ChatPersistenceIntegrationTest`, `ChatSessionApiIntegrationTest`,
   `chat-projects-section.test.tsx` and the folding case in `chat-assistants.spec.ts`; a 1440×900 screenshot with two
   projects and five assistants.
+- [x] Assistants show five rows, then "Xem thêm (n)" and "Thu gọn"; the "…" menu picks 5/10/15/20 rows, remembered per
+  browser; the open and the answering assistant always show; "Xem tất cả dự án" only past three projects. Tests:
+  `chat-assistants-section.test.tsx`, `chat-projects-section.test.tsx`; 1440×900 screenshots with seven pins.
 
 ## 3. Verification
 

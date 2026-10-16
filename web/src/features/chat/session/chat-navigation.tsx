@@ -1,59 +1,37 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useAuiState } from "@assistant-ui/react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Link, useMatch, useParams, useRouterState } from "@tanstack/react-router";
-import {
-  ChevronLeft,
-  Compass,
-  FileSearch,
-  Folder,
-  FolderOpen,
-  GripVertical,
-  Info,
-  PinOff,
-  Plus,
-  SquarePen,
-} from "lucide-react";
+import { ChevronLeft, FileSearch, Folder, FolderOpen, Info, SquarePen } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { hoverReveal } from "@/components/composites/hover-reveal";
-import { SortableList } from "@/components/composites/sortable-list";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { SidebarLink } from "@/components/app-shell/sidebar-link";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ThreadList, groupThreadTitles } from "@/components/assistant-ui/elements/thread-list";
-import type { ChatAssistant, ChatSession } from "@/lib/hey-api/types.gen";
+import type { ChatSession } from "@/lib/hey-api/types.gen";
 import {
   getChatSessionOptions,
-  listChatAssistantsQueryKey,
   listChatSessionsOptions,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
-import { usePinUpdates } from "@/features/agents/agent-pins";
 import { AgentAvatar } from "@/features/agents/agent-avatar";
-import { actionErrorText } from "@/lib/action-errors";
 import {
   useChatThreads,
   useOptionalChatThreads,
 } from "@/features/chat/runtime/chat-threads-context";
 import { sessionFromThread } from "@/features/chat/runtime/chat-thread-list-adapter";
-import { cn } from "@/lib/utils";
 import { ChatHistorySearch } from "./chat-history-search";
 import { ChatProjectsSection } from "./chat-projects-section";
 import { ChatSessionRow } from "./chat-session-row";
-import { useSidebarSectionOpen } from "./sidebar-section-open";
+import { AssistantsSection } from "./chat-assistants-section";
+import { SidebarSection } from "./sidebar-section";
 import {
+  assistantLink,
   useAssistantFaces,
   useSidebarAssistants,
   useThreadGroupLabel,
   useTopicTime,
 } from "./assistant-topics";
-
-/**
- * A pin's drag handle and unpin button appear on hover. A touch screen cannot hover and the row has no room for them
- * beside its time, so there a pin is removed from the assistants page and the order is kept as it is.
- */
-const pinControls = "no-hover:hidden";
 
 /** The topics an assistant's sidebar lists before "Xem tất cả", as LobeHub's topic page size. */
 const SIDEBAR_TOPICS = 20;
@@ -191,275 +169,6 @@ function HomeSidebar({
         </div>
       )}
     </div>
-  );
-}
-
-/**
- * A section of the home sidebar whose heading folds it, remembered per browser as LobeHub's sidebar remembers each
- * section, so a long list never pushes the next section out of reach.
- */
-function SidebarSection({
-  id,
-  title,
-  storageKey,
-  action,
-  className,
-  children,
-}: {
-  id: string;
-  title: string;
-  storageKey: string;
-  action?: ReactNode;
-  className?: string;
-  children: ReactNode;
-}) {
-  const [open, setOpen] = useSidebarSectionOpen(storageKey);
-  return (
-    <Collapsible asChild open={open} onOpenChange={setOpen}>
-      <section aria-labelledby={id} className={className}>
-        <div className="mb-1 flex h-8 items-center justify-between rounded-lg pr-0.5 pl-2 hover:bg-surface-sunken">
-          <h2 id={id} className="min-w-0 flex-1 text-sm font-medium text-content-secondary">
-            <CollapsibleTrigger asChild>
-              <button
-                type="button"
-                className="flex h-8 w-full items-center rounded-lg text-left outline-none hover:text-content-primary focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {title}
-              </button>
-            </CollapsibleTrigger>
-          </h2>
-          {action}
-        </div>
-        <CollapsibleContent>{children}</CollapsibleContent>
-      </section>
-    </Collapsible>
-  );
-}
-
-/** Where an assistant's row leads: its latest topic, or a new one. */
-function assistantLink(assistant: ChatAssistant) {
-  return assistant.latestTopic
-    ? ({ to: "/chat/$sessionId", params: { sessionId: assistant.latestTopic.sessionId } } as const)
-    : ({ to: "/assistants/$personaId/new", params: { personaId: assistant.id } } as const);
-}
-
-/**
- * The person's assistants: MemoryOS first, then the pins in their order. Each row opens its latest topic and shows
- * when it was written, its last line and a turning ring while an answer runs (Rakazo, Hermes Bot Chats). A pin whose
- * assistant is gone stays, marked, until it is unpinned.
- */
-function AssistantsSection({
-  openAssistant,
-  onNavigate,
-}: {
-  openAssistant?: string;
-  onNavigate?: () => void;
-}) {
-  const ui = useAppTranslation();
-  const cache = useQueryClient();
-  const assistants = useSidebarAssistants();
-  const updatePins = usePinUpdates();
-  const reorder = useMutation({
-    mutationFn: ({ change }: { next: ChatAssistant[]; change: (current: string[]) => string[] }) =>
-      updatePins(change),
-    // Shows the new order at once; the built-in assistant keeps the first row.
-    onMutate: ({ next }) =>
-      cache.setQueryData<ChatAssistant[]>(listChatAssistantsQueryKey(), (rows) => [
-        ...(rows ?? []).filter((row) => row.builtin),
-        ...next,
-      ]),
-    onError: () => cache.invalidateQueries({ queryKey: listChatAssistantsQueryKey() }),
-  });
-  const rows = assistants.data ?? [];
-  const builtin = rows.filter((row) => row.builtin);
-  const pinned = rows.filter((row) => !row.builtin);
-  const unpin = (assistant: ChatAssistant) =>
-    reorder.mutate({
-      next: pinned.filter((item) => item.id !== assistant.id),
-      change: (current) => current.filter((id) => id !== assistant.id),
-    });
-
-  return (
-    <SidebarSection
-      id="sidebar-assistants"
-      title={ui("Trợ lý")}
-      storageKey="memoryos:chat-assistants-section"
-      className="my-3"
-      action={
-        <IconButton size="sm" prominence="internal" aria-label={ui("Thêm trợ lý")} asChild>
-          <Link to="/agents" onClick={onNavigate}>
-            <Plus />
-          </Link>
-        </IconButton>
-      }
-    >
-      {assistants.isPending && (
-        <p role="status" className="px-2 py-1 text-sm text-content-muted">
-          {ui("Đang tải trợ lý…")}
-        </p>
-      )}
-      {assistants.isError && (
-        <Button size="sm" prominence="internal" onClick={() => void assistants.refetch()}>
-          {ui("Tải lại trợ lý")}
-        </Button>
-      )}
-      {/* Rows, not list items: the drag context puts its announcements beside them. */}
-      <div className="flex flex-col gap-0.5">
-        {builtin.map((assistant) => (
-          <div key={assistant.id} className="group relative rounded-lg">
-            <AssistantRow
-              assistant={assistant}
-              selected={openAssistant === assistant.id}
-              onNavigate={onNavigate}
-            />
-          </div>
-        ))}
-        <SortableList
-          items={pinned}
-          getId={(assistant) => assistant.id}
-          onReorder={(next) =>
-            reorder.mutate({ next, change: () => next.map((assistant) => assistant.id) })
-          }
-        >
-          {(assistant, handle) => (
-            <div
-              ref={handle.setNodeRef}
-              style={handle.style}
-              className={cn(
-                "group relative rounded-lg",
-                handle.dragging && "z-10 bg-surface-sunken",
-              )}
-            >
-              <button
-                ref={handle.setHandleRef}
-                type="button"
-                aria-label={ui("Kéo để sắp xếp {{v1}}", { v1: assistant.name })}
-                className={cn(
-                  "absolute top-1/2 -left-1 grid h-8 w-4 -translate-y-1/2 cursor-grab place-items-center text-content-muted outline-none focus-visible:opacity-100 active:cursor-grabbing",
-                  hoverReveal,
-                  pinControls,
-                )}
-                {...handle.attributes}
-              >
-                <GripVertical aria-hidden="true" className="size-3.5" />
-              </button>
-              <AssistantRow
-                assistant={assistant}
-                selected={openAssistant === assistant.id}
-                onNavigate={onNavigate}
-              />
-              <span
-                className={cn(
-                  "absolute top-1/2 right-0.5 -translate-y-1/2",
-                  hoverReveal,
-                  pinControls,
-                )}
-              >
-                <IconButton
-                  size="sm"
-                  prominence="internal"
-                  aria-label={ui("Bỏ ghim {{v1}}", { v1: assistant.name })}
-                  onClick={() => unpin(assistant)}
-                >
-                  <PinOff />
-                </IconButton>
-              </span>
-            </div>
-          )}
-        </SortableList>
-      </div>
-      <Link
-        to="/agents"
-        onClick={onNavigate}
-        className="mt-0.5 flex h-8 items-center gap-2 rounded-lg px-2 text-sm text-content-muted outline-none hover:bg-surface-subtle hover:text-content-primary focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <Compass aria-hidden="true" className="size-4" />
-        {ui("Khám phá trợ lý")}
-      </Link>
-      {reorder.error && (
-        <p role="alert" className="px-2 text-xs text-status-danger-content">
-          {actionErrorText(reorder.error)}
-        </p>
-      )}
-    </SidebarSection>
-  );
-}
-
-/** One assistant: its face, name and last time above the last line of its latest topic. */
-function AssistantRow({
-  assistant,
-  selected,
-  onNavigate,
-}: {
-  assistant: ChatAssistant;
-  selected: boolean;
-  onNavigate?: () => void;
-}) {
-  const ui = useAppTranslation();
-  const topicTime = useTopicTime();
-  const topic = assistant.latestTopic;
-  const running = topic?.replyRunning === true;
-  const line = !assistant.usable
-    ? ui("Không còn dùng được")
-    : running
-      ? ui("Đang trả lời…")
-      : topic?.preview || (topic ? topic.title : ui("Chưa có chủ đề"));
-  const content = (
-    <>
-      <span className="relative shrink-0">
-        <AgentAvatar
-          agent={assistant}
-          size="row"
-          className={cn(!assistant.usable && "opacity-60 grayscale")}
-        />
-        {running && (
-          <span
-            aria-hidden="true"
-            // A square ring breathes rather than spins: a turning square swings its corners out.
-            className="absolute -inset-1 animate-pulse rounded-xl border-2 border-status-info-content motion-reduce:animate-none"
-          />
-        )}
-      </span>
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span className="flex min-w-0 items-baseline gap-2">
-          <span className="min-w-0 flex-1 truncate font-medium text-content-primary">
-            {assistant.name}
-          </span>
-          {topic && (
-            <time
-              dateTime={topic.lastMessageAt}
-              className="shrink-0 text-xs text-content-muted tabular-nums group-focus-within:invisible group-hover:invisible no-hover:visible"
-            >
-              {topicTime(topic.lastMessageAt)}
-            </time>
-          )}
-        </span>
-        <span
-          className={cn(
-            "truncate text-xs",
-            running ? "font-medium text-status-info-content" : "text-content-muted",
-          )}
-        >
-          {line}
-        </span>
-      </span>
-    </>
-  );
-  const className = cn(
-    "flex min-w-0 items-center gap-2.5 rounded-lg px-2 py-1 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
-    selected ? "bg-surface-sunken" : "hover:bg-surface-subtle",
-  );
-  // A gone assistant without a topic has nothing to open.
-  if (!assistant.usable && !topic) return <div className={cn(className, "pr-8")}>{content}</div>;
-  return (
-    <Link
-      {...assistantLink(assistant)}
-      onClick={onNavigate}
-      aria-current={selected ? "true" : undefined}
-      className={className}
-    >
-      {content}
-    </Link>
   );
 }
 

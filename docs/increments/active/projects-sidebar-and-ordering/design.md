@@ -20,8 +20,9 @@ Not in scope: pinning a conversation, a conversation-files entry in the menu, pl
 
 - The full-width *Dự án* heading button, with its chevron, opens and closes the section; the state is
   kept in `localStorage`. A separate plus button creates a project.
-- The section lists the first three projects in the person's order (five until MEM-273 decision 14). If at
-  least one project exists, *Xem tất cả dự án* links to `/projects`. The project being viewed (its page, or
+- The section lists the first three projects in the person's order (five until MEM-273 decision 14). When more
+  than three exist, *Xem tất cả dự án* links to `/projects`; it showed whenever a project existed until MEM-273
+  decision 14, which follows ChatGPT's *See more*. The project being viewed (its page, or
   the project of the open conversation) is listed even when it is outside the first three.
 - Each project row has a chevron disclosure button that opens the project in place. An open project lists its five most
   recent conversations from `GET /api/chat/projects/{id}/sessions?limit=5`, rendered with

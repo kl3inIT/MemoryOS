@@ -137,14 +137,11 @@ it("lists the first three projects and links to the rest", async () => {
   );
 });
 
-it("links to the Projects page even while every project fits", async () => {
-  await show([1, 2].map(project));
+it("leaves the link to the Projects page out while every project fits", async () => {
+  await show([1, 2, 3].map(project));
 
-  await screen.findByRole("button", { name: "Hội thoại trong Dự án 2" });
-  expect(screen.getByRole("link", { name: "Xem tất cả dự án" })).toHaveAttribute(
-    "href",
-    "/projects",
-  );
+  await screen.findByRole("button", { name: "Hội thoại trong Dự án 3" });
+  expect(screen.queryByRole("link", { name: "Xem tất cả dự án" })).not.toBeInTheDocument();
 });
 
 it("opens the project page from its row action menu", async () => {

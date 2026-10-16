@@ -1592,6 +1592,8 @@ export const vietnameseUi: Record<string, string> = {
   "Xem thêm hội thoại": "Load more conversations",
   "Thu gọn": "Collapse",
   "Xem thêm": "Show more",
+  "Xem thêm ({{v1}})": "Show more ({{v1}})",
+  "Tùy chọn danh sách trợ lý": "Assistant list options",
   "Đang chuyển hội thoại…": "Moving conversation…",
   "Không tải được hội thoại.": "Could not load the conversation.",
   "Dự án không khả dụng.": "Project unavailable.",

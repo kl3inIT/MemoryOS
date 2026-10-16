@@ -125,11 +125,18 @@ LobeHub paths are under `tmp/refs/lobe-chat` (lobehub/lobehub, cloned 2026-10-15
       soft-deletes the web, non-temporary ones older than a day, which the earlier sidebar created on each click on
       an assistant (45 on staging), and the retention purge removes them. A conversation holds no upload of its own and
       one without a question has no answer, so nothing else is lost.
-    - "Dự án" lists its first three projects, then "Xem tất cả dự án", which stays even when every project fits, as
-      the projects increment decided. The headings of "Dự án", "Trợ lý" and "Gần đây" fold their sections, as
+    - "Dự án" lists its first three projects; "Xem tất cả dự án" follows only when more exist, as ChatGPT's "See more",
+      which changes the projects increment's always-shown link (the owner's choice). The headings of "Dự án", "Trợ lý" and "Gần đây" fold their sections, as
       LobeHub's sidebar sections fold, and each choice is kept per browser in `localStorage`. Assistant rows lose 4px
       of padding and the sections 4px of gap, so with two projects and five assistants the first "Gần đây" row shows
       at 1440×900 without scrolling.
+    - "Trợ lý" shows five rows, MemoryOS and the first four pins, then "Xem thêm (n)", which opens the rest in place, and
+      "Thu gọn", as LobeHub's HomeSidebar agent list (`agentPageSize` 5, `features/HomeSidebar/Body/Agent`); LobeHub's
+      "more" opens a drawer, here the list grows in place, which keeps drag and keyboard reordering in one list. The
+      section's "…" menu, "Hiển thị", picks 5, 10, 15 or 20 rows, as LobeHub's page-size submenu, kept per browser. The
+      open assistant and one whose reply runs always keep their row. A reorder of the shown pins puts them into the
+      places they held among all pins, as the Projects section does. With seven pins the first "Gần đây" row still
+      shows at 1440×900: "Xem thêm (3)" takes the room "Xem tất cả dự án" gave back.
 
 ## Deviations in the web delivery
 

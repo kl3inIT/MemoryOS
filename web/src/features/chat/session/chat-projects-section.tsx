@@ -46,7 +46,7 @@ import {
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { cn } from "@/lib/utils";
 import { CHAT_DRAG_TYPE, ChatSessionRow } from "./chat-session-row";
-import { useSidebarSectionOpen } from "./sidebar-section-open";
+import { useSidebarSectionOpen } from "./sidebar-preferences";
 
 /** The sidebar lists this many projects, and this many conversations of an open project. */
 const SECTION_PROJECTS = 3;
@@ -177,7 +177,8 @@ export function ChatProjectsSection({ onNavigate }: { onNavigate?: () => void })
             </div>
           )}
         </SortableList>
-        {all.length > 0 && (
+        {/* As ChatGPT's "See more", the link appears once some project is left out. */}
+        {all.length > SECTION_PROJECTS && (
           <Link
             to="/projects"
             onClick={onNavigate}
