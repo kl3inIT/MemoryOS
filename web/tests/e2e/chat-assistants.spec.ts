@@ -145,3 +145,24 @@ test("filters the history by assistant", async ({ page }) => {
   await page.goto("/history?assistant=00000000-0000-4000-8000-0000000000ab");
   await expect(page.getByText("Không có chủ đề nào khớp")).toBeVisible();
 });
+
+test("folds a sidebar section from its heading and keeps it folded after a reload", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const sidebar = page.getByRole("complementary");
+  const assistants = sidebar.locator("section[aria-labelledby=sidebar-assistants]");
+  const memoryos = assistants.locator('a[href^="/chat/"], a[href^="/assistants/"]').first();
+  const heading = sidebar.getByRole("button", { name: "Trợ lý", exact: true });
+  await expect(memoryos).toBeVisible();
+
+  await heading.click();
+  await expect(heading).toHaveAttribute("aria-expanded", "false");
+  await expect(memoryos).toBeHidden();
+  await page.reload();
+  await expect(heading).toHaveAttribute("aria-expanded", "false");
+  await expect(memoryos).toBeHidden();
+
+  await heading.click();
+  await expect(memoryos).toBeVisible();
+});

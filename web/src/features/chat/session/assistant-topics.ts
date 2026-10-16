@@ -3,7 +3,15 @@ import type { ThreadTimeGroup } from "@/components/assistant-ui/elements/thread-
 import { formatUiDate } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { listChatAssistantsOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
+import type { ChatAssistant } from "@/lib/hey-api/types.gen";
 import { personasOptions } from "@/features/chat/chat-personas-api";
+
+/** Where an assistant's row leads: its latest topic, or a new one. */
+export function assistantLink(assistant: ChatAssistant) {
+  return assistant.latestTopic
+    ? ({ to: "/chat/$sessionId", params: { sessionId: assistant.latestTopic.sessionId } } as const)
+    : ({ to: "/assistants/$personaId/new", params: { personaId: assistant.id } } as const);
+}
 
 /** What a face needs: the assistant, its seed and whether it has an uploaded image. */
 export type AssistantFace = { id: string; avatarSeed: string; hasAvatar: boolean; name: string };

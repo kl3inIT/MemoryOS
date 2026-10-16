@@ -55,6 +55,15 @@ public class JdbcChatRepository {
     static final String SELECT_SESSION = "SELECT chat_session.*, EXISTS (SELECT 1 FROM chat_message reply"
             + " WHERE reply.session_id = chat_session.id AND reply.status = 'RUNNING') AS reply_running ";
 
+    /**
+     * A conversation nobody asked anything in is not a topic, so no list shows it (MEM-273); it still opens from its
+     * address. Reads {@code ix_chat_message_parent} by session.
+     */
+    static String asked(String session) {
+        return " EXISTS (SELECT 1 FROM chat_message question WHERE question.session_id = " + session
+                + ".id AND question.role = 'USER') ";
+    }
+
     public JdbcChatRepository(JdbcClient jdbc) {
         this.jdbc = jdbc;
     }
@@ -212,6 +221,8 @@ public class JdbcChatRepository {
                             SELECT * FROM chat_session c
                             WHERE c.tenant_id = :tenant AND c.owner_actor_id = :actor AND c.persona_id = p.id
                               AND c.deleted_at IS NULL AND c.archived_at IS NULL AND NOT c.temporary AND c.surface = 'WEB'
+                              AND""" + asked("c") + """
+
                             ORDER BY c.updated_at DESC, c.id LIMIT 1
                         ) s ON TRUE
                         LEFT JOIN LATERAL (
@@ -246,7 +257,7 @@ public class JdbcChatRepository {
                         FROM chat_session WHERE tenant_id = :tenant AND owner_actor_id = :actor
                             AND deleted_at IS NULL AND NOT temporary AND surface = 'WEB'
                             AND (CASE WHEN :archived THEN archived_at IS NOT NULL ELSE archived_at IS NULL END)
-                        """ + (persona == null ? "" : " AND persona_id = :persona") + """
+                            AND""" + asked("chat_session") + (persona == null ? "" : " AND persona_id = :persona") + """
 
                         ORDER BY (CASE WHEN :archived THEN archived_at ELSE updated_at END) DESC, id
                         LIMIT :limit OFFSET :offset
@@ -601,7 +612,9 @@ public class JdbcChatRepository {
     public List<ChatSession> projectSessions(TenantId tenant, ActorId actor, UUID project, int offset, int limit) {
         return jdbc.sql(SELECT_SESSION + """
                 FROM chat_session WHERE tenant_id=:tenant AND owner_actor_id=:actor
-                    AND project_id=:project AND deleted_at IS NULL ORDER BY updated_at DESC,id LIMIT :limit OFFSET :offset
+                    AND project_id=:project AND deleted_at IS NULL AND""" + asked("chat_session") + """
+
+                ORDER BY updated_at DESC,id LIMIT :limit OFFSET :offset
                 """).param("tenant", tenant.value()).param("actor", actor.value()).param("project", project)
                 .param("limit", limit).param("offset", offset).query(JdbcChatRepository::session).list();
     }

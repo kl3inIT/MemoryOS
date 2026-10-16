@@ -117,6 +117,33 @@ LobeHub paths are under `tmp/refs/lobe-chat` (lobehub/lobehub, cloned 2026-10-15
 13. **Out of this step.**
     - Unread markers (with schedules, MEM-265) and favourite topics.
     - Fork and the explore page (step 3); direct messages from Zalo and Lark joining an assistant's topics (step 4).
+14. **Staging acceptance (2026-10-16): empty topics and a sidebar that fits at 900px.** The owner chose both fixes.
+    - A web conversation becomes a topic with its first question, as a LobeHub topic and a ChatGPT chat exist only
+      after the first message (decision 5). The session lists and search, a Project's conversations, the assistants'
+      latest topic, "Gần đây", `/history` and the data export leave out a session without a USER message, through an
+      `EXISTS` that `ix_chat_message_parent` (`session_id` first) answers; `/chat/$sessionId` still opens it. V180
+      soft-deletes the web, non-temporary ones older than a day, which the earlier sidebar created on each click on
+      an assistant (45 on staging), and the retention purge removes them. A conversation holds no upload of its own and
+      one without a question has no answer, so nothing else is lost.
+    - "Dự án" lists its first three projects; "Xem tất cả dự án" follows only when more exist, as ChatGPT's "See more",
+      which changes the projects increment's always-shown link (the owner's choice). The headings of "Dự án", "Trợ lý" and "Gần đây" fold their sections, as
+      LobeHub's sidebar sections fold, and each choice is kept per browser in `localStorage`. Assistant rows lose 4px
+      of padding and the sections 4px of gap, so with two projects and five assistants the first "Gần đây" row shows
+      at 1440×900 without scrolling.
+    - "Trợ lý" shows five rows, MemoryOS and the first four pins, then "Xem thêm (n)", which opens the rest in place, and
+      "Thu gọn", as LobeHub's HomeSidebar agent list (`agentPageSize` 5, `features/HomeSidebar/Body/Agent`); LobeHub's
+      "more" opens a drawer, here the list grows in place, which keeps drag and keyboard reordering in one list. The
+      section's "…" menu, "Hiển thị", picks 5, 10, 15 or 20 rows, as LobeHub's page-size submenu, kept per browser. The
+      open assistant and one whose reply runs always keep their row. A reorder of the shown pins puts them into the
+      places they held among all pins, as the Projects section does. With seven pins the first "Gần đây" row still
+      shows at 1440×900: "Xem thêm (3)" takes the room "Xem tất cả dự án" gave back.
+    - **Changes decision 8 (owner, 2026-10-16):** the "Khám phá trợ lý" row under the assistants is gone. The "Trợ lý"
+      heading carries three icon buttons with tooltips, as LobeHub's agent section header (`HomeSidebar/Body/Agent`:
+      its menu, an ArrowRight "view all agents" to `/agents`, and create): "…" for the rows, a compass "Khám phá trợ
+      lý" to `/agents`, and "+" "Tạo trợ lý" to `/agents/create`, shown only with `AGENTS_CREATE`; "+" used to open
+      `/agents` too. The collapsed rail lists no explore entry, so it is unchanged.
+    - A thread row's hidden "…" menu no longer holds its width on a pointer screen: it covers the row's end when shown,
+      and the "Gần đây" time gives way to it, so a title runs up to its time, as ChatGPT's rows.
 
 ## Deviations in the web delivery
 

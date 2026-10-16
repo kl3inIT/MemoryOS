@@ -1,57 +1,37 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useAuiState } from "@assistant-ui/react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Link, useMatch, useParams, useRouterState } from "@tanstack/react-router";
-import {
-  ChevronLeft,
-  Compass,
-  FileSearch,
-  Folder,
-  FolderOpen,
-  GripVertical,
-  Info,
-  PinOff,
-  Plus,
-  SquarePen,
-} from "lucide-react";
+import { ChevronLeft, FileSearch, Folder, FolderOpen, Info, SquarePen } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { hoverReveal } from "@/components/composites/hover-reveal";
-import { SortableList } from "@/components/composites/sortable-list";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { SidebarLink } from "@/components/app-shell/sidebar-link";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
 import { ThreadList, groupThreadTitles } from "@/components/assistant-ui/elements/thread-list";
-import type { ChatAssistant, ChatSession } from "@/lib/hey-api/types.gen";
+import type { ChatSession } from "@/lib/hey-api/types.gen";
 import {
   getChatSessionOptions,
-  listChatAssistantsQueryKey,
   listChatSessionsOptions,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
-import { usePinUpdates } from "@/features/agents/agent-pins";
 import { AgentAvatar } from "@/features/agents/agent-avatar";
-import { actionErrorText } from "@/lib/action-errors";
 import {
   useChatThreads,
   useOptionalChatThreads,
 } from "@/features/chat/runtime/chat-threads-context";
 import { sessionFromThread } from "@/features/chat/runtime/chat-thread-list-adapter";
-import { cn } from "@/lib/utils";
 import { ChatHistorySearch } from "./chat-history-search";
 import { ChatProjectsSection } from "./chat-projects-section";
 import { ChatSessionRow } from "./chat-session-row";
+import { AssistantsSection } from "./chat-assistants-section";
+import { SidebarSection } from "./sidebar-section";
 import {
+  assistantLink,
   useAssistantFaces,
   useSidebarAssistants,
   useThreadGroupLabel,
   useTopicTime,
 } from "./assistant-topics";
-
-/**
- * A pin's drag handle and unpin button appear on hover. A touch screen cannot hover and the row has no room for them
- * beside its time, so there a pin is removed from the assistants page and the order is kept as it is.
- */
-const pinControls = "no-hover:hidden";
 
 /** The topics an assistant's sidebar lists before "Xem tất cả", as LobeHub's topic page size. */
 const SIDEBAR_TOPICS = 20;
@@ -182,251 +162,13 @@ function HomeSidebar({
         ) : null}
       </SidebarMenu>
       {collapsed ? null : (
-        <div className="min-h-0 flex-1 overflow-y-auto pt-4">
+        <div className="min-h-0 flex-1 overflow-y-auto pt-3">
           <ChatProjectsSection onNavigate={onNavigate} />
           <AssistantsSection openAssistant={openAssistant} onNavigate={onNavigate} />
           {threads && <RecentTopics onNavigate={onNavigate} />}
         </div>
       )}
     </div>
-  );
-}
-
-/** A section heading of the home sidebar, with its action. */
-function SectionHeading({ id, title, action }: { id: string; title: string; action?: ReactNode }) {
-  return (
-    <div className="mb-1 flex h-8 items-center justify-between pr-0.5 pl-2">
-      <h2 id={id} className="text-sm font-medium text-content-secondary">
-        {title}
-      </h2>
-      {action}
-    </div>
-  );
-}
-
-/** Where an assistant's row leads: its latest topic, or a new one. */
-function assistantLink(assistant: ChatAssistant) {
-  return assistant.latestTopic
-    ? ({ to: "/chat/$sessionId", params: { sessionId: assistant.latestTopic.sessionId } } as const)
-    : ({ to: "/assistants/$personaId/new", params: { personaId: assistant.id } } as const);
-}
-
-/**
- * The person's assistants: MemoryOS first, then the pins in their order. Each row opens its latest topic and shows
- * when it was written, its last line and a turning ring while an answer runs (Rakazo, Hermes Bot Chats). A pin whose
- * assistant is gone stays, marked, until it is unpinned.
- */
-function AssistantsSection({
-  openAssistant,
-  onNavigate,
-}: {
-  openAssistant?: string;
-  onNavigate?: () => void;
-}) {
-  const ui = useAppTranslation();
-  const cache = useQueryClient();
-  const assistants = useSidebarAssistants();
-  const updatePins = usePinUpdates();
-  const reorder = useMutation({
-    mutationFn: ({ change }: { next: ChatAssistant[]; change: (current: string[]) => string[] }) =>
-      updatePins(change),
-    // Shows the new order at once; the built-in assistant keeps the first row.
-    onMutate: ({ next }) =>
-      cache.setQueryData<ChatAssistant[]>(listChatAssistantsQueryKey(), (rows) => [
-        ...(rows ?? []).filter((row) => row.builtin),
-        ...next,
-      ]),
-    onError: () => cache.invalidateQueries({ queryKey: listChatAssistantsQueryKey() }),
-  });
-  const rows = assistants.data ?? [];
-  const builtin = rows.filter((row) => row.builtin);
-  const pinned = rows.filter((row) => !row.builtin);
-  const unpin = (assistant: ChatAssistant) =>
-    reorder.mutate({
-      next: pinned.filter((item) => item.id !== assistant.id),
-      change: (current) => current.filter((id) => id !== assistant.id),
-    });
-
-  return (
-    <section aria-labelledby="sidebar-assistants" className="mt-4 mb-4">
-      <SectionHeading
-        id="sidebar-assistants"
-        title={ui("Trợ lý")}
-        action={
-          <IconButton size="sm" prominence="internal" aria-label={ui("Thêm trợ lý")} asChild>
-            <Link to="/agents" onClick={onNavigate}>
-              <Plus />
-            </Link>
-          </IconButton>
-        }
-      />
-      {assistants.isPending && (
-        <p role="status" className="px-2 py-1 text-sm text-content-muted">
-          {ui("Đang tải trợ lý…")}
-        </p>
-      )}
-      {assistants.isError && (
-        <Button size="sm" prominence="internal" onClick={() => void assistants.refetch()}>
-          {ui("Tải lại trợ lý")}
-        </Button>
-      )}
-      {/* Rows, not list items: the drag context puts its announcements beside them. */}
-      <div className="flex flex-col gap-0.5">
-        {builtin.map((assistant) => (
-          <div key={assistant.id} className="group relative rounded-lg">
-            <AssistantRow
-              assistant={assistant}
-              selected={openAssistant === assistant.id}
-              onNavigate={onNavigate}
-            />
-          </div>
-        ))}
-        <SortableList
-          items={pinned}
-          getId={(assistant) => assistant.id}
-          onReorder={(next) =>
-            reorder.mutate({ next, change: () => next.map((assistant) => assistant.id) })
-          }
-        >
-          {(assistant, handle) => (
-            <div
-              ref={handle.setNodeRef}
-              style={handle.style}
-              className={cn(
-                "group relative rounded-lg",
-                handle.dragging && "z-10 bg-surface-sunken",
-              )}
-            >
-              <button
-                ref={handle.setHandleRef}
-                type="button"
-                aria-label={ui("Kéo để sắp xếp {{v1}}", { v1: assistant.name })}
-                className={cn(
-                  "absolute top-1/2 -left-1 grid h-8 w-4 -translate-y-1/2 cursor-grab place-items-center text-content-muted outline-none focus-visible:opacity-100 active:cursor-grabbing",
-                  hoverReveal,
-                  pinControls,
-                )}
-                {...handle.attributes}
-              >
-                <GripVertical aria-hidden="true" className="size-3.5" />
-              </button>
-              <AssistantRow
-                assistant={assistant}
-                selected={openAssistant === assistant.id}
-                onNavigate={onNavigate}
-              />
-              <span
-                className={cn(
-                  "absolute top-1/2 right-0.5 -translate-y-1/2",
-                  hoverReveal,
-                  pinControls,
-                )}
-              >
-                <IconButton
-                  size="sm"
-                  prominence="internal"
-                  aria-label={ui("Bỏ ghim {{v1}}", { v1: assistant.name })}
-                  onClick={() => unpin(assistant)}
-                >
-                  <PinOff />
-                </IconButton>
-              </span>
-            </div>
-          )}
-        </SortableList>
-      </div>
-      <Link
-        to="/agents"
-        onClick={onNavigate}
-        className="mt-0.5 flex h-8 items-center gap-2 rounded-lg px-2 text-sm text-content-muted outline-none hover:bg-surface-subtle hover:text-content-primary focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <Compass aria-hidden="true" className="size-4" />
-        {ui("Khám phá trợ lý")}
-      </Link>
-      {reorder.error && (
-        <p role="alert" className="px-2 text-xs text-status-danger-content">
-          {actionErrorText(reorder.error)}
-        </p>
-      )}
-    </section>
-  );
-}
-
-/** One assistant: its face, name and last time above the last line of its latest topic. */
-function AssistantRow({
-  assistant,
-  selected,
-  onNavigate,
-}: {
-  assistant: ChatAssistant;
-  selected: boolean;
-  onNavigate?: () => void;
-}) {
-  const ui = useAppTranslation();
-  const topicTime = useTopicTime();
-  const topic = assistant.latestTopic;
-  const running = topic?.replyRunning === true;
-  const line = !assistant.usable
-    ? ui("Không còn dùng được")
-    : running
-      ? ui("Đang trả lời…")
-      : topic?.preview || (topic ? topic.title : ui("Chưa có chủ đề"));
-  const content = (
-    <>
-      <span className="relative shrink-0">
-        <AgentAvatar
-          agent={assistant}
-          size="row"
-          className={cn(!assistant.usable && "opacity-60 grayscale")}
-        />
-        {running && (
-          <span
-            aria-hidden="true"
-            // A square ring breathes rather than spins: a turning square swings its corners out.
-            className="absolute -inset-1 animate-pulse rounded-xl border-2 border-status-info-content motion-reduce:animate-none"
-          />
-        )}
-      </span>
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span className="flex min-w-0 items-baseline gap-2">
-          <span className="min-w-0 flex-1 truncate font-medium text-content-primary">
-            {assistant.name}
-          </span>
-          {topic && (
-            <time
-              dateTime={topic.lastMessageAt}
-              className="shrink-0 text-xs text-content-muted tabular-nums group-focus-within:invisible group-hover:invisible no-hover:visible"
-            >
-              {topicTime(topic.lastMessageAt)}
-            </time>
-          )}
-        </span>
-        <span
-          className={cn(
-            "truncate text-xs",
-            running ? "font-medium text-status-info-content" : "text-content-muted",
-          )}
-        >
-          {line}
-        </span>
-      </span>
-    </>
-  );
-  const className = cn(
-    "flex min-w-0 items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
-    selected ? "bg-surface-sunken" : "hover:bg-surface-subtle",
-  );
-  // A gone assistant without a topic has nothing to open.
-  if (!assistant.usable && !topic) return <div className={cn(className, "pr-8")}>{content}</div>;
-  return (
-    <Link
-      {...assistantLink(assistant)}
-      onClick={onNavigate}
-      aria-current={selected ? "true" : undefined}
-      className={className}
-    >
-      {content}
-    </Link>
   );
 }
 
@@ -466,8 +208,11 @@ function RecentTopics({ onNavigate }: { onNavigate?: () => void }) {
     .toSorted((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
     .slice(0, RECENT_TOPICS);
   return (
-    <section aria-labelledby="sidebar-recent">
-      <SectionHeading id="sidebar-recent" title={ui("Gần đây")} />
+    <SidebarSection
+      id="sidebar-recent"
+      title={ui("Gần đây")}
+      storageKey="memoryos:chat-recent-section"
+    >
       <ThreadList label={ui("Gần đây")}>
         {shown.map((session) => (
           <ChatThreadRow
@@ -479,7 +224,8 @@ function RecentTopics({ onNavigate }: { onNavigate?: () => void }) {
             trailing={
               <time
                 dateTime={session.updatedAt}
-                className="shrink-0 text-xs text-content-muted tabular-nums"
+                // The row's menu takes the time's place while it shows.
+                className="shrink-0 text-xs text-content-muted tabular-nums md:group-focus-within:hidden md:group-hover:hidden md:group-has-[[data-state=open]]:hidden"
               >
                 {topicTime(session.updatedAt)}
               </time>
@@ -506,7 +252,7 @@ function RecentTopics({ onNavigate }: { onNavigate?: () => void }) {
           {ui("Xem tất cả")}
         </Link>
       )}
-    </section>
+    </SidebarSection>
   );
 }
 

@@ -53,7 +53,8 @@ public class JdbcChatSearchRepository {
                     SELECT s.*, EXISTS (SELECT 1 FROM chat_message r WHERE r.session_id = s.id AND r.status = 'RUNNING')
                         AS reply_running
                     FROM chat_session s JOIN matches m ON m.id = s.id
-                    WHERE CAST(:persona AS uuid) IS NULL OR s.persona_id = :persona
+                    WHERE (CAST(:persona AS uuid) IS NULL OR s.persona_id = :persona) AND""" + JdbcChatRepository.asked("s") + """
+
                     ORDER BY s.updated_at DESC, s.id LIMIT :limit OFFSET :offset
                 )
                 -- Headlines are computed for the returned page only, from the newest indexed matching message.

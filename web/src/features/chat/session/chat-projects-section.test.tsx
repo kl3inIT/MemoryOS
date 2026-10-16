@@ -122,29 +122,26 @@ beforeEach(async () => {
 });
 afterEach(cleanup);
 
-it("lists the first five projects and links to the rest", async () => {
+it("lists the first three projects and links to the rest", async () => {
   const projects = [1, 2, 3, 4, 5, 6, 7].map(project);
   await show(projects);
 
-  for (const shown of projects.slice(0, 5))
+  for (const shown of projects.slice(0, 3))
     expect(
       await screen.findByRole("button", { name: `Hội thoại trong ${shown.name}` }),
     ).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "Hội thoại trong Dự án 6" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Hội thoại trong Dự án 4" })).not.toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Xem tất cả dự án" })).toHaveAttribute(
     "href",
     "/projects",
   );
 });
 
-it("links to the Projects page even while every project fits", async () => {
-  await show([1, 2].map(project));
+it("leaves the link to the Projects page out while every project fits", async () => {
+  await show([1, 2, 3].map(project));
 
-  await screen.findByRole("button", { name: "Hội thoại trong Dự án 2" });
-  expect(screen.getByRole("link", { name: "Xem tất cả dự án" })).toHaveAttribute(
-    "href",
-    "/projects",
-  );
+  await screen.findByRole("button", { name: "Hội thoại trong Dự án 3" });
+  expect(screen.queryByRole("link", { name: "Xem tất cả dự án" })).not.toBeInTheDocument();
 });
 
 it("opens the project page from its row action menu", async () => {
@@ -429,7 +426,7 @@ function serveOrder() {
   return saved;
 }
 
-it("sends every project, not only the five shown, when the shown ones are reordered", async () => {
+it("sends every project, not only the three shown, when the shown ones are reordered", async () => {
   stackRows("[data-project-id]");
   const saved = serveOrder();
   const user = userEvent.setup();
@@ -439,7 +436,7 @@ it("sends every project, not only the five shown, when the shown ones are reorde
   await moveWithKeyboard(user, "Dự án 1", "ArrowDown");
 
   await waitFor(() => expect(saved).toEqual([{ projectIds: [2, 1, 3, 4, 5, 6, 7].map(id) }]));
-  expect(listedNames()).toEqual(["Dự án 2", "Dự án 1", "Dự án 3", "Dự án 4", "Dự án 5"]);
+  expect(listedNames()).toEqual(["Dự án 2", "Dự án 1", "Dự án 3"]);
 });
 
 it("keeps the projects that are not listed in their places when the viewed one moves", async () => {
@@ -451,8 +448,8 @@ it("keeps the projects that are not listed in their places when the viewed one m
 
   await moveWithKeyboard(user, "Dự án 7", "ArrowUp");
 
-  // Listed: 1..5 and 7, in slots 0-4 and 6; project 6 keeps slot 5.
-  await waitFor(() => expect(saved).toEqual([{ projectIds: [1, 2, 3, 4, 7, 6, 5].map(id) }]));
+  // Listed: 1..3 and 7, in slots 0-2 and 6; projects 4 to 6 keep slots 3 to 5.
+  await waitFor(() => expect(saved).toEqual([{ projectIds: [1, 2, 7, 4, 5, 6, 3].map(id) }]));
 });
 
 it("restores the order and says so when the order cannot be saved", async () => {

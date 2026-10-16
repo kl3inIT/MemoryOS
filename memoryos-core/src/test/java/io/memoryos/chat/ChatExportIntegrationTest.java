@@ -173,6 +173,8 @@ class ChatExportIntegrationTest {
         turns.finish(session.id(), pair.assistantMessageId(), ChatMessage.Status.COMPLETED, "Tăng 12% <b>so với</b> Q2");
         interpreter.store(tenant, pair.assistantMessageId(), "bao-cao.csv", "text/csv", "revenue".getBytes());
         var archived = sessions.create(owner, "Đã lưu trữ");
+        var old = reserve(archived, archived.rootMessageId(), "Báo cáo cũ ở đâu?");
+        turns.finish(archived.id(), old.assistantMessageId(), ChatMessage.Status.COMPLETED, "Trong thư mục lưu trữ.");
         sessions.archive(owner, archived.id(), true);
         // A temporary conversation promised to leave nothing behind, so an export does not take it either.
         var temporary = sessions.create(owner, "Tạm thời", true);

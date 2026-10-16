@@ -66,6 +66,17 @@ and staging has deployed it. The web pull request is accepted when the owner has
   - an unusable assistant shows its state and opens its topics without a composer;
   - `/history` filters by assistant.
 
+- [x] Staging acceptance (decision 14): a conversation without a question is in no list, search, latest topic or
+  export, and V180 soft-deletes the old ones; "Dự án" lists three projects; each home section folds from its heading
+  and remembers it. Tests: `ChatPersistenceIntegrationTest`, `ChatSessionApiIntegrationTest`,
+  `chat-projects-section.test.tsx` and the folding case in `chat-assistants.spec.ts`; a 1440×900 screenshot with two
+  projects and five assistants.
+- [x] Assistants show five rows, then "Xem thêm (n)" and "Thu gọn"; the "…" menu picks 5/10/15/20 rows, remembered per
+  browser; the open and the answering assistant always show; "Xem tất cả dự án" only past three projects. Tests:
+  `chat-assistants-section.test.tsx`, `chat-projects-section.test.tsx`; 1440×900 screenshots with seven pins.
+- [x] The "Trợ lý" heading holds "…", the compass to explore and "+" to create; the explore row is gone; a row's title
+  takes the room up to its time.
+
 ## 3. Verification
 
 - [ ] On zm, throttled: the chat tests, `ModulithArchitectureTest`, `CoreDependencyRulesTest` and
