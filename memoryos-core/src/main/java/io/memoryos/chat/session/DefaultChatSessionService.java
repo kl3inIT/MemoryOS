@@ -52,36 +52,36 @@ public class DefaultChatSessionService implements ChatSessionService {
     @Override
     @Transactional
     public ChatSession createInChannel(ActorId actor, String title) {
-        return create(actor, title, false, ChatSurface.CHANNEL, null);
+        return create(actor, title, false, ChatSurface.CHANNEL, null, null);
     }
 
     @Override
     @Transactional
-    public ChatSession createInChannel(ActorId actor, String title, UUID connection) {
-        return create(actor, title, false, ChatSurface.CHANNEL, connection);
+    public ChatSession createInChannel(ActorId actor, String title, UUID connection, @Nullable String groupChat) {
+        return create(actor, title, false, ChatSurface.CHANNEL, connection, groupChat);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public UUID channelPersona(ActorId actor, UUID connection) {
+    public UUID channelPersona(ActorId actor, UUID connection, @Nullable String groupChat) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
-        return chats.channelPersona(tenant, connection).orElseThrow(ChatException::unavailable);
+        return chats.channelPersona(tenant, connection, groupChat).orElseThrow(ChatException::unavailable);
     }
 
     private ChatSession create(ActorId actor, String title, boolean temporary, ChatSurface surface) {
-        return create(actor, title, temporary, surface, null);
+        return create(actor, title, temporary, surface, null, null);
     }
 
     private ChatSession create(ActorId actor, String title, boolean temporary, ChatSurface surface,
-                               @Nullable UUID connection) {
+                               @Nullable UUID connection, @Nullable String groupChat) {
         if (title == null || title.isBlank() || title.length() > 200) {
             throw ChatException.invalid("Title must contain 1 to 200 characters.");
         }
         authorization.require(actor, IamCapability.CHAT_WRITE, false);
         var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();
-        var personaId = (connection != null ? chats.channelPersona(tenant, connection)
+        var personaId = (connection != null ? chats.channelPersona(tenant, connection, groupChat)
                 : chats.defaultPersona(tenant)).orElseThrow(ChatException::unavailable);
-        return chats.create(tenant, actor, personaId, title.strip(), temporary, surface, connection);
+        return chats.create(tenant, actor, personaId, title.strip(), temporary, surface, connection, groupChat);
     }
 
     @Override

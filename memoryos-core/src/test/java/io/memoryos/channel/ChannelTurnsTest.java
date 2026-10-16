@@ -70,12 +70,12 @@ class ChannelTurnsTest {
         var held = new ChatSession(session, hr, UUID.randomUUID(), "Leave", Instant.now(), Instant.now(), null, null, null,
                 null, null, false, false);
         when(sessions.get(actor, session)).thenReturn(held);
-        when(sessions.channelPersona(actor, bound)).thenReturn(hr);
-        when(sessions.channelPersona(actor, moved)).thenReturn(UUID.randomUUID());
+        when(sessions.channelPersona(actor, bound, null)).thenReturn(hr);
+        when(sessions.channelPersona(actor, moved, null)).thenReturn(UUID.randomUUID());
 
-        assertTrue(turns.continues(actor, session, bound));
-        assertFalse(turns.continues(actor, session, moved), "a bot moved to another assistant starts over");
+        assertTrue(turns.continues(actor, session, bound, null));
+        assertFalse(turns.continues(actor, session, moved, null), "a bot moved to another assistant starts over");
         when(sessions.get(actor, session)).thenThrow(ChatException.unavailable());
-        assertFalse(turns.continues(actor, session, bound), "another person's or a deleted conversation is not continued");
+        assertFalse(turns.continues(actor, session, bound, null), "another person's or a deleted conversation is not continued");
     }
 }

@@ -63,7 +63,7 @@ owner checks the editor on staging after the third.
 Design: [design-groups.md](design-groups.md). Three pull requests.
 
 - [ ] 5a. Save and Cancel only on the Cấu hình tab; Kênh and Chia sẻ keep the unsaved-changes state (decision 9).
-- [ ] 5b. Backend: one migration (next free version) with `channel_groups`, `chat_channel_group_binding` and
+- [x] 5b. Backend: one migration (V185) with `channel_groups`, `chat_channel_group_binding` and
   `chat_session.channel_chat_id`; groups recorded on an accepted group message, Lark's name from the chat read the
   external check makes; resolution group → bot → built-in in `channelPersona` and `CHANNEL_OR_USES`; the group API and
   `GET /api/chat/personas/{id}/channels` with groups; permissions and audit as decision 6. Tests: each resolution
