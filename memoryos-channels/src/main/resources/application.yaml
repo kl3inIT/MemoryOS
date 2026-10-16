@@ -114,6 +114,8 @@ memoryos:
   sandbox:
     computer-image: ${MEMORYOS_SANDBOX_COMPUTER_IMAGE:}
     max-running: ${MEMORYOS_SANDBOX_MAX_RUNNING:3}
+    # The only domains a sandbox reaches: PyPI, so a command can `uv pip install` (Onyx Craft, ChatGPT); empty denies all.
+    allowed-domains: ${MEMORYOS_SANDBOX_ALLOWED_DOMAINS:pypi.org,files.pythonhosted.org}
     opensandbox:
       endpoint: ${MEMORYOS_SANDBOX_ENDPOINT:}
       api-key: ${MEMORYOS_SANDBOX_API_KEY:}

@@ -755,7 +755,7 @@ jobs:
           docker run --rm --user 1000 "memoryos-sandbox-computer:sha-$GITHUB_SHA" bash -euo pipefail -c '
             [[ "$(id -un)" == sandbox && "$PWD" == /workspace && -w /workspace ]]
             for tool in bash git jq rg fd file 7z bc pandoc soffice tesseract convert ffmpeg node python3 sqlite3 \
-                qpdf pdftotext recalc-xlsx check-docx pptx-to-pdf; do
+                qpdf pdftotext recalc-xlsx check-docx pptx-to-pdf uv; do
               command -v "$tool" > /dev/null || { echo "missing $tool" >&2; exit 1; }
             done
             # The helpers start from their shebang, which names the virtual environment of the image.
@@ -766,6 +766,8 @@ jobs:
             tesseract --list-langs 2>/dev/null | grep -qx vie
             node -e "require(\"pptxgenjs\")"
             python3 -c "import duckdb, matplotlib, openpyxl, pandas, plotly, pypdfium2, pytesseract, xlsxwriter"
+            # The command user owns the venv, so uv pip install can add a package to it.
+            [[ -w "$VIRTUAL_ENV/lib/python3.14/site-packages" && -w "$VIRTUAL_ENV/bin" ]]
           '
 
       - name: Build server image
