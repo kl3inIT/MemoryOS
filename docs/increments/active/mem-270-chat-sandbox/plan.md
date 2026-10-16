@@ -23,12 +23,15 @@ follows in its own pull request. Comes before MEM-265 (owner, 2026-10-15).
 - [x] A workbook sent to Chat is cleaned and summed by month, and a follow-up "add a chart" works on the same file.
       2026-10-16 on `e12fd7d5`, once [MEM-287](../../completed/mem-287-tool-history/plan.md) replays earlier tool calls.
 - [ ] After the sandbox has expired, the next question in the conversation finds its files.
-- [ ] `sleep 300` stops after 60 seconds with the output so far and is reported as a timeout.
+- [x] `sleep 300` stops after 60 seconds with the output so far and is reported as a timeout. 2026-10-16 on `7879ebe6`:
+      the call ended after 63.7 s with exit code 124, and the answer said the default 60-second timeout stopped it.
 - [ ] A domain outside the allowlist, a direct IP and the host's ports are unreachable. 2026-10-16 on `7879ebe6`:
       `example.com`, `github.com`, `8.8.8.8`, example.com's IP and `172.17.0.1:5432` are unreachable, and Fastly refuses
       another Host through `pypi.org` or `files.pythonhosted.org` (421/403). The host's nameservers stay reachable on every
       port, so DNS-over-HTTPS to `1.1.1.1` resolves any name: [MEM-292](https://linear.app/memory-os/issue/MEM-292).
 - [x] A command adds a Python package with `uv pip install` from PyPI. 2026-10-16 on `7879ebe6`: the `pip` scenario
       installed `wordcloud` into `/opt/sandbox-venv` and published the word cloud PNG (65 KB).
-- [ ] Past the running-sandbox bound, the tool answers that the computer is busy.
-- [ ] A file the agent publishes appears in the Library.
+- [x] Past the running-sandbox bound, the tool answers that the computer is busy. 2026-10-16 on `7879ebe6`: with two
+      sandboxes in use and staging's bound of 6, four of six parallel conversations ran and two got "Every sandbox is in use".
+- [x] A file the agent publishes appears in the Library. 2026-10-16: `GET /api/chat/library` lists the published
+      `wordcloud_doanh_thu.png`, `primes.py` and `doanh_thu_2026_da_lam_sach.xlsx` as `GENERATED` with their conversation.
