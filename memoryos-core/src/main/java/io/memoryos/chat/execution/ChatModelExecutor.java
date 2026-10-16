@@ -285,7 +285,8 @@ public final class ChatModelExecutor {
         var fileWork = new SearchTasks.Scope(searchLimits.cleanupTimeout());
         var fileCancellation = cancellation.subscribe(ignored -> fileWork.cancel());
         Runnable fileActive = () -> { fileWork.checkActive(); guard.checkActive(); };
-        var activity = new ChatToolActivity(events);
+        // MEM-287: an ordinary answer keeps its calls for later turns; Deep research runs its own loop and keeps none.
+        var activity = new ChatToolActivity(events, setup.research().enabled() ? null : setup.transcript());
         try {
             setup.evidence().trackCalls(activity::current);
             setup.evidence().publishTo(event -> { fileActive.run(); events.accept(event); });
@@ -316,6 +317,8 @@ public final class ChatModelExecutor {
             try (var ignored = fileWork.enter()) {
                 messages = SearchTasks.timed(() -> ChatFileInputs.materialize(setup, fileContent, fileActive), FILE_INPUT_TIMEOUT, fileActive);
             }
+            // Each withTools returns a new runner, so an unchanged runner registered no tool.
+            var untooled = runner;
             if (selected.toolCalling() && setup.webSearch() != WebSearchMode.off && !nativeWeb) {
                 if (web == null) throw TurnFailure.MODEL_UNAVAILABLE.exception();
                 var webTools = new WebTools(web, setup.webAccess(), setup.evidence(), fileActive,
@@ -382,6 +385,8 @@ public final class ChatModelExecutor {
                 for (var tool : mcpTools.tools()) runner = runner.withTools(List.of(tool));
                 activity.quiet(mcpTools.openers());
             }
+            // MEM-287: a turn without tools sends no replayed tool calls; Anthropic refuses them without tools.
+            if (runner == untooled) messages = ChatTurnSetup.withoutToolHistory(messages);
             if (selected.toolCalling()) runner = runner.withToolCallInspectors(activity);
             // No total bound, as Onyx: the provider read gap, Stop and the lease reconciler end a stalled turn.
             new StreamingPromptRunnerBuilder(runner).streaming().withMessages(messages).generateStream()

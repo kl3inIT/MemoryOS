@@ -346,8 +346,9 @@ public final class ChatTurnService implements AutoCloseable {
                             resolved.fallbackReason(), binding, resolved.contextRevision(), contribution, agent));
             if (!reserved.created()) return new Admission(accepted(reserved), null, false);
             var context = reserved.context() != null ? reserved.context() : persistence.loadContext(actor, session, reserved);
-            // Deep research reads the whole window it can fit; compaction covers ordinary turns only (MEM-268).
-            var replayed = command.deepResearch() ? context.withoutSummary() : context;
+            // Deep research reads the whole window it can fit; compaction covers ordinary turns only (MEM-268). Its helper
+            // calls offer no tools, so it replays no earlier tool calls either (MEM-287).
+            var replayed = command.deepResearch() ? context.withoutSummary().withoutToolCalls() : context;
             var setup = ChatTurnSetup.resolve(session, reserved.assistantMessageId(), replayed, contextLimit, binding, contribution)
                     .withWeb(command.webSearch(), webAccess).withImage(command.image(), imageAccess);
             // Deep research runs its own agents and tool set, so selected MCP servers apply only to ordinary turns.
@@ -936,6 +937,21 @@ public final class ChatTurnService implements AutoCloseable {
         }
     }
 
+    /**
+     * MEM-287: the answer's tool calls, whatever its status, since a stopped turn may already have written files. A
+     * failure costs only the replay in later turns, never the answer.
+     */
+    private void recordToolCalls(Active run) {
+        if (run.deleted) return;
+        try {
+            persistence.recordToolCalls(run.setup.assistantMessageId(), run.setup.transcript().calls());
+        } catch (RuntimeException failure) {
+            LOG.atWarn().addKeyValue("event", "chat.tool_calls.not_recorded")
+                    .addKeyValue("message_id", run.setup.assistantMessageId())
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Chat tool calls not recorded");
+        }
+    }
+
     private void finalizeRun(Active run) {
         if (!run.finalizing.tryLock()) return;
         try {
@@ -950,6 +966,7 @@ public final class ChatTurnService implements AutoCloseable {
                             outcome.refusal(), new ChatTurnPersistence.Usage(run.setup.tenant(), run.setup.actor(),
                                     run.setup.research().enabled() ? AiUsageFlow.DEEP_RESEARCH : AiUsageFlow.CHAT,
                                     run.resolved.modelConfigurationId(), run.resolved.provenance(), run.setup.model(), run.accounting));
+                    recordToolCalls(run);
                     var context = context(run.accounting);
                     if (context != null && saved.status() == ChatMessage.Status.COMPLETED)
                         persistence.recordContext(run.setup.sessionId(), run.setup.assistantMessageId(), context);

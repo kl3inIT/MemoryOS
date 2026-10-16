@@ -664,6 +664,25 @@ With image mode on, the model also gets an `edit_image` tool (`imageId`, `prompt
 
 A mask is an attached PNG named `mask-for-<image_id>.png`: white may change, black or transparent stays, and its name chooses the image it was painted on. The provider edits the whole image and the server takes its result only inside the mask, feathered inward, so every pixel outside the mask equals the source. A mask that selects nothing is refused; one that selects the whole image is a whole-image edit. The result is a new `chat_image_artifact` on the current answer recording `source_artifact_id` or `source_file_id` (provenance only, no foreign key), streamed with the same `ChatImageEvent`; the `memoryos.chat.image.request` timer is tagged `operation` `generate` or `edit`. On a generated image the UI offers an edit action: an optional brush mask and an instruction go to the composer as the mask attachment and the message text, and image mode is turned on for the session.
 
+## Earlier tool calls
+
+[MEM-287](../increments/active/mem-287-tool-history/design.md): a later turn sees what earlier answers did, as Dust,
+LibreChat, OpenHands, Onyx Craft and Anthropic replay earlier tool work. Each tool call of an answer is kept in
+`chat_message_tool_calls` (V182), with its result only for `bash`, `bash_output`, `edit_file`, `publish_file`,
+`run_python`, `web_search`, `open_url`, `generate_image` and `edit_image`, and only before the answer first calls
+`search_knowledge` or an MCP tool, since later output may quote what they brought in. Every other result is replayed as
+"This tool call completed but its result is not kept.", so a revoked permission, a deleted file or a forgotten memory is
+never replayed. Arguments are kept for those tools and for `search_knowledge`, `read_file` and `search_files`; the
+arguments of `update_memory` and of MCP tools are replaced by a note. Arguments and a
+result are each bounded to 64 KiB (arguments over it are replaced, never cut, as they are JSON), an answer to 256 KiB.
+The calls are written when the turn finishes, whatever its status, and deleted with their message.
+
+The history walk places them before their answer, one assistant message with the call and then its result each, as Deep
+research builds its history, for a model that calls tools only. Newest first under the history budget, a turn is tried
+with its results, then with them replaced by "This tool result is no longer available (pruned to fit the context).",
+then without its calls. A window never starts with a call cut from its question. A request that offers no tool carries
+none: a turn that registers no tool and the search rewrite strip them, and a Deep research turn replays none.
+
 ## Sandbox tools
 
 MEM-270 ([design](../increments/active/mem-270-chat-sandbox/design.md#tools), [sandbox](sandbox.md)): the agent tool key

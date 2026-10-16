@@ -19,10 +19,14 @@ import io.memoryos.chat.ChatBranch;
 import io.memoryos.chat.ChatCommand;
 import io.memoryos.chat.ChatTurnOptions;
 import io.memoryos.chat.ChatSource;
+import io.memoryos.chat.ChatToolTranscript;
 import io.memoryos.chat.ChatFileDescriptor;
 import io.memoryos.chat.prompts.ChatPrompts;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.function.Function;
 import tools.jackson.databind.ObjectMapper;
 import io.memoryos.shared.ActorId;
@@ -621,6 +625,35 @@ public class JdbcChatRepository {
     /**
      * Ancestors only, including the current user; newest first for bounded context selection.
      */
+    /** MEM-287: an answer's tool calls, in call order. */
+    public void saveToolCalls(UUID message, List<ChatToolTranscript.Call> calls) {
+        for (int position = 0; position < calls.size(); position++) {
+            var call = calls.get(position);
+            jdbc.sql("""
+                    INSERT INTO chat_message_tool_calls (message_id, position, call_id, tool_name, arguments, result)
+                    VALUES (:message, :position, :callId, :name, :arguments, :result)
+                    ON CONFLICT (message_id, position) DO NOTHING
+                    """).param("message", message).param("position", position).param("callId", call.callId())
+                    .param("name", call.name()).param("arguments", call.arguments())
+                    .param("result", call.result(), Types.VARCHAR).update();
+        }
+    }
+
+    /** The tool calls of {@code messages}, each answer's in call order; an answer without calls is absent. */
+    public Map<UUID, List<ChatToolTranscript.Call>> toolCalls(Collection<UUID> messages) {
+        if (messages.isEmpty()) return Map.of();
+        var calls = new LinkedHashMap<UUID, List<ChatToolTranscript.Call>>();
+        jdbc.sql("""
+                SELECT message_id, call_id, tool_name, arguments, result FROM chat_message_tool_calls
+                WHERE message_id IN (:messages) ORDER BY message_id, position
+                """).param("messages", messages).query(row -> {
+            calls.computeIfAbsent(row.getObject("message_id", UUID.class), ignored -> new ArrayList<>())
+                    .add(new ChatToolTranscript.Call(row.getString("call_id"), row.getString("tool_name"),
+                            row.getString("arguments"), row.getString("result")));
+        });
+        return calls;
+    }
+
     public List<ChatMessage> context(UUID session, UUID user, int limit) {
         return jdbc.sql("""
                         WITH RECURSIVE history AS (
