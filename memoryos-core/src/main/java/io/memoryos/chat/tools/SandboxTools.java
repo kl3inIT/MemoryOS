@@ -5,6 +5,8 @@ import io.memoryos.chat.ChatCodeEvent;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatToolActivity;
 import io.memoryos.chat.interpreter.InterpreterService;
+import io.memoryos.library.UserFile;
+import io.memoryos.library.UserFileContentService;
 import io.memoryos.sandbox.SandboxCommand;
 import io.memoryos.sandbox.SandboxCommandResult;
 import io.memoryos.sandbox.SandboxEntry;
@@ -15,6 +17,10 @@ import io.memoryos.shared.TenantId;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -42,6 +48,8 @@ public final class SandboxTools {
     static final int VIEW_LINES = 2_000;
     static final long PUBLISH_BYTES = 100L * 1024 * 1024;
     static final String RUNS = SandboxService.WORKSPACE + "/.memoryos/run/";
+    /** Where the conversation's attachments are copied, as Onyx Craft puts them under the session's files. */
+    static final String ATTACHMENTS = SandboxService.WORKSPACE + "/attachments";
     /** Margin for the wrapper's own work around the command's timeout. */
     private static final Duration WRAPPER_MARGIN = Duration.ofSeconds(20);
     /** A file the command writes stops at 100 MiB (ulimit -f counts 1 KiB blocks). */
@@ -51,6 +59,8 @@ public final class SandboxTools {
 
     private final SandboxService sandboxes;
     private final InterpreterService artifacts;
+    private final UserFileContentService files;
+    private final List<UUID> fileIds;
     private final TenantId tenant;
     private final ActorId actor;
     private final UUID conversation;
@@ -58,12 +68,15 @@ public final class SandboxTools {
     private final Runnable active;
     private final ChatToolActivity activity;
     private final Consumer<ChatCodeEvent> events;
+    private boolean attached;
 
-    public SandboxTools(SandboxService sandboxes, InterpreterService artifacts, TenantId tenant, ActorId actor,
-                        UUID conversation, UUID messageId, Runnable active, ChatToolActivity activity,
-                        Consumer<ChatCodeEvent> events) {
+    public SandboxTools(SandboxService sandboxes, InterpreterService artifacts, UserFileContentService files,
+                        Collection<UUID> fileIds, TenantId tenant, ActorId actor, UUID conversation, UUID messageId,
+                        Runnable active, ChatToolActivity activity, Consumer<ChatCodeEvent> events) {
         this.sandboxes = sandboxes;
         this.artifacts = artifacts;
+        this.files = files;
+        this.fileIds = List.copyOf(fileIds);
         this.tenant = tenant;
         this.actor = actor;
         this.conversation = conversation;
@@ -90,6 +103,7 @@ public final class SandboxTools {
         String dir = RUNS + id;
         publish(call -> ChatCodeEvent.running(call, command, description));
         try {
+            attach();
             sandboxes.write(tenant, actor, conversation, dir + "/cmd.sh", command.getBytes(StandardCharsets.UTF_8));
             if (Boolean.TRUE.equals(runInBackground)) return background(id, dir);
             Duration timeout = timeout(timeoutSeconds);
@@ -223,6 +237,7 @@ public final class SandboxTools {
         if (command == null || path == null || path.isBlank()) return "edit_file requires a 'command' and a 'path'.";
         String file = absolute(path);
         try {
+            attach();
             return switch (command) {
                 case "view" -> view(file, viewRange);
                 case "create" -> {
@@ -276,6 +291,7 @@ public final class SandboxTools {
                 ? file.substring(file.lastIndexOf('/') + 1) : filename);
         publish(call -> ChatCodeEvent.running(call, file, null));
         try {
+            attach();
             byte[] bytes = sandboxes.read(tenant, actor, conversation, file, PUBLISH_BYTES);
             active.run();
             String mediaType = RunPythonTool.mediaType(name);
@@ -321,6 +337,42 @@ public final class SandboxTools {
         if (range == null && last < lines.length)
             shown.append("[").append(lines.length - last).append(" more lines; pass view_range]\n");
         return shown.toString();
+    }
+
+    /**
+     * Copies the conversation's attachments into {@link #ATTACHMENTS} once a turn, before the first tool that touches
+     * the sandbox, so bash and python3 work on the files the user sent. Names follow run_python's, and a file already
+     * there with the same size is kept. A file that cannot be copied is skipped; its tool still runs.
+     */
+    private void attach() {
+        if (attached || fileIds.isEmpty()) return;
+        attached = true;
+        var readable = new ArrayList<>(files.readable(actor, tenant, fileIds));
+        readable.sort(Comparator.comparing(UserFile::createdAt).thenComparing(UserFile::id));
+        var present = new HashMap<String, Long>();
+        String listed = run("find %s -maxdepth 1 -type f -printf '%%s %%f\\n' 2>/dev/null || true".formatted(ATTACHMENTS),
+                WRAPPER_MARGIN).stdout();
+        for (String line : listed.split("\n")) {
+            int space = line.indexOf(' ');
+            if (space > 0) present.put(line.substring(space + 1), Long.parseLong(line.substring(0, space)));
+        }
+        var used = new HashSet<String>();
+        long bytes = 0;
+        for (UserFile file : readable.subList(0, Math.min(RunPythonTool.MAX_STAGED_FILES, readable.size()))) {
+            String name = RunPythonTool.dedupe(RunPythonTool.safeName(file.filename()), file.id().toString(), used);
+            if (Long.valueOf(file.sizeBytes()).equals(present.get(name))) continue;
+            if (bytes + file.sizeBytes() > RunPythonTool.MAX_STAGED_BYTES) break;
+            bytes += file.sizeBytes();
+            active.run();
+            try (var content = files.open(actor, tenant, file.id())) {
+                sandboxes.write(tenant, actor, conversation, ATTACHMENTS + "/" + name, content.inputStream().readAllBytes());
+            } catch (SandboxException unavailable) {
+                throw unavailable;
+            } catch (Exception failure) {
+                LOG.atWarn().addKeyValue("event", "chat.sandbox.attachment_failed")
+                        .addKeyValue("error_type", failure.getClass().getSimpleName()).log("Sandbox could not copy an attachment");
+            }
+        }
     }
 
     private String text(String file) {

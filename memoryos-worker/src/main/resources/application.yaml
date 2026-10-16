@@ -76,6 +76,11 @@ db-scheduler:
   priority-enabled: false
   shutdown-max-wait: 30s
 
+logging:
+  level:
+    # MEM-270: the OpenSandbox SDK logs every call at INFO; the reconciliation lists sandboxes every 5 minutes.
+    com.alibaba.opensandbox: WARN
+
 server:
   port: ${MEMORYOS_WORKER_PORT:8081}
 

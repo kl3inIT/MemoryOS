@@ -684,6 +684,10 @@ calling and the deployment has a sandbox (`SandboxService.available()`); a turn 
   like a `run_python` file.
 - **File rights.** `edit_file` and `publish_file` read and write as the sandbox user, as `bash` does
   ([sandbox](sandbox.md#contract)).
+- **Attachments.** Before the first sandbox tool of a turn, the conversation's readable files are copied into
+  `/workspace/attachments` under `run_python`'s names and caps (25 files, 100 MiB); one already there with the same
+  size is kept, and a file that cannot be copied is skipped. On 2026-10-16 staging, with the attachments only in
+  `run_python`, a workbook question failed twice: the model looked for the file with `bash` and gave up.
 - **Timeline.** `bash` and `publish_file` publish the same code events as `run_python`; a `bash` running event carries
   the model's `description` as `title`, which titles the step. The four tools share the terminal and file icons.
 - **Guidance.** The prompt's Sandbox section lists the working rules and the tools installed in the computer image.

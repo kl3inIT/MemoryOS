@@ -39,7 +39,7 @@ work in it.
 | `memoryos.sandbox.computer-image` | `MEMORYOS_SANDBOX_COMPUTER_IMAGE` (the release's `memoryos-sandbox-computer`) | empty: no sandbox |
 | `memoryos.sandbox.idle-timeout` | | 30 minutes |
 | `memoryos.sandbox.max-lifetime` | | 4 hours |
-| `memoryos.sandbox.max-running` | `MEMORYOS_SANDBOX_MAX_RUNNING` | 3 |
+| `memoryos.sandbox.max-running` | `MEMORYOS_SANDBOX_MAX_RUNNING` | 3; Compose sets 12, staging 6 |
 | `memoryos.sandbox.cpu`, `memory` | | `1`, `1Gi` |
 | `memoryos.sandbox.allowed-domains` | | none |
 | `memoryos.sandbox.opensandbox.endpoint` | `MEMORYOS_SANDBOX_ENDPOINT` | empty: no OpenSandbox runtime |
