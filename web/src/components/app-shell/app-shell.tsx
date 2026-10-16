@@ -165,7 +165,7 @@ function NavigationGroup({ title, children }: { title: string; children: ReactNo
 
 /**
  * A section of the administration menu that the person folds under its heading. The rail has no headings, so
- * there every row stays.
+ * there every row stays; a phone's menu uses {@link NavigationGroup}, which does not fold.
  */
 function FoldingNavigationGroup({
   title,
@@ -346,27 +346,34 @@ function SidebarContents({ area, adminPage, settingsPage, sourceSetup }: Sidebar
               const pages = adminPages.filter(
                 (page) => page.group === group.id && page.visible(authority),
               );
-              return pages.length > 0 ? (
+              if (pages.length === 0) return null;
+              const links = pages.map((page) => (
+                <SidebarLink
+                  key={page.id}
+                  to={page.to}
+                  label={ui(page.label)}
+                  // Without this the router marks the Sources tab current on every page under /admin.
+                  activeOptions={page.id === "sources" ? { exact: true } : undefined}
+                  icon={<page.icon />}
+                  selected={adminPage === page.id}
+                  onNavigate={onNavigate}
+                />
+              ));
+              // A phone's menu is opened to reach a page and closes on the way there, so its sections never fold.
+              return isMobile ? (
+                <NavigationGroup key={group.id} title={ui(group.label)}>
+                  {links}
+                </NavigationGroup>
+              ) : (
                 <FoldingNavigationGroup
                   key={group.id}
                   title={ui(group.label)}
                   open={collapsed || !foldedGroups.has(group.id)}
                   onOpenChange={(open) => setGroupOpen(group.id, open)}
                 >
-                  {pages.map((page) => (
-                    <SidebarLink
-                      key={page.id}
-                      to={page.to}
-                      label={ui(page.label)}
-                      // Without this the router marks the Sources tab current on every page under /admin.
-                      activeOptions={page.id === "sources" ? { exact: true } : undefined}
-                      icon={<page.icon />}
-                      selected={adminPage === page.id}
-                      onNavigate={onNavigate}
-                    />
-                  ))}
+                  {links}
                 </FoldingNavigationGroup>
-              ) : null;
+              );
             })
           )}
         </nav>
