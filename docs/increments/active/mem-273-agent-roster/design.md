@@ -117,6 +117,19 @@ LobeHub paths are under `tmp/refs/lobe-chat` (lobehub/lobehub, cloned 2026-10-15
 13. **Out of this step.**
     - Unread markers (with schedules, MEM-265) and favourite topics.
     - Fork and the explore page (step 3); direct messages from Zalo and Lark joining an assistant's topics (step 4).
+14. **Staging acceptance (2026-10-16): empty topics and a sidebar that fits at 900px.** The owner chose both fixes.
+    - A web conversation becomes a topic with its first question, as a LobeHub topic and a ChatGPT chat exist only
+      after the first message (decision 5). The session lists and search, a Project's conversations, the assistants'
+      latest topic, "Gần đây", `/history` and the data export leave out a session without a USER message, through an
+      `EXISTS` that `ix_chat_message_parent` (`session_id` first) answers; `/chat/$sessionId` still opens it. V180
+      soft-deletes the web, non-temporary ones older than a day, which the earlier sidebar created on each click on
+      an assistant (45 on staging), and the retention purge removes them. A conversation holds no upload of its own and
+      one without a question has no answer, so nothing else is lost.
+    - "Dự án" lists its first three projects, then "Xem tất cả dự án", which stays even when every project fits, as
+      the projects increment decided. The headings of "Dự án", "Trợ lý" and "Gần đây" fold their sections, as
+      LobeHub's sidebar sections fold, and each choice is kept per browser in `localStorage`. Assistant rows lose 4px
+      of padding and the sections 4px of gap, so with two projects and five assistants the first "Gần đây" row shows
+      at 1440×900 without scrolling.
 
 ## Deviations in the web delivery
 

@@ -66,6 +66,12 @@ and staging has deployed it. The web pull request is accepted when the owner has
   - an unusable assistant shows its state and opens its topics without a composer;
   - `/history` filters by assistant.
 
+- [x] Staging acceptance (decision 14): a conversation without a question is in no list, search, latest topic or
+  export, and V180 soft-deletes the old ones; "Dự án" lists three projects; each home section folds from its heading
+  and remembers it. Tests: `ChatPersistenceIntegrationTest`, `ChatSessionApiIntegrationTest`,
+  `chat-projects-section.test.tsx` and the folding case in `chat-assistants.spec.ts`; a 1440×900 screenshot with two
+  projects and five assistants.
+
 ## 3. Verification
 
 - [ ] On zm, throttled: the chat tests, `ModulithArchitectureTest`, `CoreDependencyRulesTest` and

@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { SidebarLink } from "@/components/app-shell/sidebar-link";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ThreadList, groupThreadTitles } from "@/components/assistant-ui/elements/thread-list";
 import type { ChatAssistant, ChatSession } from "@/lib/hey-api/types.gen";
 import {
@@ -40,6 +41,7 @@ import { cn } from "@/lib/utils";
 import { ChatHistorySearch } from "./chat-history-search";
 import { ChatProjectsSection } from "./chat-projects-section";
 import { ChatSessionRow } from "./chat-session-row";
+import { useSidebarSectionOpen } from "./sidebar-section-open";
 import {
   useAssistantFaces,
   useSidebarAssistants,
@@ -182,7 +184,7 @@ function HomeSidebar({
         ) : null}
       </SidebarMenu>
       {collapsed ? null : (
-        <div className="min-h-0 flex-1 overflow-y-auto pt-4">
+        <div className="min-h-0 flex-1 overflow-y-auto pt-3">
           <ChatProjectsSection onNavigate={onNavigate} />
           <AssistantsSection openAssistant={openAssistant} onNavigate={onNavigate} />
           {threads && <RecentTopics onNavigate={onNavigate} />}
@@ -192,15 +194,45 @@ function HomeSidebar({
   );
 }
 
-/** A section heading of the home sidebar, with its action. */
-function SectionHeading({ id, title, action }: { id: string; title: string; action?: ReactNode }) {
+/**
+ * A section of the home sidebar whose heading folds it, remembered per browser as LobeHub's sidebar remembers each
+ * section, so a long list never pushes the next section out of reach.
+ */
+function SidebarSection({
+  id,
+  title,
+  storageKey,
+  action,
+  className,
+  children,
+}: {
+  id: string;
+  title: string;
+  storageKey: string;
+  action?: ReactNode;
+  className?: string;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useSidebarSectionOpen(storageKey);
   return (
-    <div className="mb-1 flex h-8 items-center justify-between pr-0.5 pl-2">
-      <h2 id={id} className="text-sm font-medium text-content-secondary">
-        {title}
-      </h2>
-      {action}
-    </div>
+    <Collapsible asChild open={open} onOpenChange={setOpen}>
+      <section aria-labelledby={id} className={className}>
+        <div className="mb-1 flex h-8 items-center justify-between rounded-lg pr-0.5 pl-2 hover:bg-surface-sunken">
+          <h2 id={id} className="min-w-0 flex-1 text-sm font-medium text-content-secondary">
+            <CollapsibleTrigger asChild>
+              <button
+                type="button"
+                className="flex h-8 w-full items-center rounded-lg text-left outline-none hover:text-content-primary focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {title}
+              </button>
+            </CollapsibleTrigger>
+          </h2>
+          {action}
+        </div>
+        <CollapsibleContent>{children}</CollapsibleContent>
+      </section>
+    </Collapsible>
   );
 }
 
@@ -248,18 +280,19 @@ function AssistantsSection({
     });
 
   return (
-    <section aria-labelledby="sidebar-assistants" className="mt-4 mb-4">
-      <SectionHeading
-        id="sidebar-assistants"
-        title={ui("Trợ lý")}
-        action={
-          <IconButton size="sm" prominence="internal" aria-label={ui("Thêm trợ lý")} asChild>
-            <Link to="/agents" onClick={onNavigate}>
-              <Plus />
-            </Link>
-          </IconButton>
-        }
-      />
+    <SidebarSection
+      id="sidebar-assistants"
+      title={ui("Trợ lý")}
+      storageKey="memoryos:chat-assistants-section"
+      className="my-3"
+      action={
+        <IconButton size="sm" prominence="internal" aria-label={ui("Thêm trợ lý")} asChild>
+          <Link to="/agents" onClick={onNavigate}>
+            <Plus />
+          </Link>
+        </IconButton>
+      }
+    >
       {assistants.isPending && (
         <p role="status" className="px-2 py-1 text-sm text-content-muted">
           {ui("Đang tải trợ lý…")}
@@ -348,7 +381,7 @@ function AssistantsSection({
           {actionErrorText(reorder.error)}
         </p>
       )}
-    </section>
+    </SidebarSection>
   );
 }
 
@@ -413,7 +446,7 @@ function AssistantRow({
     </>
   );
   const className = cn(
-    "flex min-w-0 items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
+    "flex min-w-0 items-center gap-2.5 rounded-lg px-2 py-1 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
     selected ? "bg-surface-sunken" : "hover:bg-surface-subtle",
   );
   // A gone assistant without a topic has nothing to open.
@@ -466,8 +499,11 @@ function RecentTopics({ onNavigate }: { onNavigate?: () => void }) {
     .toSorted((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
     .slice(0, RECENT_TOPICS);
   return (
-    <section aria-labelledby="sidebar-recent">
-      <SectionHeading id="sidebar-recent" title={ui("Gần đây")} />
+    <SidebarSection
+      id="sidebar-recent"
+      title={ui("Gần đây")}
+      storageKey="memoryos:chat-recent-section"
+    >
       <ThreadList label={ui("Gần đây")}>
         {shown.map((session) => (
           <ChatThreadRow
@@ -506,7 +542,7 @@ function RecentTopics({ onNavigate }: { onNavigate?: () => void }) {
           {ui("Xem tất cả")}
         </Link>
       )}
-    </section>
+    </SidebarSection>
   );
 }
 

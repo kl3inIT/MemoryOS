@@ -1,5 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 
+// The sidebar lists only the first three projects, so the projects a parallel test creates would push this file's out
+// of it; the tests share one fixture server and run in order.
+test.describe.configure({ mode: "default" });
+
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/identity/me", (route) =>
     route.fulfill({

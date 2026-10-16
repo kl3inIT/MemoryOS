@@ -46,31 +46,16 @@ import {
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { cn } from "@/lib/utils";
 import { CHAT_DRAG_TYPE, ChatSessionRow } from "./chat-session-row";
+import { useSidebarSectionOpen } from "./sidebar-section-open";
 
 /** The sidebar lists this many projects, and this many conversations of an open project. */
-const SECTION_PROJECTS = 5;
+const SECTION_PROJECTS = 3;
 const PROJECT_SESSIONS = 5;
 const SECTION_STORAGE_KEY = "memoryos:chat-projects-section";
 
 const skeletonRows = [0, 1, 2];
 // An open project may hold no conversation at all, so it reserves one row and grows when rows arrive.
 const projectSkeletonRows = [0];
-
-function readSectionOpen() {
-  try {
-    return window.localStorage.getItem(SECTION_STORAGE_KEY) !== "closed";
-  } catch {
-    return true;
-  }
-}
-
-function storeSectionOpen(open: boolean) {
-  try {
-    window.localStorage.setItem(SECTION_STORAGE_KEY, open ? "open" : "closed");
-  } catch {
-    // Storage may be blocked; the state still holds for this page.
-  }
-}
 
 /** The first conversations of a project, read when it opens and prefetched when its row is pointed at. */
 function projectSessionsOptions(projectId: string) {
@@ -122,7 +107,7 @@ export function ChatProjectsSection({ onNavigate }: { onNavigate?: () => void })
   const ui = useAppTranslation();
   const projects = useQuery(projectsOptions());
   const [creating, setCreating] = useState(false);
-  const [open, setOpen] = useState(readSectionOpen);
+  const [open, setOpen] = useSidebarSectionOpen(SECTION_STORAGE_KEY);
   const [openProjects, setOpenProjects] = useState<ReadonlySet<string>>(new Set());
   const viewed = useViewedProject();
   const reorderProjects = useReorderProjects();
@@ -153,15 +138,8 @@ export function ChatProjectsSection({ onNavigate }: { onNavigate?: () => void })
   const listed = viewedProject ? [...shown, viewedProject] : shown;
 
   return (
-    <Collapsible
-      className="group/project-section"
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        storeSectionOpen(next);
-      }}
-    >
-      <div className="mb-2 flex items-center justify-between rounded-lg pr-0.5 pl-2 hover:bg-surface-sunken">
+    <Collapsible className="group/project-section" open={open} onOpenChange={setOpen}>
+      <div className="mb-1 flex items-center justify-between rounded-lg pr-0.5 pl-2 hover:bg-surface-sunken">
         <CollapsibleTrigger asChild>
           <button
             type="button"
