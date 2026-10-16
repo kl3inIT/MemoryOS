@@ -1810,6 +1810,16 @@ class ChatPersistenceIntegrationTest {
         assertEquals(0, jdbc.sql("SELECT count(*) FROM persona WHERE avatar_seed IS NULL OR avatar_seed = ''").query(Integer.class).single());
     }
 
+    @Test
+    void anAgentTakesAtMostFourStarters() {
+        var four = List.of("Nghỉ phép năm?", "Thai sản?", "Lương tháng 13?", "Chấm công?");
+        assertEquals(four, personas.create(owner, input("Nhân sự", "", four, List.of(), false, null)).starterPrompts());
+        var five = new ArrayList<>(four);
+        five.add("Bảo hiểm?");
+        assertEquals("CHAT_INVALID_REQUEST", assertThrows(ChatException.class,
+                () -> personas.create(owner, input("Nhân sự 2", "", five, List.of(), false, null))).code());
+    }
+
     private static ChatPersonaService.PersonaInput avatar(String name, String seed) {
         return new ChatPersonaService.PersonaInput(name, null, "", "", null, List.of(), List.of(), null, Set.of(), null, null,
                 null, null, seed, null, null, null, null);

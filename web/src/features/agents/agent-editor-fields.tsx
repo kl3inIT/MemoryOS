@@ -339,13 +339,12 @@ export function StarterPromptsField({
           </li>
         ))}
       </ol>
-      {!disabled && (
+      {!disabled && rows.length < maxStarterPrompts && (
         <Button
           type="button"
           size="sm"
           prominence="tertiary"
           className="self-start"
-          disabled={rows.length >= maxStarterPrompts}
           onClick={() => onChange([...rows, ""])}
         >
           <Plus data-icon="inline-start" aria-hidden="true" />

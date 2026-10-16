@@ -109,7 +109,7 @@ Field coverage (✓ has it):
 11. **Section contents, top to bottom:**
     - Danh tính: avatar, name, title, description.
     - Hướng dẫn: instructions with their counter.
-    - Mở đầu: greeting, starters (at most 8).
+    - Mở đầu: greeting, starters (at most 4, as Onyx; the editor hides *Thêm câu gợi ý* at four. Neither staging nor production had an assistant with more than four when the bound was lowered from 8).
     - Tài liệu: the switch, the unified picker, the "Chỉ trả lời có căn cứ" switch.
     - Công cụ: web search, code, images, MCP servers. "Ứng dụng MCP" is left out entirely when the organization has
       no MCP server, rather than showing an empty state. Each person's connection state for an MCP server waits on the

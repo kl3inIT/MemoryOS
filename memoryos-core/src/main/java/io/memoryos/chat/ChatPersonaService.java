@@ -85,8 +85,8 @@ public class ChatPersonaService {
                                @Nullable UUID modelConfigurationId, @Nullable ReasoningEffort reasoningEffort,
                                @Nullable List<UUID> fileIds, @Nullable String avatarSeed, @Nullable UUID avatarFileId,
                                @Nullable Boolean removeAvatar, @Nullable List<UUID> labelIds, @Nullable Boolean grounded) {
-        /** The longest title and greeting; the API declares the same bounds. */
-        public static final int MAX_TITLE = 80, MAX_GREETING = 500;
+        /** The longest title and greeting, which the API declares too, and the most starters (Onyx shows four). */
+        public static final int MAX_TITLE = 80, MAX_GREETING = 500, MAX_STARTERS = 4;
         /** The characters of an avatar seed, as the persona table checks them. */
         public static final String AVATAR_SEED_PATTERN = "^[A-Za-z0-9_-]{1,64}$";
     }
@@ -486,8 +486,8 @@ public class ChatPersonaService {
     private Checked check(ActorId actor, TenantId tenant, PersonaEntity entity, PersonaInput input) {
         text(input.name(), 200, true); text(input.description(), 2000, false); text(input.instructions(), 32000, false);
         String title = optional(input.title(), PersonaInput.MAX_TITLE), greeting = optional(input.greeting(), PersonaInput.MAX_GREETING);
-        if (input.starterPrompts() == null || input.starterPrompts().size() > 8 || input.sourceIds() == null || input.sourceIds().size() > 100)
-            throw ChatException.invalid("Use at most 8 suggestions and 100 sources.");
+        if (input.starterPrompts() == null || input.starterPrompts().size() > PersonaInput.MAX_STARTERS || input.sourceIds() == null || input.sourceIds().size() > 100)
+            throw ChatException.invalid("Use at most " + PersonaInput.MAX_STARTERS + " suggestions and 100 sources.");
         input.starterPrompts().forEach(s -> text(s, 1000, true));
         if (input.sourceIds().stream().anyMatch(Objects::isNull) || input.sourceIds().stream().distinct().count() != input.sourceIds().size())
             throw ChatException.invalid("Source selections must be unique.");
