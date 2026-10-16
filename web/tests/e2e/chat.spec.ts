@@ -237,7 +237,7 @@ test("keeps the new conversation mounted through server ID promotion and resets 
   ).toBeVisible();
   const sessionUrl = page.url();
 
-  await page.getByRole("link", { name: "Hội thoại mới", exact: true }).click();
+  await page.getByRole("link", { name: "Chủ đề mới", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Bạn muốn tìm hiểu điều gì?" })).toBeVisible();
   await expect(
     page.getByRole("main").getByText("Keep this conversation visible", { exact: true }),
@@ -670,6 +670,8 @@ test("mobile drawer, Search navigation, and leaving a running chat only closes t
   await expect(page.getByRole("banner").getByRole("button", { name: /chuyển chế độ/ })).toHaveCount(
     0,
   );
+  // An open topic shows its assistant's sidebar; the app's pages are on the home behind Back.
+  await navigation.getByRole("button", { name: "Về danh sách trợ lý" }).click();
   await navigation.getByRole("link", { name: "Tìm tài liệu", exact: true }).click();
   await expect(page).toHaveURL(/\/search$/);
   await expect(navigation).toBeHidden();
@@ -684,7 +686,10 @@ test("mobile drawer, Search navigation, and leaving a running chat only closes t
   ).json();
   expect(history.at(-1).status).toBe("RUNNING");
   await page.getByRole("button", { name: "Mở điều hướng" }).click();
-  await navigation.locator(`a[href="/chat/${session.id}"]`).click();
+  await navigation
+    .locator("section[aria-labelledby=sidebar-recent]")
+    .locator(`a[href="/chat/${session.id}"]`)
+    .click();
   await expect(page.getByRole("button", { name: "Dừng trả lời" })).toBeVisible();
   await page.getByRole("button", { name: "Dừng trả lời" }).click();
   await expect(page.getByText("Đã dừng", { exact: true })).toBeVisible();

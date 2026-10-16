@@ -16,7 +16,7 @@ import { Route as SignInFailedRouteImport } from './routes/sign-in-failed'
 import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated._chat'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated.admin'
 import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated.agents'
-import { Route as AuthenticatedAssistantsRouteImport } from './routes/_authenticated.assistants'
+import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated.history'
 import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticated.library'
 import { Route as AuthenticatedMeetingsRouteImport } from './routes/_authenticated.meetings'
 import { Route as AuthenticatedSearchRouteImport } from './routes/_authenticated.search'
@@ -43,6 +43,7 @@ import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAdminVoiceRouteImport } from './routes/_authenticated.admin.voice'
 import { Route as AuthenticatedAdminWebSearchRouteImport } from './routes/_authenticated.admin.web-search'
 import { Route as AuthenticatedAgentsCreateRouteImport } from './routes/_authenticated.agents_.create'
+import { Route as AuthenticatedAssistantsIndexRouteImport } from './routes/_authenticated.assistants.index'
 import { Route as AuthenticatedMeetingsMeetingIdRouteImport } from './routes/_authenticated.meetings_.$meetingId'
 import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authenticated.projects.index'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated.settings.index'
@@ -69,6 +70,8 @@ import { Route as AuthenticatedAdminMcpServerIdRouteImport } from './routes/_aut
 import { Route as AuthenticatedAdminSourcesSourceIdRouteImport } from './routes/_authenticated.admin.sources.$sourceId'
 import { Route as AuthenticatedAdminSourcesNewRouteImport } from './routes/_authenticated.admin.sources.new'
 import { Route as AuthenticatedAgentsAgentIdEditRouteImport } from './routes/_authenticated.agents_.$agentId.edit'
+import { Route as AuthenticatedChatAssistantsPersonaIdIndexRouteImport } from './routes/_authenticated._chat.assistants.$personaId.index'
+import { Route as AuthenticatedChatAssistantsPersonaIdNewRouteImport } from './routes/_authenticated._chat.assistants.$personaId.new'
 import { Route as AuthenticatedAdminSourcesNewIndexRouteImport } from './routes/_authenticated.admin.sources.new.index'
 import { Route as AuthenticatedAdminSourcesNewFileRouteImport } from './routes/_authenticated.admin.sources.new.file'
 import { Route as AuthenticatedAdminSourcesNewGoogleDriveRouteImport } from './routes/_authenticated.admin.sources.new.google-drive'
@@ -108,9 +111,9 @@ const AuthenticatedAgentsRoute = AuthenticatedAgentsRouteImport.update({
   path: '/agents',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedAssistantsRoute = AuthenticatedAssistantsRouteImport.update({
-  id: '/assistants',
-  path: '/assistants',
+const AuthenticatedHistoryRoute = AuthenticatedHistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedLibraryRoute = AuthenticatedLibraryRouteImport.update({
@@ -256,6 +259,12 @@ const AuthenticatedAgentsCreateRoute =
   AuthenticatedAgentsCreateRouteImport.update({
     id: '/agents_/create',
     path: '/agents/create',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAssistantsIndexRoute =
+  AuthenticatedAssistantsIndexRouteImport.update({
+    id: '/assistants/',
+    path: '/assistants/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedMeetingsMeetingIdRoute =
@@ -414,6 +423,18 @@ const AuthenticatedAgentsAgentIdEditRoute =
     path: '/agents/$agentId/edit',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedChatAssistantsPersonaIdIndexRoute =
+  AuthenticatedChatAssistantsPersonaIdIndexRouteImport.update({
+    id: '/assistants/$personaId/',
+    path: '/assistants/$personaId/',
+    getParentRoute: () => AuthenticatedChatRoute,
+  } as any)
+const AuthenticatedChatAssistantsPersonaIdNewRoute =
+  AuthenticatedChatAssistantsPersonaIdNewRouteImport.update({
+    id: '/assistants/$personaId/new',
+    path: '/assistants/$personaId/new',
+    getParentRoute: () => AuthenticatedChatRoute,
+  } as any)
 const AuthenticatedAdminSourcesNewIndexRoute =
   AuthenticatedAdminSourcesNewIndexRouteImport.update({
     id: '/',
@@ -452,7 +473,7 @@ export interface FileRoutesByFullPath {
   '/sign-in-failed': typeof SignInFailedRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/agents': typeof AuthenticatedAgentsRoute
-  '/assistants': typeof AuthenticatedAssistantsRoute
+  '/history': typeof AuthenticatedHistoryRoute
   '/library': typeof AuthenticatedLibraryRoute
   '/meetings': typeof AuthenticatedMeetingsRoute
   '/search': typeof AuthenticatedSearchRoute
@@ -487,6 +508,7 @@ export interface FileRoutesByFullPath {
   '/settings/usage': typeof AuthenticatedSettingsUsageRoute
   '/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
+  '/assistants/': typeof AuthenticatedAssistantsIndexRoute
   '/projects/': typeof AuthenticatedProjectsIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/chat/$sessionId': typeof AuthenticatedChatChatSessionIdRoute
@@ -504,10 +526,12 @@ export interface FileRoutesByFullPath {
   '/admin/document-sets/': typeof AuthenticatedAdminDocumentSetsIndexRoute
   '/admin/groups/': typeof AuthenticatedAdminGroupsIndexRoute
   '/admin/mcp/': typeof AuthenticatedAdminMcpIndexRoute
+  '/assistants/$personaId/new': typeof AuthenticatedChatAssistantsPersonaIdNewRoute
   '/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
   '/admin/sources/new/google-drive': typeof AuthenticatedAdminSourcesNewGoogleDriveRoute
   '/admin/sources/new/lark': typeof AuthenticatedAdminSourcesNewLarkRoute
   '/admin/sources/new/sharepoint': typeof AuthenticatedAdminSourcesNewSharepointRoute
+  '/assistants/$personaId/': typeof AuthenticatedChatAssistantsPersonaIdIndexRoute
   '/admin/sources/new/': typeof AuthenticatedAdminSourcesNewIndexRoute
 }
 export interface FileRoutesByTo {
@@ -516,7 +540,7 @@ export interface FileRoutesByTo {
   '/invitation': typeof InvitationRoute
   '/sign-in-failed': typeof SignInFailedRoute
   '/agents': typeof AuthenticatedAgentsRoute
-  '/assistants': typeof AuthenticatedAssistantsRoute
+  '/history': typeof AuthenticatedHistoryRoute
   '/library': typeof AuthenticatedLibraryRoute
   '/meetings': typeof AuthenticatedMeetingsRoute
   '/search': typeof AuthenticatedSearchRoute
@@ -547,6 +571,7 @@ export interface FileRoutesByTo {
   '/settings/usage': typeof AuthenticatedSettingsUsageRoute
   '/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
+  '/assistants': typeof AuthenticatedAssistantsIndexRoute
   '/projects': typeof AuthenticatedProjectsIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/chat/$sessionId': typeof AuthenticatedChatChatSessionIdRoute
@@ -563,10 +588,12 @@ export interface FileRoutesByTo {
   '/admin/document-sets': typeof AuthenticatedAdminDocumentSetsIndexRoute
   '/admin/groups': typeof AuthenticatedAdminGroupsIndexRoute
   '/admin/mcp': typeof AuthenticatedAdminMcpIndexRoute
+  '/assistants/$personaId/new': typeof AuthenticatedChatAssistantsPersonaIdNewRoute
   '/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
   '/admin/sources/new/google-drive': typeof AuthenticatedAdminSourcesNewGoogleDriveRoute
   '/admin/sources/new/lark': typeof AuthenticatedAdminSourcesNewLarkRoute
   '/admin/sources/new/sharepoint': typeof AuthenticatedAdminSourcesNewSharepointRoute
+  '/assistants/$personaId': typeof AuthenticatedChatAssistantsPersonaIdIndexRoute
   '/admin/sources/new': typeof AuthenticatedAdminSourcesNewIndexRoute
 }
 export interface FileRoutesById {
@@ -578,7 +605,7 @@ export interface FileRoutesById {
   '/_authenticated/_chat': typeof AuthenticatedChatRouteWithChildren
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/agents': typeof AuthenticatedAgentsRoute
-  '/_authenticated/assistants': typeof AuthenticatedAssistantsRoute
+  '/_authenticated/history': typeof AuthenticatedHistoryRoute
   '/_authenticated/library': typeof AuthenticatedLibraryRoute
   '/_authenticated/meetings': typeof AuthenticatedMeetingsRoute
   '/_authenticated/search': typeof AuthenticatedSearchRoute
@@ -614,6 +641,7 @@ export interface FileRoutesById {
   '/_authenticated/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
   '/_authenticated/_chat/': typeof AuthenticatedChatIndexRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
+  '/_authenticated/assistants/': typeof AuthenticatedAssistantsIndexRoute
   '/_authenticated/projects/': typeof AuthenticatedProjectsIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/_chat/chat/$sessionId': typeof AuthenticatedChatChatSessionIdRoute
@@ -631,10 +659,12 @@ export interface FileRoutesById {
   '/_authenticated/admin/document-sets/': typeof AuthenticatedAdminDocumentSetsIndexRoute
   '/_authenticated/admin/groups/': typeof AuthenticatedAdminGroupsIndexRoute
   '/_authenticated/admin/mcp/': typeof AuthenticatedAdminMcpIndexRoute
+  '/_authenticated/_chat/assistants/$personaId/new': typeof AuthenticatedChatAssistantsPersonaIdNewRoute
   '/_authenticated/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
   '/_authenticated/admin/sources/new/google-drive': typeof AuthenticatedAdminSourcesNewGoogleDriveRoute
   '/_authenticated/admin/sources/new/lark': typeof AuthenticatedAdminSourcesNewLarkRoute
   '/_authenticated/admin/sources/new/sharepoint': typeof AuthenticatedAdminSourcesNewSharepointRoute
+  '/_authenticated/_chat/assistants/$personaId/': typeof AuthenticatedChatAssistantsPersonaIdIndexRoute
   '/_authenticated/admin/sources/new/': typeof AuthenticatedAdminSourcesNewIndexRoute
 }
 export interface FileRouteTypes {
@@ -646,7 +676,7 @@ export interface FileRouteTypes {
     | '/sign-in-failed'
     | '/admin'
     | '/agents'
-    | '/assistants'
+    | '/history'
     | '/library'
     | '/meetings'
     | '/search'
@@ -681,6 +711,7 @@ export interface FileRouteTypes {
     | '/settings/usage'
     | '/shared/$sessionId'
     | '/admin/'
+    | '/assistants/'
     | '/projects/'
     | '/settings/'
     | '/chat/$sessionId'
@@ -698,10 +729,12 @@ export interface FileRouteTypes {
     | '/admin/document-sets/'
     | '/admin/groups/'
     | '/admin/mcp/'
+    | '/assistants/$personaId/new'
     | '/admin/sources/new/file'
     | '/admin/sources/new/google-drive'
     | '/admin/sources/new/lark'
     | '/admin/sources/new/sharepoint'
+    | '/assistants/$personaId/'
     | '/admin/sources/new/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -710,7 +743,7 @@ export interface FileRouteTypes {
     | '/invitation'
     | '/sign-in-failed'
     | '/agents'
-    | '/assistants'
+    | '/history'
     | '/library'
     | '/meetings'
     | '/search'
@@ -741,6 +774,7 @@ export interface FileRouteTypes {
     | '/settings/usage'
     | '/shared/$sessionId'
     | '/admin'
+    | '/assistants'
     | '/projects'
     | '/settings'
     | '/chat/$sessionId'
@@ -757,10 +791,12 @@ export interface FileRouteTypes {
     | '/admin/document-sets'
     | '/admin/groups'
     | '/admin/mcp'
+    | '/assistants/$personaId/new'
     | '/admin/sources/new/file'
     | '/admin/sources/new/google-drive'
     | '/admin/sources/new/lark'
     | '/admin/sources/new/sharepoint'
+    | '/assistants/$personaId'
     | '/admin/sources/new'
   id:
     | '__root__'
@@ -771,7 +807,7 @@ export interface FileRouteTypes {
     | '/_authenticated/_chat'
     | '/_authenticated/admin'
     | '/_authenticated/agents'
-    | '/_authenticated/assistants'
+    | '/_authenticated/history'
     | '/_authenticated/library'
     | '/_authenticated/meetings'
     | '/_authenticated/search'
@@ -807,6 +843,7 @@ export interface FileRouteTypes {
     | '/_authenticated/shared/$sessionId'
     | '/_authenticated/_chat/'
     | '/_authenticated/admin/'
+    | '/_authenticated/assistants/'
     | '/_authenticated/projects/'
     | '/_authenticated/settings/'
     | '/_authenticated/_chat/chat/$sessionId'
@@ -824,10 +861,12 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/document-sets/'
     | '/_authenticated/admin/groups/'
     | '/_authenticated/admin/mcp/'
+    | '/_authenticated/_chat/assistants/$personaId/new'
     | '/_authenticated/admin/sources/new/file'
     | '/_authenticated/admin/sources/new/google-drive'
     | '/_authenticated/admin/sources/new/lark'
     | '/_authenticated/admin/sources/new/sharepoint'
+    | '/_authenticated/_chat/assistants/$personaId/'
     | '/_authenticated/admin/sources/new/'
   fileRoutesById: FileRoutesById
 }
@@ -889,11 +928,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAgentsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/assistants': {
-      id: '/_authenticated/assistants'
-      path: '/assistants'
-      fullPath: '/assistants'
-      preLoaderRoute: typeof AuthenticatedAssistantsRouteImport
+    '/_authenticated/history': {
+      id: '/_authenticated/history'
+      path: '/history'
+      fullPath: '/history'
+      preLoaderRoute: typeof AuthenticatedHistoryRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/library': {
@@ -1078,6 +1117,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAgentsCreateRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/assistants/': {
+      id: '/_authenticated/assistants/'
+      path: '/assistants'
+      fullPath: '/assistants/'
+      preLoaderRoute: typeof AuthenticatedAssistantsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/meetings_/$meetingId': {
       id: '/_authenticated/meetings_/$meetingId'
       path: '/meetings/$meetingId'
@@ -1260,6 +1306,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAgentsAgentIdEditRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/_chat/assistants/$personaId/': {
+      id: '/_authenticated/_chat/assistants/$personaId/'
+      path: '/assistants/$personaId'
+      fullPath: '/assistants/$personaId/'
+      preLoaderRoute: typeof AuthenticatedChatAssistantsPersonaIdIndexRouteImport
+      parentRoute: typeof AuthenticatedChatRoute
+    }
+    '/_authenticated/_chat/assistants/$personaId/new': {
+      id: '/_authenticated/_chat/assistants/$personaId/new'
+      path: '/assistants/$personaId/new'
+      fullPath: '/assistants/$personaId/new'
+      preLoaderRoute: typeof AuthenticatedChatAssistantsPersonaIdNewRouteImport
+      parentRoute: typeof AuthenticatedChatRoute
+    }
     '/_authenticated/admin/sources/new/': {
       id: '/_authenticated/admin/sources/new/'
       path: '/'
@@ -1302,6 +1362,8 @@ interface AuthenticatedChatRouteChildren {
   AuthenticatedChatIndexRoute: typeof AuthenticatedChatIndexRoute
   AuthenticatedChatChatSessionIdRoute: typeof AuthenticatedChatChatSessionIdRoute
   AuthenticatedChatProjectsProjectIdRoute: typeof AuthenticatedChatProjectsProjectIdRoute
+  AuthenticatedChatAssistantsPersonaIdNewRoute: typeof AuthenticatedChatAssistantsPersonaIdNewRoute
+  AuthenticatedChatAssistantsPersonaIdIndexRoute: typeof AuthenticatedChatAssistantsPersonaIdIndexRoute
 }
 
 const AuthenticatedChatRouteChildren: AuthenticatedChatRouteChildren = {
@@ -1309,6 +1371,10 @@ const AuthenticatedChatRouteChildren: AuthenticatedChatRouteChildren = {
   AuthenticatedChatChatSessionIdRoute: AuthenticatedChatChatSessionIdRoute,
   AuthenticatedChatProjectsProjectIdRoute:
     AuthenticatedChatProjectsProjectIdRoute,
+  AuthenticatedChatAssistantsPersonaIdNewRoute:
+    AuthenticatedChatAssistantsPersonaIdNewRoute,
+  AuthenticatedChatAssistantsPersonaIdIndexRoute:
+    AuthenticatedChatAssistantsPersonaIdIndexRoute,
 }
 
 const AuthenticatedChatRouteWithChildren =
@@ -1490,7 +1556,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedChatRoute: typeof AuthenticatedChatRouteWithChildren
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
   AuthenticatedAgentsRoute: typeof AuthenticatedAgentsRoute
-  AuthenticatedAssistantsRoute: typeof AuthenticatedAssistantsRoute
+  AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
   AuthenticatedLibraryRoute: typeof AuthenticatedLibraryRoute
   AuthenticatedMeetingsRoute: typeof AuthenticatedMeetingsRoute
   AuthenticatedSearchRoute: typeof AuthenticatedSearchRoute
@@ -1498,6 +1564,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAgentsCreateRoute: typeof AuthenticatedAgentsCreateRoute
   AuthenticatedMeetingsMeetingIdRoute: typeof AuthenticatedMeetingsMeetingIdRoute
   AuthenticatedSharedSessionIdRoute: typeof AuthenticatedSharedSessionIdRoute
+  AuthenticatedAssistantsIndexRoute: typeof AuthenticatedAssistantsIndexRoute
   AuthenticatedProjectsIndexRoute: typeof AuthenticatedProjectsIndexRoute
   AuthenticatedAgentsAgentIdEditRoute: typeof AuthenticatedAgentsAgentIdEditRoute
 }
@@ -1506,7 +1573,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedChatRoute: AuthenticatedChatRouteWithChildren,
   AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
   AuthenticatedAgentsRoute: AuthenticatedAgentsRoute,
-  AuthenticatedAssistantsRoute: AuthenticatedAssistantsRoute,
+  AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
   AuthenticatedLibraryRoute: AuthenticatedLibraryRoute,
   AuthenticatedMeetingsRoute: AuthenticatedMeetingsRoute,
   AuthenticatedSearchRoute: AuthenticatedSearchRoute,
@@ -1514,6 +1581,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAgentsCreateRoute: AuthenticatedAgentsCreateRoute,
   AuthenticatedMeetingsMeetingIdRoute: AuthenticatedMeetingsMeetingIdRoute,
   AuthenticatedSharedSessionIdRoute: AuthenticatedSharedSessionIdRoute,
+  AuthenticatedAssistantsIndexRoute: AuthenticatedAssistantsIndexRoute,
   AuthenticatedProjectsIndexRoute: AuthenticatedProjectsIndexRoute,
   AuthenticatedAgentsAgentIdEditRoute: AuthenticatedAgentsAgentIdEditRoute,
 }

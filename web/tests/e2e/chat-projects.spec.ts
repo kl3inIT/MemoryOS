@@ -55,7 +55,7 @@ test("opens a project in the sidebar to its conversations", async ({ page }) => 
   const folder = sidebar.locator(`[data-project-id="${id}"]`);
   const opener = folder.getByRole("button", { name: "Hội thoại trong Folder project" });
   await expect(opener).toHaveAttribute("aria-expanded", "false");
-  // The project's own list is closed; "Hội thoại gần đây" may still list the same conversations.
+  // The project's own list is closed; "Gần đây" may still list the same conversations.
   await expect(folder.getByRole("link", { name: /^Folder conversation/ })).toHaveCount(0);
 
   await opener.click();
@@ -87,7 +87,7 @@ test("opens the project of the conversation a page address names", async ({ page
   await page.request.delete(`/api/chat/projects/${id}?revision=0`);
 });
 
-test("removing a conversation from a sidebar project keeps it in recent history", async ({
+test("removing a conversation from a sidebar project keeps it among its assistant's topics", async ({
   page,
 }) => {
   const id = await createProject(page, "Remove history project");
@@ -99,13 +99,13 @@ test("removing a conversation from a sidebar project keeps it in recent history"
   await page.goto(`/chat/${session.id}`);
   const sidebar = page.getByRole("complementary");
   const folder = sidebar.locator(`[data-project-id="${id}"]`);
-  const recent = sidebar.getByRole("group", { name: "Hội thoại gần đây", exact: true });
+  const recent = sidebar.getByRole("group", { name: "Chủ đề của MemoryOS", exact: true });
   await expect(folder.locator(`a[href="/chat/${session.id}"]`)).toBeVisible();
   await folder.getByRole("button", { name: `Thao tác hội thoại ${session.title}` }).click();
   await page.getByRole("menuitem", { name: "Gỡ khỏi dự án", exact: true }).click();
   await expect(folder.locator(`a[href="/chat/${session.id}"]`)).toHaveCount(0);
   await expect(recent.locator(`a[href="/chat/${session.id}"]`)).toBeVisible();
-  // The Project row took the menu button with it; focus continues at the history link, not the page.
+  // Out of the Project, the sidebar is the conversation's assistant's; focus continues at its topic, not the page.
   await expect(recent.locator(`a[href="/chat/${session.id}"]`)).toBeFocused();
   await page
     .getByRole("banner")
@@ -116,10 +116,10 @@ test("removing a conversation from a sidebar project keeps it in recent history"
   await expect(page).toHaveURL(`/chat/${session.id}`);
   await page.reload();
   await expect(recent.locator(`a[href="/chat/${session.id}"]`)).toBeVisible();
-  await page.getByRole("button", { name: "Tìm hội thoại", exact: true }).click();
+  await page.getByRole("button", { name: "Tìm kiếm", exact: true }).click();
   await expect(
     page
-      .getByRole("dialog", { name: "Tìm hội thoại", exact: true })
+      .getByRole("dialog", { name: "Tìm kiếm", exact: true })
       .getByRole("option", { name: session.title }),
   ).toBeVisible();
   await page.request.delete(`/api/chat/projects/${id}?revision=0`);
@@ -167,7 +167,7 @@ test("starts a conversation from the project menu without creating a session unt
   await folder.getByRole("button", { name: `Thao tác hội thoại ${created!.title}` }).click();
   await page.getByRole("menuitem", { name: "Gỡ khỏi dự án", exact: true }).click();
   await expect(folder.locator(`a[href="/chat/${sessionId}"]`)).toHaveCount(0);
-  const recent = sidebar.getByRole("group", { name: "Hội thoại gần đây", exact: true });
+  const recent = sidebar.getByRole("group", { name: "Chủ đề của MemoryOS", exact: true });
   await expect(recent.locator(`a[href="/chat/${sessionId}"]`)).toBeVisible();
   await expect(page.getByText("Hello 👋", { exact: true })).toBeVisible();
   await page.reload();
@@ -193,7 +193,7 @@ test("retains a newly sent project conversation and its transcript after removal
   await folder.getByRole("button", { name: /^Thao tác hội thoại/ }).click();
   await page.getByRole("menuitem", { name: "Gỡ khỏi dự án", exact: true }).click();
   await expect(folder.getByRole("link")).toHaveCount(0);
-  const recent = sidebar.getByRole("group", { name: "Hội thoại gần đây", exact: true });
+  const recent = sidebar.getByRole("group", { name: "Chủ đề của MemoryOS", exact: true });
   await expect(recent.locator(`a[href="/chat/${sessionId}"]`)).toBeVisible();
   await expect(page.getByText("Hello 👋", { exact: true })).toBeVisible();
   await page.reload();

@@ -146,6 +146,8 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
   private onModelAccepted?: (selection: Accepted) => void;
   /** Project for the session created by the first send; ignored once the session exists. */
   projectId?: string;
+  /** Assistant of the session created by the first send; the default assistant when unset. */
+  personaId?: string;
   onSessionCreated?: (session: ChatSession) => void;
   /** Any failure before the first session exists, so thread initialization can be retried. */
   onSessionFailed?: (error: unknown) => void;
@@ -297,7 +299,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
         this.session = await newChatSession(
           text,
           signal,
-          undefined,
+          this.personaId,
           this.projectId,
           this.temporary,
         );

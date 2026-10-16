@@ -8,6 +8,7 @@ import {
   getChatBranchesQueryKey,
   getChatFeedbackQueryKey,
   getChatSessionQueryKey,
+  listChatAssistantsQueryKey,
   listChatSessionsQueryKey,
   listProjectChatSessionsQueryKey,
   searchChatSessionsQueryKey,
@@ -57,14 +58,16 @@ function everyCall([{ _id }]: readonly [{ _id: string }]) {
 }
 
 /**
- * Refreshes every cached read of conversations after one changes: the session lists (open and archived),
- * conversation search, every Project's conversation list and, when given, the changed conversation. The
+ * Refreshes every cached read of conversations after one changes: the session lists (open, archived and each
+ * assistant's topics), conversation search, every Project's conversation list, the sidebar's assistants with their
+ * latest topic and, when given, the changed conversation. The
  * assistant-ui thread list is not a query; `useRefreshChatSessions` reloads it beside this.
  */
 export function invalidateChatSessions(cache: QueryClient, sessionId?: string) {
   return Promise.all([
     cache.invalidateQueries({ queryKey: listChatSessionsQueryKey() }),
     cache.invalidateQueries({ queryKey: searchChatSessionsQueryKey() }),
+    cache.invalidateQueries({ queryKey: listChatAssistantsQueryKey() }),
     cache.invalidateQueries({
       queryKey: everyCall(listProjectChatSessionsQueryKey({ path: { projectId: "" } })),
     }),

@@ -119,7 +119,7 @@ test("searches merged sections, filters, pages and opens each best match with es
   });
   await page.goto("/search");
   await page.getByRole("textbox", { name: "Search documents" }).fill("chính sách nghỉ phép");
-  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await page.getByRole("main").getByRole("button", { name: "Search", exact: true }).click();
   await page.getByRole("button", { name: "File type: All file types" }).click();
   await page.getByRole("menuitemradio", { name: "PDF", exact: true }).click();
   const titleButton = page.getByRole("button", {
@@ -390,7 +390,7 @@ test("handles unavailable, retry, empty and a pending search", async ({ page }) 
   });
   await page.goto("/search");
   const input = page.getByRole("textbox", { name: "Search documents" });
-  const search = page.getByRole("button", { name: "Search", exact: true });
+  const search = page.getByRole("main").getByRole("button", { name: "Search", exact: true });
   await input.fill("test");
   await search.click();
   await expect(page.getByRole("alert")).toContainText("Search is temporarily unavailable");
@@ -448,7 +448,7 @@ test("keeps the document preview usable inside a mobile viewport", async ({ page
 
   await page.goto("/search");
   await page.getByRole("textbox", { name: "Search documents" }).fill("nghỉ phép");
-  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await page.getByRole("main").getByRole("button", { name: "Search", exact: true }).click();
   await page.getByRole("button", { name: "HR-2026 Quy định nghỉ phép", exact: true }).click();
 
   const dialog = page.getByRole("dialog", { name: "HR-2026 Quy định nghỉ phép" });
@@ -572,7 +572,7 @@ test("shows source type, provider and authors, links to Google Drive and outline
   });
   await page.goto("/search");
   await page.getByRole("textbox", { name: "Search documents" }).fill("nghỉ phép");
-  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await page.getByRole("main").getByRole("button", { name: "Search", exact: true }).click();
   const titleButton = page.getByRole("button", { name: "HR-2026 Quy định nghỉ phép", exact: true });
   const card = page.locator("article").filter({ has: titleButton });
   await expect(card.locator('[data-slot="document-source-icon"]')).toHaveAttribute(
@@ -704,7 +704,7 @@ test("opens a scanned report at its cited page without reading the rest of it", 
 
   await page.goto("/search");
   await page.getByRole("textbox", { name: "Search documents" }).fill("báo cáo");
-  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await page.getByRole("main").getByRole("button", { name: "Search", exact: true }).click();
   const title = page.getByRole("button", { name: "Báo cáo tài chính 2023.pdf", exact: true });
   await title.click();
   const dialog = page.getByRole("dialog");
@@ -816,7 +816,7 @@ test("marks the cited region on an image original, through zoom and a turn, and 
   const search = async () => {
     await page.goto("/search");
     await page.getByRole("textbox", { name: "Search documents" }).fill("doanh thu");
-    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await page.getByRole("main").getByRole("button", { name: "Search", exact: true }).click();
     await page.getByRole("button", { name: "Biểu đồ doanh thu.png", exact: true }).click();
   };
 
@@ -942,7 +942,7 @@ test("steps between the cited passages of a PDF original from the reader's own t
   );
   await page.goto("/search");
   await page.getByRole("textbox", { name: "Search documents" }).fill("policy");
-  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await page.getByRole("main").getByRole("button", { name: "Search", exact: true }).click();
   await page.getByRole("button", { name: "Open best match in Leave handbook.pdf" }).click();
 
   const dialog = page.getByRole("dialog");
@@ -1040,7 +1040,7 @@ test("marks the words of the question inside the located passages of a text orig
   );
   await page.goto("/search");
   await page.getByRole("textbox", { name: "Search documents" }).fill("nghỉ phép");
-  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await page.getByRole("main").getByRole("button", { name: "Search", exact: true }).click();
   await page.getByRole("button", { name: `Open best match in ${title}` }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByText("Highlighted")).toHaveCount(2);

@@ -67,13 +67,18 @@ export function ChatRuntimeProvider({ children }: { children: ReactNode }) {
     from: "/_authenticated/_chat/projects/$projectId",
     shouldThrow: false,
   })?.params.projectId;
+  // So does moving between the new topics of two assistants.
+  const personaId = useMatch({
+    from: "/_authenticated/_chat/assistants/$personaId/new",
+    shouldThrow: false,
+  })?.params.personaId;
   useEffect(() => {
     if (!onChatRoute) return;
     const threads = runtime.threads;
     if (sessionId)
       threads.switchToThread(sessionId).catch(() => setFailure({ sessionId, attempt }));
     else if (threads.mainItem.getState().status !== "new") void threads.switchToNewThread();
-  }, [onChatRoute, sessionId, projectId, runtime, attempt]);
+  }, [onChatRoute, sessionId, projectId, personaId, runtime, attempt]);
   // A retry or another route clears the failure without resetting state inside the effect.
   const routeError =
     failure && failure.sessionId === sessionId && failure.attempt === attempt

@@ -3,6 +3,8 @@ import { agentFace } from "./agent-face";
 
 const boxes = {
   sm: "size-6 rounded-md",
+  /** A two-line sidebar row: name above a preview. */
+  row: "size-8 rounded-lg",
   md: "size-10 rounded-xl",
   lg: "size-14 rounded-2xl",
   xl: "size-20 rounded-3xl",

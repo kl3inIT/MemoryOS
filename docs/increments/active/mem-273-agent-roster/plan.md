@@ -39,26 +39,26 @@ and staging has deployed it. The web pull request is accepted when the owner has
 
 ## 2. Web
 
-- [ ] Home sidebar per design decision 8, in `chat-navigation.tsx`, with the shadcn sidebar primitives:
+- [x] Home sidebar per design decision 8, in `chat-navigation.tsx`, with the shadcn sidebar primitives:
   - Projects moved above the assistants;
   - assistant rows from `GET /api/chat/assistants`: avatar, name, time, preview, running ring (respecting
     `prefers-reduced-motion`), the unusable state, drag to reorder, unpin;
   - "Gần đây": 8 topics with avatar, title and time, then "Xem tất cả";
   - remove "Hội thoại mới", the "Trợ lý" entry and "Hội thoại gần đây"; the collapsed rail shows assistant avatars.
-- [ ] Assistant sidebar per design decision 4: header with back, avatar, name and owner; "Chủ đề mới", "Tìm kiếm",
+- [x] Assistant sidebar per design decision 4: header with back, avatar, name and owner; "Chủ đề mới", "Tìm kiếm",
   "Thông tin trợ lý"; topics from the session list filtered by `personaId`, grouped with LobeHub's time buckets
   (`groupThreadTitles`), 20 then "Xem tất cả"; rows reuse `ChatSessionRow` and `ChatSessionMenu` with the ring.
-- [ ] Sidebar choice from the route: the assistant sidebar on `/chat/$sessionId` outside a project and on
+- [x] Sidebar choice from the route: the assistant sidebar on `/chat/$sessionId` outside a project and on
   `/assistants/$personaId/new`; the home sidebar elsewhere; back returns to home without leaving the page.
-- [ ] Routes: `/assistants/$personaId` (latest topic or new), `/assistants/$personaId/new`, `/history` with search
+- [x] Routes: `/assistants/$personaId` (latest topic or new), `/assistants/$personaId/new`, `/history` with search
   and the assistant filter; the agents page "Trò chuyện" opens the assistant instead of creating a session.
-- [ ] Pinned assistants no longer create a session on click; the first send creates it.
-- [ ] Pin changes (`usePinUpdates`) take the current order from `GET /api/chat/assistants` (every row but the
+- [x] Pinned assistants no longer create a session on click; the first send creates it.
+- [x] Pin changes (`usePinUpdates`) take the current order from `GET /api/chat/assistants` (every row but the
   built-in one) instead of `GET /api/chat/persona-pins`, so a write keeps the unusable pins.
-- [ ] Search dialog per design decision 9: the sidebar trigger, assistant, topic and project groups of five, the "Trong: <trợ lý>" chip, the empty state.
-- [ ] Phones: the sheet shows the sidebar of the open page; choosing a topic closes it.
-- [ ] i18n in natural Vietnamese; remove the strings of the removed entries.
-- [ ] Tests:
+- [x] Search dialog per design decision 9: the sidebar trigger, assistant, topic and project groups of five, the "Trong: <trợ lý>" chip, the empty state.
+- [x] Phones: the sheet shows the sidebar of the open page; choosing a topic closes it.
+- [x] i18n in natural Vietnamese; remove the strings of the removed entries.
+- [x] Tests:
   - the home sidebar orders Projects, Assistants, Recent, with MemoryOS first;
   - opening an assistant opens its latest topic and swaps the sidebar; back restores the home sidebar;
   - "Chủ đề mới" writes nothing until the first send;

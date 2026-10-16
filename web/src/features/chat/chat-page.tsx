@@ -33,6 +33,7 @@ import {
 } from "@/features/chat/projects/chat-projects-api";
 import { ProjectContextPanel } from "@/features/chat/projects/project-context-panel";
 import { ProjectTabs } from "@/features/chat/projects/project-tabs";
+import { AgentAvatar } from "@/features/agents/agent-avatar";
 import { useChatThreads } from "@/features/chat/runtime/chat-threads-context";
 import type { ChatThreadController } from "@/features/chat/runtime/chat-thread-controller";
 import { ChatModelPicker } from "./chat-model-picker";
@@ -61,7 +62,7 @@ function ChatPageState({
 export function ChatPage() {
   const ui = useAppTranslation();
   useAttachOnOpen();
-  const { sessionId, projectId } = useParams({ strict: false });
+  const { sessionId, projectId, personaId } = useParams({ strict: false });
   const { registry, routeError, retryRoute } = useChatThreads();
   const identity = useApplicationSession();
   const mainId = useAuiState((state) => state.threads.mainThreadId);
@@ -125,6 +126,7 @@ export function ChatPage() {
       key={`${authority}:${mainId}`}
       controller={controller}
       project={projectId ? project.data : undefined}
+      personaId={personaId}
     />
   );
 }
@@ -132,14 +134,17 @@ export function ChatPage() {
 function ChatConversation({
   controller,
   project,
+  personaId,
 }: {
   controller: ChatThreadController;
   project?: Project;
+  /** The assistant of a new topic opened from the sidebar. */
+  personaId?: string;
 }) {
   const ui = useAppTranslation();
   const { runtime } = useChatThreads();
   const loadingHistory = useAuiState((s) => s.thread.isLoading);
-  const conversation = useChatConversation(controller, project);
+  const conversation = useChatConversation(controller, project, personaId);
   const { state, session, headerSession, busy, tools } = conversation;
 
   if (state.unavailable)
@@ -170,7 +175,14 @@ function ChatConversation({
       <AppShellHeader
         // A project's opening screen already has its own heading.
         heading={!project || Boolean(session)}
-        title={headerSession?.title ?? (project ? ui("Dự án") : ui("Chat"))}
+        title={
+          headerSession?.title ??
+          (project
+            ? ui("Dự án")
+            : personaId
+              ? (conversation.persona?.name ?? ui("Chat"))
+              : ui("Chat"))
+        }
         actions={
           <div className="flex items-center gap-1">
             <ChatTemporaryBadge temporary={headerSession?.temporary ?? tools.temporary} />
@@ -203,6 +215,7 @@ function ChatConversation({
               controller={controller}
               conversation={conversation}
               project={project}
+              personaId={personaId}
             />
           </ChatEditingContext>
         </ChatImageEditContext>
@@ -216,10 +229,12 @@ function ChatConversationBody({
   controller,
   conversation,
   project,
+  personaId,
 }: {
   controller: ChatThreadController;
   conversation: ReturnType<typeof useChatConversation>;
   project?: Project;
+  personaId?: string;
 }) {
   const ui = useAppTranslation();
   const { t } = useTranslation("chatStatus");
@@ -255,7 +270,16 @@ function ChatConversationBody({
       )}
       <ChatThread
         sendDisabled={!conversation.persona}
-        welcome={project && !session ? <ProjectContextPanel project={project} /> : undefined}
+        readOnly={conversation.personaGone}
+        welcome={
+          project && !session ? (
+            <ProjectContextPanel project={project} />
+          ) : personaId && !session && conversation.persona && !conversation.persona.builtin ? (
+            <AssistantWelcome assistant={conversation.persona}>
+              <ChatStarterPrompts personaId={personaId} disabled={busy} />
+            </AssistantWelcome>
+          ) : undefined
+        }
         afterComposer={
           (headerSession?.temporary ?? (tools.temporary && !session)) ? (
             <ChatTemporaryNotice
@@ -268,7 +292,9 @@ function ChatConversationBody({
             <ProjectTabs project={project} />
           ) : undefined
         }
-        starters={<ChatStarterPrompts personaId={session?.personaId} disabled={busy} />}
+        starters={
+          <ChatStarterPrompts personaId={session?.personaId ?? personaId} disabled={busy} />
+        }
         composerMenu={
           <ChatComposerMenu
             disabled={busy}
@@ -336,5 +362,31 @@ function ChatConversationBody({
         checking={state.checking}
       />
     </>
+  );
+}
+
+/** The opening of a new topic with an assistant: its face, name and description above its starters. */
+function AssistantWelcome({
+  assistant,
+  children,
+}: {
+  assistant: {
+    id: string;
+    name: string;
+    description: string;
+    avatarSeed: string;
+    hasAvatar: boolean;
+  };
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-3">
+      <AgentAvatar agent={assistant} size="lg" />
+      <h1 className="text-2xl font-medium tracking-tight text-balance">{assistant.name}</h1>
+      {assistant.description && (
+        <p className="max-w-xl text-pretty text-content-secondary">{assistant.description}</p>
+      )}
+      {children}
+    </div>
   );
 }

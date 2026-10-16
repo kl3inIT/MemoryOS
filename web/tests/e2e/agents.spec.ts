@@ -94,6 +94,29 @@ async function mockAgents(page: Page, capabilities: string[], initial: ReturnTyp
     }
     return route.fulfill({ json: state.agents.filter((item) => item.pinned) });
   });
+  // The sidebar's assistants follow the pins, in their order.
+  await page.route("**/api/chat/assistants", (route) =>
+    route.fulfill({
+      json: state.agents
+        .filter((item) => item.pinned)
+        .toSorted(
+          (a, b) =>
+            ((state.pins as string[] | undefined)?.indexOf(a.id as string) ?? 0) -
+            ((state.pins as string[] | undefined)?.indexOf(b.id as string) ?? 0),
+        )
+        .map((item) => ({
+          id: item.id,
+          name: item.name,
+          description: item.description,
+          avatarSeed: item.avatarSeed,
+          hasAvatar: false,
+          builtin: false,
+          ownerName: "Đạt Phan",
+          usable: true,
+          latestTopic: null,
+        })),
+    }),
+  );
   await page.route("**/api/identity/principals**", (route) =>
     route.fulfill({
       json: {
@@ -544,10 +567,8 @@ test("reorders and unpins sidebar agents and features agents from administration
   const state = await mockAgents(page, ["AGENTS_CREATE", "AGENTS_MANAGE"], pinned);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/agents");
-  const pins = page
-    .getByRole("region", { name: "Trợ lý đã ghim" })
-    .or(page.locator("section[aria-labelledby=pinned-agents]"));
-  await expect(pins.getByRole("listitem")).toHaveCount(3);
+  const pins = page.locator("section[aria-labelledby=sidebar-assistants]");
+  await expect(pins.getByRole("button", { name: /^Kéo để sắp xếp/ })).toHaveCount(3);
 
   const handle = pins.getByRole("button", { name: "Kéo để sắp xếp OKR/KPI hằng tháng" });
   await handle.focus();
@@ -558,7 +579,7 @@ test("reorders and unpins sidebar agents and features agents from administration
   await page.keyboard.press("Space");
   await expect.poll(() => state.pins).toEqual([finance, kpi, hr]);
 
-  await pins.getByRole("listitem").filter({ hasText: "Báo cáo tài chính" }).hover();
+  await pins.getByRole("link", { name: /Báo cáo tài chính/ }).hover();
   await pins.getByRole("button", { name: "Bỏ ghim Báo cáo tài chính" }).click();
   await expect.poll(() => state.pins).toEqual([kpi, hr]);
 
@@ -571,9 +592,7 @@ test("reorders and unpins sidebar agents and features agents from administration
     .toMatchObject({ featured: true, listed: true });
 });
 
-test("sends a starter prompt from the agent's detail view into a new conversation", async ({
-  page,
-}) => {
+test("sends a starter prompt from the agent's detail view into a new topic", async ({ page }) => {
   await mockAgents(page, [], tascoAgents());
   await page.goto(`/agents?agent=${kpi}`);
   const viewer = page.getByRole("dialog", { name: "OKR/KPI hằng tháng" });
