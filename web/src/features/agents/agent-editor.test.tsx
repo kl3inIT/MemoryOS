@@ -164,6 +164,8 @@ describe("AgentEditorPage", () => {
             name: "HR questions",
             botName: "HR bot",
             enabled: false,
+            byDefault: true,
+            groups: [],
           },
         ],
       }),

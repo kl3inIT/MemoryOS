@@ -250,7 +250,7 @@ class ChannelSupervisorTest {
 
         @Override public ChannelSender sender(ChannelConnection connection, String senderId) { return ChannelSender.UNKNOWN; }
 
-        @Override public boolean externalChat(ChannelConnection connection, String chatId) { return false; }
+        @Override public ChannelChat chat(ChannelConnection connection, String chatId) { return ChannelChat.UNNAMED; }
 
         @Override public ChannelVerification verify(ChannelCredentials credentials) { throw new UnsupportedOperationException(); }
 

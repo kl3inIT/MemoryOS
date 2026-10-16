@@ -57,6 +57,9 @@ public interface ChannelAdapter {
     /** What the provider says of a sender; {@link ChannelSender#UNKNOWN} when it says nothing. */
     ChannelSender sender(ChannelConnection connection, String senderId);
 
-    /** Whether people outside the bot's organisation read the chat; false for a provider without organisations. */
-    boolean externalChat(ChannelConnection connection, String chatId);
+    /**
+     * What the provider says of a group chat: whether people outside the bot's organisation read it (false for a
+     * provider without organisations) and its name, which the bot's page shows (MEM-273).
+     */
+    ChannelChat chat(ChannelConnection connection, String chatId);
 }

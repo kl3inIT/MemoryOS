@@ -38,11 +38,12 @@ class ChannelTurns {
 
     /**
      * Whether the session is the actor's to continue: another person's, or a deleted one, is not, and neither is one
-     * held with another assistant than the bot answers with now, so moving a bot starts its conversations over.
+     * held with another assistant than the bot answers with now in its group chat ({@code group}, null for a direct
+     * message), so moving a bot or giving a group another assistant starts its conversations over.
      */
-    boolean continues(ActorId actor, UUID session, UUID connection) {
+    boolean continues(ActorId actor, UUID session, UUID connection, @Nullable String group) {
         try {
-            return sessions.get(actor, session).personaId().equals(sessions.channelPersona(actor, connection));
+            return sessions.get(actor, session).personaId().equals(sessions.channelPersona(actor, connection, group));
         } catch (RuntimeException unavailable) {
             return false;
         }
@@ -56,13 +57,15 @@ class ChannelTurns {
      * @param request one id a question: a question handed over twice is answered once
      * @param channel where it was asked, which the answer model is told
      * @param connection the bot it was asked through, whose assistant a new session is held with
+     * @param group the group chat it was asked in, whose own assistant wins over the bot's; null for a direct message
      * @param onAccepted called once the question is accepted; it opens the reply and returns where the answer's
      *        text goes as it is written, while the turn is already being prepared
      */
     Answer ask(ActorId actor, @Nullable UUID session, String title, UUID request, String text, ChatChannel channel,
-               UUID connection, Duration wait, Runnable onWaiting, Supplier<Consumer<String>> onAccepted)
+               UUID connection, @Nullable String group, Duration wait, Runnable onWaiting,
+               Supplier<Consumer<String>> onAccepted)
             throws InterruptedException {
-        UUID conversation = session != null ? session : sessions.createInChannel(actor, title, connection).id();
+        UUID conversation = session != null ? session : sessions.createInChannel(actor, title, connection, group).id();
         var accepted = accept(actor, conversation, request, text, channel, wait, onWaiting);
         Consumer<String> onText = onAccepted.get();
         try (var reader = turns.subscribe(actor, conversation, accepted.assistantMessageId(), 0).get()) {

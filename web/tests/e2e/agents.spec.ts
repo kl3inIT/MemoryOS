@@ -882,6 +882,8 @@ async function mockBots(page: Page) {
           name,
           botName,
           enabled,
+          byDefault: true,
+          groups: [],
         })),
     });
   });

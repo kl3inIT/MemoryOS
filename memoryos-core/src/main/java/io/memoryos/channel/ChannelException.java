@@ -20,6 +20,11 @@ public final class ChannelException extends BusinessException {
                 "The bot was not found.", "Channel connection is missing from the Tenant");
     }
 
+    public static ChannelException groupNotFound() {
+        return new ChannelException("CHANNEL_GROUP_NOT_FOUND", FailureCategory.NOT_FOUND,
+                "The group chat was not found.", "Channel group is missing from the bot");
+    }
+
     public static ChannelException changed() {
         return new ChannelException("CHANNEL_CHANGED", FailureCategory.CONFLICT,
                 "The bot was changed by someone else. Reload it and try again.", "Channel connection revision moved on");

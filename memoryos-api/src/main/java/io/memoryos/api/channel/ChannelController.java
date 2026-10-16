@@ -1,11 +1,14 @@
 package io.memoryos.api.channel;
 
 import io.memoryos.api.channel.contract.BindChannelAssistantRequest;
+import io.memoryos.api.channel.contract.BindChannelGroupAssistantRequest;
 import io.memoryos.api.channel.contract.ChannelAppCheckResponse;
 import io.memoryos.api.channel.contract.ChannelAppRequest;
+import io.memoryos.api.channel.contract.ChannelGroupResponse;
 import io.memoryos.api.channel.contract.ChannelResponse;
 import io.memoryos.api.channel.contract.CreateChannelRequest;
 import io.memoryos.api.channel.contract.CreateZaloChannelRequest;
+import io.memoryos.api.channel.contract.LabelChannelGroupRequest;
 import io.memoryos.api.channel.contract.ReplaceChannelSecretRequest;
 import io.memoryos.api.channel.contract.UpdateChannelEnabledRequest;
 import io.memoryos.api.channel.contract.UpdateChannelTransportRequest;
@@ -149,6 +152,47 @@ final class ChannelController {
         return ResponseEntity.ok().body(find(identity, channelId));
     }
 
+    @Operation(operationId = "listChannelGroups",
+            summary = "List the group chats a bot has answered in, each with the assistant it is given")
+    @ApiResponse(responseCode = "200", description = "Group chats", useReturnTypeSchema = true)
+    @GetMapping("/{channelId}/groups")
+    ResponseEntity<List<ChannelGroupResponse>> groups(@CurrentActor IdentityContext identity, @PathVariable UUID channelId) {
+        return ResponseEntity.ok().body(channels.groups(identity.actorId(), channelId).stream()
+                .map(ChannelGroupResponse::from).toList());
+    }
+
+    @Operation(operationId = "bindChannelGroupAssistant",
+            summary = "Give a group chat an assistant in place of its bot's default, or return it to the default; "
+                    + "needs edit rights on the assistant")
+    @ApiResponse(responseCode = "200", description = "Updated group chat", useReturnTypeSchema = true)
+    @PutMapping(value = "/{channelId}/groups/{groupId}/persona", consumes = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ChannelGroupResponse> bindGroupAssistant(@CurrentActor IdentityContext identity,
+            @PathVariable UUID channelId, @PathVariable String groupId,
+            @Valid @RequestBody BindChannelGroupAssistantRequest body) {
+        channels.bindGroupPersona(identity.actorId(), channelId, groupId, body.personaId());
+        return ResponseEntity.ok().body(group(identity, channelId, groupId));
+    }
+
+    @Operation(operationId = "labelChannelGroup", summary = "Name a group chat for the bot's page, or clear the name")
+    @ApiResponse(responseCode = "200", description = "Updated group chat", useReturnTypeSchema = true)
+    @PutMapping(value = "/{channelId}/groups/{groupId}/label", consumes = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ChannelGroupResponse> labelGroup(@CurrentActor IdentityContext identity, @PathVariable UUID channelId,
+            @PathVariable String groupId, @Valid @RequestBody LabelChannelGroupRequest body) {
+        channels.labelGroup(identity.actorId(), channelId, groupId, body.label());
+        return ResponseEntity.ok().body(group(identity, channelId, groupId));
+    }
+
+    @Operation(operationId = "forgetChannelGroup",
+            summary = "Forget a group chat and the assistant it was given; it returns when the bot next answers there")
+    @ApiResponse(responseCode = "204", description = "Group chat forgotten", content = @Content)
+    @DeleteMapping("/{channelId}/groups/{groupId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    ResponseEntity<Void> forgetGroup(@CurrentActor IdentityContext identity, @PathVariable UUID channelId,
+            @PathVariable String groupId) {
+        channels.forgetGroup(identity.actorId(), channelId, groupId);
+        return ResponseEntity.noContent().build();
+    }
+
     @Operation(operationId = "deleteChannel",
             summary = "Remove a bot and retire its account, with a revision precondition")
     @ApiResponse(responseCode = "204", description = "Bot removed", content = @Content)
@@ -158,6 +202,13 @@ final class ChannelController {
             @RequestHeader("If-Match") String ifMatch) {
         channels.delete(identity.actorId(), channelId, revision(ifMatch));
         return ResponseEntity.noContent().build();
+    }
+
+    private ChannelGroupResponse group(IdentityContext identity, UUID id, String groupId) {
+        return channels.groups(identity.actorId(), id).stream()
+                .filter(listed -> listed.group().chatId().equals(groupId)).findFirst()
+                .map(ChannelGroupResponse::from)
+                .orElseThrow(ChannelException::groupNotFound);
     }
 
     private ChannelResponse find(IdentityContext identity, UUID id) {

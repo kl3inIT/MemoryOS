@@ -17,6 +17,7 @@ import io.memoryos.TestDatabase;
 import io.memoryos.TestDatabase.JpaHarness;
 import io.memoryos.channel.persistence.ChannelCredentialConfiguration;
 import io.memoryos.channel.persistence.JdbcChannelConnectionRepository;
+import io.memoryos.channel.persistence.JdbcChannelGroupRepository;
 import io.memoryos.chat.ChatChannelBindings;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatPersonaService;
@@ -42,6 +43,7 @@ import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
@@ -76,6 +78,7 @@ class PostgresChannelConnectionTest {
     private final Platform platform = new Platform();
     private final ChatPersonaService personas = mock(ChatPersonaService.class);
     private ChatChannelBindings bindings;
+    private JdbcChannelGroupRepository channelGroups;
     private ActorId owner;
     private ActorId member;
 
@@ -109,6 +112,7 @@ class PostgresChannelConnectionTest {
         var accounts = new DefaultServiceAccounts(tenants, locks, identities, new JpaActorProfileRecorder(jpa.entityManager()),
                 memberships, groups);
         bindings = new ChatChannelBindings(new JdbcChatRepository(jdbc));
+        channelGroups = new JdbcChannelGroupRepository(jdbc);
         channels = TestDatabase.transactionalProxy(new ChannelConnectionService(
                         new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), locks),
                         new JdbcChannelConnectionRepository(jdbc),
@@ -116,7 +120,7 @@ class PostgresChannelConnectionTest {
                         accounts,
                         TestDatabase.audit(jdbc, jpa.transactionManager()),
                         new ChannelAdapters(List.of(platform)),
-                        jpa.transactionManager(), personas, bindings),
+                        jpa.transactionManager(), personas, bindings, channelGroups),
                 ChannelConnectionService.class, jpa.transactionManager());
     }
 
@@ -298,7 +302,7 @@ class PostgresChannelConnectionTest {
         var bound = channels.bindPersona(owner, bot.id(), hr);
         assertEquals(Optional.of(hr), bindings.bound(TENANT, bot.id()));
         assertEquals(bot.revision(), channels.get(owner, bot.id()).revision(), "binding leaves the bot's revision as it was");
-        assertEquals(List.of(bound), channels.boundTo(owner, hr));
+        assertEquals(List.of(new ChannelConnectionService.Answering(bound, true, List.of())), channels.boundTo(owner, hr));
         assertEquals(hr, channels.listWithState(owner).getFirst().assistantId());
         assertEquals("Nhân sự", channels.listWithState(owner).getFirst().assistant());
 
@@ -344,6 +348,83 @@ class PostgresChannelConnectionTest {
         assertEquals(Optional.empty(), bindings.bound(TENANT, other.id()));
         jdbc.sql("DELETE FROM persona WHERE id = :id").param("id", hr).update();
         assertEquals(Optional.empty(), bindings.bound(TENANT, bot.id()));
+    }
+
+    @Test
+    void aGroupChatTheBotAnsweredInIsGivenItsOwnAssistantByWhoeverManagesBotsAndMayEditIt() {
+        var bot = channels.create(owner, draft("cli_a1b2c3d4e5f6"));
+        UUID hr = assistant("Nhân sự", false, true);
+        UUID finance = assistant("Tài chính", false, true);
+        UUID legal = assistant("Pháp chế", false, false);
+        Instant first = Instant.parse("2026-10-17T02:00:00Z");
+        channelGroups.seen(TENANT, bot.id(), "oc_hr", "Phòng Nhân sự", first);
+        channelGroups.seen(TENANT, bot.id(), "oc_hr", null, first.plusSeconds(60));
+        channelGroups.seen(TENANT, bot.id(), "oc_board", "Ban Giám đốc", first.plusSeconds(30));
+
+        var listed = channels.groups(owner, bot.id());
+        assertEquals(List.of("oc_hr", "oc_board"), listed.stream().map(group -> group.group().chatId()).toList(),
+                "the most recently asked first");
+        assertEquals("Phòng Nhân sự", listed.getFirst().group().name(), "a provider that names none keeps the name held");
+        assertEquals(first, listed.getFirst().group().firstSeenAt());
+        assertEquals(first.plusSeconds(60), listed.getFirst().group().lastMessageAt());
+        assertNull(listed.getFirst().assistantId(), "a group answers with the bot's default until it is given one");
+
+        channels.bindPersona(owner, bot.id(), finance);
+        channels.bindGroupPersona(owner, bot.id(), "oc_hr", hr);
+        assertEquals(Optional.of(hr), bindings.groupBound(TENANT, bot.id(), "oc_hr"));
+        assertEquals("Nhân sự", channels.groups(owner, bot.id()).getFirst().assistant());
+        assertEquals(List.of(new ChannelConnectionService.Answering(channels.get(owner, bot.id()), false,
+                List.of(channelGroups.find(TENANT, bot.id(), "oc_hr").orElseThrow()))), channels.boundTo(owner, hr));
+        assertEquals(List.of(new ChannelConnectionService.Answering(channels.get(owner, bot.id()), true, List.of())),
+                channels.boundTo(owner, finance));
+
+        // A group the bot never answered in, an assistant the caller may not edit, and no capability are refused.
+        assertEquals("CHANNEL_GROUP_NOT_FOUND", code(() -> channels.bindGroupPersona(owner, bot.id(), "oc_unknown", hr)));
+        assertEquals("CHANNEL_ASSISTANT_NOT_EDITABLE", code(() -> channels.bindGroupPersona(owner, bot.id(), "oc_board", legal)));
+        assertThrows(BusinessException.class, () -> channels.bindGroupPersona(member, bot.id(), "oc_board", hr));
+        // Leaving an assistant the caller may not edit is refused too, whether moving or returning to the default.
+        bindings.bindGroup(TENANT, bot.id(), "oc_board", legal);
+        assertEquals("CHANNEL_ASSISTANT_NOT_EDITABLE", code(() -> channels.bindGroupPersona(owner, bot.id(), "oc_board", hr)));
+        assertEquals("CHANNEL_ASSISTANT_NOT_EDITABLE", code(() -> channels.bindGroupPersona(owner, bot.id(), "oc_board", null)));
+        assertEquals(Optional.of(legal), bindings.groupBound(TENANT, bot.id(), "oc_board"), "the group stays where it was");
+
+        channels.bindGroupPersona(owner, bot.id(), "oc_hr", null);
+        assertEquals(Optional.empty(), bindings.groupBound(TENANT, bot.id(), "oc_hr"));
+
+        channels.labelGroup(owner, bot.id(), "oc_hr", "  Nhân sự HN  ");
+        assertEquals("Nhân sự HN", channelGroups.find(TENANT, bot.id(), "oc_hr").orElseThrow().label());
+        channels.labelGroup(owner, bot.id(), "oc_hr", " ");
+        assertNull(channelGroups.find(TENANT, bot.id(), "oc_hr").orElseThrow().label(), "a blank label clears it");
+        assertEquals("CHANNEL_INVALID", code(() -> channels.labelGroup(owner, bot.id(), "oc_hr", "x".repeat(101))));
+        assertEquals("CHANNEL_GROUP_NOT_FOUND", code(() -> channels.labelGroup(owner, bot.id(), "oc_unknown", "x")));
+
+        channels.forgetGroup(owner, bot.id(), "oc_board");
+        assertEquals(Optional.empty(), bindings.groupBound(TENANT, bot.id(), "oc_board"), "forgetting drops the group's assistant");
+        assertEquals(List.of("oc_hr"), channels.groups(owner, bot.id()).stream().map(group -> group.group().chatId()).toList());
+        assertEquals(List.of("channel.create", "channel.update", "channel.update", "channel.update", "channel.update",
+                "channel.update", "channel.update"), actions());
+    }
+
+    @Test
+    void removingABotDropsItsGroupsAndTheirAssistants() {
+        var bot = channels.create(owner, draft("cli_a1b2c3d4e5f6"));
+        UUID hr = assistant("Nhân sự", false, true);
+        channelGroups.seen(TENANT, bot.id(), "oc_hr", "Phòng Nhân sự", Instant.now());
+        channels.bindGroupPersona(owner, bot.id(), "oc_hr", hr);
+        channels.delete(owner, bot.id(), channels.get(owner, bot.id()).revision());
+        assertEquals(Optional.empty(), bindings.groupBound(TENANT, bot.id(), "oc_hr"));
+        assertEquals(Optional.empty(), channelGroups.find(TENANT, bot.id(), "oc_hr"));
+    }
+
+    @Test
+    void removingAnAssistantRowDropsTheGroupsGivenIt() {
+        var bot = channels.create(owner, draft("cli_a1b2c3d4e5f6"));
+        UUID hr = assistant("Nhân sự", false, true);
+        channelGroups.seen(TENANT, bot.id(), "oc_hr", "Phòng Nhân sự", Instant.now());
+        channels.bindGroupPersona(owner, bot.id(), "oc_hr", hr);
+        jdbc.sql("DELETE FROM persona WHERE id = :id").param("id", hr).update();
+        assertEquals(Optional.empty(), bindings.groupBound(TENANT, bot.id(), "oc_hr"));
+        assertTrue(channelGroups.find(TENANT, bot.id(), "oc_hr").isPresent(), "the group itself stays");
     }
 
     /** An assistant as Chat reports it to the caller; its row exists so the binding's key holds. */
@@ -414,6 +495,6 @@ class PostgresChannelConnectionTest {
 
         @Override public ChannelSender sender(ChannelConnection connection, String senderId) { return ChannelSender.UNKNOWN; }
 
-        @Override public boolean externalChat(ChannelConnection connection, String chatId) { return false; }
+        @Override public ChannelChat chat(ChannelConnection connection, String chatId) { return ChannelChat.UNNAMED; }
     }
 }
