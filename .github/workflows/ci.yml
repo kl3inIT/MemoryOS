@@ -165,34 +165,6 @@ jobs:
             printf 'No same-repository pull request run verified tree %s; every test runs.\n' "$TREE" >> "$GITHUB_STEP_SUMMARY"
           fi
 
-  # Runs on every event, a reused verification included: a pull request checked against an older base can still
-  # merge below a version main applied meanwhile, and the main run then fails before any deploy starts.
-  migrations:
-    name: Migration order
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-          fetch-depth: 2
-
-      - name: Check new migrations against the base
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          BEFORE: ${{ github.event.before }}
-        run: |
-          set -euo pipefail
-          # A pull request's merge commit has the base tip as first parent; a main push compares with the commit
-          # it replaced, which covers every commit it brought.
-          base=HEAD^1
-          if [[ "$EVENT_NAME" == push ]]; then
-            git fetch --no-tags --depth=1 origin "$BEFORE"
-            base=$BEFORE
-          fi
-          .github/scripts/check-migration-order.sh "$base" HEAD
-
   # Deployment, monitoring and workflow checks need no JVM, so they run beside the Gradle legs instead of before them.
   infrastructure:
     needs: changes
@@ -980,10 +952,38 @@ jobs:
           fi
           "$RUNNER_TEMP/gitleaks" git --redact --no-banner --log-opts="$range" .
 
+  # Runs on every event, a reused verification included: a pull request checked against an older base can still
+  # merge below a version main applied meanwhile, and the main run then fails before any deploy starts.
+  migrations:
+    name: Migration order
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+
+      - name: Check new migrations against the base
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          # A pull request's merge commit has the base tip as first parent; a main push compares with the commit
+          # it replaced, which covers every commit it brought.
+          base=HEAD^1
+          if [[ "$EVENT_NAME" == push ]]; then
+            git fetch --no-tags --depth=1 origin "$BEFORE"
+            base=$BEFORE
+          fi
+          bash .github/scripts/check-migration-order.sh "$base" HEAD
+
   gate:
     name: CI Gate
     if: ${{ always() }}
-    needs: [changes, infrastructure, backend, frontend-check, frontend, frontend-preview, frontend-image, backend-images, landing, interpreter, sandbox, secrets]
+    needs: [changes, infrastructure, backend, frontend-check, frontend, frontend-preview, frontend-image, backend-images, landing, interpreter, sandbox, secrets, migrations]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
@@ -1001,9 +1001,10 @@ jobs:
                 if $area[name] != "true" then ok(tests + images; "skipped")
                 elif $area[name + "_verified"] == "true" then ok(tests; "skipped") and ok(images; "success")
                 else ok(tests + images; "success") end;
-            ($jobs | keys) == ["backend", "backend-images", "changes", "frontend", "frontend-check", "frontend-image", "frontend-preview", "infrastructure", "interpreter", "landing", "sandbox", "secrets"]
+            ($jobs | keys) == ["backend", "backend-images", "changes", "frontend", "frontend-check", "frontend-image", "frontend-preview", "infrastructure", "interpreter", "landing", "migrations", "sandbox", "secrets"]
             and $jobs.changes.result == "success"
             and $jobs.secrets.result == "success"
+            and $jobs.migrations.result == "success"
             and selected("backend"; ["infrastructure", "backend"]; ["backend-images"])
             and selected("web"; ["frontend-check", "frontend", "frontend-preview"]; ["frontend-image"])
             and selected("landing"; []; ["landing"])
