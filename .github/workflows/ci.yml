@@ -165,6 +165,34 @@ jobs:
             printf 'No same-repository pull request run verified tree %s; every test runs.\n' "$TREE" >> "$GITHUB_STEP_SUMMARY"
           fi
 
+  # Runs on every event, a reused verification included: a pull request checked against an older base can still
+  # merge below a version main applied meanwhile, and the main run then fails before any deploy starts.
+  migrations:
+    name: Migration order
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+
+      - name: Check new migrations against the base
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          # A pull request's merge commit has the base tip as first parent; a main push compares with the commit
+          # it replaced, which covers every commit it brought.
+          base=HEAD^1
+          if [[ "$EVENT_NAME" == push ]]; then
+            git fetch --no-tags --depth=1 origin "$BEFORE"
+            base=$BEFORE
+          fi
+          .github/scripts/check-migration-order.sh "$base" HEAD
+
   # Deployment, monitoring and workflow checks need no JVM, so they run beside the Gradle legs instead of before them.
   infrastructure:
     needs: changes
@@ -191,7 +219,8 @@ jobs:
           bash -n infrastructure/deployment/deploy-serving.sh
           sh -n infrastructure/deployment/serving-firewall.sh
           shellcheck -x infrastructure/deployment/deploy.sh memoryos-api/src/main/docker/application-launcher.sh memoryos-api/src/main/docker/api-entrypoint.sh             infrastructure/keycloak/smoke-test-image.sh \
-            infrastructure/deployment/deploy-serving.sh infrastructure/deployment/serving-firewall.sh
+            infrastructure/deployment/deploy-serving.sh infrastructure/deployment/serving-firewall.sh \
+            .github/scripts/check-migration-order.sh
 
       - name: Verify deployment and monitoring configuration
         # Interpolation-only values; this step never starts application services.

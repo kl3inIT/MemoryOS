@@ -36,6 +36,7 @@ Schema changes preserve committed data ([ADR 0018](../decisions/0018-schema-chan
 - Migrations are forward-only and append-only; never edit an applied migration or its checksum.
 - Never reset, recreate or squash a database, schema or table to reach a cleaner model. A change to an existing shape transforms the existing rows in the migration (or a bounded, idempotent backfill) and states what is kept, converted or deliberately lost; losing user-created data needs a recorded owner decision.
 - A genuinely additive capability still uses the next small migration.
+- A new migration takes a version above every one on `main` when it merges. The CI job `Migration order` (`.github/scripts/check-migration-order.sh`) fails a pull request or `main` push that adds a version at or below the base's newest, repeats a version or edits an existing migration; a failed `main` run deploys nothing, so renumber in a new pull request.
 - Call out a migration that the previous release cannot run against: rollback is then a database restore.
 
 ## Operations
