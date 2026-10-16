@@ -118,6 +118,26 @@ LobeHub paths are under `tmp/refs/lobe-chat` (lobehub/lobehub, cloned 2026-10-15
     - Unread markers (with schedules, MEM-265) and favourite topics.
     - Fork and the explore page (step 3); direct messages from Zalo and Lark joining an assistant's topics (step 4).
 
+## Deviations in the web delivery
+
+Recorded while building the sidebar (PR 2b); each follows a reference or a constraint found on the way.
+
+- **"7 ngày qua" instead of "Tuần này".** LobeHub's `week` bucket is the last seven days before yesterday, not the
+  calendar week, so the label says what it holds. The other buckets are LobeHub's.
+- **The assistant sidebar has no inline topic filter.** "Tìm kiếm" opens the search dialog with the "Trong:" chip,
+  which already searches the messages; a second, title-only filter would answer the same question worse.
+- **MemoryOS's new topic keeps the default welcome.** Only another assistant's new topic shows its avatar,
+  description and starters (`AssistantWelcome`); `/` looks as it did.
+- **No "Chủ đề mới" placeholder row in the topic list.** LobeHub draws one; here the highlighted "Chủ đề mới" link is
+  the same signal, and a placeholder row would move the list while it is created.
+- **Reordering and unpinning are hover controls, so phones do neither in the sidebar.** The explore page and the
+  assistant's detail still pin and unpin on touch; drag on a scrolling phone sheet fights the scroll.
+- **A gone assistant's topic is read-only.** The composer is hidden when the conversation's assistant can no longer
+  be loaded, as decision 2 requires; the default assistant is never gone.
+- **Removing a topic from its Project swaps the sidebar to its assistant**, because the sidebar follows the open
+  topic (decision 4); Back returns to the home with the Projects.
+- **The header search icon is gone.** The sidebar's "Tìm kiếm" row with its shortcut replaces it, as in LobeHub.
+
 ## API
 
 - `GET /api/chat/assistants` returns the sidebar rows in pin order, MemoryOS first. Each row has the assistant's

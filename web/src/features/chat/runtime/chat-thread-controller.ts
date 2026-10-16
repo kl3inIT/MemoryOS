@@ -145,6 +145,11 @@ export class ChatThreadController {
     if (!this.transport.session) this.transport.projectId = projectId;
   }
 
+  /** Assistant of the session created by the first send; an existing session keeps its own. */
+  setPersona(personaId: string | undefined) {
+    if (!this.transport.session) this.transport.personaId = personaId;
+  }
+
   updateSession(session: ChatSession) {
     this.transport.session = session;
     this.set({ session });

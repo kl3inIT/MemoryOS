@@ -1,6 +1,6 @@
 import { formatUiMoment } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { ThreadListRow } from "@/components/assistant-ui/elements/thread-list";
@@ -11,12 +11,17 @@ import { ChatSessionMenu } from "./chat-session-menu";
 import { actionErrorText } from "@/lib/action-errors";
 import { useRefreshChatSessions } from "@/features/chat/runtime/chat-threads-context";
 
+/** The row whose rename just closed with the focus returning to it, for a short while after the list refreshes. */
+let focusAfterRename: { sessionId: string; until: number } | null = null;
+
 export const CHAT_DRAG_TYPE = "application/x-memoryos-chat";
 
 export function ChatSessionRow({
   session,
   onNavigate,
   showTime = false,
+  leading,
+  trailing,
   rename,
   deleteSession,
   archiveSession,
@@ -24,6 +29,10 @@ export function ChatSessionRow({
   session: ChatSession;
   onNavigate?: () => void;
   showTime?: boolean;
+  /** Drawn before the title, such as the face of the conversation's assistant. */
+  leading?: ReactNode;
+  /** Drawn after the title on the same line, such as a short time. */
+  trailing?: ReactNode;
   /** Thread-list actions; rows outside the thread list use the session API directly. */
   rename?: (title: string) => Promise<void>;
   deleteSession?: () => Promise<void>;
@@ -33,8 +42,16 @@ export function ChatSessionRow({
   const link = useRef<HTMLAnchorElement>(null);
   function closeEditor(restoreFocus = true) {
     setRenaming(false);
-    if (restoreFocus) requestAnimationFrame(() => link.current?.focus());
+    if (!restoreFocus) return;
+    focusAfterRename = { sessionId: session.id, until: Date.now() + 2000 };
+    requestAnimationFrame(() => link.current?.focus());
   }
+  // The refreshed list may mount this row again after a rename; the new row takes back the focus the old one had.
+  useEffect(() => {
+    if (focusAfterRename?.sessionId !== session.id || Date.now() > focusAfterRename.until) return;
+    if (document.activeElement === document.body || document.activeElement === null)
+      link.current?.focus();
+  });
   const selected = useRouterState({
     select: (state) => state.location.pathname === `/chat/${session.id}`,
   });
@@ -82,17 +99,34 @@ export function ChatSessionRow({
           draggable={false}
           onClick={onNavigate}
           aria-current={selected ? "page" : undefined}
-          className="flex min-w-0 flex-col gap-1 rounded-lg px-2 py-2 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex min-w-0 items-center gap-2 rounded-lg px-2 py-2 outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <span className="truncate">{session.title}</span>
-          {showTime && (
-            <time dateTime={session.updatedAt} className="text-xs text-content-muted">
-              {formatUiMoment(session.updatedAt)}
-            </time>
-          )}
+          {leading}
+          <span className="flex min-w-0 flex-1 flex-col gap-1">
+            <span className="truncate">{session.title}</span>
+            {showTime && (
+              <time dateTime={session.updatedAt} className="text-xs text-content-muted">
+                {formatUiMoment(session.updatedAt)}
+              </time>
+            )}
+          </span>
+          {session.replyRunning && <ReplyRunning />}
+          {trailing}
         </Link>
       )}
     </ThreadListRow>
+  );
+}
+
+/** A turning ring while the conversation's answer is being written; it stands still when motion is reduced. */
+export function ReplyRunning() {
+  const ui = useAppTranslation();
+  return (
+    <span
+      role="img"
+      aria-label={ui("Đang trả lời…")}
+      className="size-3 shrink-0 animate-spin rounded-full border-2 border-status-info-content border-r-transparent motion-reduce:animate-none"
+    />
   );
 }
 
