@@ -243,6 +243,21 @@ export function ChatStarterPrompts({
       if (attached) composer.send();
     })().finally(() => navigate({ to: "/chat/$sessionId", params: { sessionId }, replace: true }));
   }, [ask, attach, sessionId, disabled, aui, navigate]);
+  // A first question for a new topic with an assistant is sent once; its send writes the topic down and opens it.
+  const newTopic = useMatch({
+    from: "/_authenticated/_chat/assistants/$personaId/new",
+    shouldThrow: false,
+  });
+  const firstQuestion = newTopic?.search?.ask;
+  const newTopicPersona = newTopic?.params?.personaId;
+  useEffect(() => {
+    const key = `${newTopicPersona}:${firstQuestion}`;
+    if (!firstQuestion || !persona || disabled || seededSessions.has(key)) return;
+    seededSessions.add(key);
+    const composer = aui.thread.composer();
+    composer.setText(firstQuestion);
+    composer.send();
+  }, [firstQuestion, newTopicPersona, persona, disabled, aui]);
   return (
     <div className="mt-5 flex flex-wrap justify-center gap-2">
       {persona?.starterPrompts.map((text, index) => (

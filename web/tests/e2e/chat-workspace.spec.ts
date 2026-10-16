@@ -523,12 +523,18 @@ test("moves and removes a conversation with keyboard menus and desktop drag and 
         (await (await page.request.get(`/api/chat/sessions/${session.id}`)).json()).projectId,
     )
     .toBeNull();
+  // Out of the Project the sidebar shows the assistant's topics; its home holds the Projects and the recent topics.
+  await page
+    .getByRole("complementary")
+    .getByRole("button", { name: "Về danh sách trợ lý" })
+    .click();
   // The sidebar project row stays a drop target for a dragged conversation next to its drag handle.
   const folder = page.locator(`[data-project-id="${project.id}"]`);
   const row = page
     .getByRole("complementary")
     .locator('[data-slot="thread-list-row"]')
-    .filter({ has: page.getByRole("link", { name: "Movable conversation", exact: true }) });
+    // A recent topic's link also holds its time.
+    .filter({ has: page.getByRole("link", { name: /^Movable conversation/ }) });
   await row.dragTo(folder.getByRole("button", { name: "Hội thoại trong Move destination" }));
   await expect
     .poll(

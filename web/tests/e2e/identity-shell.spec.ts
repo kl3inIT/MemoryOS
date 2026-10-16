@@ -75,10 +75,7 @@ test("renders the authenticated application shell", async ({ page }) => {
   await page.goto("/");
 
   await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "New conversation", exact: true })).toHaveAttribute(
-    "aria-current",
-    "page",
-  );
+  await expect(page.getByRole("button", { name: "Search", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Admin Panel" })).toHaveAttribute("href", "/admin");
   await expect(
     page.getByRole("heading", { name: "What would you like to explore?" }),

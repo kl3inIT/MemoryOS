@@ -276,12 +276,16 @@ const builtinPersona = {
   mcpServers: [],
 };
 
-function create(title = "Browser conversation", mode = "normal"): Session {
+function create(
+  title = "Browser conversation",
+  mode = "normal",
+  personaId = builtinPersonaId,
+): Session {
   const now = new Date().toISOString();
   const session = {
     id: randomUUID(),
     rootMessageId: randomUUID(),
-    personaId: builtinPersonaId,
+    personaId,
     reasoningEffort: null,
     archivedAt: null,
     branchedFromSessionId: null,
@@ -391,7 +395,37 @@ export async function handleChatFixture(
     return true;
   }
   if (url.pathname === "/api/chat/personas" && request.method === "GET") {
-    json(response, [builtinPersona]);
+    const q = (url.searchParams.get("q") ?? "").toLocaleLowerCase();
+    json(response, builtinPersona.name.toLocaleLowerCase().includes(q) ? [builtinPersona] : []);
+    return true;
+  }
+  if (url.pathname === "/api/chat/assistants" && request.method === "GET") {
+    // The built-in assistant with the newest web topic, as the sidebar reads it; the fixture pins nothing.
+    const latest = [...sessions.values()]
+      .map((item) => item.session)
+      .filter((item) => item.personaId === builtinPersonaId && !item.temporary && !item.archivedAt)
+      .toSorted((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))[0];
+    json(response, [
+      {
+        id: builtinPersonaId,
+        name: builtinPersona.name,
+        description: builtinPersona.description,
+        avatarSeed: "memoryos",
+        hasAvatar: false,
+        builtin: true,
+        ownerName: null,
+        usable: true,
+        latestTopic: latest
+          ? {
+              sessionId: latest.id,
+              title: latest.title,
+              lastMessageAt: latest.updatedAt,
+              preview: "",
+              replyRunning: latest.replyRunning,
+            }
+          : null,
+      },
+    ]);
     return true;
   }
   if (
@@ -517,7 +551,13 @@ export async function handleChatFixture(
     const found = [...sessions.values()]
       .reverse()
       .map((item) => item.session)
-      .filter((session) => !session.temporary && session.title.toLocaleLowerCase().includes(query));
+      .filter(
+        (session) =>
+          !session.temporary &&
+          session.title.toLocaleLowerCase().includes(query) &&
+          (!url.searchParams.get("personaId") ||
+            session.personaId === url.searchParams.get("personaId")),
+      );
     json(response, {
       items: found.slice(offset, offset + limit).map((session) => ({ session, snippet: null })),
       hasMore: found.length > offset + limit,
@@ -529,7 +569,7 @@ export async function handleChatFixture(
       const input = await body(request);
       if (input.projectId && !projects.has(input.projectId)) json(response, {}, 404);
       else {
-        const created = create(input.title).session;
+        const created = create(input.title, undefined, input.personaId).session;
         created.projectId = input.projectId ?? null;
         json(response, created, 201);
       }
@@ -539,6 +579,11 @@ export async function handleChatFixture(
         [...sessions.values()]
           .reverse()
           .map((item) => item.session)
+          .filter(
+            (session) =>
+              !url.searchParams.get("personaId") ||
+              session.personaId === url.searchParams.get("personaId"),
+          )
           .slice(
             Number(url.searchParams.get("offset") ?? 0),
             Number(url.searchParams.get("offset") ?? 0) +

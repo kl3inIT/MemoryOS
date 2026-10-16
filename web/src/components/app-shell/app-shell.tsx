@@ -57,7 +57,6 @@ import { useAdminAccess } from "@/features/identity/application-session-context"
 import { AccessDeniedScreen } from "@/features/identity/session-states";
 import { appText, type AppText } from "@/i18n/app-text";
 import { cn } from "@/lib/utils";
-import { ChatHistorySearch } from "@/features/chat/session/chat-history-search";
 import { ChatNavigation } from "@/features/chat/session/chat-navigation";
 import { MeetingsTab } from "@/features/meetings/meetings-tab";
 
@@ -215,9 +214,6 @@ function SidebarContents({ area, adminPage, settingsPage, sourceSetup }: Sidebar
             >
               <Brand />
             </Link>
-            {appArea && sourceSetup === undefined ? (
-              <ChatHistorySearch variant="icon" onNavigate={onNavigate} />
-            ) : null}
             {isMobile ? (
               <SheetClose asChild>
                 <IconButton prominence="internal" size="md" aria-label={ui("Close navigation")}>

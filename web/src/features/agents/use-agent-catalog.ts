@@ -1,13 +1,9 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { initialChatTitle } from "@/features/chat/chat-api";
 import type { Persona } from "@/features/chat/chat-personas-api";
-import { useRefreshChatSessions } from "@/features/chat/runtime/chat-threads-context";
 import { personLabel } from "@/features/identity/principals";
-import { createChatSessionMutation } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { usePinUpdates } from "./agent-pins";
-import { withRequestTimeout } from "@/lib/api";
 
 /** Who an agent's card names as its owner: MemoryOS, the owning Group or person, or nobody. */
 export function useOwnerName() {
@@ -72,28 +68,25 @@ export function agentCatalog(
 }
 
 /**
- * Starting a conversation with an agent, which pins it to the sidebar as in Onyx, and pinning or unpinning it.
+ * Opening an agent's latest topic, or a new topic with a first question, which pins it to the sidebar as in Onyx;
+ * and pinning or unpinning it. Nothing is written until the first question is sent.
  */
 export function useAgentChatActions() {
   const navigate = useNavigate();
-  const refreshSessions = useRefreshChatSessions();
   const updatePins = usePinUpdates();
-  const createSession = useMutation(withRequestTimeout(createChatSessionMutation()));
   const start = useMutation({
     mutationFn: async ({ agent, ask }: { agent: Persona; ask?: string }) => {
       if (!agent.pinned && !agent.builtin)
         await updatePins((current) =>
           current.includes(agent.id) ? current : [...current, agent.id],
         );
-      const session = await createSession.mutateAsync({
-        body: { title: initialChatTitle(agent.name), personaId: agent.id },
-      });
-      await refreshSessions();
-      await navigate({
-        to: "/chat/$sessionId",
-        params: { sessionId: session.id },
-        search: { ask },
-      });
+      await (ask
+        ? navigate({
+            to: "/assistants/$personaId/new",
+            params: { personaId: agent.id },
+            search: { ask },
+          })
+        : navigate({ to: "/assistants/$personaId", params: { personaId: agent.id } }));
     },
   });
   const pin = useMutation({

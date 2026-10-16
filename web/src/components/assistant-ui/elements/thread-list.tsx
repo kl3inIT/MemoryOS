@@ -3,22 +3,48 @@
 import type { DragEventHandler, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-// assistant-ui ThreadList's Today, Yesterday, Earlier buckets, adapted to the existing
-// server session list (no second thread runtime). Searching is server-side, not a title filter.
-export function groupThreadTitles<T extends { title: string; updatedAt: string }>(
+/**
+ * A time bucket of conversations, by last activity, as LobeHub groups topics (`packages/utils/src/client/topic.ts`):
+ * today, yesterday, the last seven days, the rest of this month, then each earlier month of this year, then each
+ * earlier year. `month` and `year` carry the first day of the period they name.
+ */
+export type ThreadTimeGroup =
+  | { kind: "today" | "yesterday" | "week" | "thisMonth"; key: string }
+  | { kind: "month" | "year"; key: string; start: Date };
+
+function threadTimeGroup(time: Date, now: Date): ThreadTimeGroup {
+  const day = (offset: number) =>
+    new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset).getTime();
+  const value = time.getTime();
+  if (value >= day(0)) return { kind: "today", key: "today" };
+  if (value >= day(-1)) return { kind: "yesterday", key: "yesterday" };
+  if (value > day(0) - 7 * 86_400_000) return { kind: "week", key: "week" };
+  if (time.getFullYear() === now.getFullYear() && time.getMonth() === now.getMonth())
+    return { kind: "thisMonth", key: "thisMonth" };
+  if (time.getFullYear() === now.getFullYear())
+    return {
+      kind: "month",
+      key: `month:${time.getMonth()}`,
+      start: new Date(time.getFullYear(), time.getMonth(), 1),
+    };
+  return {
+    kind: "year",
+    key: `year:${time.getFullYear()}`,
+    start: new Date(time.getFullYear(), 0, 1),
+  };
+}
+
+/** Conversations newest first under their time bucket. Searching is server-side, not a title filter. */
+export function groupThreadTitles<T extends { updatedAt: string }>(
   items: readonly T[],
   now = new Date(),
 ) {
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-  const groups: { label: "today" | "yesterday" | "earlier"; items: T[] }[] = [];
+  const groups: (ThreadTimeGroup & { items: T[] })[] = [];
   for (const item of items.toSorted((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))) {
-    const time = Date.parse(item.updatedAt);
-    const label =
-      time >= today.getTime() ? "today" : time >= yesterday.getTime() ? "yesterday" : "earlier";
+    const group = threadTimeGroup(new Date(item.updatedAt), now);
     const last = groups.at(-1);
-    if (last?.label === label) last.items.push(item);
-    else groups.push({ label, items: [item] });
+    if (last?.key === group.key) last.items.push(item);
+    else groups.push({ ...group, items: [item] });
   }
   return groups;
 }
