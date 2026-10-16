@@ -568,7 +568,7 @@ else:
 
 class VerifiedTreeReuseTest(unittest.TestCase):
     JOBS = ("backend", "backend-images", "changes", "frontend", "frontend-check", "frontend-image", "frontend-preview",
-            "infrastructure", "interpreter", "landing", "sandbox", "secrets")
+            "infrastructure", "interpreter", "landing", "migrations", "sandbox", "secrets")
     AREAS = {"backend": (["infrastructure", "backend"], ["backend-images"]),
              "web": (["frontend-check", "frontend", "frontend-preview"], ["frontend-image"]),
              "landing": ([], ["landing"]), "interpreter": ([], ["interpreter"]), "sandbox": ([], ["sandbox"])}
@@ -582,6 +582,7 @@ class VerifiedTreeReuseTest(unittest.TestCase):
         results = {job: {"result": "skipped", "outputs": {}} for job in self.JOBS}
         results["changes"] = {"result": "success", "outputs": outputs}
         results["secrets"]["result"] = "success"
+        results["migrations"]["result"] = "success"
         for area, (tests, images) in self.AREAS.items():
             if outputs.get(area) == "true":
                 for job in images:
@@ -606,6 +607,8 @@ class VerifiedTreeReuseTest(unittest.TestCase):
                                           "sandbox": "false"}, {"backend-images": "success"}))
         # The sandbox images are built whenever the sandbox area is selected.
         self.assertNotEqual(0, self.gate(every, {"sandbox": "skipped"}))
+        # A migration numbered below the base's newest stops the release even when every test was reused.
+        self.assertNotEqual(0, self.gate(verified, {"migrations": "failure"}))
 
     def test_only_a_successful_same_repository_pull_request_run_of_this_commit_is_trusted(self):
         changes = CI_WORKFLOW.split("  changes:\n", 1)[1].split("\n  infrastructure:\n", 1)[0]
