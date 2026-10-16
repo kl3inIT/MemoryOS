@@ -666,7 +666,7 @@ A mask is an attached PNG named `mask-for-<image_id>.png`: white may change, bla
 
 ## Earlier tool calls
 
-[MEM-287](../increments/active/mem-287-tool-history/design.md): a later turn sees what earlier answers did, as Dust,
+[MEM-287](../increments/completed/mem-287-tool-history/design.md): a later turn sees what earlier answers did, as Dust,
 LibreChat, OpenHands, Onyx Craft and Anthropic replay earlier tool work. Each tool call of an answer is kept in
 `chat_message_tool_calls` (V182), with its result only for `bash`, `bash_output`, `edit_file`, `publish_file`,
 `run_python`, `web_search`, `open_url`, `generate_image` and `edit_image`, and only before the answer first calls
