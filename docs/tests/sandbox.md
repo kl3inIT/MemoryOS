@@ -13,6 +13,10 @@
 | A call whose sandbox went away mid-call runs again in a fresh one | `PostgresSandboxServiceTest.aCommandRunsAgainInAFreshSandboxWhenItsOwnWentAwayMidCall` |
 | No computer image or runtime: `SANDBOX_NOT_CONFIGURED` | `PostgresSandboxServiceTest.withoutAnImageOrARuntimeThereIsNoSandbox` |
 | The Worker kills orphans older than the grace and clears rows whose sandbox is gone | `PostgresSandboxServiceTest.theReconciliationKillsOrphansAndClearsRowsWhoseSandboxIsGone` |
+| A turn's workspace is archived under a new key and the next sandbox starts from it; without a sandbox nothing is archived | `PostgresSandboxServiceTest.aTurnsWorkspaceIsArchivedAndTheNextSandboxStartsFromIt` |
+| A workspace past the bounds is not saved and the last archive stays | `PostgresSandboxServiceTest.aWorkspacePastTheBoundKeepsTheLastArchive` |
+| The Worker deletes archives older than the grace that no row starts from, a deleted conversation's among them | `PostgresSandboxServiceTest.theReconciliationDeletesArchivesNoConversationStartsFrom` |
+| Object Storage streams an object of declared size and SHA-256, refuses a body that does not match and refuses to overwrite it | `S3ObjectStorageIntegrationTest.streamsAnObjectOfTheDeclaredLengthOnceAndRefusesToOverwriteIt` |
 | Deleting a conversation deletes its row | `PostgresSandboxServiceTest.deletingTheConversationDeletesItsRow` |
 | The OpenSandbox runtime: user 1000 in `/workspace`, exit codes and stderr, a timed-out command reported and stopped, binary files exact and writable by the sandbox user, the read bound, listing, a planted link to a root file neither read nor written but refused as a file (`SandboxFileException`), an unlisted domain blocked, renewal, labels, and `SandboxGoneException` once killed | `OpenSandboxRuntimeContractTest`, run against a server with `MEMORYOS_SANDBOX_TEST_ENDPOINT`, `_API_KEY` and `_IMAGE` set; skipped elsewhere |
 | The computer image has its tools, and user 1000 owns the venv so `uv pip install` can write to it | CI `sandbox` job, "Check the computer image's tools" |

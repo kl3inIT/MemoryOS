@@ -1,5 +1,6 @@
 package io.memoryos.sandbox;
 
+import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.sandbox.persistence.JdbcSandboxRepository;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
@@ -11,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -24,7 +26,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  * A conversation's sandbox (MEM-270): found or started under the conversation's row lock, renewed on every use, and
  * replaced when the runtime no longer has it or it reached its total life. agents-flex renewed only when attaching
  * and never replaced an expired sandbox; both are handled here. The caller has already established that {@code actor}
- * may work in the conversation.
+ * may work in the conversation. A new sandbox starts from the conversation's last workspace archive
+ * ({@link WorkspaceArchives}).
  */
 @Service
 @EnableConfigurationProperties(SandboxProperties.class)
@@ -37,29 +40,38 @@ public class SandboxService {
     public static final int USER = 1000;
     public static final String WORKSPACE = "/workspace";
 
-    /** How long a start may take before its place in the bound is freed: above the runtime's request deadline. */
-    static final Duration STARTING_WINDOW = Duration.ofMinutes(5);
+    /**
+     * How long a start may take before its place in the bound is freed: above the runtime's request deadline (90 s)
+     * and a workspace restore ({@link WorkspaceArchives#RESTORE_TIMEOUT}) together.
+     */
+    static final Duration STARTING_WINDOW = Duration.ofMinutes(10);
     private static final Duration STARTING_POLL = Duration.ofMillis(500);
     private static final Logger LOG = LoggerFactory.getLogger(SandboxService.class);
 
     private final ObjectProvider<SandboxRuntime> runtimes;
+    private final ObjectProvider<ObjectStorage> storages;
     private final JdbcSandboxRepository workspaces;
     private final SandboxProperties properties;
     private final TransactionTemplate transactions;
+    private final WorkspaceArchives archives;
     private final Clock clock;
 
     @Autowired
-    public SandboxService(ObjectProvider<SandboxRuntime> runtimes, JdbcSandboxRepository workspaces,
-                          SandboxProperties properties, PlatformTransactionManager transactionManager) {
-        this(runtimes, workspaces, properties, transactionManager, Clock.systemUTC());
+    public SandboxService(ObjectProvider<SandboxRuntime> runtimes, ObjectProvider<ObjectStorage> storages,
+                          JdbcSandboxRepository workspaces, SandboxProperties properties,
+                          PlatformTransactionManager transactionManager) {
+        this(runtimes, storages, workspaces, properties, transactionManager, Clock.systemUTC());
     }
 
-    SandboxService(ObjectProvider<SandboxRuntime> runtimes, JdbcSandboxRepository workspaces, SandboxProperties properties,
+    SandboxService(ObjectProvider<SandboxRuntime> runtimes, ObjectProvider<ObjectStorage> storages,
+                   JdbcSandboxRepository workspaces, SandboxProperties properties,
                    PlatformTransactionManager transactionManager, Clock clock) {
         this.runtimes = runtimes;
+        this.storages = storages;
         this.workspaces = workspaces;
         this.properties = properties;
         this.transactions = new TransactionTemplate(transactionManager);
+        this.archives = new WorkspaceArchives(workspaces, transactions, clock);
         this.clock = clock;
     }
 
@@ -80,7 +92,7 @@ public class SandboxService {
         while (true) {
             Step step = transactions.execute(_ -> decide(runtime, tenant, actor, conversation));
             if (step instanceof Step.Ready ready) return ready.sandbox();
-            if (step instanceof Step.Start begun) return start(runtime, tenant, conversation, begun.token());
+            if (step instanceof Step.Start begun) return start(runtime, tenant, conversation, begun);
             if (System.nanoTime() > deadline) throw SandboxException.unavailable(new IllegalStateException("A start never ended"));
             try {
                 Thread.sleep(STARTING_POLL);
@@ -125,11 +137,15 @@ public class SandboxService {
         }
         UUID token = UUID.randomUUID();
         workspaces.reserve(tenant, conversation, token, now);
-        return new Step.Start(token);
+        return new Step.Start(token, workspace.archiveKey());
     }
 
-    /** Creates the sandbox outside any transaction and records it; a failed start gives its place back. */
-    private Sandbox start(SandboxRuntime runtime, TenantId tenant, UUID conversation, UUID token) {
+    /**
+     * Creates the sandbox outside any transaction, restores the conversation's workspace into it and records it; a
+     * failed start gives its place back.
+     */
+    private Sandbox start(SandboxRuntime runtime, TenantId tenant, UUID conversation, Step.Start begun) {
+        UUID token = begun.token();
         String id;
         try {
             id = call(() -> runtime.create(spec(tenant, conversation)));
@@ -137,6 +153,8 @@ public class SandboxService {
             transactions.executeWithoutResult(_ -> workspaces.released(tenant, conversation, token));
             throw failed;
         }
+        // Before the sandbox is recorded, so no other call of the conversation sees it half restored.
+        if (begun.archiveKey() != null) archives.restore(runtime, storages.getIfAvailable(), id, begun.archiveKey());
         boolean recorded;
         try {
             recorded = Boolean.TRUE.equals(transactions.execute(_ ->
@@ -152,6 +170,26 @@ public class SandboxService {
         }
         LOG.atInfo().addKeyValue("event", "sandbox.started").log("Sandbox started");
         return new Sandbox(tenant, conversation, id);
+    }
+
+    /**
+     * Archives the workspace of the conversation's live sandbox, as the last step of a turn that used it; nothing
+     * happens without one. Never throws: a workspace not saved only means the next sandbox starts from an older one.
+     */
+    public void save(TenantId tenant, UUID conversation) {
+        SandboxRuntime runtime = properties.configured() ? runtimes.getIfAvailable() : null;
+        ObjectStorage storage = storages.getIfAvailable();
+        if (runtime == null || storage == null) return;
+        try {
+            var id = workspaces.runtimeId(tenant, conversation, runtime.name());
+            if (id.isPresent()) archives.save(runtime, storage, tenant, conversation, id.get());
+        } catch (SandboxGoneException gone) {
+            LOG.atInfo().addKeyValue("event", "sandbox.workspace.not_saved").addKeyValue("reason", "gone")
+                    .log("Workspace not saved; the sandbox is gone");
+        } catch (RuntimeException failed) {
+            LOG.atWarn().addKeyValue("event", "sandbox.workspace.not_saved").addKeyValue("reason", "failed")
+                    .addKeyValue("error_type", failed.getClass().getSimpleName()).log("Workspace not saved");
+        }
     }
 
     /**
@@ -233,7 +271,7 @@ public class SandboxService {
     private sealed interface Step {
         record Ready(Sandbox sandbox) implements Step {}
 
-        record Start(UUID token) implements Step {}
+        record Start(UUID token, @Nullable String archiveKey) implements Step {}
 
         record Wait() implements Step {}
     }

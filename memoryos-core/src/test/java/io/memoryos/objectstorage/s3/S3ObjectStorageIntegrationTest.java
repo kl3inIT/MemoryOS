@@ -8,11 +8,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.memoryos.objectstorage.ContentSha256;
 import io.memoryos.objectstorage.ObjectKey;
+import io.memoryos.objectstorage.ObjectMetadata;
 import io.memoryos.objectstorage.ObjectStorageException;
 import io.memoryos.objectstorage.ObjectStorageFailureCode;
 import io.memoryos.objectstorage.ObjectUploadSpecification;
 import io.memoryos.objectstorage.UploadConstraints;
 
+import java.io.ByteArrayInputStream;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -24,6 +26,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HexFormat;
+import java.util.Random;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -98,6 +101,30 @@ class S3ObjectStorageIntegrationTest {
         var tooLarge = new ObjectKey("raw/10000000-0000-0000-0000-000000000052/40000000-0000-0000-0000-000000000053");
         assertThrows(IllegalArgumentException.class, () -> storage.write(tooLarge,
                 new byte[Math.toIntExact(ObjectUploadSpecification.MAX_SIZE_BYTES) + 1], "application/pdf"));
+        }
+    }
+
+    @Test
+    void streamsAnObjectOfTheDeclaredLengthOnceAndRefusesToOverwriteIt() throws Exception {
+        try (var storage = storage(Duration.ofMinutes(5))) {
+            byte[] content = new byte[3 * 1024 * 1024 + 17];
+            new Random(52).nextBytes(content);
+            var key = new ObjectKey("sandbox/10000000-0000-0000-0000-000000000052/archive.tar.gz");
+            var declared = new ObjectMetadata(content.length, "application/gzip",
+                    new ContentSha256(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content))));
+            storage.writeStream(key, new ByteArrayInputStream(content), declared);
+            try (var stored = storage.open(key)) {
+                assertArrayEquals(content, stored.inputStream().readAllBytes());
+            }
+            assertThrows(ObjectStorageException.class,
+                    () -> storage.writeStream(key, new ByteArrayInputStream(content), declared));
+            storage.delete(key);
+
+            var corrupted = content.clone();
+            corrupted[0] ^= 1;
+            var other = new ObjectKey("sandbox/10000000-0000-0000-0000-000000000052/corrupted.tar.gz");
+            assertThrows(ObjectStorageException.class,
+                    () -> storage.writeStream(other, new ByteArrayInputStream(corrupted), declared));
         }
     }
 
