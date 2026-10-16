@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useNavigate, useParams } from "@tanstack/react-router";
+import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { BotMessageSquare } from "lucide-react";
 import { BrandLoader } from "@/components/brand-loader";
 import { DetailHeader } from "@/components/composites/detail-header";
@@ -65,6 +65,22 @@ function ChannelDetail({ channel, admin }: { channel: ChannelResponse; admin: Ch
   const facts: [string, ReactNode][] = [
     [ui("Trạng thái"), ui(channelState(channel.status))],
     [zalo ? ui("Bot trên Zalo") : ui("Bot trên Lark"), channel.botName ?? ui("Chưa rõ")],
+    [
+      ui("Trợ lý"),
+      channel.assistant ? (
+        <Link
+          key="assistant"
+          to="/agents/$agentId/edit"
+          params={{ agentId: channel.assistant.id }}
+          search={{ tab: "channels" }}
+          className="underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-none"
+        >
+          {channel.assistant.name}
+        </Link>
+      ) : (
+        ui("Trợ lý mặc định")
+      ),
+    ],
     ...(zalo
       ? ([
           [ui("Bot ID"), channel.appId],

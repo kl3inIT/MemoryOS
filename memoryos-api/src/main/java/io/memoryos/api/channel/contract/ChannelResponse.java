@@ -37,6 +37,8 @@ public record ChannelResponse(
         @Schema(description = "When that failure happened") @Nullable Instant failedAt,
         @Schema(description = "Since when the connection has been open") @Nullable Instant connectedAt,
         @Schema(description = "When the bot last received a message") @Nullable Instant lastMessageAt,
+        @Schema(description = "The assistant the bot answers with; absent when it answers with the built-in one")
+        @Nullable ChannelAssistantResponse assistant,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long revision,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt) {
@@ -47,7 +49,9 @@ public record ChannelResponse(
         return new ChannelResponse(bot.id(), bot.provider(), bot.name(), ChannelRegion.of(bot.settings()).orElse(null),
                 ChannelDelivery.of(bot.settings()).orElse(null), bot.appId(), bot.noticeLanguage(),
                 bot.enabled(), bot.serviceAccount().value(), bot.botName(), bot.missingScopes(), listed.status(),
-                state.failureCode(), state.failedAt(), state.openedAt(), state.lastMessageAt(), bot.revision(),
+                state.failureCode(), state.failedAt(), state.openedAt(), state.lastMessageAt(),
+                bot.personaId() == null || listed.assistant() == null ? null
+                        : new ChannelAssistantResponse(bot.personaId(), listed.assistant()), bot.revision(),
                 bot.createdAt(), bot.updatedAt());
     }
 }

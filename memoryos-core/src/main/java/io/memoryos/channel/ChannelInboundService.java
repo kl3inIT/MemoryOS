@@ -282,7 +282,9 @@ public class ChannelInboundService {
         }
         // A direct message is the sender's own; a group's answer is read by everyone in it, so it is the bot's.
         ActorId actor = direct && sender != null ? sender : connection.serviceAccount();
-        UUID session = step("conversation", () -> conversation(connection, message, actor, now));
+        // Read for each question, so a bot moved to another assistant answers with it from the next question on.
+        UUID persona = connections.personaOf(connection.id()).orElse(null);
+        UUID session = step("conversation", () -> conversation(connection, message, actor, persona, now));
         // The reply is opened once the question is accepted, so it is written while the turn is prepared and is not
         // shown while the question waits for a turn its conversation is running.
         var opened = new AtomicReference<ChannelReply>();
@@ -291,7 +293,7 @@ public class ChannelInboundService {
         ChannelTurns.Answer answer;
         try {
             answer = step("turn", () -> turns.ask(actor, session, title(message.text()), request(connection, message),
-                    question, new ChatChannel(connection.provider().platform(), !direct), properties.orderWait(),
+                    question, new ChatChannel(connection.provider().platform(), !direct), persona, properties.orderWait(),
                     () -> adapter.acknowledge(connection, message), () -> {
                         var reply = step("reply", () -> adapter.reply(connection, message,
                                 ChannelNotice.WRITING.in(connection.noticeLanguage())));
@@ -389,7 +391,8 @@ public class ChannelInboundService {
      * asker's name. A reply in a group continues the conversation of the answer it replies to, looked up in that group
      * alone, so it never leaves the group for someone's direct conversation.
      */
-    private @Nullable UUID conversation(ChannelConnection connection, ChannelMessage message, ActorId actor, Instant now) {
+    private @Nullable UUID conversation(ChannelConnection connection, ChannelMessage message, ActorId actor,
+                                        @Nullable UUID persona, Instant now) {
         UUID session = null;
         if (message.kind() == ChannelMessage.Kind.GROUP) {
             if (message.repliesTo() != null) {
@@ -402,8 +405,9 @@ public class ChannelInboundService {
             session = recent(connection, message.chatId(), message.senderId(), properties.conversationIdle(), now);
         }
         // A conversation is continued only by whoever it belongs to: a sender who gained or lost an account since
-        // starts over, and a reply to another person's direct conversation never opens it.
-        return session != null && turns.owns(actor, session) ? session : null;
+        // starts over, a reply to another person's direct conversation never opens it, and a bot moved to another
+        // assistant starts its conversations over with it.
+        return session != null && turns.continues(actor, session, persona) ? session : null;
     }
 
     private void refuse(ChannelConnection connection, ChannelAdapter adapter, ChannelMessage message, Refusal refusal) {

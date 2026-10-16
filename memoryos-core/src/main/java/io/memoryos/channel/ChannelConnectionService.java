@@ -3,6 +3,7 @@ package io.memoryos.channel;
 import io.memoryos.audit.AuditAction;
 import io.memoryos.audit.AuditRecord;
 import io.memoryos.audit.AuditTrail;
+import io.memoryos.chat.ChatPersonaService;
 import io.memoryos.channel.persistence.ChannelCredentialConfiguration;
 import io.memoryos.channel.persistence.JdbcChannelConnectionRepository;
 import io.memoryos.iam.IamAuthorization;
@@ -19,6 +20,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Semaphore;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,11 +44,13 @@ public class ChannelConnectionService {
     private final AuditTrail audit;
     private final ChannelAdapters adapters;
     private final TransactionTemplate transactions;
+    private final ChatPersonaService personas;
     private final Semaphore verifications = new Semaphore(CONCURRENT_VERIFICATIONS);
 
     public ChannelConnectionService(IamAuthorization authorization, JdbcChannelConnectionRepository connections,
                                     ChannelCredentialConfiguration credentials, ServiceAccounts accounts, AuditTrail audit,
-                                    ChannelAdapters adapters, PlatformTransactionManager transactionManager) {
+                                    ChannelAdapters adapters, PlatformTransactionManager transactionManager,
+                                    ChatPersonaService personas) {
         this.authorization = authorization;
         this.connections = connections;
         this.credentials = credentials;
@@ -54,6 +58,7 @@ public class ChannelConnectionService {
         this.audit = audit;
         this.adapters = adapters;
         this.transactions = new TransactionTemplate(transactionManager);
+        this.personas = personas;
     }
 
     /** The Tenant's bots with what the process that holds them last wrote of each. */
@@ -62,9 +67,12 @@ public class ChannelConnectionService {
         var tenant = reader(actor);
         var states = connections.states(tenant);
         Instant now = Instant.now();
-        return connections.list(tenant).stream().map(connection -> {
+        var bots = connections.list(tenant);
+        var assistants = personas.names(actor, bots.stream().map(ChannelConnection::personaId).filter(Objects::nonNull).toList());
+        return bots.stream().map(connection -> {
             var state = states.getOrDefault(connection.id(), ChannelConnectionState.NONE);
-            return new Listed(connection, state, status(connection, state, now));
+            String assistant = connection.personaId() == null ? null : assistants.get(connection.personaId());
+            return new Listed(connection, state, status(connection, state, now), assistant);
         }).toList();
     }
 
@@ -87,7 +95,9 @@ public class ChannelConnectionService {
         return verify(provider, given);
     }
 
-    public record Listed(ChannelConnection connection, ChannelConnectionState state, Status status) {
+    /** {@code assistant} names the assistant the bot answers with; null when it answers with the built-in one. */
+    public record Listed(ChannelConnection connection, ChannelConnectionState state, Status status,
+                         @Nullable String assistant) {
         public enum Status { OFF, NOT_RUNNING, CONNECTING, CONNECTED, FAILED }
     }
 
@@ -196,6 +206,46 @@ public class ChannelConnectionService {
         var updated = connections.updateSettings(tenant, id, revision, settings).orElseThrow(() -> missingOrChanged(tenant, id));
         record(actor, tenant, updated, "settings");
         return updated;
+    }
+
+    /**
+     * Binds a bot to an assistant, or to none so it answers with the built-in one (MEM-273). Binding decides who may ask
+     * the assistant, so it takes the capability to manage bots and edit rights on the assistant, and unbinding takes
+     * edit rights on the assistant it leaves while that one exists; a bot bound elsewhere moves in the same step. The
+     * built-in assistant is no binding: choosing it unbinds.
+     */
+    @Transactional
+    public ChannelConnection bindPersona(ActorId actor, UUID id, @Nullable UUID personaId) {
+        var tenant = writer(actor);
+        var current = connections.find(tenant, id).orElseThrow(ChannelException::notFound);
+        UUID target = null;
+        if (personaId != null) {
+            var assistant = personas.get(actor, personaId);
+            if (!assistant.builtin()) {
+                if (!assistant.permissions().edit()) throw ChannelException.assistantNotEditable();
+                target = assistant.id();
+            }
+        }
+        if (target == null && current.personaId() != null
+                && personas.names(actor, List.of(current.personaId())).containsKey(current.personaId())) {
+            var leaving = personas.get(actor, current.personaId());
+            if (!leaving.permissions().edit()) throw ChannelException.assistantNotEditable();
+        }
+        if (Objects.equals(target, current.personaId())) return current;
+        var updated = connections.bindPersona(tenant, id, target).orElseThrow(ChannelException::notFound);
+        record(actor, tenant, updated, target == null ? "assistant-removed" : "assistant");
+        return updated;
+    }
+
+    /**
+     * The bots bound to an assistant, for whoever may use it: its page lists them read-only to anyone who may not bind
+     * them (MEM-273).
+     */
+    @Transactional(readOnly = true)
+    public List<ChannelConnection> boundTo(ActorId actor, UUID personaId) {
+        var tenant = authorization.require(actor, IamCapability.CHAT_READ, false).tenantId();
+        personas.get(actor, personaId);
+        return connections.boundTo(tenant, personaId);
     }
 
     @Transactional

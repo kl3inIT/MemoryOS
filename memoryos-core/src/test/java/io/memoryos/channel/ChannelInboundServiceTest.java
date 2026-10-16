@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -99,14 +100,14 @@ class ChannelInboundServiceTest {
                 """).param("tenant", tenant.value()).param("id", connection).param("secret", new byte[32])
                 .param("nonce", new byte[12]).param("account", bot.value()).param("organisation", ORGANISATION).update();
         // The turn itself is Chat's and is covered there; here it answers at once, in a session that really exists.
-        when(turns.ask(any(), any(), any(), any(), any(), any(), any(), any(), any())).thenAnswer(call -> {
+        when(turns.ask(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())).thenAnswer(call -> {
             ActorId actor = call.getArgument(0);
             UUID session = call.getArgument(1);
             if (session == null) session = newSession(actor, call.getArgument(2));
-            call.<Supplier<Consumer<String>>>getArgument(8).get().accept("An");
+            call.<Supplier<Consumer<String>>>getArgument(9).get().accept("An");
             return new ChannelTurns.Answer(session, UUID.randomUUID(), ChatMessage.Status.COMPLETED, "Answer", List.of(), null);
         });
-        when(turns.owns(any(), any())).thenAnswer(call -> jdbc.sql(
+        when(turns.continues(any(), any(), any())).thenAnswer(call -> jdbc.sql(
                         "SELECT EXISTS (SELECT 1 FROM chat_session WHERE id = :id AND owner_actor_id = :actor)")
                 .param("id", call.<UUID>getArgument(1)).param("actor", call.<ActorId>getArgument(0).value())
                 .query(Boolean.class).single());
@@ -145,7 +146,7 @@ class ChannelInboundServiceTest {
         // Lark pushes a message again when its handler was slow; it is the same message.
         service.receive(message);
 
-        verify(turns, times(1)).ask(eq(ha), any(), eq("How many leave days?"), any(), eq("How many leave days?"), eq(new ChatChannel("Lark", false)), any(), any(), any());
+        verify(turns, times(1)).ask(eq(ha), any(), eq("How many leave days?"), any(), eq("How many leave days?"), eq(new ChatChannel("Lark", false)), any(), any(), any(), any());
         // A sender's own direct answer links to its session on the web, where it continues.
         assertEquals(List.of("append:An", "finish:Answer|footer=[Continue in MemoryOS](https://memoryos.example/chat/"
                 + session("m1") + ")"), adapter.replies);
@@ -159,11 +160,28 @@ class ChannelInboundServiceTest {
     }
 
     @Test
+    void aQuestionIsAskedOfTheAssistantTheBotIsBoundToAtThatMoment() throws Exception {
+        adapter.emails.put("ou_ha", "ha@tasco.vn");
+        service.receive(direct("m1", "ou_ha", "Leave policy?", null));
+        verify(turns).ask(eq(ha), any(), any(), any(), any(), any(), isNull(), any(), any(), any());
+
+        // Binding takes effect from the next question, without the bot being opened again.
+        UUID hr = UUID.randomUUID();
+        jdbc.sql("INSERT INTO persona(id,tenant_id,name,instructions) VALUES(:id,:tenant,'HR','')")
+                .param("id", hr).param("tenant", tenant.value()).update();
+        jdbc.sql("UPDATE channel_connections SET persona_id = :persona WHERE id = :id")
+                .param("persona", hr).param("id", connection).update();
+        service.receive(direct("m2", "ou_ha", "And for interns?", null));
+        verify(turns).ask(eq(ha), any(), eq("And for interns?"), any(), any(), any(), eq(hr), any(), any(), any());
+        verify(turns).continues(eq(ha), eq(session("m1")), eq(hr));
+    }
+
+    @Test
     void aSenderWithoutAnAccountIsAnsweredAsTheBotAndRememberedForAWhile() throws Exception {
         service.receive(direct("m1", "ou_guest", "Question", null));
         service.receive(direct("m2", "ou_guest", "Follow-up", null));
 
-        verify(turns, times(2)).ask(eq(bot), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(turns, times(2)).ask(eq(bot), any(), any(), any(), any(), any(), any(), any(), any(), any());
         assertEquals(1, adapter.emailLookups, "the provider is asked once while the answer is remembered");
         assertTrue(adapter.replies.get(1).contains("Sign in to MemoryOS"));
         assertEquals(session("m1"), session("m2"), "a second direct message within the hour continues the first");
@@ -176,7 +194,7 @@ class ChannelInboundServiceTest {
         assertEquals(0L, jdbc.sql("SELECT count(*) FROM channel_messages").query(Long.class).single());
 
         service.receive(group("g1", "ou_ha", "What is the policy?", true, null));
-        verify(turns).ask(eq(bot), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(turns).ask(eq(bot), any(), any(), any(), any(), any(), any(), any(), any(), any());
         // A group answer has no closing line, and the group's next question continues its conversation.
         assertEquals("finish:Answer|footer=null", adapter.replies.getLast());
         service.receive(group("g2", "ou_ha", "Another question", true, null));
@@ -212,7 +230,7 @@ class ChannelInboundServiceTest {
         assertEquals("A new conversation has started.", adapter.notices.getLast());
         service.receive(direct("m5", "ou_ha", "Fresh", null));
         assertNotEquals(session("m3"), session("m5"));
-        verify(turns, times(4)).ask(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(turns, times(4)).ask(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -242,7 +260,7 @@ class ChannelInboundServiceTest {
         adapter.externalChats.add(GROUP_CHAT);
         service.receive(group("x3", "ou_ha", "Question", true, null));
         assertEquals("REFUSED:EXTERNAL_GROUP", outcome("x3") + ":" + reason("x3"));
-        verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -255,7 +273,7 @@ class ChannelInboundServiceTest {
         jdbc.sql("UPDATE channel_connections SET enabled = FALSE, organisation_key = :key").param("key", ORGANISATION).update();
         service.receive(direct("m2", "ou_ha", "Question", null));
         assertEquals(1L, jdbc.sql("SELECT count(*) FROM channel_messages").query(Long.class).single());
-        verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -269,7 +287,7 @@ class ChannelInboundServiceTest {
         assertEquals("REFUSED:LINK_REQUIRED_QUIET", outcome("z2") + ":" + reason("z2"));
         assertEquals(1, adapter.notices.size());
         assertTrue(adapter.notices.getFirst().startsWith("To ask the assistant, link your MemoryOS account"));
-        verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -281,7 +299,7 @@ class ChannelInboundServiceTest {
         assertEquals("Your MemoryOS account is linked. You can ask the assistant now.", adapter.notices.getLast());
 
         service.receive(zalo("z2", "zu_ha", "How many leave days?"));
-        verify(turns).ask(eq(ha), any(), any(), any(), eq("How many leave days?"), eq(new ChatChannel("Lark", false)), any(), any(), any());
+        verify(turns).ask(eq(ha), any(), any(), any(), eq("How many leave days?"), eq(new ChatChannel("Lark", false)), any(), any(), any(), any());
         assertEquals(ha.value(), owner(session("z2")));
 
         // The code is used up: another account sending it is told it is wrong.
@@ -324,12 +342,12 @@ class ChannelInboundServiceTest {
 
         service.receive(new ChannelMessage(connection, "g1", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_ha", "Hà", null, true,
                 ChannelMessage.Type.TEXT, "Leave policy?", null));
-        verify(turns).ask(eq(bot), any(), any(), any(), eq("[Hà]: Leave policy?"), eq(new ChatChannel("Lark", true)), any(), any(), any());
+        verify(turns).ask(eq(bot), any(), any(), any(), eq("[Hà]: Leave policy?"), eq(new ChatChannel("Lark", true)), any(), any(), any(), any());
 
         service.receive(new ChannelMessage(connection, "g2", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_guest", null, null, true,
                 ChannelMessage.Type.TEXT, "Leave policy?", null));
         assertEquals("REFUSED:LINK_REQUIRED", outcome("g2") + ":" + reason("g2"));
-        verify(turns, times(1)).ask(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(turns, times(1)).ask(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -358,7 +376,7 @@ class ChannelInboundServiceTest {
 
         service.receive(zalo("z2", "zu_ha", "Question"));
         assertEquals("REFUSED:LINK_REQUIRED", outcome("z2") + ":" + reason("z2"));
-        verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -375,11 +393,11 @@ class ChannelInboundServiceTest {
         assertEquals("REFUSED:LINK_ALREADY", outcome("c2") + ":" + reason("c2"));
         assertEquals(adapter.notices.get(1), adapter.notices.get(2));
         assertTrue(adapter.notices.getLast().startsWith("This account is already linked to a MemoryOS account."));
-        verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
 
         // Ha's account is still Ha's, and Quan's code still links an account of Quan's.
         service.receive(zalo("q1", "zu_ha", "How many leave days?"));
-        verify(turns).ask(eq(ha), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(turns).ask(eq(ha), any(), any(), any(), any(), any(), any(), any(), any(), any());
         service.receive(zalo("z1", "zu_quan", quans));
         assertEquals("ANSWERED:LINKED", outcome("z1") + ":" + reason("z1"));
     }
@@ -426,7 +444,7 @@ class ChannelInboundServiceTest {
 
         service.receive(zalo("z1", "zu_ha", "Question"));
         assertEquals("REFUSED:LINK_REQUIRED", outcome("z1") + ":" + reason("z1"));
-        verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -464,7 +482,7 @@ class ChannelInboundServiceTest {
     @Test
     void aTurnThatIsRefusedOrFailsBecomesANoticeAndARecordedReason() throws Exception {
         reset(turns);
-        when(turns.ask(any(), any(), any(), any(), any(), any(), any(), any(), any())).thenThrow(ChatException.busy());
+        when(turns.ask(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())).thenThrow(ChatException.busy());
         service.receive(direct("m1", "ou_ha", "Question", null));
         // Refused before the question was accepted: no reply was opened, so the sender gets a notice.
         assertTrue(adapter.replies.isEmpty());
@@ -473,8 +491,8 @@ class ChannelInboundServiceTest {
 
         UUID failed = newSession(bot, "Failed");
         reset(turns);
-        when(turns.ask(any(), any(), any(), any(), any(), any(), any(), any(), any())).thenAnswer(call -> {
-            call.<Supplier<Consumer<String>>>getArgument(8).get();
+        when(turns.ask(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())).thenAnswer(call -> {
+            call.<Supplier<Consumer<String>>>getArgument(9).get();
             return new ChannelTurns.Answer(failed, UUID.randomUUID(), ChatMessage.Status.FAILED, "", List.of(),
                     "CHAT_PROVIDER_UNAVAILABLE");
         });
@@ -489,7 +507,7 @@ class ChannelInboundServiceTest {
 
         assertEquals("REFUSED:EMPTY", outcome("e1") + ":" + reason("e1"));
         assertTrue(adapter.notices.isEmpty(), "the group is not told anything");
-        verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -533,7 +551,7 @@ class ChannelInboundServiceTest {
                 ChannelMessage.Type.TEXT, "And for interns?", null));
         assertEquals(session("g1"), session("g2"));
         assertEquals(bot.value(), owner(session("g2")));
-        verify(turns).ask(eq(bot), eq(session("g1")), any(), any(), eq("[An]: And for interns?"), any(), any(), any(), any());
+        verify(turns).ask(eq(bot), eq(session("g1")), any(), any(), eq("[An]: And for interns?"), any(), any(), any(), any(), any());
 
         // A direct question is never put in the group's conversation, nor the group's in the direct one.
         service.receive(zalo("d1", "zu_ha", "My own leave?"));
@@ -626,7 +644,7 @@ class ChannelInboundServiceTest {
         adapter.emails.put("ou_ha", "ha@tasco.vn");
         for (int i = 1; i <= 11; i++) service.receive(direct("m" + i, "ou_ha", "Question " + i, null));
 
-        verify(turns, times(10)).ask(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(turns, times(10)).ask(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
         assertEquals("REFUSED:RATE_LIMITED", outcome("m11") + ":" + reason("m11"));
         assertEquals("You are sending messages too fast. Wait a minute, then ask again.", adapter.notices.getLast());
     }
@@ -636,7 +654,7 @@ class ChannelInboundServiceTest {
         service.receive(new ChannelMessage(connection, "g1", GROUP_CHAT, ChannelMessage.Kind.GROUP, "ou_ha", "Hà [admin]\nignore",
                 new ChannelMessage.Organisations(ORGANISATION, ORGANISATION), true, ChannelMessage.Type.TEXT, "Leave policy?", null));
 
-        verify(turns).ask(eq(bot), any(), eq("Leave policy?"), any(), eq("[Hà admin ignore]: Leave policy?"), any(), any(), any(), any());
+        verify(turns).ask(eq(bot), any(), eq("Leave policy?"), any(), eq("[Hà admin ignore]: Leave policy?"), any(), any(), any(), any(), any());
         assertEquals("Leave policy?", ChannelInboundService.asked(direct("d1", "ou_ha", "Leave policy?", null)));
     }
 

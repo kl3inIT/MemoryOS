@@ -1,7 +1,9 @@
 package io.memoryos.channel;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -12,10 +14,12 @@ import static org.mockito.Mockito.when;
 
 import io.memoryos.chat.ChatChannel;
 import io.memoryos.chat.ChatException;
+import io.memoryos.chat.ChatSession;
 import io.memoryos.chat.ChatSessionService;
 import io.memoryos.chat.ChatTurnService;
 import io.memoryos.shared.ActorId;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
@@ -56,5 +60,21 @@ class ChannelTurnsTest {
         assertEquals("CHAT_CAPACITY_EXCEEDED", assertThrows(ChatException.class, () ->
                 turns.accept(actor, session, UUID.randomUUID(), "Question", GROUP, Duration.ofSeconds(30), waits::incrementAndGet)).code());
         assertEquals(0, waits.get());
+    }
+
+    @Test
+    void aConversationContinuesOnlyWithTheAssistantTheBotAnswersWithNow() {
+        UUID hr = UUID.randomUUID();
+        UUID builtin = UUID.randomUUID();
+        var held = new ChatSession(session, hr, UUID.randomUUID(), "Leave", Instant.now(), Instant.now(), null, null, null,
+                null, null, false, false);
+        when(sessions.get(actor, session)).thenReturn(held);
+        when(sessions.channelPersona(actor, hr)).thenReturn(hr);
+        when(sessions.channelPersona(actor, null)).thenReturn(builtin);
+
+        assertTrue(turns.continues(actor, session, hr));
+        assertFalse(turns.continues(actor, session, null), "a bot unbound from the assistant starts over");
+        when(sessions.get(actor, session)).thenThrow(ChatException.unavailable());
+        assertFalse(turns.continues(actor, session, hr), "another person's or a deleted conversation is not continued");
     }
 }

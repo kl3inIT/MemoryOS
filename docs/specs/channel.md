@@ -12,8 +12,9 @@ name the administrator gives it, the provider's id of its app (a Zalo bot's is t
 the provider's public settings of it (`settings`, JSON; a Lark bot's names its region, `LARK` or `FEISHU`, a Zalo
 bot's how it receives, `WEBHOOK` or `POLLING`, each of which the database requires), the app's secret as an AES-GCM
 envelope, the language of the bot's own notices (`vi` or `en`), whether it is switched on, the service account it
-owns, a revision, and what the platform said at the last check: the bot's name and id and the scopes it refused. One
-provider app serves one bot across every Tenant: the provider and the app's id are unique.
+owns, a revision, what the platform said at the last check: the bot's name and id and the scopes it refused, and the
+assistant it answers with (`persona_id`, see [the bot's assistant](#the-bots-assistant)). One provider app serves one
+bot across every Tenant: the provider and the app's id are unique.
 
 `ChannelConnectionService` lists, reads, adds, switches on or off, replaces the secret of, changes the settings of
 and removes a bot. Every
@@ -47,8 +48,30 @@ the Tenant's exclusive authority lock and checks the revision it was given (`CHA
   `CHANNEL_<PROVIDER>`. Without the key every bot call fails with `CHANNEL_NOT_CONFIGURED` and nothing else is
   affected. No view carries the secret.
 - Each change is audited as `channel.create`, `channel.update` (`change`: `enabled`, `disabled`, `secret`,
-  `settings`) or
+  `settings`, `assistant`, `assistant-removed`) or
   `channel.delete`.
+
+### The bot's assistant
+
+A bot answers with one assistant and an assistant may have many bots, as LobeHub (`agentBotProvider`), GoClaw
+(`ChannelInstance.agent_id`) and OpenClaw (`bindings`) bind a channel to one agent (MEM-273). `persona_id` is null
+for a bot that answers with the Tenant's built-in assistant; the foreign key clears it when the assistant row is
+removed, and a deleted assistant counts as none.
+
+- **Binding** (`bindPersona`) takes `CHANNELS_MANAGE` and edit rights on the assistant (else
+  `CHANNEL_ASSISTANT_NOT_EDITABLE`; an assistant the caller cannot use is `CHAT_UNAVAILABLE`), since binding decides
+  who may ask it. A bot bound to another assistant moves in the same step; choosing the built-in assistant unbinds.
+  Unbinding takes edit rights on the assistant it leaves while that one exists. Binding keeps the revision and does
+  not reopen the bot: the assistant is read again for each question.
+- **Reading** (`boundTo`) lists the bots of an assistant to anyone who may use it, without app, secret or account.
+- **Answering.** A new conversation is created with `ChatSessionService.createInChannel(actor, title, persona)`, which
+  holds it with the bound assistant while that one is live and else with the built-in one
+  (`ChatSessionService.channelPersona`). A conversation held in a channel admits its owner's turns with that assistant
+  whether or not the owner may use the assistant elsewhere, as Onyx's Slack bot answers with its configured persona;
+  the documents a turn reads stay the owner's own: Sources, Document Sets and search are resolved for the sender, or
+  for the bot's account in a group, and the assistant's files are read only by someone who may use the assistant. A
+  conversation held with another assistant than the bot answers with now is not continued, so moving a bot starts its
+  conversations over.
 
 ### The administrator's API
 
@@ -65,12 +88,15 @@ each change of a bot an `If-Match` of its quoted revision.
 | `PUT /api/channels/{id}/transport` | Changes how a Zalo bot receives (`WEBHOOK` or `POLLING`) |
 | `PUT /api/channels/{id}/secret` | Checks the new secret and replaces the old one |
 | `PUT /api/channels/{id}/enabled` | Switches the bot on or off |
+| `PUT /api/channels/{id}/persona` | Binds the bot to an assistant (`personaId`), moving it from another, or to none (`null`); no `If-Match` |
 | `DELETE /api/channels/{id}` | Removes the bot and retires its account; `204` |
+| `GET /api/chat/personas/{id}/channels` | The bots of an assistant (`id`, `provider`, `name`, `botName`, `enabled`), for anyone who may use it |
 
 A bot's `status` is `OFF` when switched off; `NOT_RUNNING` when its supervisor has not written for three passes
 (90 seconds), so no process holds it; else `CONNECTED` while its connection is open, `FAILED` after a failure to open
 it, with the failure's typed code and time, or `CONNECTING`. A bot carries `region` for Lark and `transport` for
-Zalo, each absent for the other. No response carries the secret or the token, and the request records redact them.
+Zalo, each absent for the other, and `assistant` (`id`, `name`) when it answers with a custom assistant. No response
+carries the secret or the token, and the request records redact them.
 
 ### The administration page
 
@@ -82,8 +108,9 @@ Lark refuses, else that the bot is off, connecting or answering; the list is rea
 bot switched on is not connected. Each bot has its page, `/admin/channels/{id}`: its status, the platform's name for
 the bot, a Lark bot's region and App ID or a Zalo bot's Bot ID and way of receiving (a select of Webhook or Polling
 that saves on change through `PUT /api/channels/{id}/transport`), notice language, when it connected, its last
-message and its last failure, the scopes still missing, and a menu to replace the App Secret or the token, or delete
-the bot. Adding a bot is a dialog that asks the platform first, then shows that platform's form beside its setup
+message and its last failure, the scopes still missing, the assistant it answers with (a link to that assistant's
+Kênh tab, or "Trợ lý mặc định"), and a menu to replace the App Secret or the token, or delete the bot. Each row of
+the list ends its line with the bot's assistant. Adding a bot is a dialog that asks the platform first, then shows that platform's form beside its setup
 steps: Lark's App ID and App Secret with the console steps and scopes, or Zalo's token and way of receiving with the
 Zalo Bot Creator steps. A secret or token stays in a ref, never in query state or storage, and is cleared once sent.
 
@@ -257,9 +284,10 @@ acknowledged it to the provider:
    while its last message is younger than `memoryos.channel.group-conversation-idle` (4 hours). `/new` forgets the
    direct or the group conversation and says so. A group's conversation runs as the bot's account, so it holds only
    what everyone in the group may read, and each question in it carries its asker's name. A session is continued only by the account that
-   owns it, so a sender who gained or lost an account starts over.
+   owns it and is held with the assistant the bot answers with now, so a sender who gained or lost an account starts
+   over, and so does every conversation of a bot moved to another assistant.
 7. The question becomes a Chat turn through the API the web uses: a session created with
-   `ChatSessionService.createInChannel`, a `SEND` at `ChatSessionService.leaf` with a request id derived from
+   `ChatSessionService.createInChannel` and the assistant the bot is bound to when the question arrives, a `SEND` at `ChatSessionService.leaf` with a request id derived from
    the provider's message id, the reply's stream read for text, and the saved answer read for its text and
    sources. A direct answer is finished with a closing line: the link that opens a sender's own conversation in
    MemoryOS, or, for a sender without an account, "sign in". A group answer has none: its conversation continues

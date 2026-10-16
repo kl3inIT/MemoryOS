@@ -72,7 +72,9 @@ function ChannelRow({ channel, admin }: { channel: ChannelResponse; admin: Chann
     <AppRow
       mark={<ChannelMark provider={channel.provider} />}
       title={channel.name}
-      line={ui(line, { count: channel.missingScopes.length })}
+      line={`${ui(line, { count: channel.missingScopes.length })} · ${
+        channel.assistant?.name ?? ui("Trợ lý mặc định")
+      }`}
       tone={tone}
       link={(body) => (
         <Link

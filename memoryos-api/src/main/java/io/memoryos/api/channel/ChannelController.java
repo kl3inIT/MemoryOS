@@ -1,5 +1,6 @@
 package io.memoryos.api.channel;
 
+import io.memoryos.api.channel.contract.BindChannelAssistantRequest;
 import io.memoryos.api.channel.contract.ChannelAppCheckResponse;
 import io.memoryos.api.channel.contract.ChannelAppRequest;
 import io.memoryos.api.channel.contract.ChannelResponse;
@@ -135,6 +136,16 @@ final class ChannelController {
     ResponseEntity<ChannelResponse> setEnabled(@CurrentActor IdentityContext identity, @PathVariable UUID channelId,
             @RequestHeader("If-Match") String ifMatch, @Valid @RequestBody UpdateChannelEnabledRequest body) {
         channels.setEnabled(identity.actorId(), channelId, revision(ifMatch), body.enabled());
+        return ResponseEntity.ok().body(find(identity, channelId));
+    }
+
+    @Operation(operationId = "bindChannelAssistant",
+            summary = "Choose the assistant a bot answers with, moving it from another; needs edit rights on the assistant")
+    @ApiResponse(responseCode = "200", description = "Updated bot", useReturnTypeSchema = true)
+    @PutMapping(value = "/{channelId}/persona", consumes = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ChannelResponse> bindAssistant(@CurrentActor IdentityContext identity, @PathVariable UUID channelId,
+            @Valid @RequestBody BindChannelAssistantRequest body) {
+        channels.bindPersona(identity.actorId(), channelId, body.personaId());
         return ResponseEntity.ok().body(find(identity, channelId));
     }
 

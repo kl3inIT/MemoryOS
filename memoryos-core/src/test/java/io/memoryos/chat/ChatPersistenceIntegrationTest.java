@@ -1015,6 +1015,30 @@ class ChatPersistenceIntegrationTest {
     }
 
     @Test
+    void aChannelConversationIsHeldWithTheBotsAssistantEvenForSomeoneItIsNotSharedWith() {
+        var agent = personas.create(owner, new ChatPersonaService.PersonaInput("Nhân sự", null, "", "Trả lời theo quy chế.",
+                null, List.of(), List.of(), null, Set.of("search"), null, null, null, null, null, null, null, null, null));
+        assertThrows(ChatException.class, () -> personas.get(other, agent.id()), "the assistant is the owner's alone");
+
+        var held = sessions.createInChannel(other, "Nghỉ phép từ Zalo", agent.id());
+        assertEquals(agent.id(), held.personaId());
+        assertEquals(agent.id(), sessions.channelPersona(other, agent.id()));
+        // The bot's binding lets its sender ask the assistant; a web conversation of theirs could not hold it.
+        var snapshot = tx.execute(_ -> new JdbcChatRepository(jdbc).persona(held.id(), false, false));
+        assertTrue(snapshot.instructions().contains("Trả lời theo quy chế."));
+
+        // A deleted assistant, or none, is the built-in one.
+        UUID builtin = sessions.create(other, "Web").personaId();
+        assertEquals(builtin, sessions.channelPersona(other, null));
+        personas.delete(owner, agent.id(), personas.get(owner, agent.id()).revision());
+        assertEquals(builtin, sessions.channelPersona(other, agent.id()));
+        assertEquals(builtin, sessions.createInChannel(other, "Sau khi xoá", agent.id()).personaId());
+        assertEquals("CHAT_UNAVAILABLE", assertThrows(ChatException.class,
+                () -> tx.execute(_ -> new JdbcChatRepository(jdbc).persona(held.id(), false, false))).code(),
+                "a conversation with a deleted assistant is not continued");
+    }
+
+    @Test
     void reservesPairOnceAndPreservesHistoryCursorAndPartialOutcome() {
         var session = sessions.create(owner, "History");
         var request = UUID.randomUUID();

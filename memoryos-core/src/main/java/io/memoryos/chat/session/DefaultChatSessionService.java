@@ -52,16 +52,35 @@ public class DefaultChatSessionService implements ChatSessionService {
     @Override
     @Transactional
     public ChatSession createInChannel(ActorId actor, String title) {
-        return create(actor, title, false, ChatSurface.CHANNEL);
+        return create(actor, title, false, ChatSurface.CHANNEL, null);
+    }
+
+    @Override
+    @Transactional
+    public ChatSession createInChannel(ActorId actor, String title, @Nullable UUID boundPersona) {
+        return create(actor, title, false, ChatSurface.CHANNEL, boundPersona);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UUID channelPersona(ActorId actor, @Nullable UUID boundPersona) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
+        return chats.channelPersona(tenant, boundPersona).orElseThrow(ChatException::unavailable);
     }
 
     private ChatSession create(ActorId actor, String title, boolean temporary, ChatSurface surface) {
+        return create(actor, title, temporary, surface, null);
+    }
+
+    private ChatSession create(ActorId actor, String title, boolean temporary, ChatSurface surface,
+                               @Nullable UUID boundPersona) {
         if (title == null || title.isBlank() || title.length() > 200) {
             throw ChatException.invalid("Title must contain 1 to 200 characters.");
         }
         authorization.require(actor, IamCapability.CHAT_WRITE, false);
         var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();
-        var personaId = chats.defaultPersona(tenant).orElseThrow(ChatException::unavailable);
+        var personaId = (surface == ChatSurface.CHANNEL ? chats.channelPersona(tenant, boundPersona)
+                : chats.defaultPersona(tenant)).orElseThrow(ChatException::unavailable);
         return chats.create(tenant, actor, personaId, title.strip(), temporary, surface);
     }
 

@@ -58,6 +58,12 @@ public final class ChannelException extends BusinessException {
                 "The bot has used up its plan's messages on the platform.", "Channel platform quota exceeded");
     }
 
+    public static ChannelException assistantNotEditable() {
+        return new ChannelException("CHANNEL_ASSISTANT_NOT_EDITABLE", FailureCategory.NOT_PERMITTED,
+                "Only someone who can edit the assistant can connect a bot to it or remove one from it.",
+                "Channel binding needs edit rights on the assistant");
+    }
+
     public static ChannelException appInUse() {
         return new ChannelException("CHANNEL_APP_IN_USE", FailureCategory.CONFLICT,
                 "Another bot already uses this app. Each bot needs an app of its own.", "Channel app is already connected");

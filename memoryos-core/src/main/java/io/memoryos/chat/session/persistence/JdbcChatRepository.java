@@ -97,6 +97,22 @@ public class JdbcChatRepository {
                 .param("tenant", tenant.value()).query(UUID.class).optional();
     }
 
+    /**
+     * The assistant a channel's conversation is held with: {@code bound} while it is a live custom assistant of the
+     * Tenant, else the built-in default (MEM-273).
+     */
+    public Optional<UUID> channelPersona(TenantId tenant, @Nullable UUID bound) {
+        if (bound != null) {
+            var found = jdbc.sql("""
+                            SELECT id FROM persona
+                            WHERE tenant_id=:tenant AND id=:id AND deleted_at IS NULL AND builtin_key IS NULL
+                            """)
+                    .param("tenant", tenant.value()).param("id", bound).query(UUID.class).optional();
+            if (found.isPresent()) return found;
+        }
+        return defaultPersona(tenant);
+    }
+
     public ChatSession create(TenantId tenant, ActorId actor, UUID personaId, String title, boolean temporary,
                               ChatSurface surface) {
         UUID id = UUID.randomUUID();
@@ -479,12 +495,20 @@ public class JdbcChatRepository {
                 .query(Boolean.class).single();
     }
 
+    /**
+     * Who may run a turn with the session's agent: whoever may use it, or the owner of a conversation held in a
+     * channel, whose bot was bound to that agent by someone allowed to (MEM-273). The documents the turn reads stay
+     * the owner's own: Sources and Document Sets are resolved for {@code s.owner_actor_id} below and in retrieval.
+     */
+    private static final String CHANNEL_OR_USES = "(s.surface = 'CHANNEL' OR "
+            + AgentAccessSql.USES.replace(":actor", "s.owner_actor_id") + ")";
+
     /** The session, its agent and its Project, as {@link #persona} and {@link #personaRevision} read them. */
     private static final String SESSION_AGENT = """
             FROM chat_session s JOIN persona p ON s.persona_id=p.id AND s.tenant_id=p.tenant_id
             LEFT JOIN chat_project pr ON pr.id=s.project_id AND pr.tenant_id=s.tenant_id AND pr.owner_actor_id=s.owner_actor_id
             WHERE s.id=:session AND s.deleted_at IS NULL AND p.deleted_at IS NULL AND
-            """ + AgentAccessSql.USES.replace(":actor", "s.owner_actor_id");
+            """ + CHANNEL_OR_USES;
 
     /** The Tenant's Chat settings are part of it because the turn reads grounded answers from them (MEM-195). */
     private static final String REVISION = "concat_ws(':',p.id,p.revision,p.model_revision,pr.id,pr.revision,"

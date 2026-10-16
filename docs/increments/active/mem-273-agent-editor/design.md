@@ -149,6 +149,13 @@ Field coverage (✓ has it):
     conversation with the bound assistant. The sender's access to that assistant's documents is still checked per turn,
     as Onyx does for Slack. An assistant has many bots; a bot has one assistant (LobeHub `agentBotProvider`, GoClaw
     `ChannelInstance.agent_id`, OpenClaw `bindings`).
+    - *As built (step 4):* the binding is what lets a bot's senders ask the assistant, as Onyx's Slack bot answers
+      with its configured persona: a conversation held in a channel admits its owner's turns with its assistant even
+      when the owner may not use that assistant on the web. Sources, Document Sets and search stay the sender's own;
+      the assistant's files are read only by someone who may use the assistant, since the library authorises files
+      per person. The assistant is read for each question, so binding keeps the bot's revision and does not reopen
+      it, and a conversation held with another assistant than the bot's current one starts over. Unbinding needs edit
+      rights on the assistant left. The migration is V183 (V182 went to the tool-call replay).
 17. **The Kênh tab** lists the bots bound to the assistant, with "Thêm kênh" and "Gỡ". "Thêm kênh" lists the
     organisation's bots; choosing one bound elsewhere asks "Chuyển bot sang trợ lý này?" and moves it in one step
     (LobeHub only reports a conflict). Binding needs `CHANNELS_MANAGE` and edit rights on the assistant; others see the
@@ -166,7 +173,7 @@ Field coverage (✓ has it):
 - `PUT /api/channels/{id}/persona` binds or unbinds a bot; `ChannelConnection` responses carry the assistant's id and
   name; `GET /api/chat/personas/{id}/channels` lists the bots of an assistant.
 - Migration V181: `persona.title`, `persona.greeting`, `persona.reasoning_effort`; task prompt folded into
-  instructions; the five columns dropped. Migration V182: `channel_connections.persona_id`.
+  instructions; the five columns dropped. Migration V183: `channel_connections.persona_id`.
 
 ## Components
 

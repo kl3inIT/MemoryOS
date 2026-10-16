@@ -17961,6 +17961,51 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/personas/{personaId}/channels:
+    get:
+      tags:
+      - Channels
+      summary: List the bots that answer with an assistant
+      operationId: listAssistantChannels
+      parameters:
+      - name: personaId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid assistant id
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Tenant membership required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Assistant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Bots
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AssistantChannelResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/personas/{personaId}/avatar:
     get:
       tags:
@@ -22737,6 +22782,76 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/channels/{channelId}/persona:
+    put:
+      tags:
+      - Channels
+      summary: "Choose the assistant a bot answers with, moving it from another; needs\
+        \ edit rights on the assistant"
+      operationId: bindChannelAssistant
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BindChannelAssistantRequest"
+        required: true
+      responses:
+        "400":
+          description: "Invalid bot, or an app the platform rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Bot unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Bot changed, or its app already serves a bot"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "The platform did not answer, or bots are not configured"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Updated bot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/channels/{channelId}/enabled:
     put:
       tags:
@@ -27107,6 +27222,18 @@ components:
           - POLLING
       required:
       - transport
+    ChannelAssistantResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+      - id
+      - name
     AiUsageLimitRequest:
       type: object
       properties:
@@ -32889,6 +33016,30 @@ components:
       - pricing
       - providerId
       - providerName
+    AssistantChannelResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        provider:
+          type: string
+          enum:
+          - LARK
+          - ZALO_BOT
+        name:
+          type: string
+        botName:
+          type: string
+          description: The bot the platform named at the last check
+        enabled:
+          type: boolean
+      required:
+      - enabled
+      - id
+      - name
+      - provider
     SourceOption:
       type: object
       properties:
@@ -34041,6 +34192,17 @@ components:
           minLength: 0
       required:
       - appSecret
+    BindChannelAssistantRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        personaId:
+          type:
+          - string
+          - "null"
+          format: uuid
+          description: "The assistant; null answers with the built-in one, and a bot\
+            \ bound elsewhere moves"
     ChannelResponse:
       type: object
       additionalProperties: false
@@ -34113,6 +34275,10 @@ components:
           type: string
           format: date-time
           description: When the bot last received a message
+        assistant:
+          $ref: "#/components/schemas/ChannelAssistantResponse"
+          description: The assistant the bot answers with; absent when it answers
+            with the built-in one
         revision:
           type: integer
           format: int64

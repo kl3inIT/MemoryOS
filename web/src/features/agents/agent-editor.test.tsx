@@ -17,6 +17,7 @@ import { ApplicationSessionProvider } from "@/features/identity/application-sess
 import {
   handleCreateChatPersona,
   handleGetChatPersona,
+  handleListAssistantChannels,
   handleListChatPersonaLabels,
   handleListChatPersonaModels,
   handleListChatPersonaSources,
@@ -153,6 +154,38 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("AgentEditorPage", () => {
+  it("lists the assistant's bots on Kênh, read-only without the capability to manage bots", async () => {
+    server.use(
+      handleListAssistantChannels({
+        body: [
+          {
+            id: "80000000-0000-4000-8000-000000000001",
+            provider: "ZALO_BOT",
+            name: "HR questions",
+            botName: "HR bot",
+            enabled: false,
+          },
+        ],
+      }),
+    );
+    await renderEditor("channels");
+    const panel = await screen.findByRole("tabpanel", { name: "Channels" });
+    expect(await within(panel).findByText("HR questions")).toBeVisible();
+    expect(within(panel).getByText("Zalo · HR bot · Off")).toBeVisible();
+    expect(within(panel).queryByRole("button", { name: "Add channel" })).not.toBeInTheDocument();
+    expect(within(panel).queryByRole("button", { name: /^Remove/ })).not.toBeInTheDocument();
+  });
+
+  it("gives the built-in assistant no Kênh tab", async () => {
+    server.use(handleGetChatPersona({ body: saved({ builtin: true }) }));
+    await renderEditor("channels");
+    expect(await screen.findByRole("tab", { name: "Configure" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.queryByRole("tab", { name: "Channels" })).not.toBeInTheDocument();
+  });
+
   it("saves in place, then starts again from what the server kept", async () => {
     let sent: PersonaInput | undefined;
     let revision: string | null = null;

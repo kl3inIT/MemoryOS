@@ -64,6 +64,12 @@
 | A webhook the provider cannot reach is recorded and waits for the bot's next revision | `ChannelSupervisorTest.aWebhookTheProviderCannotReachWaitsForTheBotToChange` |
 | A setting changes as the provider accepts it and moves the revision; one it does not have is refused | `PostgresChannelConnectionTest.aSettingChangesWhatTheProviderAcceptsAndMovesTheRevision` |
 | The database holds a Zalo bot by its number and how it receives, and refuses anything else | `PostgresChannelConnectionTest.theDatabaseHoldsAZaloBotByItsNumberAndHowItReceives` |
+| MEM-273: a bot is bound to an assistant only by a holder of `CHANNELS_MANAGE` who may edit it, moves from another assistant in one step, keeps its revision, is listed by the assistant and named on the bots list; the built-in assistant unbinds; an assistant the caller cannot use is `CHAT_UNAVAILABLE` | `PostgresChannelConnectionTest.aBotIsBoundToAnAssistantByWhoeverManagesBotsAndMayEditIt` |
+| MEM-273: removing an assistant row clears its bots' binding | `PostgresChannelConnectionTest.removingAnAssistantRowClearsItsBotsBinding` |
+| MEM-273: each question is asked of the assistant the bot is bound to when it arrives, without reopening the bot | `ChannelInboundServiceTest.aQuestionIsAskedOfTheAssistantTheBotIsBoundToAtThatMoment` |
+| MEM-273: a conversation continues only with the assistant the bot answers with now | `ChannelTurnsTest.aConversationContinuesOnlyWithTheAssistantTheBotAnswersWithNow` |
+| MEM-273 over HTTP: binding answers the bot with its assistant, a refusal is `CHANNEL_ASSISTANT_NOT_EDITABLE` (403), and an assistant's bots are listed without app, secret or account | `ChannelApiTest.aBotIsBoundToAnAssistantAndTheAssistantListsItsBots` |
+| MEM-273 Kênh tab: lists the assistant's bots; a binder adds an unbound bot at once, moves one bound elsewhere after a confirmation naming both assistants, and removes one; anyone else reads the list; the built-in assistant has no tab | `agents.spec.ts`, `agent-editor.test.tsx` |
 | The webhook route asks about the headers before it reads a body, answers `200` after the claim, `403` without the secret and `404` for an unknown bot unread, and `413` past 64 KB without reading it | `ChannelWebhookControllerTest` |
 | The channels process serves the webhook route without a session and has the Zalo adapter | `ChannelsApplicationTest.startsWithWhatATurnNeedsAndReportsReady` |
 | nginx sends `/hooks/channels/` to the bots' process with a bounded body | `nginx-config.test.mjs` |
