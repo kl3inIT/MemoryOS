@@ -1456,15 +1456,14 @@ export const vietnameseUi: Record<string, string> = {
   // MEM-273 assistant editor: tabs, sections, one header, the create dialog and the Chia sẻ tab
   "Danh tính": "Identity",
   "Mở đầu": "Opening",
+  "Người được chia sẻ chỉ nhận câu trả lời từ tài liệu họ có quyền đọc.":
+    "People it is shared with only get answers from documents they can read.",
   "Model và suy luận": "Model and reasoning",
-  Bật: "On",
   "Tìm trong tài liệu nội bộ": "Search internal documents",
   "Chỉ trả lời có căn cứ": "Grounded answers only",
   "Theo hệ thống": "System default",
   "Cần nhập tên": "Enter a name",
   "Chưa có thay đổi": "No changes yet",
-  "Hướng dẫn, tài liệu và công cụ chỉnh tiếp sau khi tạo.":
-    "Instructions, documents and tools are set after it is created.",
   "Không còn khả dụng (đang giữ lựa chọn)": "No longer available (choice kept)",
   "Không tải được tài liệu.": "Could not load the documents.",
   "Tìm trong mọi tài liệu người dùng được phép đọc": "Searches every document the person can read",
@@ -1783,7 +1782,6 @@ export const vietnameseUi: Record<string, string> = {
     "The new owner has full control of the agent. If you are the current owner, you keep edit access.",
   "Chủ sở hữu mới: {{v1}}": "New owner: {{v1}}",
   "Chưa có chủ sở hữu": "No owner",
-  "Chưa có máy chủ MCP nào.": "No MCP servers yet.",
   "Chưa có nhãn. Người tạo trợ lý thêm nhãn trong trình chỉnh sửa.":
     "No labels yet. Agent creators add labels in the editor.",
   "Chưa có trợ lý nào được chia sẻ": "No agents have been shared with you",
@@ -1860,8 +1858,6 @@ export const vietnameseUi: Record<string, string> = {
   "Tìm và đọc trang Web công khai.": "Search and read public Web pages.",
   "Trợ lý chỉ trả lời từ những tài liệu bạn được phép đọc.":
     "The agent only answers from documents you can read.",
-  "Trợ lý dùng {{v1}} nguồn tài liệu. Người được chia sẻ sẽ thấy tên các nguồn, nhưng chỉ nhận câu trả lời từ tài liệu họ có quyền đọc.":
-    "The agent uses {{v1}} sources. People you share with see the source names but only get answers from documents they can read.",
   "Trợ lý mặc định dùng mọi máy chủ MCP mà người dùng được phép dùng.":
     "The default agent uses every MCP server the user may use.",
   "Trợ lý này giúp gì, dùng cho phòng ban nào": "What this agent helps with and which team uses it",

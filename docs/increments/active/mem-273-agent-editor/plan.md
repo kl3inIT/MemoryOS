@@ -21,15 +21,17 @@ owner checks the editor on staging after the third.
 
 ## 2. Editor
 
-- [x] Shell: tabs with `?tab=` (Cấu hình, Chia sẻ), sections per design decision 11. The sticky section nav is on
-  hold: no reference product has one and the owner is reconsidering it. The
+- [x] Shell: tabs with `?tab=` (Cấu hình, Chia sẻ), sections per design decision 11. No sticky section nav (design
+  decision 10). The
   `ResizablePanelGroup` arrives with the test chat in step 3 and the Kênh tab with binding in step 4, so neither ships
   empty ([ADR 0002](../../../decisions/0002-no-speculative-operational-surfaces.md)).
 - [x] One header: the breadcrumb, state, Hủy and Lưu go into the shell header (`AppShellHeader` `breadcrumb` and
   `actions`); the editor's own sticky bar is gone.
 - [x] Save stays on the page; disabled-reason tooltip; blocker kept, tab switches not blocked. Labels save on change in
   the Chia sẻ tab; an uploaded image still applies only on Save.
-- [x] Unified document picker with the heading switch; "Chỉ trả lời có căn cứ" folded.
+- [x] Unified document picker with the heading switch; "Chỉ trả lời có căn cứ" as one switch under it.
+- [x] Ứng dụng MCP hidden when the organization has no MCP server; no explanatory line in the create dialog; the
+  sources note in Chia sẻ is one muted line under Quyền truy cập chung.
 - [x] Create dialog; `/agents/create` opens it; create then opens the editor.
 - [x] Chia sẻ tab from the share dialog body, with labels and the admin listing switches, saving on change; the card's
   share action opens the tab.

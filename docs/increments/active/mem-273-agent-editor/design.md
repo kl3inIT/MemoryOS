@@ -78,22 +78,23 @@ Field coverage (✓ has it):
 6. **Documents are one control.** A "Tìm trong tài liệu nội bộ" switch heads the section and, when on, one picker
    adds sources, document sets and files, each row tagged with its kind. With the switch off the section is disabled
    instead of silently ignored (Onyx `AgentKnowledgePane` and its "Use Knowledge" switch). Storage is unchanged.
-7. **"Chỉ trả lời có căn cứ"** stays, folded under the documents section.
+7. **"Chỉ trả lời có căn cứ"** stays as one switch row under the documents list, with no fold (owner, 2026-10-16).
 8. **Labels move to the Chia sẻ tab**, where they serve discovery (Onyx puts labels with Share and Feature).
 
 ### Editor
 
 9. **Three tabs, Cấu hình · Kênh · Chia sẻ** (LobeHub `AgentProfileTabs`), as shadcn `Tabs` with the line variant.
    The URL keeps the tab (`?tab=`).
-10. **Cấu hình: config left, test chat right** (Dify, Coze, FastGPT), in a `ResizablePanelGroup`. A sticky section
-    nav (Danh tính … Model) is on hold: no reference product has one (Onyx, Dify, FastGPT, LobeHub) and the owner is
-    reconsidering it, so step 2 ships the sections without it. On phones the form is one column and a floating "Chat thử" button opens the test chat in a `Drawer`, as Dify does.
+10. **Cấu hình: config left, test chat right** (Dify, Coze, FastGPT), in a `ResizablePanelGroup`. There is no sticky
+    section nav: no reference product has one (Onyx, Dify, FastGPT, LobeHub), and beside the test chat it would squeeze
+    the form. The owner dropped it on 2026-10-16. On phones the form is one column and a floating "Chat thử" button opens the test chat in a `Drawer`, as Dify does.
 11. **Section contents, top to bottom:**
     - Danh tính: avatar, name, title, description.
     - Hướng dẫn: instructions with their counter.
     - Mở đầu: greeting, starters (at most 8).
-    - Tài liệu: the switch, the unified picker, "Chỉ trả lời có căn cứ" folded.
-    - Công cụ: web search, code, images, MCP servers. Each person's connection state for an MCP server waits on the
+    - Tài liệu: the switch, the unified picker, the "Chỉ trả lời có căn cứ" switch.
+    - Công cụ: web search, code, images, MCP servers. "Ứng dụng MCP" is left out entirely when the organization has
+      no MCP server, rather than showing an empty state. Each person's connection state for an MCP server waits on the
       access discussion (Q12) and is not in this design.
     - Model và suy luận: model and reasoning effort, visible (LobeHub puts both at the top of the profile). The
       title names reasoning beside "Model", which the Vietnamese catalog otherwise renders "Mô hình".
@@ -110,11 +111,13 @@ Field coverage (✓ has it):
     greeting and starters as people will see them, marks "đang dùng bản chưa lưu" while the form differs from the
     saved one, and has "Làm mới" to start again. Only people who can edit the assistant can test it. Temporary
     conversations are already hidden from lists and purged after 24 hours.
-14. **Create is a short dialog**: name, title and description (Rakazo `CreateBotForm`). Create saves the assistant
+14. **Create is a short dialog**: name, title and description, with no explanatory line under the title (Rakazo
+    `CreateBotForm`). Create saves the assistant
     with the defaults of decision 5 and opens its editor. `/agents/create` redirects to the agents page with the dialog
     open. Templates come through Fork (step 3); "Điền giúp" in this dialog is MEM-276.
 15. **Chia sẻ tab**: today's share dialog body (who can use it, people and groups with Chỉ dùng / Được sửa, ownership
-    transfer), labels, and for admins "Hiện ở Khám phá" and "Nổi bật". It saves on change, as the dialog does today.
+    transfer), labels, and for admins "Hiện ở Khám phá" and "Nổi bật". Each change saves at once. The note that people
+    only get answers from documents they can read is one muted line under "Quyền truy cập chung", not an alert box.
 
 ### Channels
 

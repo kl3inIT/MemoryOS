@@ -30,7 +30,6 @@ export function AgentCreateDialog({ onClose }: { onClose: () => void }) {
         if (!open) onClose();
       }}
       title={ui("Tạo trợ lý")}
-      description={ui("Hướng dẫn, tài liệu và công cụ chỉnh tiếp sau khi tạo.")}
       submitLabel={ui("Tạo trợ lý")}
       submitDisabled={!name.trim()}
       closeOnSuccess={false}

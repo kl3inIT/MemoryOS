@@ -1,5 +1,5 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { ChevronRight, Plug } from "lucide-react";
+import { Plug } from "lucide-react";
 import {
   ModelSelectorContent,
   ModelSelectorEffort,
@@ -12,9 +12,7 @@ import {
   ModelSelectorTrigger,
   ModelSelectorValue,
 } from "@/components/assistant-ui/elements/model-selector";
-import { EmptyState } from "@/components/composites/empty-state";
 import { SettingRow, SettingRows } from "@/components/composites/setting-row";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Switch } from "@/components/ui/switch";
 import { REASONING_EFFORTS } from "@/features/chat/chat-models";
 import { ModelLogo } from "@/features/models/model-logo";
@@ -173,7 +171,7 @@ export function OpeningSection({ form, editable }: SectionProps) {
 
 /**
  * Searching documents heads the section as its switch; with it off the choices stay but are disabled rather than
- * silently ignored (Onyx "Use Knowledge"). "Chỉ trả lời có căn cứ" folds underneath.
+ * silently ignored (Onyx "Use Knowledge"). "Chỉ trả lời có căn cứ" is one switch under the list.
  */
 export function DocumentsSection({ form, agent, choices, editable }: SectionProps) {
   const ui = useAppTranslation();
@@ -236,38 +234,19 @@ export function DocumentsSection({ form, agent, choices, editable }: SectionProp
               {!agent.builtin && (
                 <form.AppField name="grounded">
                   {(field) => (
-                    <Collapsible defaultOpen={field.state.value}>
-                      <CollapsibleTrigger asChild>
-                        <button
-                          type="button"
-                          className="group/fold inline-flex items-center gap-1.5 rounded-md font-main-ui-action text-content-secondary outline-none hover:text-content-primary focus-visible:ring-2 focus-visible:ring-focus-ring/40"
-                        >
-                          <ChevronRight
-                            aria-hidden="true"
-                            className="size-4 transition-transform group-data-[state=open]/fold:rotate-90 motion-reduce:transition-none"
+                    <SettingRows>
+                      <SettingRow
+                        htmlFor="agent-grounded"
+                        title={ui("Chỉ trả lời có căn cứ")}
+                        control={
+                          <Switch
+                            id="agent-grounded"
+                            checked={field.state.value}
+                            onCheckedChange={field.handleChange}
                           />
-                          {ui("Chỉ trả lời có căn cứ")}
-                          <span className="font-secondary-body text-content-muted">
-                            {field.state.value ? ui("Bật") : ui("Tắt")}
-                          </span>
-                        </button>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <SettingRows className="mt-3">
-                          <SettingRow
-                            htmlFor="agent-grounded"
-                            title={ui("Chỉ trả lời từ tài liệu của tổ chức")}
-                            control={
-                              <Switch
-                                id="agent-grounded"
-                                checked={field.state.value}
-                                onCheckedChange={field.handleChange}
-                              />
-                            }
-                          />
-                        </SettingRows>
-                      </CollapsibleContent>
-                    </Collapsible>
+                        }
+                      />
+                    </SettingRows>
                   )}
                 </form.AppField>
               )}
@@ -318,39 +297,40 @@ export function ToolsSection({ form, agent, choices }: SectionProps) {
           </SettingRows>
         )}
       </form.AppField>
-      <EditorField label={ui("Ứng dụng MCP")}>
-        {agent.builtin ? (
-          <p className="font-secondary-body text-content-muted">
-            {ui("Trợ lý mặc định dùng mọi máy chủ MCP mà người dùng được phép dùng.")}
-          </p>
-        ) : mcpOptions.length === 0 ? (
-          <EmptyState icon={<Plug />} title={ui("Chưa có máy chủ MCP nào.")} />
-        ) : (
-          <form.AppField name="mcpServerIds">
-            {(field) => (
-              <SettingRows>
-                {mcpOptions.map((server) => (
-                  <SettingRow
-                    key={server.id}
-                    htmlFor={`agent-mcp-${server.id}`}
-                    icon={<Plug />}
-                    title={server.name}
-                    control={
-                      <Switch
-                        id={`agent-mcp-${server.id}`}
-                        checked={field.state.value.includes(server.id)}
-                        onCheckedChange={(checked) =>
-                          field.handleChange(toggle(field.state.value, server.id, checked))
-                        }
-                      />
-                    }
-                  />
-                ))}
-              </SettingRows>
-            )}
-          </form.AppField>
-        )}
-      </EditorField>
+      {/* Without an MCP server in the organization there is nothing to choose, so the subsection stays out. */}
+      {mcpOptions.length > 0 && (
+        <EditorField label={ui("Ứng dụng MCP")}>
+          {agent.builtin ? (
+            <p className="font-secondary-body text-content-muted">
+              {ui("Trợ lý mặc định dùng mọi máy chủ MCP mà người dùng được phép dùng.")}
+            </p>
+          ) : (
+            <form.AppField name="mcpServerIds">
+              {(field) => (
+                <SettingRows>
+                  {mcpOptions.map((server) => (
+                    <SettingRow
+                      key={server.id}
+                      htmlFor={`agent-mcp-${server.id}`}
+                      icon={<Plug />}
+                      title={server.name}
+                      control={
+                        <Switch
+                          id={`agent-mcp-${server.id}`}
+                          checked={field.state.value.includes(server.id)}
+                          onCheckedChange={(checked) =>
+                            field.handleChange(toggle(field.state.value, server.id, checked))
+                          }
+                        />
+                      }
+                    />
+                  ))}
+                </SettingRows>
+              )}
+            </form.AppField>
+          )}
+        </EditorField>
+      )}
     </EditorSection>
   );
 }

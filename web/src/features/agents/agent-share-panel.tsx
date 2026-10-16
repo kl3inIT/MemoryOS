@@ -1,7 +1,7 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useState, type ReactNode } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { Building2, Check, Info, Link2, Lock, ShieldCheck, Star } from "lucide-react";
+import { Building2, Check, Link2, Lock, ShieldCheck, Star } from "lucide-react";
 import { PersonAvatar } from "@/components/composites/person-avatar";
 import { SectionHeader } from "@/components/composites/section-header";
 import { SettingRow, SettingRows } from "@/components/composites/setting-row";
@@ -272,20 +272,9 @@ export function AgentSharePanel({
       <GeneralAccess
         access={shares.access}
         canPublish={canPublish && !busy}
+        sources={agent.sources.length}
         onChange={(access) => changeShares({ ...shares, access })}
       />
-
-      {agent.sources.length > 0 && (
-        <Alert variant="info">
-          <Info aria-hidden="true" />
-          <AlertDescription>
-            {ui(
-              "Trợ lý dùng {{v1}} nguồn tài liệu. Người được chia sẻ sẽ thấy tên các nguồn, nhưng chỉ nhận câu trả lời từ tài liệu họ có quyền đọc.",
-              { v1: agent.sources.length },
-            )}
-          </AlertDescription>
-        </Alert>
-      )}
 
       <section aria-labelledby="agent-share-labels" className="flex flex-col gap-3">
         <SectionHeader id="agent-share-labels" title={ui("Nhãn")} />
@@ -421,10 +410,13 @@ function AccessRow({
 function GeneralAccess({
   access,
   canPublish,
+  sources,
   onChange,
 }: {
   access: Access;
   canPublish: boolean;
+  /** The assistant's direct Sources, named to whoever it is shared with. */
+  sources: number;
   onChange: (access: Access) => void;
 }) {
   const ui = useAppTranslation();
@@ -452,6 +444,11 @@ function GeneralAccess({
           <option value="EDITOR">{ui("Mọi người trong tổ chức có thể sửa")}</option>
         </NativeSelect>
       </div>
+      {sources > 0 && (
+        <p className="font-secondary-body text-content-muted">
+          {ui("Người được chia sẻ chỉ nhận câu trả lời từ tài liệu họ có quyền đọc.")}
+        </p>
+      )}
     </section>
   );
 }
