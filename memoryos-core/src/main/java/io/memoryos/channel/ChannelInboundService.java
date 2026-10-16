@@ -291,7 +291,7 @@ public class ChannelInboundService {
         ChannelTurns.Answer answer;
         try {
             answer = step("turn", () -> turns.ask(actor, session, title(message.text()), request(connection, message),
-                    question, new ChatChannel(connection.provider().platform(), !direct), properties.orderWait(),
+                    question, new ChatChannel(connection.provider().platform(), !direct), connection.id(), properties.orderWait(),
                     () -> adapter.acknowledge(connection, message), () -> {
                         var reply = step("reply", () -> adapter.reply(connection, message,
                                 ChannelNotice.WRITING.in(connection.noticeLanguage())));
@@ -402,8 +402,9 @@ public class ChannelInboundService {
             session = recent(connection, message.chatId(), message.senderId(), properties.conversationIdle(), now);
         }
         // A conversation is continued only by whoever it belongs to: a sender who gained or lost an account since
-        // starts over, and a reply to another person's direct conversation never opens it.
-        return session != null && turns.owns(actor, session) ? session : null;
+        // starts over, a reply to another person's direct conversation never opens it, and a bot moved to another
+        // assistant starts its conversations over with it.
+        return session != null && turns.continues(actor, session, connection.id()) ? session : null;
     }
 
     private void refuse(ChannelConnection connection, ChannelAdapter adapter, ChannelMessage message, Refusal refusal) {

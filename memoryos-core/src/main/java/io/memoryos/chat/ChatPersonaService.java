@@ -416,6 +416,19 @@ public class ChatPersonaService {
         return result;
     }
 
+    /**
+     * The names of the Tenant's live custom assistants among {@code ids}, for a surface that shows which assistant
+     * something is bound to, such as a bot (MEM-273). A deleted or built-in one is left out: it is not bound.
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, String> names(ActorId actor, Collection<UUID> ids) {
+        if (ids.isEmpty()) return Map.of();
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
+        return settings.findByTenantIdAndIdIn(tenant.value(), List.copyOf(Set.copyOf(ids))).stream()
+                .filter(entity -> !entity.deleted() && !entity.builtin())
+                .collect(Collectors.toUnmodifiableMap(PersonaEntity::id, PersonaEntity::name));
+    }
+
     private static boolean usable(PersonaEntity entity, @Nullable Access access) {
         return !entity.deleted() && access != null && access.uses();
     }

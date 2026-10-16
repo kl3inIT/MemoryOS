@@ -49,12 +49,13 @@ owner checks the editor on staging after the third.
 
 ## 4. Channels
 
-- [ ] Migration V182: `channel_connections.persona_id` with `ON DELETE SET NULL`.
-- [ ] `ChannelTurns` uses the bound assistant, else the built-in one.
-- [ ] `PUT /api/channels/{id}/persona`, channel responses with the assistant, `GET /api/chat/personas/{id}/channels`;
+- [x] Migration V183 (V182 was taken): Chat's `chat_channel_binding` (bot → assistant, removed with the assistant)
+  and `chat_session.channel_connection_id`; a channel turn uses the assistant only while its bot is still bound.
+- [x] `ChannelTurns` uses the bound assistant, else the built-in one.
+- [x] `PUT /api/channels/{id}/persona`, channel responses with the assistant, `GET /api/chat/personas/{id}/channels`;
   `CHANNELS_MANAGE` plus edit rights to bind.
-- [ ] Kênh tab: list, add, move with confirmation, remove; the admin "Kênh chat" page shows each bot's assistant.
-- [ ] Tests: a bound bot answers with its assistant; deleting the assistant falls back; binding without
+- [x] Kênh tab: list, add, move with confirmation, remove; the admin "Kênh chat" page shows each bot's assistant.
+- [x] Tests: a bound bot answers with its assistant; deleting the assistant falls back; binding without
   `CHANNELS_MANAGE` is refused.
 
 ## Verification

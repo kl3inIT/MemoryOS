@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -93,7 +94,7 @@ class ChatTurnServiceTest {
                 .thenAnswer(call -> new ChatTurnPersistence.TerminalOutcome(call.getArgument(2), call.getArgument(4)));
         when(persistence.existing(any(), any(), any(ChatCommand.class))).thenReturn(Optional.empty());
         // The builtin agent allows every tool and every MCP server the actor can use.
-        when(persistence.agent(any(), any())).thenReturn(new ChatTurnPersistence.SessionAgent(new JdbcChatRepository.Persona(
+        when(persistence.agent(any(), any(), anyBoolean())).thenReturn(new ChatTurnPersistence.SessionAgent(new JdbcChatRepository.Persona(
                 "", ChatTurnOptions.DEFAULT, "0", null, List.of(),
                 Set.of("search", "web_search", "image_generation"), null), false, false, false));
         when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any())).thenReturn(pair);

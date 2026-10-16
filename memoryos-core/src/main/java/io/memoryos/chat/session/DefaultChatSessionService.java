@@ -52,17 +52,36 @@ public class DefaultChatSessionService implements ChatSessionService {
     @Override
     @Transactional
     public ChatSession createInChannel(ActorId actor, String title) {
-        return create(actor, title, false, ChatSurface.CHANNEL);
+        return create(actor, title, false, ChatSurface.CHANNEL, null);
+    }
+
+    @Override
+    @Transactional
+    public ChatSession createInChannel(ActorId actor, String title, UUID connection) {
+        return create(actor, title, false, ChatSurface.CHANNEL, connection);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UUID channelPersona(ActorId actor, UUID connection) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
+        return chats.channelPersona(tenant, connection).orElseThrow(ChatException::unavailable);
     }
 
     private ChatSession create(ActorId actor, String title, boolean temporary, ChatSurface surface) {
+        return create(actor, title, temporary, surface, null);
+    }
+
+    private ChatSession create(ActorId actor, String title, boolean temporary, ChatSurface surface,
+                               @Nullable UUID connection) {
         if (title == null || title.isBlank() || title.length() > 200) {
             throw ChatException.invalid("Title must contain 1 to 200 characters.");
         }
         authorization.require(actor, IamCapability.CHAT_WRITE, false);
         var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();
-        var personaId = chats.defaultPersona(tenant).orElseThrow(ChatException::unavailable);
-        return chats.create(tenant, actor, personaId, title.strip(), temporary, surface);
+        var personaId = (connection != null ? chats.channelPersona(tenant, connection)
+                : chats.defaultPersona(tenant)).orElseThrow(ChatException::unavailable);
+        return chats.create(tenant, actor, personaId, title.strip(), temporary, surface, connection);
     }
 
     @Override

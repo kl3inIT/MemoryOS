@@ -11,7 +11,7 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
-/** The sandbox each conversation works in (MEM-270, V179) and the archives of its workspace (V183). */
+/** The sandbox each conversation works in (MEM-270, V179) and the archives of its workspace (V184). */
 @Repository
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 public class JdbcSandboxRepository {

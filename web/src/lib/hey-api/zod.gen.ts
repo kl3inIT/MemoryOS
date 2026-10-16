@@ -1527,6 +1527,11 @@ export const zUpdateChannelTransportRequest = z.object({
     transport: z.enum(['WEBHOOK', 'POLLING'])
 });
 
+export const zChannelAssistantResponse = z.object({
+    id: z.uuid(),
+    name: z.string()
+});
+
 export const zAiUsageLimitRequest = z.object({
     scope: z.enum([
         'TENANT',
@@ -3775,6 +3780,14 @@ export const zAvailableModel = z.object({
     isDefault: z.boolean()
 });
 
+export const zAssistantChannelResponse = z.object({
+    id: z.uuid(),
+    provider: z.enum(['LARK', 'ZALO_BOT']),
+    name: z.string(),
+    botName: z.string().optional(),
+    enabled: z.boolean()
+});
+
 export const zSourceOption = z.object({
     id: z.uuid().optional(),
     name: z.string().optional(),
@@ -4270,6 +4283,10 @@ export const zReplaceChannelSecretRequest = z.object({
     appSecret: z.string().min(0).max(256)
 });
 
+export const zBindChannelAssistantRequest = z.object({
+    personaId: z.uuid().nullish()
+});
+
 export const zChannelResponse = z.object({
     id: z.uuid(),
     provider: z.enum(['LARK', 'ZALO_BOT']),
@@ -4293,6 +4310,7 @@ export const zChannelResponse = z.object({
     failedAt: z.iso.datetime().optional(),
     connectedAt: z.iso.datetime().optional(),
     lastMessageAt: z.iso.datetime().optional(),
+    assistant: zChannelAssistantResponse.optional(),
     revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
     createdAt: z.iso.datetime(),
     updatedAt: z.iso.datetime()
@@ -7714,6 +7732,15 @@ export const zListChatPersonaModelsPath = z.object({
  */
 export const zListChatPersonaModelsResponse = z.array(zAvailableModel);
 
+export const zListAssistantChannelsPath = z.object({
+    personaId: z.uuid()
+});
+
+/**
+ * Bots
+ */
+export const zListAssistantChannelsResponse = z.array(zAssistantChannelResponse);
+
 export const zGetChatPersonaAvatarPath = z.object({
     personaId: z.uuid()
 });
@@ -8616,6 +8643,17 @@ export const zReplaceChannelSecretPath = z.object({
  * Updated bot
  */
 export const zReplaceChannelSecretResponse = zChannelResponse;
+
+export const zBindChannelAssistantBody = zBindChannelAssistantRequest;
+
+export const zBindChannelAssistantPath = z.object({
+    channelId: z.uuid()
+});
+
+/**
+ * Updated bot
+ */
+export const zBindChannelAssistantResponse = zChannelResponse;
 
 export const zUpdateChannelEnabledBody = zUpdateChannelEnabledRequest;
 

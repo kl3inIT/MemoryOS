@@ -46,7 +46,7 @@ import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-/** MEM-270: a conversation's sandbox found, renewed, replaced and bounded through its row (V179); its workspace archived (V183). */
+/** MEM-270: a conversation's sandbox found, renewed, replaced and bounded through its row (V179); its workspace archived (V184). */
 @Testcontainers
 class PostgresSandboxServiceTest {
     private final MutableClock clock = new MutableClock(Instant.parse("2026-10-15T08:00:00Z"));

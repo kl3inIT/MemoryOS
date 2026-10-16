@@ -3,14 +3,25 @@ package io.memoryos.channel;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import io.memoryos.BusinessException;
 import io.memoryos.TestDatabase;
 import io.memoryos.TestDatabase.JpaHarness;
 import io.memoryos.channel.persistence.ChannelCredentialConfiguration;
 import io.memoryos.channel.persistence.JdbcChannelConnectionRepository;
+import io.memoryos.chat.ChatChannelBindings;
+import io.memoryos.chat.ChatException;
+import io.memoryos.chat.ChatPersonaService;
+import io.memoryos.chat.PersonaPermissions;
+import io.memoryos.chat.session.persistence.JdbcChatRepository;
 import io.memoryos.iam.ExternalIdentity;
 import io.memoryos.iam.InitialTenantBootstrapRequest;
 import io.memoryos.iam.InitialTenantBootstrapper;
@@ -33,9 +44,12 @@ import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -60,6 +74,8 @@ class PostgresChannelConnectionTest {
     private JdbcClient jdbc;
     private ChannelConnectionService channels;
     private final Platform platform = new Platform();
+    private final ChatPersonaService personas = mock(ChatPersonaService.class);
+    private ChatChannelBindings bindings;
     private ActorId owner;
     private ActorId member;
 
@@ -92,6 +108,7 @@ class PostgresChannelConnectionTest {
         });
         var accounts = new DefaultServiceAccounts(tenants, locks, identities, new JpaActorProfileRecorder(jpa.entityManager()),
                 memberships, groups);
+        bindings = new ChatChannelBindings(new JdbcChatRepository(jdbc));
         channels = TestDatabase.transactionalProxy(new ChannelConnectionService(
                         new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), locks),
                         new JdbcChannelConnectionRepository(jdbc),
@@ -99,7 +116,7 @@ class PostgresChannelConnectionTest {
                         accounts,
                         TestDatabase.audit(jdbc, jpa.transactionManager()),
                         new ChannelAdapters(List.of(platform)),
-                        jpa.transactionManager()),
+                        jpa.transactionManager(), personas, bindings),
                 ChannelConnectionService.class, jpa.transactionManager());
     }
 
@@ -268,6 +285,86 @@ class PostgresChannelConnectionTest {
         var unconfigured = new ChannelCredentialConfiguration("", "");
         assertEquals("CHANNEL_NOT_CONFIGURED", assertThrows(ChannelException.class,
                 () -> unconfigured.cipher(ChannelProvider.LARK)).code());
+    }
+
+    @Test
+    void aBotIsBoundToAnAssistantByWhoeverManagesBotsAndMayEditIt() {
+        var bot = channels.create(owner, draft("cli_a1b2c3d4e5f6"));
+        UUID hr = assistant("Nhân sự", false, true);
+        UUID finance = assistant("Tài chính", false, true);
+        UUID readOnly = assistant("Pháp chế", false, false);
+        UUID builtin = assistant("MemoryOS", true, true);
+
+        var bound = channels.bindPersona(owner, bot.id(), hr);
+        assertEquals(Optional.of(hr), bindings.bound(TENANT, bot.id()));
+        assertEquals(bot.revision(), channels.get(owner, bot.id()).revision(), "binding leaves the bot's revision as it was");
+        assertEquals(List.of(bound), channels.boundTo(owner, hr));
+        assertEquals(hr, channels.listWithState(owner).getFirst().assistantId());
+        assertEquals("Nhân sự", channels.listWithState(owner).getFirst().assistant());
+
+        // A bot bound elsewhere moves in one step.
+        channels.bindPersona(owner, bot.id(), finance);
+        assertEquals(Optional.of(finance), bindings.bound(TENANT, bot.id()));
+        assertEquals(List.of(), channels.boundTo(owner, hr));
+
+        assertEquals("CHANNEL_ASSISTANT_NOT_EDITABLE", code(() -> channels.bindPersona(owner, bot.id(), readOnly)));
+        assertEquals("CHANNEL_NOT_FOUND", code(() -> channels.bindPersona(owner, UUID.randomUUID(), hr)));
+        // Without the capability to manage bots nothing is bound, whatever the assistant.
+        assertThrows(BusinessException.class, () -> channels.bindPersona(member, bot.id(), hr));
+        when(personas.get(any(), eq(hr))).thenThrow(ChatException.unavailable());
+        assertEquals("CHAT_UNAVAILABLE", code(() -> channels.bindPersona(owner, bot.id(), hr)));
+
+        // The built-in assistant is no binding.
+        channels.bindPersona(owner, bot.id(), builtin);
+        assertEquals(Optional.empty(), bindings.bound(TENANT, bot.id()));
+        assertNull(channels.listWithState(owner).getFirst().assistant());
+        assertEquals(List.of("channel.create", "channel.update", "channel.update", "channel.update"), actions());
+    }
+
+    @Test
+    void movingABotAlsoTakesEditRightsOnTheAssistantItLeaves() {
+        var bot = channels.create(owner, draft("cli_a1b2c3d4e5f6"));
+        UUID legal = assistant("Pháp chế", false, false);
+        UUID hr = assistant("Nhân sự", false, true);
+        bindings.bind(TENANT, bot.id(), legal);
+
+        assertEquals("CHANNEL_ASSISTANT_NOT_EDITABLE", code(() -> channels.bindPersona(owner, bot.id(), hr)));
+        assertEquals("CHANNEL_ASSISTANT_NOT_EDITABLE", code(() -> channels.bindPersona(owner, bot.id(), null)));
+        assertEquals(Optional.of(legal), bindings.bound(TENANT, bot.id()), "the bot stays where it was");
+    }
+
+    @Test
+    void removingABotOrItsAssistantRowClearsTheBinding() {
+        var bot = channels.create(owner, draft("cli_a1b2c3d4e5f6"));
+        var other = channels.create(owner, draft("cli_b7c3e9f1a2d4c6e8"));
+        UUID hr = assistant("Nhân sự", false, true);
+        channels.bindPersona(owner, bot.id(), hr);
+        channels.bindPersona(owner, other.id(), hr);
+        channels.delete(owner, other.id(), channels.get(owner, other.id()).revision());
+        assertEquals(Optional.empty(), bindings.bound(TENANT, other.id()));
+        jdbc.sql("DELETE FROM persona WHERE id = :id").param("id", hr).update();
+        assertEquals(Optional.empty(), bindings.bound(TENANT, bot.id()));
+    }
+
+    /** An assistant as Chat reports it to the caller; its row exists so the binding's key holds. */
+    private UUID assistant(String name, boolean builtin, boolean editable) {
+        UUID id = UUID.randomUUID();
+        if (!builtin) jdbc.sql("INSERT INTO persona(id, tenant_id, name, instructions) VALUES (:id, :tenant, :name, '')")
+                .param("id", id).param("tenant", TENANT.value()).param("name", name).update();
+        var view = mock(ChatPersonaService.PersonaView.class);
+        when(view.id()).thenReturn(id);
+        when(view.builtin()).thenReturn(builtin);
+        when(view.permissions()).thenReturn(new PersonaPermissions(editable, editable, false, editable, false, false, false));
+        when(personas.get(any(), eq(id))).thenReturn(view);
+        doAnswer(call -> {
+            var names = new HashMap<UUID, String>();
+            for (UUID candidate : call.<Collection<UUID>>getArgument(1)) {
+                jdbc.sql("SELECT name FROM persona WHERE id = :id AND builtin_key IS NULL").param("id", candidate)
+                        .query(String.class).optional().ifPresent(found -> names.put(candidate, found));
+            }
+            return names;
+        }).when(personas).names(any(), any());
+        return id;
     }
 
     private List<String> actions() {
