@@ -398,11 +398,25 @@ class PostgresChannelConnectionTest {
         assertEquals("CHANNEL_INVALID", code(() -> channels.labelGroup(owner, bot.id(), "oc_hr", "x".repeat(101))));
         assertEquals("CHANNEL_GROUP_NOT_FOUND", code(() -> channels.labelGroup(owner, bot.id(), "oc_unknown", "x")));
 
+        bindings.bindGroup(TENANT, bot.id(), "oc_board", hr);
         channels.forgetGroup(owner, bot.id(), "oc_board");
         assertEquals(Optional.empty(), bindings.groupBound(TENANT, bot.id(), "oc_board"), "forgetting drops the group's assistant");
         assertEquals(List.of("oc_hr"), channels.groups(owner, bot.id()).stream().map(group -> group.group().chatId()).toList());
         assertEquals(List.of("channel.create", "channel.update", "channel.update", "channel.update", "channel.update",
                 "channel.update", "channel.update"), actions());
+    }
+
+    @Test
+    void forgettingAGroupAlsoTakesEditRightsOnTheAssistantItWasGiven() {
+        var bot = channels.create(owner, draft("cli_a1b2c3d4e5f6"));
+        UUID legal = assistant("Pháp chế", false, false);
+        channelGroups.seen(TENANT, bot.id(), "oc_board", "Ban Giám đốc", Instant.parse("2026-10-17T02:00:00Z"));
+        bindings.bindGroup(TENANT, bot.id(), "oc_board", legal);
+
+        assertEquals("CHANNEL_ASSISTANT_NOT_EDITABLE", code(() -> channels.forgetGroup(owner, bot.id(), "oc_board")));
+        assertEquals(Optional.of(legal), bindings.groupBound(TENANT, bot.id(), "oc_board"), "the group keeps its assistant");
+        assertTrue(channelGroups.find(TENANT, bot.id(), "oc_board").isPresent(), "and stays known");
+        assertEquals("CHANNEL_GROUP_NOT_FOUND", code(() -> channels.forgetGroup(owner, bot.id(), "oc_unknown")));
     }
 
     @Test

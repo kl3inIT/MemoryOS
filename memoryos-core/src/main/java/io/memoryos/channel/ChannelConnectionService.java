@@ -240,10 +240,7 @@ public class ChannelConnectionService {
         }
         UUID leaving = bindings.bound(tenant, id).orElse(null);
         if (Objects.equals(target, leaving)) return current;
-        if (leaving != null && personas.names(actor, List.of(leaving)).containsKey(leaving)
-                && !personas.get(actor, leaving).permissions().edit()) {
-            throw ChannelException.assistantNotEditable();
-        }
+        requireMayLeave(actor, leaving);
         bindings.bind(tenant, id, target);
         record(actor, tenant, current, target == null ? "assistant-removed" : "assistant");
         return current;
@@ -309,10 +306,7 @@ public class ChannelConnectionService {
         }
         UUID leaving = bindings.groupBound(tenant, id, chatId).orElse(null);
         if (Objects.equals(target, leaving)) return;
-        if (leaving != null && personas.names(actor, List.of(leaving)).containsKey(leaving)) {
-            var left = personas.get(actor, leaving);
-            if (!left.builtin() && !left.permissions().edit()) throw ChannelException.assistantNotEditable();
-        }
+        requireMayLeave(actor, leaving);
         bindings.bindGroup(tenant, id, chatId, target);
         record(actor, tenant, current, target == null ? "group-assistant-removed" : "group-assistant", chatId);
     }
@@ -328,11 +322,16 @@ public class ChannelConnectionService {
         record(actor, tenant, current, "group-label", chatId);
     }
 
-    /** Forgets a group chat and the assistant it was given; it comes back when the bot next answers there. */
+    /**
+     * Forgets a group chat and the assistant it was given; it comes back when the bot next answers there. Taking the
+     * group's assistant away takes edit rights on it while it exists, as {@link #bindGroupPersona} does.
+     */
     @Transactional
     public void forgetGroup(ActorId actor, UUID id, String chatId) {
         var tenant = writer(actor);
         var current = connections.find(tenant, id).orElseThrow(ChannelException::notFound);
+        groups.find(tenant, id, chatId).orElseThrow(ChannelException::groupNotFound);
+        requireMayLeave(actor, bindings.groupBound(tenant, id, chatId).orElse(null));
         if (!groups.forget(tenant, id, chatId)) throw ChannelException.groupNotFound();
         bindings.bindGroup(tenant, id, chatId, null);
         record(actor, tenant, current, "group-forgotten", chatId);
@@ -347,6 +346,16 @@ public class ChannelConnectionService {
         accounts.retire(tenant, current.serviceAccount());
         audit.record(AuditRecord.of(AuditAction.CHANNEL_DELETE, tenant).actor(actor)
                 .resource("CHANNEL", id, current.name()).detail("provider", current.provider().name()).build());
+    }
+
+    /**
+     * A bot or group may leave the assistant it answers with only for someone who may edit it: the built-in one and an
+     * assistant the actor can no longer see take none.
+     */
+    private void requireMayLeave(ActorId actor, @Nullable UUID leaving) {
+        if (leaving == null || !personas.names(actor, List.of(leaving)).containsKey(leaving)) return;
+        var left = personas.get(actor, leaving);
+        if (!left.builtin() && !left.permissions().edit()) throw ChannelException.assistantNotEditable();
     }
 
     private TenantId reader(ActorId actor) {

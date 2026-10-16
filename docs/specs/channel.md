@@ -100,7 +100,8 @@ Direct messages always answer with the default.
   `CHANNEL_GROUP_NOT_FOUND`), and edit rights on the assistant the group goes to and on the one it leaves while that
   one exists (`CHANNEL_ASSISTANT_NOT_EDITABLE`); the built-in assistant is everyone's and takes none, and may be a
   group's own assistant in place of a custom default. `null` returns the group to the default. Labelling
-  (`labelGroup`) and forgetting (`forgetGroup`) take `CHANNELS_MANAGE`.
+  (`labelGroup`) takes `CHANNELS_MANAGE`; forgetting (`forgetGroup`) takes it and, as it removes the group's
+  assistant, the edit rights leaving it takes. The bot and its groups check the assistant they leave in one place.
 
 ### The administrator's API
 
