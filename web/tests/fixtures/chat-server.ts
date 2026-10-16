@@ -570,7 +570,8 @@ export async function handleChatFixture(
       const input = await body(request);
       if (input.projectId && !projects.has(input.projectId)) json(response, {}, 404);
       else {
-        const created = create(input.title, undefined, input.personaId).session;
+        // A test may name a fixture mode (such as "grounded") on the request it lets through.
+        const created = create(input.title, input.mode, input.personaId).session;
         created.projectId = input.projectId ?? null;
         created.temporary = input.temporary === true;
         json(response, created, 201);

@@ -445,10 +445,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           <ShellBarTitleSetter value={setSlotTitle}>
             <ShellBarTitle value={barTitle ?? slotTitle}>
               <ShellBarTitleClaim value={pageTitle === undefined ? null : setClaimedTitle}>
+                {/* Positioned, so an absolutely placed descendant (a switch's hidden input, an sr-only label)
+                    overflows into this scroller rather than into the frame around the header. */}
                 <main
                   id="main-content"
                   tabIndex={-1}
-                  className="min-h-0 min-w-0 flex-1 scrollbar-stable overflow-auto outline-none"
+                  className="relative min-h-0 min-w-0 flex-1 scrollbar-stable overflow-auto outline-none"
                 >
                   {children}
                 </main>

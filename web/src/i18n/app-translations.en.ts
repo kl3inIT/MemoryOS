@@ -1439,15 +1439,12 @@ export const vietnameseUi: Record<string, string> = {
   "Dùng model mặc định của tổ chức": "Use the organization's default model",
   "Gửi kèm mỗi câu hỏi, dùng cho quy tắc ngắn mà trợ lý hay quên.":
     "Sent with every question, for short rules the assistant tends to forget.",
-  "Hiện dưới ô chat để người dùng bấm hỏi ngay.":
-    "Shown under the chat box so people can ask with one click.",
   "Hỏi {{v1}}…": "Ask {{v1}}…",
   "Không tìm thấy nguồn.": "No sources found.",
   "Lượng hội thoại và tài liệu tối đa gửi cho model.":
     "Maximum conversation and document context sent to the model.",
   "Model và giới hạn token. Để trống để dùng giới hạn của model.":
     "Model and token limits. Leave empty to use the model's limits.",
-  "Người dùng vẫn đổi được model khi chat.": "People can still change the model while chatting.",
   "Rời trang": "Leave page",
   "Tạo nhãn “{{v1}}”": "Create label “{{v1}}”",
   // MEM-273: an assistant's title, greeting and reasoning level
@@ -1466,7 +1463,6 @@ export const vietnameseUi: Record<string, string> = {
   "Chưa có thay đổi": "No changes yet",
   "Không còn khả dụng (đang giữ lựa chọn)": "No longer available (choice kept)",
   "Không tải được tài liệu.": "Could not load the documents.",
-  "Tìm trong mọi tài liệu người dùng được phép đọc": "Searches every document the person can read",
   "Xem thêm {{n}} tài liệu": "Show {{n}} more documents",
   "Thêm tài liệu": "Add documents",
   "Tệp trong Thư viện": "Files in the Library",
