@@ -109,7 +109,7 @@ class ZaloChannelAdapterTest {
     private static ChannelConnection connection(Map<String, String> settings) {
         return new ChannelConnection(UUID.fromString("0af099b0-b70f-455d-af56-a05a53bbc7c5"), ChannelProvider.ZALO_BOT,
                 "Bot MemoryOS", "1234567890", settings, "vi", true, new ActorId(UUID.randomUUID()), 3, Instant.EPOCH,
-                Instant.EPOCH, null, "Bot MemoryOS", "1234567890", List.of(), null);
+                Instant.EPOCH, null, "Bot MemoryOS", "1234567890", List.of());
     }
 
     private static String code(Runnable action) {

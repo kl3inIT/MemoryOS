@@ -20,17 +20,17 @@ public interface ChatSessionService {
     ChatSession createInChannel(ActorId actor, String title);
 
     /**
-     * A conversation held in a channel with the assistant its bot answers with ({@link #channelPersona}). The channel
-     * that binds the assistant decides who may ask it, so the conversation's owner need not be able to use it
-     * elsewhere; the documents a turn reads are still the owner's own (MEM-273).
+     * A conversation held in a channel, asked through the bot {@code connection}, with the assistant the bot answers
+     * with ({@link #channelPersona}). While the bot stays bound to that assistant, questions asked through it may use
+     * the assistant even if the owner may not elsewhere; the documents a turn reads are still the owner's own (MEM-273).
      */
-    ChatSession createInChannel(ActorId actor, String title, @Nullable UUID boundPersona);
+    ChatSession createInChannel(ActorId actor, String title, UUID connection);
 
     /**
-     * The assistant a bot bound to {@code boundPersona} answers with: that assistant while it exists in the actor's
-     * Tenant and is not deleted, else the Tenant's built-in assistant.
+     * The assistant the bot {@code connection} answers with: the live custom assistant it is bound to, else the
+     * Tenant's built-in assistant ({@link ChatChannelBindings}).
      */
-    UUID channelPersona(ActorId actor, @Nullable UUID boundPersona);
+    UUID channelPersona(ActorId actor, UUID connection);
     /** {@code archived} lists the conversations the owner archived instead of the ones on the sidebar. */
     default List<ChatSession> list(ActorId actor, boolean archived, int offset, int limit) {
         return list(actor, archived, null, offset, limit);

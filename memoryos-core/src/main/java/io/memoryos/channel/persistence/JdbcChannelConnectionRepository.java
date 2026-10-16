@@ -30,8 +30,7 @@ public class JdbcChannelConnectionRepository {
     private static final JsonMapper JSON = JsonMapper.builder().build();
     private static final TypeReference<Map<String, String>> SETTINGS = new TypeReference<>() {};
     private static final String COLUMNS = "id, provider, name, app_id, settings::text AS settings, notice_language, enabled, "
-            + "service_account_id, revision, created_at, updated_at, organisation_key, bot_name, bot_external_id, missing_scopes, "
-            + "persona_id";
+            + "service_account_id, revision, created_at, updated_at, organisation_key, bot_name, bot_external_id, missing_scopes";
     private final JdbcClient jdbc;
 
     public JdbcChannelConnectionRepository(JdbcClient jdbc) {
@@ -197,33 +196,6 @@ public class JdbcChannelConnectionRepository {
                 .query(JdbcChannelConnectionRepository::connection).optional();
     }
 
-    /**
-     * Binds the bot to an assistant, or to none. The revision stays: the bot's transport is unchanged, and the
-     * assistant is read again for each question (MEM-273).
-     */
-    public Optional<ChannelConnection> bindPersona(TenantId tenant, UUID id, @Nullable UUID persona) {
-        return jdbc.sql("""
-                        UPDATE channel_connections SET persona_id = :persona, updated_at = now()
-                        WHERE tenant_id = :tenant AND id = :id
-                        RETURNING\s""" + COLUMNS)
-                .param("persona", persona, Types.OTHER).param("tenant", tenant.value()).param("id", id)
-                .query(JdbcChannelConnectionRepository::connection).optional();
-    }
-
-    /** The Tenant's bots bound to one assistant, oldest first. */
-    public List<ChannelConnection> boundTo(TenantId tenant, UUID persona) {
-        return jdbc.sql("SELECT " + COLUMNS + " FROM channel_connections WHERE tenant_id = :tenant AND persona_id = :persona "
-                        + "ORDER BY created_at, id")
-                .param("tenant", tenant.value()).param("persona", persona)
-                .query(JdbcChannelConnectionRepository::connection).list();
-    }
-
-    /** The assistant a bot is bound to now, read for each question so a new binding applies at once. */
-    public Optional<UUID> personaOf(UUID id) {
-        return jdbc.sql("SELECT persona_id FROM channel_connections WHERE id = :id AND persona_id IS NOT NULL")
-                .param("id", id).query(UUID.class).optional();
-    }
-
     /** False when the bot is gone or its revision moved on. */
     public boolean delete(TenantId tenant, UUID id, long revision) {
         return jdbc.sql("DELETE FROM channel_connections WHERE tenant_id = :tenant AND id = :id AND revision = :revision")
@@ -237,6 +209,6 @@ public class JdbcChannelConnectionRepository {
                 new ActorId(row.getObject("service_account_id", UUID.class)), row.getLong("revision"),
                 row.getTimestamp("created_at").toInstant(), row.getTimestamp("updated_at").toInstant(),
                 row.getString("organisation_key"), row.getString("bot_name"), row.getString("bot_external_id"),
-                scopes(row.getString("missing_scopes")), row.getObject("persona_id", UUID.class));
+                scopes(row.getString("missing_scopes")));
     }
 }

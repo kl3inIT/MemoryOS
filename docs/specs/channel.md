@@ -12,8 +12,8 @@ name the administrator gives it, the provider's id of its app (a Zalo bot's is t
 the provider's public settings of it (`settings`, JSON; a Lark bot's names its region, `LARK` or `FEISHU`, a Zalo
 bot's how it receives, `WEBHOOK` or `POLLING`, each of which the database requires), the app's secret as an AES-GCM
 envelope, the language of the bot's own notices (`vi` or `en`), whether it is switched on, the service account it
-owns, a revision, what the platform said at the last check: the bot's name and id and the scopes it refused, and the
-assistant it answers with (`persona_id`, see [the bot's assistant](#the-bots-assistant)). One provider app serves one
+owns, a revision, and what the platform said at the last check: the bot's name and id and the scopes it refused. The
+assistant it answers with is Chat's binding ([the bot's assistant](#the-bots-assistant)). One provider app serves one
 bot across every Tenant: the provider and the app's id are unique.
 
 `ChannelConnectionService` lists, reads, adds, switches on or off, replaces the secret of, changes the settings of
@@ -54,24 +54,28 @@ the Tenant's exclusive authority lock and checks the revision it was given (`CHA
 ### The bot's assistant
 
 A bot answers with one assistant and an assistant may have many bots, as LobeHub (`agentBotProvider`), GoClaw
-(`ChannelInstance.agent_id`) and OpenClaw (`bindings`) bind a channel to one agent (MEM-273). `persona_id` is null
-for a bot that answers with the Tenant's built-in assistant; the foreign key clears it when the assistant row is
-removed, and a deleted assistant counts as none.
+(`ChannelInstance.agent_id`) and OpenClaw (`bindings`) bind a channel to one agent (MEM-273). The binding is Chat's
+(`chat_channel_binding`, through `ChatChannelBindings`), because Chat decides for each turn whether a conversation held
+in a channel may still use the bot's assistant. A bot without a row answers with the Tenant's built-in assistant;
+removing the assistant row removes the binding, removing the bot removes it too, and a deleted assistant counts as
+none.
 
-- **Binding** (`bindPersona`) takes `CHANNELS_MANAGE` and edit rights on the assistant (else
-  `CHANNEL_ASSISTANT_NOT_EDITABLE`; an assistant the caller cannot use is `CHAT_UNAVAILABLE`), since binding decides
-  who may ask it. A bot bound to another assistant moves in the same step; choosing the built-in assistant unbinds.
-  Unbinding takes edit rights on the assistant it leaves while that one exists. Binding keeps the revision and does
-  not reopen the bot: the assistant is read again for each question.
+- **Binding** (`bindPersona`) takes `CHANNELS_MANAGE` and edit rights on the assistant the bot goes to and on the one
+  it leaves while that one exists (else `CHANNEL_ASSISTANT_NOT_EDITABLE`; an assistant the caller cannot use is
+  `CHAT_UNAVAILABLE`), since binding decides who may ask an assistant. A bot bound to another assistant moves in the
+  same step; choosing the built-in assistant unbinds. Binding keeps the revision and does not reopen the bot: the
+  assistant is read again for each question.
 - **Reading** (`boundTo`) lists the bots of an assistant to anyone who may use it, without app, secret or account.
-- **Answering.** A new conversation is created with `ChatSessionService.createInChannel(actor, title, persona)`, which
-  holds it with the bound assistant while that one is live and else with the built-in one
-  (`ChatSessionService.channelPersona`). A conversation held in a channel admits its owner's turns with that assistant
-  whether or not the owner may use the assistant elsewhere, as Onyx's Slack bot answers with its configured persona;
-  the documents a turn reads stay the owner's own: Sources, Document Sets and search are resolved for the sender, or
-  for the bot's account in a group, and the assistant's files are read only by someone who may use the assistant. A
-  conversation held with another assistant than the bot answers with now is not continued, so moving a bot starts its
-  conversations over.
+- **Answering.** A new conversation is created with `ChatSessionService.createInChannel(actor, title, bot)`, which
+  records the bot on it and holds it with the bot's live assistant, else the built-in one
+  (`ChatSessionService.channelPersona`). A question asked through the bot runs with that assistant while the bot is
+  still bound to it, whether or not the sender may use the assistant elsewhere, as Onyx's Slack bot answers with its
+  configured persona; moving or unbinding the bot ends that at once, and the same conversation continued from the
+  web needs the owner to be able to use the assistant (`CHAT_UNAVAILABLE`). The documents a turn reads stay the
+  sender's own: Sources, Document Sets and search are resolved for the sender, or for the bot's account in a group,
+  and the assistant's files are read only by someone who may use the assistant. A conversation held with another
+  assistant than the bot answers with now is not continued, so moving a bot starts its conversations over. A bot
+  switched off receives nothing, so its binding admits no channel turn.
 
 ### The administrator's API
 

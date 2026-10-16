@@ -65,16 +65,17 @@ class ChannelTurnsTest {
     @Test
     void aConversationContinuesOnlyWithTheAssistantTheBotAnswersWithNow() {
         UUID hr = UUID.randomUUID();
-        UUID builtin = UUID.randomUUID();
+        UUID bound = UUID.randomUUID();
+        UUID moved = UUID.randomUUID();
         var held = new ChatSession(session, hr, UUID.randomUUID(), "Leave", Instant.now(), Instant.now(), null, null, null,
                 null, null, false, false);
         when(sessions.get(actor, session)).thenReturn(held);
-        when(sessions.channelPersona(actor, hr)).thenReturn(hr);
-        when(sessions.channelPersona(actor, null)).thenReturn(builtin);
+        when(sessions.channelPersona(actor, bound)).thenReturn(hr);
+        when(sessions.channelPersona(actor, moved)).thenReturn(UUID.randomUUID());
 
-        assertTrue(turns.continues(actor, session, hr));
-        assertFalse(turns.continues(actor, session, null), "a bot unbound from the assistant starts over");
+        assertTrue(turns.continues(actor, session, bound));
+        assertFalse(turns.continues(actor, session, moved), "a bot moved to another assistant starts over");
         when(sessions.get(actor, session)).thenThrow(ChatException.unavailable());
-        assertFalse(turns.continues(actor, session, hr), "another person's or a deleted conversation is not continued");
+        assertFalse(turns.continues(actor, session, bound), "another person's or a deleted conversation is not continued");
     }
 }

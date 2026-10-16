@@ -50,8 +50,8 @@ public record ChannelResponse(
                 ChannelDelivery.of(bot.settings()).orElse(null), bot.appId(), bot.noticeLanguage(),
                 bot.enabled(), bot.serviceAccount().value(), bot.botName(), bot.missingScopes(), listed.status(),
                 state.failureCode(), state.failedAt(), state.openedAt(), state.lastMessageAt(),
-                bot.personaId() == null || listed.assistant() == null ? null
-                        : new ChannelAssistantResponse(bot.personaId(), listed.assistant()), bot.revision(),
+                listed.assistantId() == null || listed.assistant() == null ? null
+                        : new ChannelAssistantResponse(listed.assistantId(), listed.assistant()), bot.revision(),
                 bot.createdAt(), bot.updatedAt());
     }
 }

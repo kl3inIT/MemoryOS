@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -160,20 +159,12 @@ class ChannelInboundServiceTest {
     }
 
     @Test
-    void aQuestionIsAskedOfTheAssistantTheBotIsBoundToAtThatMoment() throws Exception {
+    void aQuestionIsAskedThroughItsBotWhoseAssistantChatLooksUpForEachQuestion() throws Exception {
         adapter.emails.put("ou_ha", "ha@tasco.vn");
         service.receive(direct("m1", "ou_ha", "Leave policy?", null));
-        verify(turns).ask(eq(ha), any(), any(), any(), any(), any(), isNull(), any(), any(), any());
-
-        // Binding takes effect from the next question, without the bot being opened again.
-        UUID hr = UUID.randomUUID();
-        jdbc.sql("INSERT INTO persona(id,tenant_id,name,instructions) VALUES(:id,:tenant,'HR','')")
-                .param("id", hr).param("tenant", tenant.value()).update();
-        jdbc.sql("UPDATE channel_connections SET persona_id = :persona WHERE id = :id")
-                .param("persona", hr).param("id", connection).update();
         service.receive(direct("m2", "ou_ha", "And for interns?", null));
-        verify(turns).ask(eq(ha), any(), eq("And for interns?"), any(), any(), any(), eq(hr), any(), any(), any());
-        verify(turns).continues(eq(ha), eq(session("m1")), eq(hr));
+        verify(turns).ask(eq(ha), any(), eq("Leave policy?"), any(), any(), any(), eq(connection), any(), any(), any());
+        verify(turns).continues(eq(ha), eq(session("m1")), eq(connection));
     }
 
     @Test

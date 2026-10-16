@@ -98,32 +98,73 @@ public class JdbcChatRepository {
     }
 
     /**
-     * The assistant a channel's conversation is held with: {@code bound} while it is a live custom assistant of the
-     * Tenant, else the built-in default (MEM-273).
+     * The assistant a bot answers with: the live custom assistant it is bound to, else the Tenant's built-in one
+     * (MEM-273).
      */
-    public Optional<UUID> channelPersona(TenantId tenant, @Nullable UUID bound) {
-        if (bound != null) {
-            var found = jdbc.sql("""
-                            SELECT id FROM persona
-                            WHERE tenant_id=:tenant AND id=:id AND deleted_at IS NULL AND builtin_key IS NULL
-                            """)
-                    .param("tenant", tenant.value()).param("id", bound).query(UUID.class).optional();
-            if (found.isPresent()) return found;
+    public Optional<UUID> channelPersona(TenantId tenant, UUID connection) {
+        var bound = jdbc.sql("""
+                        SELECT p.id FROM chat_channel_binding b
+                        JOIN persona p ON p.tenant_id = b.tenant_id AND p.id = b.persona_id
+                        WHERE b.tenant_id = :tenant AND b.connection_id = :connection
+                          AND p.deleted_at IS NULL AND p.builtin_key IS NULL
+                        """)
+                .param("tenant", tenant.value()).param("connection", connection).query(UUID.class).optional();
+        return bound.isPresent() ? bound : defaultPersona(tenant);
+    }
+
+    /** The custom assistant a bot is bound to, deleted or not; empty when it is bound to none. */
+    public Optional<UUID> boundPersona(TenantId tenant, UUID connection) {
+        return jdbc.sql("SELECT persona_id FROM chat_channel_binding WHERE tenant_id = :tenant AND connection_id = :connection")
+                .param("tenant", tenant.value()).param("connection", connection).query(UUID.class).optional();
+    }
+
+    /** Every bot of the Tenant bound to an assistant, with the assistant. */
+    public Map<UUID, UUID> channelBindings(TenantId tenant) {
+        var bindings = new LinkedHashMap<UUID, UUID>();
+        jdbc.sql("SELECT connection_id, persona_id FROM chat_channel_binding WHERE tenant_id = :tenant ORDER BY bound_at, connection_id")
+                .param("tenant", tenant.value())
+                .query((row, ignored) -> bindings.put(row.getObject(1, UUID.class), row.getObject(2, UUID.class))).list();
+        return bindings;
+    }
+
+    /** Binds a bot to a custom assistant of the Tenant, or to none; returns whether the binding changed. */
+    public boolean bindChannel(TenantId tenant, UUID connection, @Nullable UUID persona) {
+        if (persona == null) {
+            return jdbc.sql("DELETE FROM chat_channel_binding WHERE tenant_id = :tenant AND connection_id = :connection")
+                    .param("tenant", tenant.value()).param("connection", connection).update() > 0;
         }
-        return defaultPersona(tenant);
+        return jdbc.sql("""
+                        INSERT INTO chat_channel_binding (tenant_id, connection_id, persona_id)
+                        VALUES (:tenant, :connection, :persona)
+                        ON CONFLICT (connection_id) DO UPDATE SET persona_id = EXCLUDED.persona_id, bound_at = now()
+                        WHERE chat_channel_binding.tenant_id = EXCLUDED.tenant_id
+                          AND chat_channel_binding.persona_id <> EXCLUDED.persona_id
+                        """)
+                .param("tenant", tenant.value()).param("connection", connection).param("persona", persona).update() > 0;
+    }
+
+    /** Whether the session is held in a channel. */
+    public boolean heldInChannel(UUID session) {
+        return jdbc.sql("SELECT surface = 'CHANNEL' FROM chat_session WHERE id = :session")
+                .param("session", session).query(Boolean.class).optional().orElse(false);
     }
 
     public ChatSession create(TenantId tenant, ActorId actor, UUID personaId, String title, boolean temporary,
                               ChatSurface surface) {
+        return create(tenant, actor, personaId, title, temporary, surface, null);
+    }
+
+    public ChatSession create(TenantId tenant, ActorId actor, UUID personaId, String title, boolean temporary,
+                              ChatSurface surface, @Nullable UUID connection) {
         UUID id = UUID.randomUUID();
         UUID root = UUID.randomUUID();
         var session = jdbc.sql("""
                         INSERT INTO chat_session(id, tenant_id, owner_actor_id, persona_id, root_message_id, title,
-                                                 temporary, surface)
-                        VALUES (:id, :tenant, :actor, :persona, :root, :title, :temporary, :surface)
+                                                 temporary, surface, channel_connection_id)
+                        VALUES (:id, :tenant, :actor, :persona, :root, :title, :temporary, :surface, :connection)
                         RETURNING *, FALSE AS reply_running
                         """).param("id", id).param("tenant", tenant.value()).param("actor", actor.value())
-                .param("surface", surface.name())
+                .param("surface", surface.name()).param("connection", connection, Types.OTHER)
                 .param("persona", personaId).param("root", root).param("title", title).param("temporary", temporary)
                 .query(JdbcChatRepository::session).single();
         jdbc.sql("""
@@ -497,11 +538,15 @@ public class JdbcChatRepository {
 
     /**
      * Who may run a turn with the session's agent: whoever may use it, or the owner of a conversation held in a
-     * channel, whose bot was bound to that agent by someone allowed to (MEM-273). The documents the turn reads stay
-     * the owner's own: Sources and Document Sets are resolved for {@code s.owner_actor_id} below and in retrieval.
+     * channel while the bot it was asked through is still bound to that agent, a binding only someone who may edit
+     * the agent makes (MEM-273). Unbinding or moving the bot ends it. The documents the turn reads stay the owner's
+     * own: Sources and Document Sets are resolved for {@code s.owner_actor_id} below and in retrieval.
      */
-    private static final String CHANNEL_OR_USES = "(s.surface = 'CHANNEL' OR "
-            + AgentAccessSql.USES.replace(":actor", "s.owner_actor_id") + ")";
+    private static final String CHANNEL_OR_USES = """
+            (%s OR (s.surface = 'CHANNEL' AND EXISTS (
+                SELECT 1 FROM chat_channel_binding channel_binding
+                WHERE channel_binding.tenant_id = s.tenant_id AND channel_binding.connection_id = s.channel_connection_id
+                  AND channel_binding.persona_id = p.id)))""".formatted(AgentAccessSql.USES.replace(":actor", "s.owner_actor_id"));
 
     /** The session, its agent and its Project, as {@link #persona} and {@link #personaRevision} read them. */
     private static final String SESSION_AGENT = """

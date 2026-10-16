@@ -57,15 +57,15 @@ public class DefaultChatSessionService implements ChatSessionService {
 
     @Override
     @Transactional
-    public ChatSession createInChannel(ActorId actor, String title, @Nullable UUID boundPersona) {
-        return create(actor, title, false, ChatSurface.CHANNEL, boundPersona);
+    public ChatSession createInChannel(ActorId actor, String title, UUID connection) {
+        return create(actor, title, false, ChatSurface.CHANNEL, connection);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public UUID channelPersona(ActorId actor, @Nullable UUID boundPersona) {
+    public UUID channelPersona(ActorId actor, UUID connection) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
-        return chats.channelPersona(tenant, boundPersona).orElseThrow(ChatException::unavailable);
+        return chats.channelPersona(tenant, connection).orElseThrow(ChatException::unavailable);
     }
 
     private ChatSession create(ActorId actor, String title, boolean temporary, ChatSurface surface) {
@@ -73,15 +73,15 @@ public class DefaultChatSessionService implements ChatSessionService {
     }
 
     private ChatSession create(ActorId actor, String title, boolean temporary, ChatSurface surface,
-                               @Nullable UUID boundPersona) {
+                               @Nullable UUID connection) {
         if (title == null || title.isBlank() || title.length() > 200) {
             throw ChatException.invalid("Title must contain 1 to 200 characters.");
         }
         authorization.require(actor, IamCapability.CHAT_WRITE, false);
         var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();
-        var personaId = (surface == ChatSurface.CHANNEL ? chats.channelPersona(tenant, boundPersona)
+        var personaId = (connection != null ? chats.channelPersona(tenant, connection)
                 : chats.defaultPersona(tenant)).orElseThrow(ChatException::unavailable);
-        return chats.create(tenant, actor, personaId, title.strip(), temporary, surface);
+        return chats.create(tenant, actor, personaId, title.strip(), temporary, surface, connection);
     }
 
     @Override

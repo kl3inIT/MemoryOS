@@ -209,9 +209,9 @@ class ChannelApiTest {
         var bot = new ChannelConnection(id, ChannelProvider.LARK, "Trợ lý", "cli_a1b2c3d4e5f6",
                 Map.of(ChannelRegion.SETTING, "LARK"), "vi",
                 enabled, new ActorId(UUID.randomUUID()), 3, Instant.now(), Instant.now(), null, "MemoryOS Bot", "ou_bot",
-                List.of("contact:user.email:readonly"), null);
+                List.of("contact:user.email:readonly"));
         var state = new ChannelConnectionState(Instant.now(), null, null, null, Instant.now());
-        return new Listed(bot, state, status, null);
+        return new Listed(bot, state, status, null, null);
     }
 
     @Test
@@ -240,9 +240,9 @@ class ChannelApiTest {
         var plain = listed(id, true, Listed.Status.CONNECTED);
         var bot = new ChannelConnection(id, ChannelProvider.LARK, "Trợ lý", "cli_a1b2c3d4e5f6",
                 Map.of(ChannelRegion.SETTING, "LARK"), "vi", true, new ActorId(UUID.randomUUID()), 3, Instant.now(),
-                Instant.now(), null, "MemoryOS Bot", "ou_bot", List.of(), hr);
+                Instant.now(), null, "MemoryOS Bot", "ou_bot", List.of());
         when(channels.bindPersona(any(), eq(id), eq(hr))).thenReturn(bot);
-        when(channels.listWithState(any())).thenReturn(List.of(new Listed(bot, plain.state(), Listed.Status.CONNECTED, "Nhân sự")));
+        when(channels.listWithState(any())).thenReturn(List.of(new Listed(bot, plain.state(), Listed.Status.CONNECTED, hr, "Nhân sự")));
         mockMvc.perform(put("/api/channels/{id}/persona", id).with(authentication(owner)).header("X-MemoryOS-CSRF", "1")
                         .contentType(MediaType.APPLICATION_JSON).content("{\"personaId\":\"%s\"}".formatted(hr)))
                 .andExpect(status().isOk())
@@ -320,8 +320,8 @@ class ChannelApiTest {
         var id = UUID.randomUUID();
         var bot = new ChannelConnection(id, ChannelProvider.ZALO_BOT, "Bot Zalo", "1234567890",
                 Map.of(ChannelDelivery.SETTING, "WEBHOOK"), "vi", false, new ActorId(UUID.randomUUID()), 1, Instant.now(),
-                Instant.now(), null, "Bot MemoryOS", "1234567890", List.of(), null);
-        var created = new Listed(bot, ChannelConnectionState.NONE, Listed.Status.OFF, null);
+                Instant.now(), null, "Bot MemoryOS", "1234567890", List.of());
+        var created = new Listed(bot, ChannelConnectionState.NONE, Listed.Status.OFF, null, null);
         when(channels.create(any(), any())).thenReturn(bot);
         when(channels.listWithState(any())).thenReturn(List.of(created));
         when(channels.test(any(), eq(ChannelProvider.ZALO_BOT), eq(new ChannelCredentials(null, token, Map.of()))))

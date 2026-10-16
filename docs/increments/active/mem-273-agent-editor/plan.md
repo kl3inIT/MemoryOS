@@ -49,7 +49,8 @@ owner checks the editor on staging after the third.
 
 ## 4. Channels
 
-- [x] Migration V183 (V182 was taken): `channel_connections.persona_id` with `ON DELETE SET NULL (persona_id)`.
+- [x] Migration V183 (V182 was taken): Chat's `chat_channel_binding` (bot → assistant, removed with the assistant)
+  and `chat_session.channel_connection_id`; a channel turn uses the assistant only while its bot is still bound.
 - [x] `ChannelTurns` uses the bound assistant, else the built-in one.
 - [x] `PUT /api/channels/{id}/persona`, channel responses with the assistant, `GET /api/chat/personas/{id}/channels`;
   `CHANNELS_MANAGE` plus edit rights to bind.

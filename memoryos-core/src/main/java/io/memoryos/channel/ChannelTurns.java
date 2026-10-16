@@ -40,9 +40,9 @@ class ChannelTurns {
      * Whether the session is the actor's to continue: another person's, or a deleted one, is not, and neither is one
      * held with another assistant than the bot answers with now, so moving a bot starts its conversations over.
      */
-    boolean continues(ActorId actor, UUID session, @Nullable UUID boundPersona) {
+    boolean continues(ActorId actor, UUID session, UUID connection) {
         try {
-            return sessions.get(actor, session).personaId().equals(sessions.channelPersona(actor, boundPersona));
+            return sessions.get(actor, session).personaId().equals(sessions.channelPersona(actor, connection));
         } catch (RuntimeException unavailable) {
             return false;
         }
@@ -55,14 +55,14 @@ class ChannelTurns {
      *
      * @param request one id a question: a question handed over twice is answered once
      * @param channel where it was asked, which the answer model is told
-     * @param boundPersona the assistant the bot is bound to, for a new session; null for the built-in one
+     * @param connection the bot it was asked through, whose assistant a new session is held with
      * @param onAccepted called once the question is accepted; it opens the reply and returns where the answer's
      *        text goes as it is written, while the turn is already being prepared
      */
     Answer ask(ActorId actor, @Nullable UUID session, String title, UUID request, String text, ChatChannel channel,
-               @Nullable UUID boundPersona, Duration wait, Runnable onWaiting, Supplier<Consumer<String>> onAccepted)
+               UUID connection, Duration wait, Runnable onWaiting, Supplier<Consumer<String>> onAccepted)
             throws InterruptedException {
-        UUID conversation = session != null ? session : sessions.createInChannel(actor, title, boundPersona).id();
+        UUID conversation = session != null ? session : sessions.createInChannel(actor, title, connection).id();
         var accepted = accept(actor, conversation, request, text, channel, wait, onWaiting);
         Consumer<String> onText = onAccepted.get();
         try (var reader = turns.subscribe(actor, conversation, accepted.assistantMessageId(), 0).get()) {
