@@ -31,11 +31,14 @@ public record ChatSessionResponse(
         @Nullable UUID branchedFromMessageId,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
                 description = "A temporary conversation: listed nowhere, and deleted with its uploads after its window")
-        boolean temporary) {
+        boolean temporary,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "An answer is being written in it")
+        boolean replyRunning) {
     public static ChatSessionResponse from(ChatSession session) {
         return new ChatSessionResponse(session.id(), session.personaId(), session.rootMessageId(), session.title(),
                 session.createdAt(), session.updatedAt(), session.projectId(),
                 session.reasoningEffort() == null ? null : session.reasoningEffort().name(), session.archivedAt(),
-                session.branchedFromSessionId(), session.branchedFromMessageId(), session.temporary());
+                session.branchedFromSessionId(), session.branchedFromMessageId(), session.temporary(),
+                session.replyRunning());
     }
 }

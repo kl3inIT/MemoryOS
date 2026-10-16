@@ -85,8 +85,11 @@ class ChatSessionController {
     List<ChatSessionResponse> list(@CurrentActor IdentityContext identity,
             @Parameter(description = "List the conversations the caller archived instead of the sidebar's")
             @RequestParam(defaultValue = "false") boolean archived,
+            @Parameter(description = "Only the topics of this assistant")
+            @RequestParam(required = false) @Nullable UUID personaId,
             @RequestParam(defaultValue = "0") int offset, @RequestParam(defaultValue = "30") int limit) {
-        return sessions.list(identity.actorId(), archived, offset, limit).stream().map(ChatSessionResponse::from).toList();
+        return sessions.list(identity.actorId(), archived, personaId, offset, limit).stream()
+                .map(ChatSessionResponse::from).toList();
     }
 
     @PostMapping("/{sessionId}/archive")
@@ -137,9 +140,11 @@ class ChatSessionController {
     @Operation(operationId = "searchChatSessions", summary = "Search owned conversation titles and all saved message versions")
     @ApiResponse(responseCode = "200", description = "Owned matching sessions; opening preserves the selected branch", useReturnTypeSchema = true)
     ChatSessionSearchResponse search(@CurrentActor IdentityContext identity,
-            @RequestParam(defaultValue = "") String query, @RequestParam(defaultValue = "0") int offset,
-            @RequestParam(defaultValue = "20") int limit) {
-        var results = sessions.search(identity.actorId(), query, offset, limit);
+            @RequestParam(defaultValue = "") String query,
+            @Parameter(description = "Only the topics of this assistant")
+            @RequestParam(required = false) @Nullable UUID personaId,
+            @RequestParam(defaultValue = "0") int offset, @RequestParam(defaultValue = "20") int limit) {
+        var results = sessions.search(identity.actorId(), query, personaId, offset, limit);
         return new ChatSessionSearchResponse(results.stream().limit(limit).map(ChatSessionSearchResponse.Item::from).toList(), results.size() > limit);
     }
 

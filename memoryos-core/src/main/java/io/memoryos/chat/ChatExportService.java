@@ -233,7 +233,7 @@ public class ChatExportService {
         var all = new ArrayList<ChatSession>();
         for (boolean archived : List.of(false, true)) {
             for (int offset = 0; offset < MAX_SESSIONS && all.size() < MAX_SESSIONS; offset += 100) {
-                var page = chats.list(tenant, owner, archived, offset, 100);
+                var page = chats.list(tenant, owner, archived, null, offset, 100);
                 all.addAll(page);
                 if (page.size() < 100) break;
             }

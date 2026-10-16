@@ -48,6 +48,7 @@ const session: ChatSession = {
   branchedFromSessionId: null,
   branchedFromMessageId: null,
   temporary: false,
+  replyRunning: false,
 };
 
 /** The projectId bodies the conversation was moved with, in order. */

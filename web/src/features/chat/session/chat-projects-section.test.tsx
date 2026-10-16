@@ -60,6 +60,7 @@ const session = (n: number, projectId: string | null = null): ChatSession => ({
   branchedFromSessionId: null,
   branchedFromMessageId: null,
   temporary: false,
+  replyRunning: false,
 });
 
 /** Records each request to a project's conversations, with its limit. */

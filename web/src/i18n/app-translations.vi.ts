@@ -199,6 +199,8 @@ export const englishUi: Record<string, string> = {
   "Previous page": "Trang trước",
   "Page {{v1}} of {{v2}}": "Trang {{v1}} trên {{v2}}",
   "Next page": "Trang sau",
+  "Previous item": "Mục trước",
+  "Next item": "Mục sau",
   "New Group": "Nhóm mới",
   "This change would leave a standard user without a group. Add them to another group first, then try again.":
     "Thay đổi này sẽ khiến người dùng tiêu chuẩn không thuộc nhóm nào. Hãy thêm họ vào một nhóm khác trước, rồi thử lại.",

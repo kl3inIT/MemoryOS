@@ -5462,6 +5462,51 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/assistants:
+    get:
+      tags:
+      - Chat
+      summary: "List the caller's assistants for the sidebar: the built-in one, then\
+        \ the pins, each with the newest topic"
+      operationId: listChatAssistants
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: The assistants in order
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatAssistant"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/persona-pins:
     get:
       tags:
@@ -11522,6 +11567,13 @@ paths:
         schema:
           type: boolean
           default: false
+      - name: personaId
+        in: query
+        description: Only the topics of this assistant
+        required: false
+        schema:
+          type: string
+          format: uuid
       - name: offset
         in: query
         required: false
@@ -17523,6 +17575,13 @@ paths:
         schema:
           type: string
           default: ""
+      - name: personaId
+        in: query
+        description: Only the topics of this assistant
+        required: false
+        schema:
+          type: string
+          format: uuid
       - name: offset
         in: query
         required: false
@@ -25655,6 +25714,79 @@ components:
           minLength: 0
       required:
       - title
+    ChatAssistant:
+      type: object
+      description: "One row of the caller's list of assistants: the built-in assistant\
+        \ first, then their pins in order"
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          description: Empty when the assistant is not usable
+        avatarSeed:
+          type: string
+          description: Seed of the assistant's generated face
+        hasAvatar:
+          type: boolean
+          description: An uploaded image replaces the face; false when the assistant
+            is not usable
+        builtin:
+          type: boolean
+        ownerName:
+          type:
+          - string
+          - "null"
+          description: "The owning group's name, else the owner's name or email; null\
+            \ for the built-in assistant or an unusable one"
+        usable:
+          type: boolean
+          description: False once the assistant was deleted or is no longer shared
+            with the caller; its topics stay readable
+        latestTopic:
+          type:
+          - object
+          - "null"
+          $ref: "#/components/schemas/ChatAssistantTopic"
+          description: The caller's newest web topic with this assistant; null before
+            the first
+      required:
+      - avatarSeed
+      - builtin
+      - description
+      - hasAvatar
+      - id
+      - latestTopic
+      - name
+      - ownerName
+      - usable
+    ChatAssistantTopic:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        lastMessageAt:
+          type: string
+          format: date-time
+          description: When its last question or finished answer was written
+        preview:
+          type: string
+          description: "That message as one line of plain text, at most 120 characters;\
+            \ empty before anyone wrote"
+        replyRunning:
+          type: boolean
+      required:
+      - lastMessageAt
+      - preview
+      - replyRunning
+      - sessionId
+      - title
     ChatSession:
       type: object
       properties:
@@ -25707,6 +25839,9 @@ components:
           type: boolean
           description: "A temporary conversation: listed nowhere, and deleted with\
             \ its uploads after its window"
+        replyRunning:
+          type: boolean
+          description: An answer is being written in it
       required:
       - archivedAt
       - branchedFromMessageId
@@ -25716,6 +25851,7 @@ components:
       - personaId
       - projectId
       - reasoningEffort
+      - replyRunning
       - rootMessageId
       - temporary
       - title

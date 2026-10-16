@@ -582,6 +582,60 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void assistantsLeadWithTheBuiltinOneAndItsTopicsFilterByAssistantWithTheirRunningReply() throws Exception {
+        var ids = new ArrayList<String>();
+        String root = null;
+        for (String title : List.of("Quy trình mua sắm", "Báo cáo tuần 41")) {
+            var created = mockMvc.perform(post("/api/chat/sessions").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content(Json.mapper().writeValueAsString(Map.of("title", title))))
+                    .andExpect(status().isCreated()).andExpect(jsonPath("$.replyRunning").value(false)).andReturn();
+            var session = Json.mapper().readTree(created.getResponse().getContentAsString());
+            ids.add(session.path("id").asText());
+            root = session.path("rootMessageId").asText();
+        }
+        var newest = UUID.fromString(ids.get(1));
+        // A question and its running answer, written together as a turn writes them.
+        var question = UUID.randomUUID();
+        var answer = UUID.randomUUID();
+        jdbc.sql("""
+                INSERT INTO chat_message(id, session_id, parent_message_id, role, content, status, client_request_id,
+                                         original_assistant_message_id, created_at, finished_at, deadline_at)
+                VALUES (:question, :session, :root, 'USER', 'Doanh thu tuần 41?', 'COMPLETED', :request, :answer,
+                        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL),
+                       (:answer, :session, :question, 'ASSISTANT', '', 'RUNNING', NULL, NULL,
+                        CURRENT_TIMESTAMP + interval '1 millisecond', NULL, CURRENT_TIMESTAMP + interval '1 minute')
+                """).param("question", question).param("answer", answer).param("session", newest)
+                .param("root", UUID.fromString(root)).param("request", UUID.randomUUID()).update();
+        jdbc.sql("UPDATE chat_session SET updated_at = CURRENT_TIMESTAMP + interval '1 second' WHERE id = :id")
+                .param("id", newest).update();
+
+        var assistants = Json.mapper().readTree(mockMvc.perform(get("/api/chat/assistants").with(authentication(actor)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].builtin").value(true)).andExpect(jsonPath("$[0].usable").value(true))
+                .andExpect(jsonPath("$[0].latestTopic.sessionId").value(ids.get(1)))
+                .andExpect(jsonPath("$[0].latestTopic.preview").value("Doanh thu tuần 41?"))
+                .andExpect(jsonPath("$[0].latestTopic.replyRunning").value(true))
+                .andReturn().getResponse().getContentAsString());
+        var builtin = assistants.get(0).path("id").asText();
+        mockMvc.perform(get("/api/chat/sessions").with(authentication(actor)).param("personaId", builtin))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].id").value(ids.get(1))).andExpect(jsonPath("$[0].replyRunning").value(true))
+                .andExpect(jsonPath("$[1].replyRunning").value(false));
+        mockMvc.perform(get("/api/chat/sessions").with(authentication(actor)).param("personaId", UUID.randomUUID().toString()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+        mockMvc.perform(get("/api/chat/sessions/search").with(authentication(actor)).param("personaId", builtin)
+                        .param("query", "mua sắm"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].session.id").value(ids.get(0)));
+        mockMvc.perform(get("/api/chat/sessions/search").with(authentication(actor))
+                        .param("personaId", UUID.randomUUID().toString()).param("query", "mua sắm"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
+        mockMvc.perform(get("/api/chat/assistants").with(authentication(other)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$[0].latestTopic").value(Matchers.nullValue()));
+    }
+
+    @Test
     void searchChatHistoryUsesIndexesAllVersionsAndOwnerFilteredPagination() throws Exception {
         var ownedIds = new ArrayList<String>();
         for (String title : List.of("Doanh thu HUT 2026", "Older conversation", "Deleted conversation")) {

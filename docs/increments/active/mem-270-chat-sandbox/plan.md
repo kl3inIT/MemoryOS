@@ -4,7 +4,7 @@ Design: [design.md](design.md).
 
 Status 2026-10-16: step 0 done (references read, probe on staging recorded in the design). Step 1 merged in PR #684
 (`memoryos-sandbox/` server and computer images, the `sandbox` Compose service, CI job, `deploy.sh`, runbook, ADR
-0029). Step 2 merged in PR #693 (the `sandbox` capability, V176 `sandbox_workspaces`, `memoryos-integration-opensandbox`,
+0029). Step 2 merged in PR #693 (the `sandbox` capability, V179 `sandbox_workspaces`, `memoryos-integration-opensandbox`,
 the Worker's reconciliation). Step 3 in progress on `dathip04/mem-270-sandbox-tools`: `SandboxTools` registered under
 `code_interpreter`, the prompt's Sandbox section, timeline titles, the agent label "Sandbox"; the Sandbox admin page
 follows in its own pull request. Comes before MEM-265 (owner, 2026-10-15).
