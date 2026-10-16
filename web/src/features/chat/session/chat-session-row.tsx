@@ -11,6 +11,9 @@ import { ChatSessionMenu } from "./chat-session-menu";
 import { actionErrorText } from "@/lib/action-errors";
 import { useRefreshChatSessions } from "@/features/chat/runtime/chat-threads-context";
 
+/** The row whose rename just closed with the focus returning to it, for a short while after the list refreshes. */
+let focusAfterRename: { sessionId: string; until: number } | null = null;
+
 export const CHAT_DRAG_TYPE = "application/x-memoryos-chat";
 
 export function ChatSessionRow({
@@ -39,8 +42,16 @@ export function ChatSessionRow({
   const link = useRef<HTMLAnchorElement>(null);
   function closeEditor(restoreFocus = true) {
     setRenaming(false);
-    if (restoreFocus) requestAnimationFrame(() => link.current?.focus());
+    if (!restoreFocus) return;
+    focusAfterRename = { sessionId: session.id, until: Date.now() + 2000 };
+    requestAnimationFrame(() => link.current?.focus());
   }
+  // The refreshed list may mount this row again after a rename; the new row takes back the focus the old one had.
+  useEffect(() => {
+    if (focusAfterRename?.sessionId !== session.id || Date.now() > focusAfterRename.until) return;
+    if (document.activeElement === document.body || document.activeElement === null)
+      link.current?.focus();
+  });
   const selected = useRouterState({
     select: (state) => state.location.pathname === `/chat/${session.id}`,
   });
