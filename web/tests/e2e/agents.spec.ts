@@ -768,3 +768,52 @@ test("opens the test chat's sources over it instead of beside it", async ({ page
   await page.keyboard.press("Escape");
   await expect(sheet).toHaveCount(0);
 });
+
+test("uploads a file from the editor, attaches it once ready and says where the assistant searches", async ({
+  page,
+}) => {
+  const state = await mockAgents(page, ["AGENTS_CREATE"], tascoAgents());
+  const uploaded = {
+    id: "70000000-0000-4000-8000-000000000060",
+    filename: "Quy trình kê khai.pdf",
+    mediaType: "application/pdf",
+    sizeBytes: 2048,
+  };
+  let reads = 0;
+  await page.route("**/api/chat/files/policy", (route) =>
+    route.fulfill({ json: { maxSizeBytes: 104857600 } }),
+  );
+  await page.route("**/api/chat/files/uploads", (route) =>
+    route.fulfill({ json: { file: { ...uploaded, status: "READY" } } }),
+  );
+  await page.route(`**/api/chat/files/${uploaded.id}`, (route) => {
+    reads += 1;
+    // The first reads find it still being extracted, as a fresh upload is.
+    return route.fulfill({ json: { ...uploaded, status: reads < 3 ? "PROCESSING" : "READY" } });
+  });
+  await page.goto(`/agents/${hr}/edit`);
+  await expect(page.getByText("Tìm trong mọi tài liệu được phép đọc")).toBeVisible();
+
+  await page.getByRole("button", { name: "Thêm tài liệu" }).click();
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("option", { name: "Tải tệp lên" }).click();
+  await (
+    await chooser
+  ).setFiles({
+    name: uploaded.filename,
+    mimeType: uploaded.mediaType,
+    buffer: Buffer.from("%PDF-1.7"),
+  });
+
+  await expect(page.getByText("Đang xử lý")).toBeVisible();
+  await expect(page.getByText("Tìm thêm trong mọi tài liệu được phép đọc")).toBeVisible();
+  await expect(page.getByText("Đang xử lý")).toHaveCount(0);
+  await page.getByRole("button", { name: "Lưu", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Đã lưu" })).toBeVisible();
+  expect(state.updated).toMatchObject({ fileIds: [uploaded.id] });
+
+  // Turning the switch off greys the list out and the state line goes with it.
+  await page.getByRole("switch", { name: "Tìm trong tài liệu nội bộ" }).click();
+  await expect(page.getByText(/mọi tài liệu được phép đọc/)).toHaveCount(0);
+  await expect(page.getByText(uploaded.filename)).toBeVisible();
+});

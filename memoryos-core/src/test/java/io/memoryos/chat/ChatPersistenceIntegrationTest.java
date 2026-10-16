@@ -1515,6 +1515,35 @@ class ChatPersistenceIntegrationTest {
     }
 
     @Test
+    void anAgentsDocumentsSwitchTurnsItsFilesOffAndKeepsThemForWhenItIsOn() {
+        var agent = personas.create(owner, new ChatPersonaService.PersonaInput("Kế toán", null, "", "Trả lời từ quy trình.",
+                null, List.of(), List.of(), null, Set.of("search"), null, null, null, null, null, null, null, null, null));
+        UUID file = UUID.randomUUID();
+        // The stored list as Save keeps it; the turn decides whether the switch lets it through.
+        jdbc.sql("UPDATE persona SET file_ids = CAST(:files AS jsonb) WHERE id = :id")
+                .param("files", "[\"" + file + "\"]").param("id", agent.id()).update();
+        var session = sessions.create(owner, "Quy trình kê khai");
+        personas.select(owner, session.id(), agent.id());
+        var repository = new JdbcChatRepository(jdbc);
+        assertEquals(List.of(file), tx.execute(ignored -> repository.persona(session.id(), false, false)).fileIds(),
+                "with the switch on the agent reads its files");
+
+        jdbc.sql("DELETE FROM persona_tool WHERE persona_id = :id AND tool_key = 'search'").param("id", agent.id()).update();
+        assertEquals(List.of(), tx.execute(ignored -> repository.persona(session.id(), false, false)).fileIds(),
+                "turning the switch off turns the files off too");
+        assertEquals("[\"" + file + "\"]", jdbc.sql("SELECT file_ids::text FROM persona WHERE id = :id")
+                .param("id", agent.id()).query(String.class).single(), "the stored list survives the switch");
+
+        var off = new JdbcChatRepository.DraftAgent("", Set.of("web_search"), List.of(), List.of(), List.of(), null, null,
+                List.of(file), false);
+        assertEquals(List.of(), tx.execute(ignored -> repository.draftPersona(session.id(), false, off)).fileIds(),
+                "an unsaved draft with the switch off reads no file either");
+        var on = new JdbcChatRepository.DraftAgent("", Set.of("search"), List.of(), List.of(), List.of(), null, null,
+                List.of(file), false);
+        assertEquals(List.of(file), tx.execute(ignored -> repository.draftPersona(session.id(), false, on)).fileIds());
+    }
+
+    @Test
     void anAgentKeepsItsTitleGreetingAndReasoningLevelAndANewOneSearchesDocumentsAndTheWeb() {
         var agent = personas.create(owner, new ChatPersonaService.PersonaInput("Kế toán", "  Chuyên viên kế toán nội bộ  ",
                 "", "Trả lời từ sổ sách.", "Xin chào, mình giúp bạn tra cứu chứng từ và hạn nộp thuế.", List.of(), List.of(),
@@ -1578,7 +1607,7 @@ class ChatPersistenceIntegrationTest {
     void contextFilesAreReadInOneStatement() {
         var files = List.of(readyFile(owner), readyFile(owner), readyFile(owner));
         var foreign = readyFile(other);
-        var agent = personas.create(owner, input("Files", List.of(), List.of(), false, files));
+        var agent = personas.create(owner, input("Files", List.of(), List.of(), true, files));
         var session = sessions.create(owner, "Files");
         personas.select(owner, session.id(), agent.id());
 
@@ -1748,7 +1777,7 @@ class ChatPersistenceIntegrationTest {
         assertNotNull(second.context());
         assertTrue(second.context().workspaceFiles().isEmpty());
         turns.finish(session.id(), second.assistantMessageId(), ChatMessage.Status.COMPLETED, "No project files");
-        var settings = input("With files", List.of(), List.of(), false, List.of(file));
+        var settings = input("With files", List.of(), List.of(), true, List.of(file));
         personas.update(owner, persona.id(), persona.revision(), settings);
         assertThrows(ChatException.class, () -> personas.update(owner, persona.id(), persona.revision(), settings));
         var third = reserve(session, second.assistantMessageId(), UUID.randomUUID(), "Read custom files");

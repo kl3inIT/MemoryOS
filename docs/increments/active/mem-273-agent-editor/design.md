@@ -80,6 +80,20 @@ Field coverage (✓ has it):
    instead of silently ignored (Onyx `AgentKnowledgePane` and its "Use Knowledge" switch). Storage is unchanged.
    With nothing chosen the section shows only "Thêm tài liệu", with no empty-state card (staging acceptance,
    2026-10-16).
+6a. **The switch governs files too, and the list says where it searches** (owner, 2026-10-16). Onyx drops every
+   knowledge attachment, files included, when "Use Knowledge" is off (`AgentEditorPage.tsx:857-883`); MemoryOS kept
+   reading attached files with the switch off, because the file reader was offered whenever files were attached. Now a
+   turn reads an agent's files only while its `search` tool is on; the stored lists are kept, so turning the switch
+   back on restores them, and the built-in assistant's files (its Project's) are not governed by it. While on, files
+   are always read and Sources or Document Sets narrow what is searched; with neither attached the assistant searches
+   every document its reader may open, as in Onyx. A muted state line beside "Thêm tài liệu" says so while no Source or
+   Document Set is attached: "Tìm trong mọi tài liệu được phép đọc", or "Tìm thêm trong mọi tài liệu được phép đọc"
+   when files are attached. It is a state, like "Đã lưu", not an explanation. Choosing a scope mode and splitting
+   files from Sources were considered and dropped as more complex than the problem.
+6b. **Upload from the editor.** "Thêm tài liệu" ends with "Tải tệp lên" beside "Tệp trong Thư viện" (Onyx "Your
+   Files: Recent or new uploads"). The upload is an ordinary library file through the library's upload pipeline; its
+   row shows the upload progress, then "Đang xử lý", and it joins the list once READY, because Save admits only READY
+   files. A failed upload keeps its row with the reason until dismissed.
 7. **"Chỉ trả lời có căn cứ"** stays as one switch row under the documents list, with no fold (owner, 2026-10-16).
 8. **Labels move to the Chia sẻ tab**, where they serve discovery (Onyx puts labels with Share and Feature).
 
