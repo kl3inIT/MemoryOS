@@ -122,6 +122,24 @@ public final class S3ObjectStorage implements ObjectStorage, AutoCloseable {
     }
 
     @Override
+    public void writeStream(ObjectKey key, InputStream content, ObjectMetadata declared) {
+        Objects.requireNonNull(content, "content must not be null");
+        if (declared.sizeBytes() < 1 || declared.sizeBytes() > ObjectUploadSpecification.MAX_SIZE_BYTES) {
+            throw new IllegalArgumentException("object write exceeds bounds");
+        }
+        try {
+            // The declared SHA-256 travels with the request, so the store refuses a body that does not match it.
+            client.putObject(PutObjectRequest.builder().bucket(bucket).key(key.value())
+                            .overrideConfiguration(c -> c.apiCallTimeout(Duration.ofMinutes(5)))
+                            .contentType(declared.mediaType()).contentLength(declared.sizeBytes())
+                            .checksumSHA256(declared.checksum().base64()).ifNoneMatch("*").build(),
+                    RequestBody.fromInputStream(content, declared.sizeBytes()));
+        } catch (S3Exception | SdkClientException exception) {
+            throw translate(exception);
+        }
+    }
+
+    @Override
     public UploadAuthorization authorizeUpload(ObjectKey key, UploadConstraints constraints) {
         Objects.requireNonNull(key, "key must not be null");
         Objects.requireNonNull(constraints, "constraints must not be null");

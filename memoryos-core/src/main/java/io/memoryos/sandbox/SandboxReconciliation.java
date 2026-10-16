@@ -1,5 +1,6 @@
 package io.memoryos.sandbox;
 
+import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.sandbox.persistence.JdbcSandboxRepository;
 import java.time.Clock;
 import java.time.Duration;
@@ -13,42 +14,60 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * The Worker's sweep of sandboxes (MEM-270), as Dust's reaper sweeps every five minutes. A sandbox the runtime holds
  * that no row records is killed: a transaction that rolled back after starting it, or a row forgotten. A row whose
- * sandbox the runtime no longer holds is cleared, so the running bound counts what is alive.
+ * sandbox the runtime no longer holds is cleared, so the running bound counts what is alive. Workspace archives no
+ * conversation starts from any more are deleted from Object Storage.
  */
 @Component
 @EnableConfigurationProperties(SandboxProperties.class)
 public class SandboxReconciliation {
     /**
-     * A sandbox younger than this may belong to a start that has not recorded it yet; OpenSandbox caps a start at
-     * 90 seconds ({@code OpenSandboxProperties.MAX_READY_TIMEOUT}).
+     * A sandbox younger than this may belong to a start that has not recorded it yet: a start, capped by OpenSandbox
+     * at 90 seconds ({@code OpenSandboxProperties.MAX_READY_TIMEOUT}), then its workspace restore.
      */
-    static final Duration GRACE = Duration.ofMinutes(2);
+    static final Duration GRACE = SandboxService.STARTING_WINDOW;
     private static final Logger LOG = LoggerFactory.getLogger(SandboxReconciliation.class);
 
+    /** Archives deleted in one sweep; the rest wait for the next. */
+    static final int ARCHIVES_PER_SWEEP = 100;
+
     private final ObjectProvider<SandboxRuntime> runtimes;
+    private final ObjectProvider<ObjectStorage> storages;
     private final JdbcSandboxRepository workspaces;
     private final SandboxProperties properties;
+    private final WorkspaceArchives archives;
     private final Clock clock;
 
     @Autowired
-    public SandboxReconciliation(ObjectProvider<SandboxRuntime> runtimes, JdbcSandboxRepository workspaces,
-                                 SandboxProperties properties) {
-        this(runtimes, workspaces, properties, Clock.systemUTC());
+    public SandboxReconciliation(ObjectProvider<SandboxRuntime> runtimes, ObjectProvider<ObjectStorage> storages,
+                                 JdbcSandboxRepository workspaces, SandboxProperties properties,
+                                 PlatformTransactionManager transactionManager) {
+        this(runtimes, storages, workspaces, properties, transactionManager, Clock.systemUTC());
     }
 
-    SandboxReconciliation(ObjectProvider<SandboxRuntime> runtimes, JdbcSandboxRepository workspaces,
-                          SandboxProperties properties, Clock clock) {
+    SandboxReconciliation(ObjectProvider<SandboxRuntime> runtimes, ObjectProvider<ObjectStorage> storages,
+                          JdbcSandboxRepository workspaces, SandboxProperties properties,
+                          PlatformTransactionManager transactionManager, Clock clock) {
         this.runtimes = runtimes;
+        this.storages = storages;
         this.workspaces = workspaces;
         this.properties = properties;
+        this.archives = new WorkspaceArchives(workspaces, new TransactionTemplate(transactionManager), clock);
         this.clock = clock;
     }
 
     public void sweep() {
+        ObjectStorage storage = storages.getIfAvailable();
+        if (storage != null) {
+            int deleted = archives.sweep(storage, ARCHIVES_PER_SWEEP);
+            if (deleted > 0) LOG.atInfo().addKeyValue("event", "sandbox.workspace.archives_deleted")
+                    .addKeyValue("deleted", deleted).log("Unused workspace archives deleted");
+        }
         SandboxRuntime runtime = properties.configured() ? runtimes.getIfAvailable() : null;
         if (runtime == null) return;
         // Rows first: a sandbox started after this read is young and spared below, and every row read here names a
