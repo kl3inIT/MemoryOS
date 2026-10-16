@@ -218,7 +218,7 @@ public class JdbcChatRepository {
                             SELECT left(m.content, 2000) AS content, m.created_at FROM chat_message m
                             WHERE m.session_id = s.id AND m.content <> ''
                               AND (m.role = 'USER' OR m.role = 'ASSISTANT' AND m.status = 'COMPLETED')
-                            ORDER BY m.created_at DESC, m.id LIMIT 1
+                            ORDER BY m.created_at DESC, m.role = 'ASSISTANT' DESC, m.id LIMIT 1
                         ) last ON TRUE
                         """).param("tenant", tenant.value()).param("actor", actor.value())
                 .param("personas", personas.stream().map(UUID::toString).toArray(String[]::new))
