@@ -77,8 +77,10 @@ a bot-wide default. LobeHub's one-bot-per-agent model is what #731 shipped; it f
    `group-forgotten`.
 7. **The bot page is where routing is set,** as in Onyx. `/admin/channels/{id}` gains:
    - **Trợ lý mặc định:** an assistant picker in place of today's link, writing `PUT /api/channels/{id}/persona`.
-   - **Theo nhóm:** the bot's groups (label or name, last question), each with an assistant picker whose first option
-     is "Theo mặc định" (no override), a rename and "Quên nhóm" in its menu. The list reuses `AppRow` and the
+   - **Theo nhóm chat:** the bot's groups (label or name, last question), each with an assistant picker whose first option
+     is "Theo mặc định" (no override), a rename and "Quên nhóm" in its menu. The heading says "nhóm chat" and each
+     row carries the platform's mark and "Nhóm Lark" or "Nhóm Zalo", because MemoryOS's own Groups (people, for
+     sharing) often carry the same names, such as "Phòng Kế toán" (owner review, 2026-10-17). The list reuses `AppRow` and the
      assistant picker of the default. An empty list shows nothing but the section heading; Zalo groups appear once
      someone names the bot there.
 8. **The assistant's Kênh tab only shows where the assistant answers:** the bots it is the default of and the groups
@@ -109,6 +111,9 @@ a bot-wide default. LobeHub's one-bot-per-agent model is what #731 shipped; it f
   (third-party summary: https://www.unipile.com/whatsapp-group-api/), which limits what per-group routing gives.
 - Listing a provider's groups before the bot answers in them (Lark `im/v1/chats`); Zalo has no listing.
 - Per-person routing of direct messages; per-group document sets or tools (Onyx's config carries document sets).
+- GoClaw's per-group behaviour on one agent (`internal/config/config_channels.go:115`, `TelegramGroupConfig`: extra
+  system prompt, tool and skill lists, enabled, require mention, allow list, quota). Switching the bot off in one
+  group and requiring a mention there are candidates for later.
 
 ## Risks
 
