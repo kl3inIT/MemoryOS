@@ -497,9 +497,9 @@ test("edits an agent in place, saving only changes and guarding unsaved edits", 
   await page.getByLabel("Mô tả").fill("Giải đáp chính sách lương và nghỉ phép năm 2026.");
   await expect(save).toBeEnabled();
   const addStarter = page.getByRole("button", { name: "Thêm câu gợi ý" });
-  for (let index = 1; index < 8; index++) await addStarter.click();
-  await expect(page.getByLabel(/^Câu hỏi gợi ý \d$/)).toHaveCount(8);
-  await expect(addStarter).toBeDisabled();
+  for (let index = 1; index < 4; index++) await addStarter.click();
+  await expect(page.getByLabel(/^Câu hỏi gợi ý \d$/)).toHaveCount(4);
+  await expect(addStarter).toBeHidden();
   await page.getByLabel("Câu hỏi gợi ý 1", { exact: true }).fill("Chế độ nghỉ phép năm 2026?");
   await page.getByLabel("Chức danh").fill("Chuyên viên nhân sự");
 

@@ -4,7 +4,7 @@ import type { PersonaInput } from "@/lib/hey-api/types.gen";
 import { randomAvatarSeed } from "./agent-face";
 
 /** A conversation starter list longer than this is refused by the API. */
-export const maxStarterPrompts = 8;
+export const maxStarterPrompts = 4;
 
 /** The tools a new agent starts with, as the API gives one created without a choice: documents and the web. */
 const defaultAgentTools = ["search", "web_search"];
