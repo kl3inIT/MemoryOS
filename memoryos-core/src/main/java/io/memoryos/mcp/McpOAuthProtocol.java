@@ -150,9 +150,11 @@ public final class McpOAuthProtocol {
             String method = optionalText(registered, "token_endpoint_auth_method", 64);
             McpTokenEndpointAuthMethod granted = method == null ? requested : McpTokenEndpointAuthMethod.fromWire(method);
             if ((granted == McpTokenEndpointAuthMethod.NONE) != (secret == null)) throw McpException.oauthRegistrationFailed();
+            // RFC 7592 asks for an absolute URL; Canva answers with a path ("/register/<id>"), resolved against the
+            // registration endpoint as a browser resolves a link.
             String clientUri = optionalText(registered, "registration_client_uri", 2048);
             return new Registration(new Client(clientId, secret, granted),
-                    clientUri == null ? null : endpoint(clientUri, false),
+                    clientUri == null ? null : endpoint(server.registrationEndpoint().resolve(clientUri).toString(), false),
                     optionalText(registered, "registration_access_token", MAX_TOKEN_CHARACTERS));
         } catch (RuntimeException invalid) {
             throw McpException.oauthRegistrationFailed();

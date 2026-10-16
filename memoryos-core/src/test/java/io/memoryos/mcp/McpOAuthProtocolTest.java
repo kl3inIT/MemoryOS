@@ -166,6 +166,20 @@ class McpOAuthProtocolTest {
     }
 
     @Test
+    void resolvesARelativeRegistrationClientUriAgainstTheRegistrationEndpoint() {
+        // Canva's registration endpoint answers with a path, not the absolute URL RFC 7592 asks for.
+        routes.put("POST /register", exchange -> respond(exchange, 201, Map.of("client_id", "canva-client",
+                "client_secret", "canva-secret", "token_endpoint_auth_method", "client_secret_basic",
+                "registration_client_uri", "/register/canva-client")));
+
+        var registration = protocol.register(authorizationServer(List.of("client_secret_basic")),
+                URI.create("https://memoryos.example/login/oauth2/code/mcp"), "MemoryOS");
+
+        assertEquals("canva-client", registration.client().clientId());
+        assertEquals(URI.create(origin + "/register/canva-client"), registration.registrationClientUri());
+    }
+
+    @Test
     void deletesARegisteredClientWithItsRegistrationAccessToken() {
         var authorization = new AtomicReference<String>();
         routes.put("DELETE /register/registered-client", exchange -> {
