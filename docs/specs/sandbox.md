@@ -31,6 +31,10 @@ work in it.
   image leaves out and ChatGPT installs from a package index while other egress is blocked; a package lasts as long as
   its sandbox. Like Dust's workspace allowlist, the list is the deployment's: empty denies all egress. An allowed index
   also accepts uploads; `open_url` already reaches any public URL, so it opens no new path out of a conversation.
+  OpenSandbox allows the nameservers of the sandbox's `/etc/resolv.conf` (the host's, `1.1.1.1` among them on staging)
+  on every port, so DNS-over-HTTPS resolves any name; a command still cannot connect to what it resolves. Its egress
+  sidecar can block DoH, but the 1.1.1 server passes neither setting to it
+  ([MEM-292](https://linear.app/memory-os/issue/MEM-292)).
 - **Bound.** At most `memoryos.sandbox.max-running` sandboxes used within the idle timeout run at once; past it,
   acquiring a new one fails with `SANDBOX_BUSY`. Taking a place is serialised across conversations by a transaction-scoped advisory lock, so two conversations cannot both take the last place; the lock is never held while the runtime creates a sandbox. A deployment without a computer image or a runtime answers
   `SANDBOX_NOT_CONFIGURED`; a runtime failure is `SANDBOX_UNAVAILABLE`.
