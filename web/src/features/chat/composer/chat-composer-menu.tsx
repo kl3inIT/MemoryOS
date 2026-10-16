@@ -19,7 +19,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { ChatFilePickerContent } from "@/features/library/file-picker";
 import { ChatLibraryPicker } from "@/features/library/library-picker";
 import { menuRow } from "@/components/composites/menu-row";
-import { ChatWebModes, ChatWebToggle } from "@/features/chat/web-search/chat-web-options";
+import { ChatWebToggle } from "@/features/chat/web-search/chat-web-options";
 import type { WebSearchMode } from "@/features/chat/web-search/chat-web-preference";
 import { ChatImageToggle } from "@/features/chat/image/chat-image-options";
 import { ChatMcpServers, ChatMcpToggle } from "@/features/chat/mcp/chat-mcp-options";
@@ -81,7 +81,7 @@ export function ChatComposerMenu({
   const staging = useChatAttachmentStaging();
   const mcpConnections = useMcpConnections();
   const [open, setOpen] = useState(false);
-  const [view, setView] = useState<"root" | "files" | "web" | "mcp">("root");
+  const [view, setView] = useState<"root" | "files" | "mcp">("root");
   const [allFiles, setAllFiles] = useState(false);
   const close = () => {
     setOpen(false);
@@ -127,9 +127,7 @@ export function ChatComposerMenu({
                 <ChevronRight aria-hidden="true" />
               </button>
               <Separator className="my-1" />
-              {allowed?.web !== false && (
-                <ChatWebToggle {...web} onDone={close} onConfigure={() => setView("web")} />
-              )}
+              {allowed?.web !== false && <ChatWebToggle {...web} onDone={close} />}
               {allowed?.image !== false && image && <ChatImageToggle {...image} onDone={close} />}
               <ChatMcpToggle
                 selected={mcp.selected}
@@ -171,9 +169,6 @@ export function ChatComposerMenu({
                 }}
               />
             </div>
-          )}
-          {view === "web" && (
-            <ChatWebModes {...web} onDone={close} onBack={() => setView("root")} />
           )}
           {view === "mcp" && (
             <ChatMcpServers
