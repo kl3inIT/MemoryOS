@@ -882,7 +882,6 @@ export const vietnameseUi: Record<string, string> = {
   "Không có kết quả phù hợp.": "No matches.",
   "Xem thêm chủ đề": "Load more topics",
   "Tháng này": "This month",
-  "Thêm trợ lý": "Add an assistant",
   "Tải lại trợ lý": "Reload assistants",
   "Không còn dùng được": "No longer available",
   "Đang trả lời…": "Answering…",

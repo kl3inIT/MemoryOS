@@ -93,13 +93,23 @@ export function ThreadListRow({
         })
       }
       className={cn(
-        "group flex min-w-0 items-center gap-1 rounded-lg px-1 text-sm focus-within:bg-surface-sunken hover:bg-surface-sunken",
+        "group relative flex min-w-0 items-center gap-1 rounded-lg px-1 text-sm focus-within:bg-surface-sunken hover:bg-surface-sunken",
         selected && "bg-surface-sunken",
       )}
     >
-      <div className="min-w-0 flex-1">{children}</div>
+      {/* On a pointer screen the hidden menu takes no room, so the title runs to the row's end, as ChatGPT's rows;
+          shown, it covers the row's end and the title makes way. */}
+      <div
+        className={cn(
+          "min-w-0 flex-1",
+          actions &&
+            "md:group-focus-within:pr-7 md:group-hover:pr-7 md:group-has-[[data-state=open]]:pr-7",
+        )}
+      >
+        {children}
+      </div>
       {actions && (
-        <div className="shrink-0 opacity-100 has-[[data-state=open]]:opacity-100 md:opacity-0 md:group-focus-within:opacity-100 md:group-hover:opacity-100">
+        <div className="shrink-0 opacity-100 has-[[data-state=open]]:opacity-100 md:absolute md:inset-y-0 md:right-1 md:flex md:items-center md:opacity-0 md:group-focus-within:opacity-100 md:group-hover:opacity-100">
           {actions}
         </div>
       )}

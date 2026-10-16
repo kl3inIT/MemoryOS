@@ -137,6 +137,13 @@ LobeHub paths are under `tmp/refs/lobe-chat` (lobehub/lobehub, cloned 2026-10-15
       open assistant and one whose reply runs always keep their row. A reorder of the shown pins puts them into the
       places they held among all pins, as the Projects section does. With seven pins the first "Gần đây" row still
       shows at 1440×900: "Xem thêm (3)" takes the room "Xem tất cả dự án" gave back.
+    - **Changes decision 8 (owner, 2026-10-16):** the "Khám phá trợ lý" row under the assistants is gone. The "Trợ lý"
+      heading carries three icon buttons with tooltips, as LobeHub's agent section header (`HomeSidebar/Body/Agent`:
+      its menu, an ArrowRight "view all agents" to `/agents`, and create): "…" for the rows, a compass "Khám phá trợ
+      lý" to `/agents`, and "+" "Tạo trợ lý" to `/agents/create`, shown only with `AGENTS_CREATE`; "+" used to open
+      `/agents` too. The collapsed rail lists no explore entry, so it is unchanged.
+    - A thread row's hidden "…" menu no longer holds its width on a pointer screen: it covers the row's end when shown,
+      and the "Gần đây" time gives way to it, so a title runs up to its time, as ChatGPT's rows.
 
 ## Deviations in the web delivery
 

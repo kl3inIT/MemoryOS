@@ -74,6 +74,8 @@ and staging has deployed it. The web pull request is accepted when the owner has
 - [x] Assistants show five rows, then "Xem thêm (n)" and "Thu gọn"; the "…" menu picks 5/10/15/20 rows, remembered per
   browser; the open and the answering assistant always show; "Xem tất cả dự án" only past three projects. Tests:
   `chat-assistants-section.test.tsx`, `chat-projects-section.test.tsx`; 1440×900 screenshots with seven pins.
+- [x] The "Trợ lý" heading holds "…", the compass to explore and "+" to create; the explore row is gone; a row's title
+  takes the room up to its time.
 
 ## 3. Verification
 

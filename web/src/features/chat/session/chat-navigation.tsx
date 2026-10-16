@@ -224,7 +224,8 @@ function RecentTopics({ onNavigate }: { onNavigate?: () => void }) {
             trailing={
               <time
                 dateTime={session.updatedAt}
-                className="shrink-0 text-xs text-content-muted tabular-nums"
+                // The row's menu takes the time's place while it shows.
+                className="shrink-0 text-xs text-content-muted tabular-nums md:group-focus-within:hidden md:group-hover:hidden md:group-has-[[data-state=open]]:hidden"
               >
                 {topicTime(session.updatedAt)}
               </time>

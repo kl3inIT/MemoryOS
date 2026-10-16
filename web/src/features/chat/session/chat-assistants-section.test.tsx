@@ -20,9 +20,11 @@ import { AssistantsSection } from "./chat-assistants-section";
 
 // The home sidebar's assistants: five rows, then more on request, as LobeHub's agent list.
 
+const capabilities = vi.hoisted(() => ({ create: false }));
 vi.mock("@/features/identity/application-session-context", () => ({
   useApplicationSession: () => ({ actorId: "actor", authorizationVersion: 1, capabilities: [] }),
-  useGlobalCapability: () => false,
+  useGlobalCapability: (capability: string) =>
+    capability === "AGENTS_CREATE" && capabilities.create,
 }));
 
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
@@ -60,7 +62,12 @@ function show(assistants: ChatAssistant[], openAssistant?: string) {
       component: () => <AssistantsSection openAssistant={openAssistant} />,
     });
   const router = createRouter({
-    routeTree: rootRoute.addChildren([page("/"), page("/chat/$sessionId"), page("/agents")]),
+    routeTree: rootRoute.addChildren([
+      page("/"),
+      page("/chat/$sessionId"),
+      page("/agents"),
+      page("/agents/create"),
+    ]),
     history: createMemoryHistory({ initialEntries: ["/"] }),
   });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -81,6 +88,7 @@ async function listed() {
 }
 
 beforeEach(async () => {
+  capabilities.create = false;
   window.localStorage.clear();
   await i18n.changeLanguage("vi");
 });
@@ -148,4 +156,26 @@ it("saves every pin, with the hidden ones in their places, when a shown one move
   await user.keyboard(" ");
 
   await waitFor(() => expect(saved).toEqual([{ personaIds: [1, 2, 3, 7, 5, 6, 4].map(id) }]));
+});
+
+it("heads the section with the rows menu, explore and, for who may, create", async () => {
+  capabilities.create = true;
+  show(roster());
+  await listed();
+
+  expect(screen.getByRole("link", { name: "Khám phá trợ lý" })).toHaveAttribute("href", "/agents");
+  expect(screen.getByRole("link", { name: "Tạo trợ lý" })).toHaveAttribute(
+    "href",
+    "/agents/create",
+  );
+  // Explore lives in the header, as LobeHub's "view all agents"; no row repeats it.
+  expect(screen.queryByText("Khám phá trợ lý")).not.toBeInTheDocument();
+});
+
+it("offers no create entry to who may not create an assistant", async () => {
+  show(roster());
+  await listed();
+
+  expect(screen.getByRole("link", { name: "Khám phá trợ lý" })).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "Tạo trợ lý" })).not.toBeInTheDocument();
 });

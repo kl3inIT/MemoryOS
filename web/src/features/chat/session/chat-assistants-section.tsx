@@ -2,7 +2,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Compass, GripVertical, MoreHorizontal, PinOff, Plus } from "lucide-react";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { hoverReveal } from "@/components/composites/hover-reveal";
 import { SortableList } from "@/components/composites/sortable-list";
 import { Button } from "@/components/ui/button";
@@ -15,8 +15,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { IconButton } from "@/components/ui/icon-button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AgentAvatar } from "@/features/agents/agent-avatar";
 import { usePinUpdates } from "@/features/agents/agent-pins";
+import { useGlobalCapability } from "@/features/identity/application-session-context";
 import { actionErrorText } from "@/lib/action-errors";
 import { listChatAssistantsQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { ChatAssistant } from "@/lib/hey-api/types.gen";
@@ -60,6 +62,7 @@ export function AssistantsSection({
   const ui = useAppTranslation();
   const cache = useQueryClient();
   const assistants = useSidebarAssistants();
+  const canCreate = useGlobalCapability("AGENTS_CREATE");
   const updatePins = usePinUpdates();
   const reorder = useMutation({
     mutationFn: ({ change }: { next: ChatAssistant[]; change: (current: string[]) => string[] }) =>
@@ -109,37 +112,62 @@ export function AssistantsSection({
       storageKey="memoryos:chat-assistants-section"
       className="my-3"
       action={
-        <span className="flex items-center">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+        // LobeHub's agent section header: its menu, "view all agents" and create, each named by a tooltip.
+        <TooltipProvider>
+          <span className="flex items-center">
+            <DropdownMenu>
+              <HeaderTip label={ui("Tùy chọn danh sách trợ lý")}>
+                <DropdownMenuTrigger asChild>
+                  <IconButton
+                    size="sm"
+                    prominence="internal"
+                    aria-label={ui("Tùy chọn danh sách trợ lý")}
+                  >
+                    <MoreHorizontal />
+                  </IconButton>
+                </DropdownMenuTrigger>
+              </HeaderTip>
+              <DropdownMenuContent align="end" className="w-auto min-w-36">
+                <DropdownMenuLabel>{ui("Hiển thị")}</DropdownMenuLabel>
+                <DropdownMenuRadioGroup
+                  value={`${limit}`}
+                  onValueChange={(value) => setLimit(Number(value) as AssistantRowLimit)}
+                >
+                  {ASSISTANT_ROW_LIMITS.map((count) => (
+                    <DropdownMenuRadioItem
+                      key={count}
+                      value={`${count}`}
+                      className="cursor-pointer"
+                    >
+                      {ui("{{v1}} trợ lý", { v1: count })}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <HeaderTip label={ui("Khám phá trợ lý")}>
               <IconButton
                 size="sm"
                 prominence="internal"
-                aria-label={ui("Tùy chọn danh sách trợ lý")}
+                aria-label={ui("Khám phá trợ lý")}
+                asChild
               >
-                <MoreHorizontal />
+                <Link to="/agents" onClick={onNavigate}>
+                  <Compass />
+                </Link>
               </IconButton>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-auto min-w-36">
-              <DropdownMenuLabel>{ui("Hiển thị")}</DropdownMenuLabel>
-              <DropdownMenuRadioGroup
-                value={`${limit}`}
-                onValueChange={(value) => setLimit(Number(value) as AssistantRowLimit)}
-              >
-                {ASSISTANT_ROW_LIMITS.map((count) => (
-                  <DropdownMenuRadioItem key={count} value={`${count}`} className="cursor-pointer">
-                    {ui("{{v1}} trợ lý", { v1: count })}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <IconButton size="sm" prominence="internal" aria-label={ui("Thêm trợ lý")} asChild>
-            <Link to="/agents" onClick={onNavigate}>
-              <Plus />
-            </Link>
-          </IconButton>
-        </span>
+            </HeaderTip>
+            {canCreate && (
+              <HeaderTip label={ui("Tạo trợ lý")}>
+                <IconButton size="sm" prominence="internal" aria-label={ui("Tạo trợ lý")} asChild>
+                  <Link to="/agents/create" onClick={onNavigate}>
+                    <Plus />
+                  </Link>
+                </IconButton>
+              </HeaderTip>
+            )}
+          </span>
+        </TooltipProvider>
       }
     >
       {assistants.isPending && (
@@ -226,14 +254,6 @@ export function AssistantsSection({
           {expanded ? ui("Thu gọn") : ui("Xem thêm ({{v1}})", { v1: hidden })}
         </button>
       )}
-      <Link
-        to="/agents"
-        onClick={onNavigate}
-        className="mt-0.5 flex h-8 items-center gap-2 rounded-lg px-2 text-sm text-content-muted outline-none hover:bg-surface-subtle hover:text-content-primary focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <Compass aria-hidden="true" className="size-4" />
-        {ui("Khám phá trợ lý")}
-      </Link>
       {reorder.error && (
         <p role="alert" className="px-2 text-xs text-status-danger-content">
           {actionErrorText(reorder.error)}
@@ -318,5 +338,15 @@ function AssistantRow({
     >
       {content}
     </Link>
+  );
+}
+
+/** An icon button of the section header with its name as a tooltip. */
+function HeaderTip({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
   );
 }
