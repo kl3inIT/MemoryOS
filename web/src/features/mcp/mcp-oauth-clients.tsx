@@ -22,6 +22,7 @@ import type {
   McpServerView,
 } from "@/lib/hey-api/types.gen";
 import { presentProblem } from "@/lib/problem-presentation";
+import { mcpMessages } from "./mcp-errors";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import { catalogEntryOf } from "./mcp-catalog";
 import { type ClientDraft, fromDiscovery, type OAuthSetup, registrable } from "./mcp-oauth-setup";
@@ -66,7 +67,7 @@ export function McpOAuthClients({ server, setup }: { server: McpServerView; setu
       {failure ? (
         <Alert variant="destructive" role="alert">
           <AlertDescription>
-            {problem(presentProblem(failure, "mutation").message)}
+            {problem(presentProblem(failure, "mutation", mcpMessages).message)}
           </AlertDescription>
         </Alert>
       ) : null}
@@ -174,7 +175,7 @@ export function McpOAuthClients({ server, setup }: { server: McpServerView; setu
               query: { revision: removing.revision },
             });
           }}
-          errorMessage={(error) => presentProblem(error, "mutation").message}
+          errorMessage={(error) => presentProblem(error, "mutation", mcpMessages).message}
           onOpenChange={(open) => {
             if (!open) setRemoving(null);
           }}
@@ -197,7 +198,7 @@ export function McpOAuthClients({ server, setup }: { server: McpServerView; setu
           onConfirm={async () => {
             await setup.disconnect.mutateAsync({ path });
           }}
-          errorMessage={(error) => presentProblem(error, "mutation").message}
+          errorMessage={(error) => presentProblem(error, "mutation", mcpMessages).message}
           onOpenChange={(open) => {
             if (!open) setEndingShared(false);
           }}
@@ -442,7 +443,7 @@ function McpOAuthClientEditor({
         {save.error ? (
           <Alert variant="destructive" role="alert">
             <AlertDescription>
-              {problem(presentProblem(save.error, "mutation").message)}
+              {problem(presentProblem(save.error, "mutation", mcpMessages).message)}
             </AlertDescription>
           </Alert>
         ) : null}
