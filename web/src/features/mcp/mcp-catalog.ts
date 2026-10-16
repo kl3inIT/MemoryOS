@@ -71,15 +71,6 @@ export const mcpCatalog: McpCatalogEntry[] = [
     parameters: {},
   },
   {
-    id: "atlassian",
-    name: "Atlassian",
-    description: "Jira và Confluence",
-    url: "https://mcp.atlassian.com/v1/mcp",
-    oauthApp: "AUTOMATIC",
-    scopes: [],
-    parameters: {},
-  },
-  {
     id: "github",
     name: "GitHub",
     description: "Repo, pull request và issue",
@@ -137,15 +128,6 @@ export const mcpCatalog: McpCatalogEntry[] = [
     parameters: {},
   },
   {
-    id: "miro",
-    name: "Miro",
-    description: "Bảng trắng và sơ đồ",
-    url: "https://mcp.miro.com/",
-    oauthApp: "AUTOMATIC",
-    scopes: ["boards:read", "boards:write"],
-    parameters: {},
-  },
-  {
     id: "asana",
     name: "Asana",
     description: "Công việc và dự án",
@@ -153,16 +135,6 @@ export const mcpCatalog: McpCatalogEntry[] = [
     oauthApp: "MANUAL",
     setupUrl: "https://app.asana.com/0/my-apps",
     scopes: ["default"],
-    parameters: {},
-  },
-  {
-    id: "hubspot",
-    name: "HubSpot",
-    description: "Khách hàng, giao dịch và liên hệ",
-    url: "https://mcp.hubspot.com/",
-    oauthApp: "MANUAL",
-    setupUrl: "https://developers.hubspot.com/",
-    scopes: [],
     parameters: {},
   },
 ];
