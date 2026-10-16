@@ -57,7 +57,8 @@ export function ChatMcpToggle({
 }
 
 /**
- * The apps the person may use. A connected app is one row that turns it on or off for this conversation with a check,
+ * The apps the person may use, each logo drawn as its brand publishes it for the surface, without a tile. A connected
+ * app is one row that turns it on or off for this conversation with a check,
  * as the `+` menu marks Web, and the menu stays open for the next pick. Apps still to connect follow under their own
  * heading with Connect, because selecting one would only produce a connect message.
  */
@@ -123,6 +124,7 @@ export function ChatMcpServers({
               >
                 <McpServerMark
                   size="xs"
+                  bare
                   slug={connection.slug}
                   url={connection.url}
                   name={connection.name}
@@ -146,6 +148,7 @@ export function ChatMcpServers({
               <li key={connection.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5">
                 <McpServerMark
                   size="xs"
+                  bare
                   slug={connection.slug}
                   url={connection.url}
                   name={connection.name}
