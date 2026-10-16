@@ -21,14 +21,20 @@ owner checks the editor on staging after the third.
 
 ## 2. Editor
 
-- [ ] Shell: tabs with `?tab=`, `ResizablePanelGroup`, sticky section nav, sections per design decision 11.
-- [ ] Save stays on the page; disabled-reason tooltip; labels and image applied on Save; blocker kept.
-- [ ] Unified document picker with the heading switch; "Chỉ trả lời có căn cứ" folded.
-- [ ] Create dialog; `/agents/create` opens it; create then opens the editor.
-- [ ] Chia sẻ tab from the share dialog body, with labels and the admin listing switches; the card's share action
-  opens the tab.
-- [ ] Remove `AgentPreview` and the new-assistant local draft.
-- [ ] i18n; tests for tabs, section nav, save states, picker, create flow.
+- [x] Shell: tabs with `?tab=` (Cấu hình, Chia sẻ), sections per design decision 11. The sticky section nav is on
+  hold: no reference product has one and the owner is reconsidering it. The
+  `ResizablePanelGroup` arrives with the test chat in step 3 and the Kênh tab with binding in step 4, so neither ships
+  empty ([ADR 0002](../../../decisions/0002-no-speculative-operational-surfaces.md)).
+- [x] One header: the breadcrumb, state, Hủy and Lưu go into the shell header (`AppShellHeader` `breadcrumb` and
+  `actions`); the editor's own sticky bar is gone.
+- [x] Save stays on the page; disabled-reason tooltip; blocker kept, tab switches not blocked. Labels save on change in
+  the Chia sẻ tab; an uploaded image still applies only on Save.
+- [x] Unified document picker with the heading switch; "Chỉ trả lời có căn cứ" folded.
+- [x] Create dialog; `/agents/create` opens it; create then opens the editor.
+- [x] Chia sẻ tab from the share dialog body, with labels and the admin listing switches, saving on change; the card's
+  share action opens the tab.
+- [x] Remove `AgentPreview`, the share dialog and the new-assistant local draft.
+- [x] i18n; tests for tabs, save states, picker, sharing revision, create flow.
 
 ## 3. Test chat
 

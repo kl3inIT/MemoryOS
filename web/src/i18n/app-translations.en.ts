@@ -1374,8 +1374,6 @@ export const vietnameseUi: Record<string, string> = {
   "{{v1}} nguồn": "{{v1}} sources",
   "Cấu hình trợ lý": "Assistant configuration",
   "Câu hỏi cho {{v1}}": "Question for {{v1}}",
-  "Chỉ những người và Group ở trên mới thấy trợ lý này.":
-    "Only the people and Groups above can see this assistant.",
   "Chuyển quyền": "Transfer",
   "Đã sao chép liên kết": "Link copied",
   "Gỡ quyền truy cập": "Remove access",
@@ -1386,8 +1384,6 @@ export const vietnameseUi: Record<string, string> = {
   "Quản trị viên trợ lý": "Assistant administrators",
   "Tạo bởi {{v1}}": "Created by {{v1}}",
   "Thêm người hoặc Group": "Add people or Groups",
-  "Trợ lý hiện trong thư viện của mọi thành viên.":
-    "The assistant appears in every member's library.",
   "Xem và chat": "View and chat",
   "Ẩn {{v1}} cho riêng tôi": "Hide {{v1}} for me",
   "Ẩn cho riêng tôi": "Hide for me",
@@ -1412,25 +1408,17 @@ export const vietnameseUi: Record<string, string> = {
     "Text inserted into the chat box when you pick this shortcut",
   "Xóa lệnh tắt {{v1}}": "Delete shortcut {{v1}}",
   "Xóa nội dung đang nhập": "Clear what you typed",
-  "{{v1}} tệp đã chọn": "{{v1}} files selected",
   "Ảnh mới": "New image",
-  "Bỏ bản nháp": "Discard draft",
   "Bỏ nguồn {{v1}}": "Remove source {{v1}}",
   "Bỏ nhãn {{v1}}": "Remove label {{v1}}",
   "Bỏ thay đổi chưa lưu?": "Discard unsaved changes?",
   "Các thay đổi của trợ lý này sẽ mất nếu bạn rời trang.":
     "Your changes to this assistant will be lost if you leave the page.",
-  "Cách trợ lý trả lời. Hướng dẫn của trợ lý được ưu tiên hơn hướng dẫn dự án.":
-    "How the assistant answers. Assistant instructions take priority over project instructions.",
   "Câu hỏi gợi ý {{v1}}": "Starter prompt {{v1}}",
   "Chỉ xem": "View only",
-  "Chọn nguồn để trợ lý chỉ trả lời từ những tài liệu đó.":
-    "Choose sources so the assistant only answers from those documents.",
   "Chọn tệp": "Choose files",
   "Chưa có nhãn nào.": "No labels yet.",
   "Có thay đổi chưa lưu": "Unsaved changes",
-  "Đã khôi phục bản nháp bạn đang tạo dở.": "Restored the draft you were creating.",
-  "Đã lưu nháp trên trình duyệt": "Draft saved in this browser",
   "Đang rời trang…": "Leaving…",
   "Độ dài tối đa của một câu trả lời.": "Maximum length of one answer.",
   "Đổi biểu tượng": "Change icon",
@@ -1449,7 +1437,6 @@ export const vietnameseUi: Record<string, string> = {
   "Không tải được ảnh lên. Thử lại.": "Could not upload the image. Try again.",
   Xong: "Done",
   "Dùng model mặc định của tổ chức": "Use the organization's default model",
-  "Đường dẫn": "Breadcrumb",
   "Gửi kèm mỗi câu hỏi, dùng cho quy tắc ngắn mà trợ lý hay quên.":
     "Sent with every question, for short rules the assistant tends to forget.",
   "Hiện dưới ô chat để người dùng bấm hỏi ngay.":
@@ -1458,30 +1445,41 @@ export const vietnameseUi: Record<string, string> = {
   "Không tìm thấy nguồn.": "No sources found.",
   "Lượng hội thoại và tài liệu tối đa gửi cho model.":
     "Maximum conversation and document context sent to the model.",
-  "Lưu trợ lý rồi bấm Bắt đầu chat để thử.":
-    "Save the assistant, then choose Start chat to try it.",
-  "Mô tả sẽ hiện ở đây.": "The description appears here.",
   "Model và giới hạn token. Để trống để dùng giới hạn của model.":
     "Model and token limits. Leave empty to use the model's limits.",
-  "Người dùng chỉ nhận câu trả lời từ tài liệu họ được phép đọc.":
-    "People only get answers from documents they are allowed to read.",
   "Người dùng vẫn đổi được model khi chat.": "People can still change the model while chatting.",
-  "Những việc trợ lý được làm ngoài trả lời.": "What the assistant can do beyond answering.",
-  "Quản trị viên kết nối máy chủ MCP để trợ lý dùng thêm công cụ như Jira, Google Sheets.":
-    "Administrators connect MCP servers so the assistant can use more tools such as Jira or Google Sheets.",
   "Rời trang": "Leave page",
   "Tạo nhãn “{{v1}}”": "Create label “{{v1}}”",
-  "Tên, chức danh, mô tả và nhãn giúp đồng nghiệp tìm đúng trợ lý trong thư viện.":
-    "Name, title, description and labels help colleagues find the right assistant in the library.",
   // MEM-273: an assistant's title, greeting and reasoning level
   "Chức danh": "Title",
   "Ví dụ: Chuyên viên phân tích tài chính": "For example: Financial analyst",
+  // MEM-273 assistant editor: tabs, sections, one header, the create dialog and the Chia sẻ tab
+  "Danh tính": "Identity",
+  "Mở đầu": "Opening",
+  "Model và suy luận": "Model and reasoning",
+  Bật: "On",
+  "Tìm trong tài liệu nội bộ": "Search internal documents",
+  "Chỉ trả lời có căn cứ": "Grounded answers only",
+  "Theo hệ thống": "System default",
+  "Cần nhập tên": "Enter a name",
+  "Chưa có thay đổi": "No changes yet",
+  "Hướng dẫn, tài liệu và công cụ chỉnh tiếp sau khi tạo.":
+    "Instructions, documents and tools are set after it is created.",
+  "Không còn khả dụng (đang giữ lựa chọn)": "No longer available (choice kept)",
+  "Không tải được tài liệu.": "Could not load the documents.",
+  "Tìm trong mọi tài liệu người dùng được phép đọc": "Searches every document the person can read",
+  "Xem thêm {{n}} tài liệu": "Show {{n}} more documents",
+  "Thêm tài liệu": "Add documents",
+  "Tệp trong Thư viện": "Files in the Library",
+  "Tìm nguồn hoặc bộ tài liệu…": "Search Sources or Document Sets…",
+  "Không tìm thấy tài liệu.": "No documents found.",
+  "Nguồn · {{v1}}": "Source · {{v1}}",
+  "Khám phá": "Explore",
+  "Hiện ở Khám phá": "Show in Explore",
   "Lời chào": "Greeting",
   "Ví dụ: Chào bạn, mình giúp bạn tra số liệu doanh thu và chi phí.":
     "For example: Hi, I can help you look up revenue and cost figures.",
-  "Model và mức suy luận của trợ lý.": "The assistant's model and reasoning level.",
   "Thêm câu gợi ý": "Add starter prompt",
-  "Thêm nguồn": "Add source",
   Nguồn: "sources",
   "Bộ tài liệu": "Document Sets",
   "Công khai bộ tài liệu này?": "Make this Document Set public?",
@@ -1519,8 +1517,6 @@ export const vietnameseUi: Record<string, string> = {
     "Document Sets group related Sources into a single bundle. Use them as a Search filter or attach them to agents to limit where they look. A Document Set never grants access to a Source or document.",
   "Bộ tài liệu hiện có": "Existing Document Sets",
   "Bảng bộ tài liệu": "Document Sets table",
-  "Xem thêm {{n}} nguồn": "Show {{n}} more Sources",
-  "Xem thêm {{n}} bộ tài liệu": "Show {{n}} more Document Sets",
   "Quyền truy cập": "Access",
   "Mọi người trong tổ chức dùng được bộ tài liệu này.":
     "Every organization member can use this Document Set.",
@@ -1537,27 +1533,17 @@ export const vietnameseUi: Record<string, string> = {
   "Đang tải bộ tài liệu…": "Loading Document Sets…",
   "Không tải được bộ tài liệu.": "Could not load Document Sets.",
   "Sửa bộ tài liệu": "Edit Document Set",
-  "Thêm bộ tài liệu": "Add Document Set",
   "Tất cả bộ tài liệu": "All Document Sets",
-  "Tìm bộ tài liệu…": "Search Document Sets…",
-  "Không tìm thấy bộ tài liệu.": "No Document Sets found.",
-  "Không có bộ tài liệu nào được chọn": "No Document Sets selected",
-  "Chọn bộ tài liệu để trợ lý chỉ trả lời từ các nguồn trong đó.":
-    "Choose Document Sets so the assistant answers only from their sources.",
   "Bộ tài liệu không còn khả dụng (đang giữ lựa chọn)":
     "Document Set is unavailable (selection retained)",
   "Bỏ bộ tài liệu {{v1}}": "Remove Document Set {{v1}}",
   "Theo model": "Model default",
-  "Thông tin chung": "General",
   "Tìm hoặc tạo nhãn…": "Search or create a label…",
   "Tìm nguồn…": "Search sources…",
-  "Tìm trong mọi nguồn người dùng được phép đọc": "Searches every source the person can read",
-  "Trợ lý chưa đặt tên": "Untitled assistant",
   "Ví dụ: luôn nêu tháng và đơn vị của báo cáo":
     "Example: always state the report's month and unit",
   "Ví dụ: OKR/KPI hằng tháng": "Example: Monthly OKR/KPI",
   "Ví dụ: Xếp loại KPI tháng 8 của các đơn vị": "Example: Rank the units' August KPIs",
-  "Xem trước": "Preview",
   "Xóa câu hỏi gợi ý {{v1}}": "Remove starter prompt {{v1}}",
   "Trợ lý theo chủ đề cho từng phòng ban, với hướng dẫn, nguồn tài liệu và công cụ riêng.":
     "Topic assistants for each team, with their own instructions, sources and tools.",
@@ -1785,8 +1771,6 @@ export const vietnameseUi: Record<string, string> = {
   "Bỏ trống để tìm trong mọi tài liệu.": "Leave empty to search every document.",
   "Các hội thoại cũ vẫn được giữ. Người đang dùng trợ lý này cần chọn trợ lý khác để tiếp tục.":
     "Existing conversations are kept. People using this agent need to choose another agent to continue.",
-  "Chỉ chủ sở hữu hoặc người quản lý trợ lý mới đổi được quyền truy cập chung.":
-    "Only the owner or an agent manager can change general access.",
   "Chỉ dùng hướng dẫn của trợ lý, bỏ hướng dẫn chung của MemoryOS.":
     "Use only this agent's instructions, without the MemoryOS base instructions.",
   "Chỉ dùng tài liệu cập nhật từ ngày": "Only use documents updated since",
@@ -1830,7 +1814,6 @@ export const vietnameseUi: Record<string, string> = {
   "Lọc theo nhãn": "Filter by label",
   "Lời nhắc ngắn gửi kèm mỗi câu hỏi, ví dụ: luôn nêu tháng và đơn vị của báo cáo":
     "A short reminder sent with every question, for example: always state the report month and unit",
-  "Lưu chia sẻ": "Save sharing",
   "Mọi người trong tổ chức có thể sửa": "Everyone in the organization can edit",
   "Thêm {{v1}} nhãn": "{{v1}} more labels",
   "Mọi thành viên thấy các lệnh tắt này khi gõ / và có thể ẩn cho riêng mình.":
@@ -1838,10 +1821,6 @@ export const vietnameseUi: Record<string, string> = {
   "Nâng cao": "Advanced",
   Người: "People",
   "Người có quyền truy cập": "People with access",
-  "Người dùng trợ lý đọc được các tệp này trong hội thoại.":
-    "Agent users can read these files in conversations.",
-  "Người được chia sẻ dùng trợ lý với quyền của chính họ: trợ lý chỉ tìm trong những nguồn tài liệu họ được phép đọc.":
-    "People you share with use the agent with their own access: it only searches sources they can read.",
   "Nguồn không còn khả dụng": "Source no longer available",
   "Nhắc việc mỗi lượt": "Reminder for every turn",
   "Nhãn sẽ được gỡ khỏi mọi trợ lý. Trợ lý không bị ảnh hưởng.":
@@ -1879,7 +1858,6 @@ export const vietnameseUi: Record<string, string> = {
   "Tìm trong nguồn đã chọn, theo quyền đọc của từng người dùng.":
     "Search the selected sources with each user's own read access.",
   "Tìm và đọc trang Web công khai.": "Search and read public Web pages.",
-  "Tri thức": "Knowledge",
   "Trợ lý chỉ trả lời từ những tài liệu bạn được phép đọc.":
     "The agent only answers from documents you can read.",
   "Trợ lý dùng {{v1}} nguồn tài liệu. Người được chia sẻ sẽ thấy tên các nguồn, nhưng chỉ nhận câu trả lời từ tài liệu họ có quyền đọc.":

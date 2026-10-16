@@ -8,9 +8,24 @@ import { FormDialog } from "@/components/composites/form-dialog";
 import { personLabel } from "@/features/identity/principals";
 import { invalidateAgents, type Persona } from "@/features/chat/chat-personas-api";
 import { PrincipalPicker, type Principal } from "@/features/identity/principal-picker";
+import type { PersonaView } from "@/lib/hey-api/types.gen";
 import { withRequestTimeout } from "@/lib/api";
 
-export function AgentTransferDialog({ agent, onClose }: { agent: Persona; onClose: () => void }) {
+/**
+ * Hands the agent to another person or Group. From the editor, `revision` is the one the page is in step with and
+ * `onTransferred` takes the server's answer, so the page's next save does not read the transfer as a conflict.
+ */
+export function AgentTransferDialog({
+  agent,
+  revision = agent.revision,
+  onTransferred,
+  onClose,
+}: {
+  agent: Persona;
+  revision?: number;
+  onTransferred?: (view: PersonaView) => Promise<unknown>;
+  onClose: () => void;
+}) {
   const ui = useAppTranslation();
   const cache = useQueryClient();
   const transfer = useMutation({
@@ -33,14 +48,15 @@ export function AgentTransferDialog({ agent, onClose }: { agent: Persona; onClos
       submitDisabled={!target}
       onSubmit={async () => {
         if (!target) return;
-        await transfer.mutateAsync({
+        const view = await transfer.mutateAsync({
           path: { personaId: agent.id },
-          query: { revision: agent.revision },
+          query: { revision },
           body:
             target.kind === "person"
               ? { actorId: target.person.actorId }
               : { groupId: target.group.id },
         });
+        await onTransferred?.(view);
       }}
     >
       <div className="flex flex-col gap-3">

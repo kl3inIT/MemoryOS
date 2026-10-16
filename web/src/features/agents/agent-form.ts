@@ -19,7 +19,7 @@ export type AgentReasoningEffort = (typeof reasoningEfforts)[number];
 
 /**
  * The editor's values, named as the request fields they become so that an `ApiProblem` field violation lands on
- * its control. The same shape is kept as a browser draft.
+ * its control. Labels are not among them: the Chia sẻ tab saves them on change.
  */
 const agentValuesSchema = z.object({
   name: z.string(),
@@ -28,7 +28,6 @@ const agentValuesSchema = z.object({
   avatarSeed: z.string(),
   avatarFileId: z.string().nullable(),
   keepAvatar: z.boolean(),
-  labelIds: z.array(z.string()),
   instructions: z.string(),
   greeting: z.string(),
   starterPrompts: z.array(z.string()),
@@ -58,7 +57,6 @@ export function initialValues(agent?: Persona): AgentValues {
     avatarSeed: agent?.avatarSeed ?? randomAvatarSeed(),
     avatarFileId: null,
     keepAvatar: agent?.hasAvatar ?? false,
-    labelIds: agent?.labels.map((label) => label.id) ?? [],
     instructions: agent?.instructions ?? "",
     greeting: agent?.greeting ?? "",
     starterPrompts: agent?.starterPrompts ?? [],
@@ -95,41 +93,17 @@ export function agentRequest(values: AgentValues, agent?: Persona): PersonaInput
     avatarFileId: values.avatarFileId ?? undefined,
     // An image that was saved and is now neither kept nor replaced is dropped, so the face shows.
     removeAvatar: !!agent?.hasAvatar && !values.keepAvatar && !values.avatarFileId,
-    labelIds: values.labelIds,
+    labelIds: agent?.labels.map((label) => label.id) ?? [],
     grounded: values.grounded,
   };
 }
 
-/**
- * A draft kept before the grounded switch existed reads as not grounded, one kept before faces gets a new face, and
- * one kept before titles, greetings and levels has none; fields a draft kept that the editor no longer has are dropped.
- */
-const draftSchema = agentValuesSchema.extend({
-  grounded: z.boolean().default(false),
-  avatarSeed: z.string().default(() => randomAvatarSeed()),
-  title: z.string().default(""),
-  greeting: z.string().default(""),
-  reasoningEffort: z.enum(reasoningEfforts).or(z.literal("")).default(""),
-});
-
-const draftKey = (actorId: string) => `memoryos.agent-draft.${actorId}`;
-
-/** A new agent's unsaved values kept in this browser; storage may be unavailable or hold an older shape. */
-export function readDraft(actorId: string) {
-  try {
-    const raw = window.localStorage.getItem(draftKey(actorId));
-    const parsed = raw ? draftSchema.safeParse(JSON.parse(raw)) : undefined;
-    return parsed?.success ? parsed.data : undefined;
-  } catch {
-    return undefined;
-  }
+/** A new assistant from the create dialog: its name, title and description, with the defaults of a new one. */
+export function createRequest(fields: { name: string; title: string; description: string }) {
+  return agentRequest({ ...initialValues(), ...fields });
 }
 
-export function writeDraft(actorId: string, values: AgentValues | undefined) {
-  try {
-    if (values) window.localStorage.setItem(draftKey(actorId), JSON.stringify(values));
-    else window.localStorage.removeItem(draftKey(actorId));
-  } catch {
-    // Drafts are a convenience; storage may be unavailable.
-  }
+/** The saved assistant with other labels, leaving every other field as it was saved. */
+export function labelsRequest(agent: Persona, labelIds: string[]): PersonaInput {
+  return { ...agentRequest(initialValues(agent), agent), labelIds };
 }

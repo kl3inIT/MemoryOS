@@ -86,8 +86,8 @@ Field coverage (✓ has it):
 9. **Three tabs, Cấu hình · Kênh · Chia sẻ** (LobeHub `AgentProfileTabs`), as shadcn `Tabs` with the line variant.
    The URL keeps the tab (`?tab=`).
 10. **Cấu hình: config left, test chat right** (Dify, Coze, FastGPT), in a `ResizablePanelGroup`. A sticky section
-    nav on the left of the form follows the scroll: Danh tính, Hướng dẫn, Mở đầu, Tài liệu, Công cụ, Model. On phones
-    the form is one column and a floating "Chat thử" button opens the test chat in a `Drawer`, as Dify does.
+    nav (Danh tính … Model) is on hold: no reference product has one (Onyx, Dify, FastGPT, LobeHub) and the owner is
+    reconsidering it, so step 2 ships the sections without it. On phones the form is one column and a floating "Chat thử" button opens the test chat in a `Drawer`, as Dify does.
 11. **Section contents, top to bottom:**
     - Danh tính: avatar, name, title, description.
     - Hướng dẫn: instructions with their counter.
@@ -95,11 +95,15 @@ Field coverage (✓ has it):
     - Tài liệu: the switch, the unified picker, "Chỉ trả lời có căn cứ" folded.
     - Công cụ: web search, code, images, MCP servers. Each person's connection state for an MCP server waits on the
       access discussion (Q12) and is not in this design.
-    - Model: model and reasoning effort, visible (LobeHub puts both at the top of the profile).
+    - Model và suy luận: model and reasoning effort, visible (LobeHub puts both at the top of the profile). The
+      title names reasoning beside "Model", which the Vietnamese catalog otherwise renders "Mô hình".
 12. **Save stays on the page.** The header shows "Đã lưu" or "Có thay đổi chưa lưu"; Save is disabled with a tooltip
-    that says why ("Cần nhập tên", "Chưa có thay đổi"), as Onyx does. Leaving with changes asks, as today. A label is
-    created and an image uploaded only on Save, so Cancel undoes them. Draft and publish for shared assistants is
-    MEM-279; until then Save applies at once, as today.
+    that says why ("Cần nhập tên", "Chưa có thay đổi"), as Onyx does. Leaving with changes asks, as today. An uploaded
+    image applies only on Save, so Cancel undoes it; labels live in the Chia sẻ tab and save on change there. Draft
+    and publish for shared assistants is MEM-279; until then Save applies at once, as today.
+12a. **One header.** The breadcrumb (Trợ lý › name), the state, Hủy and Lưu sit in the shell header through the
+    `breadcrumb` and `actions` of `AppShellHeader`, as the meeting page does; the editor has no second bar under it.
+    The owner approved this on 2026-10-16 after the two stacked bars showed the name twice.
 13. **The test chat runs the unsaved form.** Each test message carries the form's configuration; the server checks it
     the same way Save does and runs the turn in a temporary conversation of that assistant, without saving the
     configuration (FastGPT's chat test sends the unsaved app; Dify's debug runs the draft). The panel shows the
@@ -146,7 +150,6 @@ Shadcn primitives come from `web/src/components/ui`; the missing ones (resizable
 | Piece | Build from | Learned from |
 | --- | --- | --- |
 | Editor shell, tabs | `Tabs` (line variant), `ResizablePanelGroup`, `ScrollArea` | LobeHub `AgentProfileTabs`, Dify `configuration-view` |
-| Section nav | `EditorSection` ids (`agent-editor-fields.tsx`), an `IntersectionObserver` hook | GoClaw sticky sections |
 | Save bar | existing header, `Tooltip` on the disabled button, `ConfirmDialog` blocker | Onyx disabled-reason tooltip, GoClaw sticky save bar |
 | Avatar, name, title, description | `AgentAvatarStudio`, `TextField`, `TextareaField` | Rakazo identity block |
 | Greeting, starters | `TextareaField`, `StarterPromptsField` (duplicate check added) | LobeHub `AgentOpening` (duplicate detection) |
@@ -159,7 +162,8 @@ Shadcn primitives come from `web/src/components/ui`; the missing ones (resizable
 | Kênh tab | `AppRow`, `ChannelMark`, `ConfirmDialog` for the move | LobeHub `AgentChannel` |
 | Empty conversation greeting | `ChatThread` empty state, `ChatStarterPrompts` | — |
 
-`AgentPreview` is deleted; the test chat replaces it.
+`AgentPreview` is deleted in step 2; until the test chat arrives in step 3 the form is one column with no empty
+panel beside it.
 
 ## Not in scope
 

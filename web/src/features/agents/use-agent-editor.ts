@@ -1,46 +1,38 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { revalidateLogic, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useBlocker, useNavigate } from "@tanstack/react-router";
+import { useBlocker } from "@tanstack/react-router";
 import { useAppForm, setServerErrors, useProblemErrors } from "@/components/form/app-form";
-import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useMcpConnections } from "@/features/mcp/mcp-connections";
 import {
   invalidateAgents,
   namedRefsOf,
+  personaOf,
   personaSourcesOptions,
   type Persona,
 } from "@/features/chat/chat-personas-api";
 import {
   createChatPersonaLabelMutation,
-  createChatPersonaMutation,
-  listAvailableChatModelsOptions,
+  getChatPersonaQueryKey,
   listAvailableChatModelsQueryKey,
   listChatPersonaLabelsOptions,
   listChatPersonaLabelsQueryKey,
   listChatPersonaModelsOptions,
   updateChatPersonaMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
+import type { PersonaView } from "@/lib/hey-api/types.gen";
 import { can } from "@/lib/resource-permissions";
-import { agentRequest, agentValidation, initialValues, readDraft, writeDraft } from "./agent-form";
+import { agentRequest, agentValidation, initialValues } from "./agent-form";
 import { agentDocumentSetsOptions } from "./agent-queries";
 import { withRequestTimeout } from "@/lib/api";
 
 /** The choices the editor offers: Sources, Document Sets, models, labels and MCP servers. */
-export function useAgentChoices(agent?: Persona) {
+export function useAgentChoices(agent: Persona) {
   const cache = useQueryClient();
   const sources = useQuery(personaSourcesOptions());
   const documentSets = useQuery(agentDocumentSetsOptions());
-  // An existing agent keeps offering the model it is pinned to; a new one offers the actor's models.
-  const personaModels = useQuery({
-    ...listChatPersonaModelsOptions({ path: { personaId: agent?.id ?? "" } }),
-    enabled: agent !== undefined,
-  });
-  const availableModels = useQuery({
-    ...listAvailableChatModelsOptions(),
-    enabled: agent === undefined,
-  });
-  const models = agent ? personaModels : availableModels;
+  // The assistant keeps offering the model it is pinned to.
+  const models = useQuery(listChatPersonaModelsOptions({ path: { personaId: agent.id } }));
   const labels = useQuery({ ...listChatPersonaLabelsOptions(), select: namedRefsOf });
   const mcp = useMcpConnections();
   const createLabel = useMutation({
@@ -51,60 +43,68 @@ export function useAgentChoices(agent?: Persona) {
 }
 
 /**
- * The editor form: values from the agent or this browser's draft, saved through create or update. A new agent's
- * draft follows every change; leaving an edited agent with unsaved changes asks first.
+ * The revision this editor is in step with. Every save from the page (configuration, sharing, labels, listing)
+ * moves it to the revision the server answered with, so the next save still detects a change made elsewhere
+ * instead of overwriting it; a refetch alone never moves it.
  */
-export function useAgentForm(agent?: Persona) {
+export function useAgentRevision(agent: Persona) {
   const cache = useQueryClient();
-  const navigate = useNavigate();
+  const [revision, setRevision] = useState(agent.revision);
+  return {
+    revision,
+    /** Takes the server's answer to a save from this page. */
+    applied: async (view: PersonaView) => {
+      const saved = personaOf(view);
+      setRevision(saved.revision);
+      cache.setQueryData(getChatPersonaQueryKey({ path: { personaId: saved.id } }), view);
+      await invalidateAgents(cache);
+      return saved;
+    },
+  };
+}
+export type AgentRevision = ReturnType<typeof useAgentRevision>;
+
+/**
+ * The configuration form: values from the saved assistant, saved in place. After a save the form starts again from
+ * what the server kept; leaving the page with unsaved changes asks first, switching tabs does not.
+ */
+export function useAgentForm(agent: Persona, { revision, applied }: AgentRevision) {
+  const cache = useQueryClient();
   const problemErrors = useProblemErrors();
-  const { actorId } = useApplicationSession();
-  const create = useMutation(withRequestTimeout(createChatPersonaMutation()));
   const update = useMutation(withRequestTimeout(updateChatPersonaMutation()));
-  const [initial] = useState(() => initialValues(agent));
-  const [restored, setRestored] = useState(() => (agent ? undefined : readDraft(actorId)));
-  const saved = useRef(false);
+  const [initial, setInitial] = useState(() => initialValues(agent));
+  const [saved, setSaved] = useState(false);
   const form = useAppForm({
-    defaultValues: restored ?? initial,
+    defaultValues: initial,
     validationLogic: revalidateLogic(),
     validators: { onDynamic: agentValidation },
     onSubmit: async ({ value, formApi }) => {
       if (!value.name.trim()) return;
-      const body = agentRequest(value, agent);
+      let view: PersonaView;
       try {
-        if (agent)
-          await update.mutateAsync({
-            path: { personaId: agent.id },
-            query: { revision: agent.revision },
-            body,
-          });
-        else await create.mutateAsync({ body });
+        view = await update.mutateAsync({
+          path: { personaId: agent.id },
+          query: { revision },
+          body: agentRequest(value, agent),
+        });
       } catch (cause) {
         setServerErrors(formApi, problemErrors(cause));
         return;
       }
-      saved.current = true;
-      if (!agent) writeDraft(actorId, undefined);
-      await Promise.all([
-        invalidateAgents(cache, agent?.id),
-        cache.invalidateQueries({ queryKey: listAvailableChatModelsQueryKey() }),
-      ]);
-      await navigate({ to: "/agents" });
+      const next = initialValues(await applied(view));
+      setInitial(next);
+      formApi.reset(next);
+      setSaved(true);
+      await cache.invalidateQueries({ queryKey: listAvailableChatModelsQueryKey() });
     },
   });
   const initialJson = JSON.stringify(initial);
-  const values = useStore(form.store, (state) => state.values);
-  const dirty = JSON.stringify(values) !== initialJson;
+  const dirty = useStore(form.store, (state) => JSON.stringify(state.values) !== initialJson);
 
-  // A new agent keeps a draft in this browser until it is saved or discarded.
-  useEffect(() => {
-    if (!agent && !saved.current) writeDraft(actorId, dirty ? values : undefined);
-  }, [actorId, agent, dirty, values]);
-
-  const unsaved = () =>
-    !!agent && !saved.current && JSON.stringify(form.state.values) !== initialJson;
+  const unsaved = () => JSON.stringify(form.state.values) !== initialJson;
   const blocker = useBlocker({
-    shouldBlockFn: unsaved,
+    // The tabs live in the address, so only leaving the editor's page counts.
+    shouldBlockFn: ({ current, next }) => current.pathname !== next.pathname && unsaved(),
     enableBeforeUnload: unsaved,
     withResolver: true,
   });
@@ -112,15 +112,10 @@ export function useAgentForm(agent?: Persona) {
   return {
     form,
     dirty,
-    editable: agent ? can(agent, "edit") : true,
+    /** The last save succeeded and nothing changed since. */
+    saved: saved && !dirty,
+    editable: can(agent, "edit"),
     blocker,
-    /** A draft of a new agent was restored from this browser. */
-    restored: restored !== undefined,
-    discardDraft: () => {
-      writeDraft(actorId, undefined);
-      form.reset(initial);
-      setRestored(undefined);
-    },
   };
 }
 export type AgentFormApi = ReturnType<typeof useAgentForm>["form"];
