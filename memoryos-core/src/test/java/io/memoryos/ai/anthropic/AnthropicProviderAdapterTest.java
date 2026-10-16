@@ -219,12 +219,12 @@ class AnthropicProviderAdapterTest {
             assertFalse(budget.has("output_config"));
 
             // A level pinned on the conversation outranks a model that names none.
-            var pinned = adaptive.binding().forOptions(new ModelSampling(0.7, ReasoningEffort.LOW, true), null);
+            var pinned = adaptive.binding().forOptions(new ModelSampling(0.7, ReasoningEffort.LOW, true));
             var low = call(pinned.service().getChatModel(), pinned, new LlmOptions().withMaxTokens(100), received);
             assertEquals("adaptive", low.path("thinking").path("type").asString());
             assertEquals("low", low.path("output_config").path("effort").asString());
             assertFalse(low.has("temperature"), "The Messages API refuses a temperature beside thinking");
-            var off = adaptive.binding().forOptions(new ModelSampling(null, ReasoningEffort.OFF, true), null);
+            var off = adaptive.binding().forOptions(new ModelSampling(null, ReasoningEffort.OFF, true));
             assertEquals("disabled", call(off.service().getChatModel(), off, new LlmOptions().withMaxTokens(100), received)
                     .path("thinking").path("type").asString());
 
@@ -239,7 +239,7 @@ class AnthropicProviderAdapterTest {
             assertFalse(received.getLast().body().has("tools"));
 
             // A model that does not reason takes the turn's creativity and no thinking field.
-            var creative = plain.binding().forOptions(new ModelSampling(1.6, ReasoningEffort.HIGH, true), null);
+            var creative = plain.binding().forOptions(new ModelSampling(1.6, ReasoningEffort.HIGH, true));
             var answer = call(creative.service().getChatModel(), creative, new LlmOptions().withMaxTokens(100), received);
             assertEquals(1.0, answer.path("temperature").asDouble());
             assertFalse(answer.has("thinking"));

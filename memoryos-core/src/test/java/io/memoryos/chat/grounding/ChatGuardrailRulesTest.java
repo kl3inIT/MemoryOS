@@ -49,8 +49,8 @@ class ChatGuardrailRulesTest {
         String rules = ChatGuardrailCheck.rulesForTheAnswerModel(policy(
                 on(ChatGuardrails.BUILT_IN.get(1), true, "")));
 
-        var guided = ChatPrompts.forInference(prompt, false, false, false, "", false, rules);
+        var guided = ChatPrompts.forInference(prompt, false, false, false, false, rules);
         assertTrue(guided.getInstructions().getFirst() instanceof SystemMessage system && system.getText().contains(rules));
-        assertEquals(prompt, ChatPrompts.forInference(prompt, false, false, false, "", false, ""));
+        assertEquals(prompt, ChatPrompts.forInference(prompt, false, false, false, false, ""));
     }
 }

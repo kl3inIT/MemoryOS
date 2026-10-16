@@ -5,18 +5,18 @@ owner checks the editor on staging after the third.
 
 ## 1. Fields
 
-- [ ] Migration V181: add `title` (80), `greeting` (500), `reasoning_effort`; append a non-empty `task_prompt` to
+- [x] Migration V181: add `title` (80), `greeting` (500), `reasoning_effort`; append a non-empty `task_prompt` to
   `instructions` after a blank line; drop `task_prompt`, `knowledge_cutoff`, `context_token_limit`,
   `output_token_limit`, `replace_base_system_prompt`.
-- [ ] Core: `PersonaEntity`, `ChatPersonaService` validation and views, `JdbcChatRepository.persona` and
+- [x] Core: `PersonaEntity`, `ChatPersonaService` validation and views, `JdbcChatRepository.persona` and
   `ChatTurnOptions` without the removed fields; `ChatModelExecutor`, `ChatModelGuard`, `ChatTurnSetup` and
   `ChatTurnPersistence` without task prompt, cutoff and per-assistant limits; effort resolved session → assistant →
   member default → model.
-- [ ] Defaults: a new assistant gets search and web search only.
-- [ ] Greeting and title on the empty conversation (`ChatThread` empty state) and on cards.
-- [ ] Current editor: add title, greeting and effort (`ModelSelector` efforts); remove the five fields.
-- [ ] Contract: `openapi.yml`, Hey API client.
-- [ ] Tests: migration folds a task prompt; effort resolution order; the removed fields no longer reach the prompt;
+- [x] Defaults: a new assistant gets search and web search only.
+- [x] Greeting and title on the empty conversation (`ChatThread` empty state) and on cards.
+- [x] Current editor: add title, greeting and effort (`ModelSelector` efforts); remove the five fields.
+- [x] Contract: `openapi.yml`, Hey API client.
+- [x] Tests: migration folds a task prompt; effort resolution order; the removed fields no longer reach the prompt;
   persona API round trip of the new fields.
 
 ## 2. Editor

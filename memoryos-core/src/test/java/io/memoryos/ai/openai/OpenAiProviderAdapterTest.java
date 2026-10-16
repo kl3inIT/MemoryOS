@@ -267,7 +267,7 @@ class OpenAiProviderAdapterTest {
             try (var client = adapter.create(connection, "configured-model", settings(Map.of(), false), Duration.ofSeconds(5))) {
                 var binding = client.binding();
                 // The turn's sampling wraps the converter, and ModelGuard rewrites the request on the way out.
-                var service = binding.forOptions(new ModelSampling(0.4, null, false), null).service();
+                var service = binding.forOptions(new ModelSampling(0.4, null, false)).service();
                 String conversation = "conversation-1";
                 var answer = service.convertOptions(new LlmOptions().withMaxTokens(100)
                         .withExtension(ModelBinding.PROMPT_CACHE_KEY, conversation));

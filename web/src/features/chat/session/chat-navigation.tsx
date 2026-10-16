@@ -306,7 +306,10 @@ function AssistantSidebar({
   const face = faceOf(personaId);
   const name = listed?.name ?? face.name;
   const usable = listed?.usable ?? true;
-  const owner = listed ? (listed.builtin ? ui("MemoryOS") : listed.ownerName) : null;
+  // The role line names what the assistant does; without one the line names who runs it.
+  const owner = listed
+    ? listed.title || (listed.builtin ? ui("MemoryOS") : listed.ownerName)
+    : null;
   const topics = useQuery({
     ...listChatSessionsOptions({
       query: { personaId, archived: false, limit: SIDEBAR_TOPICS + 1 },

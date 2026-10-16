@@ -25724,6 +25724,12 @@ components:
           format: uuid
         name:
           type: string
+        title:
+          type:
+          - string
+          - "null"
+          description: The role line under the name; null when unset or the assistant
+            is not usable
         description:
           type: string
           description: Empty when the assistant is not usable
@@ -25762,6 +25768,7 @@ components:
       - latestTopic
       - name
       - ownerName
+      - title
       - usable
     ChatAssistantTopic:
       type: object
@@ -26295,12 +26302,25 @@ components:
       properties:
         name:
           type: string
+        title:
+          type:
+          - string
+          - "null"
+          description: The role line under the name; null or blank clears it
+          maxLength: 80
+          minLength: 0
         description:
           type: string
         instructions:
           type: string
-        taskPrompt:
-          type: string
+        greeting:
+          type:
+          - string
+          - "null"
+          description: What an empty conversation opens with; null or blank shows
+            the default heading
+          maxLength: 500
+          minLength: 0
         starterPrompts:
           type: array
           items:
@@ -26330,20 +26350,17 @@ components:
           - string
           - "null"
           format: uuid
-        contextTokenLimit:
+        reasoningEffort:
           type:
-          - integer
+          - string
           - "null"
-          format: int32
-          maximum: 2000000
-          minimum: 256
-        outputTokenLimit:
-          type:
-          - integer
-          - "null"
-          format: int32
-          maximum: 200000
-          minimum: 1
+          description: "The agent's own reasoning level; null leaves it to the conversation,\
+            \ the member and the model"
+          enum:
+          - "OFF"
+          - LOW
+          - MEDIUM
+          - HIGH
         fileIds:
           type: array
           items:
@@ -26370,11 +26387,6 @@ components:
           items:
             type: string
             format: uuid
-        replaceBaseSystemPrompt:
-          type: boolean
-        knowledgeCutoff:
-          type: string
-          format: date-time
         grounded:
           type: boolean
     AgentGroupShare:
@@ -26470,11 +26482,13 @@ components:
           format: int64
         name:
           type: string
+        title:
+          type: string
         description:
           type: string
         instructions:
           type: string
-        taskPrompt:
+        greeting:
           type: string
         starterPrompts:
           type: array
@@ -26512,15 +26526,14 @@ components:
           - type: string
             format: uuid
           - type: "null"
-        contextTokenLimit:
+        reasoningEffort:
           oneOf:
-          - type: integer
-            format: int32
-          - type: "null"
-        outputTokenLimit:
-          oneOf:
-          - type: integer
-            format: int32
+          - type: string
+            enum:
+            - "OFF"
+            - LOW
+            - MEDIUM
+            - HIGH
           - type: "null"
         fileIds:
           type: array
@@ -26561,13 +26574,8 @@ components:
         displayPriority:
           type: integer
           format: int32
-        replaceBaseSystemPrompt:
-          type: boolean
         grounded:
           type: boolean
-        knowledgeCutoff:
-          type: string
-          format: date-time
         pinned:
           type: boolean
         deletedAt:

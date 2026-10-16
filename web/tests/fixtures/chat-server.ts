@@ -409,6 +409,7 @@ export async function handleChatFixture(
       {
         id: builtinPersonaId,
         name: builtinPersona.name,
+        title: null,
         description: builtinPersona.description,
         avatarSeed: "memoryos",
         hasAvatar: false,

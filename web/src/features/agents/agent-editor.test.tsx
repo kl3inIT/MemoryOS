@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   createMemoryHistory,
@@ -83,6 +83,8 @@ describe("AgentEditorPage", () => {
         sent = await request.json();
         const created: PersonaView = {
           ...sent,
+          title: sent.title ?? undefined,
+          greeting: sent.greeting ?? undefined,
           avatarSeed: sent.avatarSeed ?? "contract-law",
           id: "70000000-0000-4000-8000-000000000099",
           revision: 0,
@@ -95,7 +97,12 @@ describe("AgentEditorPage", () => {
     expect(create).toBeDisabled();
 
     await user.type(screen.getByRole("textbox", { name: "Assistant name" }), " Law ");
-    await user.type(screen.getByRole("textbox", { name: /Reminder for every turn/ }), "Cite");
+    await user.type(screen.getByRole("textbox", { name: "Title" }), "Contract lawyer ");
+    await user.type(
+      screen.getByRole("textbox", { name: "Greeting" }),
+      "Hi, send me a clause and I will check it.",
+    );
+    expect(screen.getByRole("switch", { name: "Sandbox" })).not.toBeChecked();
     await user.click(screen.getByRole("switch", { name: "Create image" }));
     await user.click(
       screen.getByRole("switch", { name: "Answer only from the organization's documents" }),
@@ -105,17 +112,20 @@ describe("AgentEditorPage", () => {
     expect(await screen.findByText("Agent catalog")).toBeVisible();
     expect(sent).toMatchObject({
       name: "Law",
-      taskPrompt: "Cite",
+      title: "Contract lawyer",
+      greeting: "Hi, send me a clause and I will check it.",
       starterPrompts: [],
-      tools: ["search", "web_search", "code_interpreter"],
+      tools: ["search", "web_search", "image_generation"],
       modelConfigurationId: null,
       avatarSeed: expect.stringMatching(/^[A-Za-z0-9_-]{1,64}$/),
       grounded: true,
     });
+    expect(sent).not.toHaveProperty("taskPrompt");
+    expect(sent).not.toHaveProperty("reasoningEffort");
     expect(window.localStorage.getItem(draftKey)).toBeNull();
   }, 15_000);
 
-  it("restores an unsaved new agent from this browser until the draft is discarded", async () => {
+  it("restores an unsaved new agent, kept before the fields changed, until the draft is discarded", async () => {
     window.localStorage.setItem(
       draftKey,
       JSON.stringify({
@@ -172,55 +182,90 @@ describe("AgentEditorPage", () => {
     expect(name).toHaveAttribute("aria-invalid", "true");
   });
 
-  it("marks a token limit outside the accepted range without sending the agent", async () => {
-    let sent = false;
+  it("offers a reasoning level only for a model that reasons and sends the one chosen", async () => {
+    let sent: PersonaInput | undefined;
     server.use(
-      handleCreateChatPersona(() => {
-        sent = true;
-        return HttpResponse.json({}, { status: 500 });
+      handleListAvailableChatModels({
+        body: [
+          model("10000000-0000-4000-8000-000000000001", "Fast answers", false, true),
+          model("10000000-0000-4000-8000-000000000002", "Deep thinker", true, false),
+        ],
+      }),
+      handleCreateChatPersona(async ({ request }) => {
+        sent = await request.json();
+        return HttpResponse.json(
+          {
+            ...sent,
+            title: undefined,
+            greeting: undefined,
+            id: "70000000-0000-4000-8000-000000000098",
+            revision: 0,
+          },
+          { status: 201 },
+        );
       }),
     );
     const user = await renderEditor();
+    await user.type(screen.getByRole("textbox", { name: "Assistant name" }), "Analyst");
 
-    await user.type(screen.getByRole("textbox", { name: "Assistant name" }), "Contract law");
-    const output = screen.getByRole("spinbutton", { name: "Max output (token)" });
-    await user.type(output, "999999");
+    const picker = screen.getByRole("combobox", { name: "Default model" });
+    await waitFor(() => expect(picker).toBeEnabled());
+    await user.click(picker);
+    expect(screen.queryByRole("radiogroup", { name: "Reasoning" })).not.toBeInTheDocument();
+    await user.click(await screen.findByRole("option", { name: /Deep thinker/ }));
+    await user.click(picker);
+    const levels = await screen.findByRole("radiogroup", { name: "Reasoning" });
+    expect(screen.getByRole("radio", { name: "Default" })).toBeChecked();
+    await user.click(within(levels).getByRole("radio", { name: "High" }));
+    await user.keyboard("{Escape}");
     await user.click(screen.getByRole("button", { name: "Create assistant" }));
 
-    expect(await screen.findByText("The maximum is 200000.")).toBeVisible();
-    expect(output).toHaveAttribute("aria-invalid", "true");
-    expect(output).toHaveAccessibleDescription("The maximum is 200000.");
-    expect(sent).toBe(false);
+    await waitFor(() =>
+      expect(sent).toMatchObject({
+        modelConfigurationId: "10000000-0000-4000-8000-000000000002",
+        reasoningEffort: "HIGH",
+      }),
+    );
+  }, 15_000);
 
-    await user.clear(output);
-    await user.type(output, "4096");
-    expect(output).not.toHaveAttribute("aria-invalid");
-  });
-
-  it("places the API's token limit violation on its control", async () => {
+  it("places the API's title violation on its control", async () => {
     const problem: ApiProblem = {
       title: "Validation failed",
       status: 400,
       detail: "One or more request values are invalid.",
       instance: "/api/chat/personas",
       code: "REQUEST_VALIDATION",
-      errors: [
-        {
-          field: "contextTokenLimit",
-          message: "must be greater than or equal to 256",
-          code: "MIN",
-          params: { min: 256 },
-        },
-      ],
+      errors: [{ field: "title", message: "size", code: "SIZE", params: { min: 0, max: 80 } }],
     };
     server.use(handleCreateChatPersona(() => HttpResponse.json(problem, { status: 400 })));
     const user = await renderEditor();
 
     await user.type(screen.getByRole("textbox", { name: "Assistant name" }), "Contract law");
+    const title = screen.getByRole("textbox", { name: "Title" });
+    await user.type(title, "Contract lawyer");
     await user.click(screen.getByRole("button", { name: "Create assistant" }));
 
-    const context = screen.getByRole("spinbutton", { name: "Context window (token)" });
-    await waitFor(() => expect(context).toHaveAttribute("aria-invalid", "true"));
-    expect(context).toHaveAccessibleDescription("The minimum is 256.");
+    await waitFor(() => expect(title).toHaveAttribute("aria-invalid", "true"));
   });
 });
+
+function model(id: string, name: string, reasoning: boolean, isDefault: boolean) {
+  return {
+    id,
+    providerId: "20000000-0000-4000-8000-000000000001",
+    providerName: "Provider",
+    modelName: name.toLowerCase().replace(" ", "-"),
+    displayName: name,
+    capabilities: {
+      streaming: true,
+      toolCalling: true,
+      vision: false,
+      reasoning,
+      structuredOutput: false,
+    },
+    contextWindow: 128000,
+    maxOutputTokens: 4096,
+    pricing: null,
+    isDefault,
+  };
+}

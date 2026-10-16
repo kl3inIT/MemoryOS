@@ -977,6 +977,7 @@ export const zChatAssistantTopic = z.object({
 export const zChatAssistant = z.object({
     id: z.uuid(),
     name: z.string(),
+    title: z.string().nullable(),
     description: z.string(),
     avatarSeed: z.string(),
     hasAvatar: z.boolean(),
@@ -1192,24 +1193,27 @@ export const zChatPreferences = z.object({
 
 export const zPersonaInput = z.object({
     name: z.string().optional(),
+    title: z.string().min(0).max(80).nullish(),
     description: z.string().optional(),
     instructions: z.string().optional(),
-    taskPrompt: z.string().optional(),
+    greeting: z.string().min(0).max(500).nullish(),
     starterPrompts: z.array(z.string()).optional(),
     sourceIds: z.array(z.uuid()).optional(),
     documentSetIds: z.array(z.uuid()).optional(),
     tools: z.array(z.string()).optional(),
     mcpServerIds: z.array(z.uuid()).optional(),
     modelConfigurationId: z.uuid().nullish(),
-    contextTokenLimit: z.int().gte(256).lte(2000000).nullish(),
-    outputTokenLimit: z.int().gte(1).lte(200000).nullish(),
+    reasoningEffort: z.enum([
+        'OFF',
+        'LOW',
+        'MEDIUM',
+        'HIGH'
+    ]).optional(),
     fileIds: z.array(z.uuid()).optional(),
     avatarSeed: z.string().max(64).regex(/^[A-Za-z0-9_-]{1,64}$/).nullish(),
     avatarFileId: z.uuid().optional(),
     removeAvatar: z.boolean().nullish(),
     labelIds: z.array(z.uuid()).optional(),
-    replaceBaseSystemPrompt: z.boolean().optional(),
-    knowledgeCutoff: z.iso.datetime().optional(),
     grounded: z.boolean().optional()
 });
 
@@ -1265,9 +1269,10 @@ export const zPersonaView = z.object({
     permissions: zPersonaPermissions.optional(),
     revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
     name: z.string().optional(),
+    title: z.string().optional(),
     description: z.string().optional(),
     instructions: z.string().optional(),
-    taskPrompt: z.string().optional(),
+    greeting: z.string().optional(),
     starterPrompts: z.array(z.string()).optional(),
     sourceIds: z.array(z.uuid()).optional(),
     sources: z.array(zAgentSourceRef).optional(),
@@ -1276,8 +1281,12 @@ export const zPersonaView = z.object({
     tools: z.array(z.string()).optional(),
     mcpServers: z.array(zAgentRef).optional(),
     modelConfigurationId: z.uuid().nullish(),
-    contextTokenLimit: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).nullish(),
-    outputTokenLimit: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).nullish(),
+    reasoningEffort: z.union([
+        z.literal('OFF'),
+        z.literal('LOW'),
+        z.literal('MEDIUM'),
+        z.literal('HIGH')
+    ]).nullish(),
     fileIds: z.array(z.uuid()).optional(),
     avatarSeed: z.string().optional(),
     hasAvatar: z.boolean().optional(),
@@ -1291,9 +1300,7 @@ export const zPersonaView = z.object({
     listed: z.boolean().optional(),
     featured: z.boolean().optional(),
     displayPriority: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).optional(),
-    replaceBaseSystemPrompt: z.boolean().optional(),
     grounded: z.boolean().optional(),
-    knowledgeCutoff: z.iso.datetime().optional(),
     pinned: z.boolean().optional(),
     deletedAt: z.iso.datetime().optional()
 });

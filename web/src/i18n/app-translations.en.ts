@@ -1471,8 +1471,15 @@ export const vietnameseUi: Record<string, string> = {
     "Administrators connect MCP servers so the assistant can use more tools such as Jira or Google Sheets.",
   "Rời trang": "Leave page",
   "Tạo nhãn “{{v1}}”": "Create label “{{v1}}”",
-  "Tên, mô tả và nhãn giúp đồng nghiệp tìm đúng trợ lý trong thư viện.":
-    "Name, description and labels help colleagues find the right assistant in the library.",
+  "Tên, chức danh, mô tả và nhãn giúp đồng nghiệp tìm đúng trợ lý trong thư viện.":
+    "Name, title, description and labels help colleagues find the right assistant in the library.",
+  // MEM-273: an assistant's title, greeting and reasoning level
+  "Chức danh": "Title",
+  "Ví dụ: Chuyên viên phân tích tài chính": "For example: Financial analyst",
+  "Lời chào": "Greeting",
+  "Ví dụ: Chào bạn, mình giúp bạn tra số liệu doanh thu và chi phí.":
+    "For example: Hi, I can help you look up revenue and cost figures.",
+  "Model và mức suy luận của trợ lý.": "The assistant's model and reasoning level.",
   "Thêm câu gợi ý": "Add starter prompt",
   "Thêm nguồn": "Add source",
   Nguồn: "sources",

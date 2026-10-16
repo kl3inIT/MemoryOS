@@ -98,12 +98,11 @@ public record ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> fin
         };
     }
 
-    public ModelBinding forOptions(ModelSampling turnSampling, @Nullable Integer outputTokenLimit) {
+    public ModelBinding forOptions(ModelSampling turnSampling) {
         return new ModelBinding(
                 turnSampling.isEmpty() ? service : sampling.apply(service, turnSampling),
-                finalRequest, policy, contextWindow,
-                outputTokenLimit == null ? maxOutputTokens : Integer.valueOf(outputAtMost(outputTokenLimit)),
-                toolCalling, vision, structuredOutput, requiredTools, sampling, failureReading, taskEffort);
+                finalRequest, policy, contextWindow, maxOutputTokens, toolCalling, vision, structuredOutput, requiredTools,
+                sampling, failureReading, taskEffort);
     }
 
     /**
@@ -112,7 +111,7 @@ public record ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> fin
      * thinking on and asks for that level, which a level named in the model's configuration still outranks.
      */
     public ModelBinding forTask(ReasoningEffort effort) {
-        var base = effort == ReasoningEffort.OFF ? this : forOptions(new ModelSampling(null, effort, false), null);
+        var base = effort == ReasoningEffort.OFF ? this : forOptions(new ModelSampling(null, effort, false));
         return new ModelBinding(base.service, finalRequest, policy, contextWindow, maxOutputTokens, toolCalling, vision,
                 structuredOutput, requiredTools, sampling, failureReading, effort);
     }

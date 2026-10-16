@@ -21,6 +21,7 @@ export function ChatThread({
   onCheck,
   checking,
   starters,
+  greeting,
   welcome,
   afterComposer,
   readOnly = false,
@@ -38,6 +39,8 @@ export function ChatThread({
   onCheck: () => Promise<void>;
   checking: boolean;
   starters?: ReactNode;
+  /** The assistant's greeting, in place of the default heading. */
+  greeting?: string;
   welcome?: ReactNode;
   afterComposer?: ReactNode;
   readOnly?: boolean;
@@ -64,8 +67,8 @@ export function ChatThread({
             <AuiIf condition={(state) => state.thread.isEmpty}>
               <div className="mx-auto mb-8 w-full max-w-3xl text-center">
                 {welcome ?? (
-                  <h1 className="text-2xl font-medium tracking-tight sm:text-3xl">
-                    {ui("Bạn muốn tìm hiểu điều gì?")}
+                  <h1 className="text-2xl font-medium tracking-tight text-balance sm:text-3xl">
+                    {greeting || ui("Bạn muốn tìm hiểu điều gì?")}
                   </h1>
                 )}
                 {!welcome && starters}

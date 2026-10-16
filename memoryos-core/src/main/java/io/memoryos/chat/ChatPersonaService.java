@@ -1,5 +1,6 @@
 package io.memoryos.chat;
 
+import io.memoryos.ai.ReasoningEffort;
 import io.memoryos.library.UserFileContentService;
 import io.memoryos.library.UserFileService;
 import io.memoryos.library.UserFile;
@@ -43,6 +44,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ChatPersonaService {
     public static final Set<String> TOOLS = Set.of("search", "web_search", "image_generation", "code_interpreter");
+    /** The tools a new agent starts with when its creator names none: searching documents and the web (MEM-273). */
+    public static final Set<String> DEFAULT_TOOLS = Set.of("search", "web_search");
     private static final Set<String> AVATAR_TYPES = Set.of("image/png", "image/jpeg", "image/webp", "image/gif");
     private static final long AVATAR_MAX_BYTES = 2L * 1024 * 1024;
     private static final int MAX_SHARES = 200;
@@ -71,21 +74,19 @@ public class ChatPersonaService {
     }
 
     /**
-     * Null tools, MCP servers, files, labels, task prompt and flags keep the current value on update and use defaults
-     * on create. A null knowledge cutoff clears it. A null avatar seed keeps the face (a new agent draws a random one);
-     * a null avatar image keeps the image and {@code removeAvatar} drops it.
+     * Null tools, MCP servers, files, labels and flags keep the current value on update and use defaults on create
+     * (a new agent searches documents and the web). A null or blank title or greeting clears it, and a null reasoning
+     * effort leaves the level to the conversation, the member and the model. A null avatar seed keeps the face (a new
+     * agent draws a random one); a null avatar image keeps the image and {@code removeAvatar} drops it.
      */
-    public record PersonaInput(String name, String description, String instructions, @Nullable String taskPrompt,
-                               List<String> starterPrompts, List<UUID> sourceIds, @Nullable List<UUID> documentSetIds,
-                               @Nullable Set<String> tools, @Nullable List<UUID> mcpServerIds, @Nullable UUID modelConfigurationId,
-                               @Nullable Integer contextTokenLimit, @Nullable Integer outputTokenLimit, @Nullable List<UUID> fileIds,
-                               @Nullable String avatarSeed, @Nullable UUID avatarFileId, @Nullable Boolean removeAvatar,
-                               @Nullable List<UUID> labelIds, @Nullable Boolean replaceBaseSystemPrompt,
-                               @Nullable Instant knowledgeCutoff, @Nullable Boolean grounded) {
-        /** The accepted range of an agent's own context token limit; the API declares the same bounds. */
-        public static final int MIN_CONTEXT_TOKEN_LIMIT = 256, MAX_CONTEXT_TOKEN_LIMIT = 2_000_000;
-        /** The accepted range of an agent's own output token limit; the API declares the same bounds. */
-        public static final int MIN_OUTPUT_TOKEN_LIMIT = 1, MAX_OUTPUT_TOKEN_LIMIT = 200_000;
+    public record PersonaInput(String name, @Nullable String title, String description, String instructions,
+                               @Nullable String greeting, List<String> starterPrompts, List<UUID> sourceIds,
+                               @Nullable List<UUID> documentSetIds, @Nullable Set<String> tools, @Nullable List<UUID> mcpServerIds,
+                               @Nullable UUID modelConfigurationId, @Nullable ReasoningEffort reasoningEffort,
+                               @Nullable List<UUID> fileIds, @Nullable String avatarSeed, @Nullable UUID avatarFileId,
+                               @Nullable Boolean removeAvatar, @Nullable List<UUID> labelIds, @Nullable Boolean grounded) {
+        /** The longest title and greeting; the API declares the same bounds. */
+        public static final int MAX_TITLE = 80, MAX_GREETING = 500;
         /** The characters of an avatar seed, as the persona table checks them. */
         public static final String AVATAR_SEED_PATTERN = "^[A-Za-z0-9_-]{1,64}$";
     }
@@ -93,15 +94,15 @@ public class ChatPersonaService {
     public record AgentSourceRef(UUID id, String name) {}
     public record DocumentSetRef(UUID id, String name) {}
     public record PersonaView(UUID id, boolean builtin, PersonaPermissions permissions, long revision, String name,
-                              String description, String instructions, String taskPrompt, List<String> starterPrompts,
+                              @Nullable String title, String description, String instructions, @Nullable String greeting,
+                              List<String> starterPrompts,
                               List<UUID> sourceIds, List<AgentSourceRef> sources, List<UUID> documentSetIds, List<DocumentSetRef> documentSets,
                               Set<String> tools, List<AgentRef> mcpServers, @Nullable UUID modelConfigurationId,
-                              @Nullable Integer contextTokenLimit, @Nullable Integer outputTokenLimit, List<UUID> fileIds,
+                              @Nullable ReasoningEffort reasoningEffort, List<UUID> fileIds,
                               String avatarSeed, boolean hasAvatar, List<AgentRef> labels, AgentOwner owner,
                               boolean vacant, List<AgentUserShare> userShares, List<AgentGroupShare> groupShares, boolean isPublic,
                               AgentPermission publicPermission, boolean listed, boolean featured, @Nullable Integer displayPriority,
-                              boolean replaceBaseSystemPrompt, boolean grounded, @Nullable Instant knowledgeCutoff,
-                              boolean pinned, @Nullable Instant deletedAt) {}
+                              boolean grounded, boolean pinned, @Nullable Instant deletedAt) {}
 
     public record UserShareInput(UUID actorId, AgentPermission permission) {}
     public record GroupShareInput(UUID groupId, AgentPermission permission) {}
@@ -406,8 +407,8 @@ public class ChatPersonaService {
             if (entity == null) continue;
             boolean uses = usable.contains(id);
             var topic = topics.get(id);
-            result.add(new ChatAssistant(id, entity.name(), uses ? entity.description() : "", entity.avatarSeed(),
-                    uses && entity.avatarFileId() != null, entity.builtin(), uses ? owners.getOrDefault(id, empty) : empty,
+            result.add(new ChatAssistant(id, entity.name(), uses ? entity.title() : null, uses ? entity.description() : "",
+                    entity.avatarSeed(), uses && entity.avatarFileId() != null, entity.builtin(), uses ? owners.getOrDefault(id, empty) : empty,
                     uses, topic == null ? null : new ChatAssistantTopic(topic.sessionId(), topic.title(),
                             topic.messageAt() == null ? topic.updatedAt() : topic.messageAt(), preview(topic.content()),
                             topic.replyRunning())));
@@ -451,8 +452,7 @@ public class ChatPersonaService {
 
     private void apply(ActorId actor, TenantId tenant, PersonaEntity entity, PersonaInput input, boolean creating) {
         text(input.name(), 200, true); text(input.description(), 2000, false); text(input.instructions(), 32000, false);
-        String taskPrompt = input.taskPrompt() == null ? (creating ? "" : entity.taskPrompt()) : input.taskPrompt();
-        text(taskPrompt, 32000, false);
+        String title = optional(input.title(), PersonaInput.MAX_TITLE), greeting = optional(input.greeting(), PersonaInput.MAX_GREETING);
         if (input.starterPrompts() == null || input.starterPrompts().size() > 8 || input.sourceIds() == null || input.sourceIds().size() > 100)
             throw ChatException.invalid("Use at most 8 suggestions and 100 sources.");
         input.starterPrompts().forEach(s -> text(s, 1000, true));
@@ -462,9 +462,6 @@ public class ChatPersonaService {
         // A revoked selection may be retained to keep an allowlist narrow, but cannot be newly introduced.
         if (input.sourceIds().stream().anyMatch(id -> !allowed.contains(id) && !entity.sourceIds().contains(id)))
             throw ChatException.invalid("A selected source is unavailable.");
-        if (outside(input.contextTokenLimit(), PersonaInput.MIN_CONTEXT_TOKEN_LIMIT, PersonaInput.MAX_CONTEXT_TOKEN_LIMIT)
-                || outside(input.outputTokenLimit(), PersonaInput.MIN_OUTPUT_TOKEN_LIMIT, PersonaInput.MAX_OUTPUT_TOKEN_LIMIT))
-            throw ChatException.invalid("Invalid assistant token limits.");
         if (input.fileIds() != null) {
             if (entity.builtin() && !input.fileIds().isEmpty()) throw ChatException.invalid("Personal files cannot be attached to the shared default assistant.");
             var retained = new HashSet<>(entity.fileIds());
@@ -483,12 +480,9 @@ public class ChatPersonaService {
             if (file.status() != UserFile.Status.READY || !AVATAR_TYPES.contains(file.mediaType()) || file.sizeBytes() > AVATAR_MAX_BYTES)
                 throw ChatException.invalid("Use a PNG, JPEG, WebP or GIF avatar of at most 2 MiB.");
         }
-        entity.update(new PersonaEntity.Settings(input.name().strip(), input.description(), input.instructions(), taskPrompt,
-                input.starterPrompts(), input.sourceIds(), input.modelConfigurationId(), input.contextTokenLimit(), input.outputTokenLimit(),
-                avatarSeed, avatar,
-                input.replaceBaseSystemPrompt() == null ? entity.replaceBaseSystemPrompt() : input.replaceBaseSystemPrompt(),
-                input.grounded() == null ? entity.grounded() : input.grounded(),
-                input.knowledgeCutoff()));
+        entity.update(new PersonaEntity.Settings(input.name().strip(), title, input.description(), input.instructions(),
+                greeting, input.starterPrompts(), input.sourceIds(), input.modelConfigurationId(), input.reasoningEffort(),
+                avatarSeed, avatar, input.grounded() == null ? entity.grounded() : input.grounded()));
     }
 
     private void relations(TenantId tenant, ActorId actor, PersonaEntity entity, PersonaInput input, boolean creating) {
@@ -500,7 +494,7 @@ public class ChatPersonaService {
         }
         if (input.tools() != null || input.mcpServerIds() != null || creating) {
             Set<String> tools = input.tools() == null
-                    ? (creating ? TOOLS : agents.tools(tenant.value(), entity.id())) : input.tools();
+                    ? (creating ? DEFAULT_TOOLS : agents.tools(tenant.value(), entity.id())) : input.tools();
             if (tools.stream().anyMatch(tool -> !TOOLS.contains(tool))) throw ChatException.invalid("Unknown agent tool.");
             List<UUID> servers = input.mcpServerIds() == null
                     ? (creating ? List.of() : agents.mcpServers(tenant.value(), entity.id())) : input.mcpServerIds();
@@ -553,17 +547,17 @@ public class ChatPersonaService {
                     !entity.builtin() && (personallyOwned || granted.owns() && !manage || manage && granted.vacant()),
                     leave, manage);
             var documentSetIds = attachedSets.getOrDefault(id, List.of());
-            result.add(new PersonaView(id, entity.builtin(), permissions, entity.revision(), entity.name(), entity.description(),
-                    entity.instructions(), entity.taskPrompt(), entity.starterPrompts(), entity.sourceIds(),
+            result.add(new PersonaView(id, entity.builtin(), permissions, entity.revision(), entity.name(), entity.title(),
+                    entity.description(), entity.instructions(), entity.greeting(), entity.starterPrompts(), entity.sourceIds(),
                     entity.sourceIds().stream().map(source -> new AgentSourceRef(source, names.getOrDefault(source, ""))).toList(),
                     documentSetIds, documentSetIds.stream().map(set -> new DocumentSetRef(set, setNames.getOrDefault(set, ""))).toList(),
                     details.tools().getOrDefault(id, Set.of()), details.mcpServers().getOrDefault(id, List.of()),
-                    entity.modelConfigurationId(), entity.contextTokenLimit(), entity.outputTokenLimit(), entity.fileIds(),
+                    entity.modelConfigurationId(), entity.reasoningEffort(), entity.fileIds(),
                     entity.avatarSeed(), entity.avatarFileId() != null, details.labels().getOrDefault(id, List.of()),
                     details.owners().getOrDefault(id, new AgentOwner(null, null)), granted.vacant(), userShares,
                     details.groupShares().getOrDefault(id, List.of()), entity.isPublic(), AgentPermission.valueOf(entity.publicPermission()),
-                    entity.listed(), entity.featured(), entity.displayPriority(), entity.replaceBaseSystemPrompt(), entity.grounded(),
-                    entity.knowledgeCutoff(), details.pinned().contains(id), entity.deletedAt()));
+                    entity.listed(), entity.featured(), entity.displayPriority(), entity.grounded(),
+                    details.pinned().contains(id), entity.deletedAt()));
         }
         return result;
     }
@@ -604,10 +598,8 @@ public class ChatPersonaService {
         var available = models.availableModelsForPersona(actor, entity.id());
         var selected = available.stream().filter(m -> entity.modelConfigurationId() == null ? m.isDefault() : m.id().equals(entity.modelConfigurationId()))
                 .findFirst().orElseThrow(() -> ChatException.invalid("Choose an available model."));
-        Integer contextLimit = entity.contextTokenLimit(), outputLimit = entity.outputTokenLimit();
-        if (contextLimit != null && contextLimit >= selected.contextWindow()
-                || outputLimit != null && selected.maxOutputTokens() != null && outputLimit > selected.maxOutputTokens())
-            throw ChatException.invalid("Assistant limits exceed the selected model limits.");
+        if (entity.reasoningEffort() != null && !selected.capabilities().reasoning())
+            throw ChatException.invalid("The selected model does not reason.");
     }
 
     private static String labelName(@Nullable String name) {
@@ -619,8 +611,11 @@ public class ChatPersonaService {
         if (text == null || text.length() > max || required && text.isBlank()) throw ChatException.invalid("Invalid text length (maximum " + max + ").");
     }
 
-    private static boolean outside(@Nullable Integer value, int min, int max) {
-        return value != null && (value < min || value > max);
+    /** An optional single text: blank clears it, and the rest is kept stripped within {@code max} characters. */
+    private static @Nullable String optional(@Nullable String text, int max) {
+        if (text == null || text.isBlank()) return null;
+        text(text.strip(), max, false);
+        return text.strip();
     }
 
     static void page(int offset, int limit) {

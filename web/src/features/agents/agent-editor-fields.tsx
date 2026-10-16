@@ -130,6 +130,39 @@ export function TextareaField({
   );
 }
 
+/** A one-line text control bound to the `form.AppField` around it, with its length beside the label. */
+export function TextLineField({
+  label,
+  maxLength,
+  placeholder,
+}: {
+  label: string;
+  maxLength: number;
+  placeholder?: string;
+}) {
+  const { field, invalid, errors } = useFieldValidity<string>();
+  return (
+    <EditorField
+      label={label}
+      htmlFor={field.name}
+      counter={`${field.state.value.length}/${maxLength}`}
+      invalid={invalid}
+      errors={errors}
+    >
+      <Input
+        id={field.name}
+        name={field.name}
+        maxLength={maxLength}
+        value={field.state.value}
+        placeholder={placeholder}
+        aria-invalid={invalid || undefined}
+        onBlur={field.handleBlur}
+        onChange={(event) => field.handleChange(event.target.value)}
+      />
+    </EditorField>
+  );
+}
+
 /** A failed read of the editor's choices, with a retry. */
 export function LoadFailure({ children, onRetry }: { children: ReactNode; onRetry: () => void }) {
   const ui = useAppTranslation();

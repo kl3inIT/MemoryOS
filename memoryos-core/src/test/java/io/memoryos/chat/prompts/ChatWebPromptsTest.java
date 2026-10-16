@@ -44,11 +44,7 @@ class ChatWebPromptsTest {
         }).toList();
         return new Prompt(messages, OpenAiChatOptions.builder().toolCallbacks(callbacks).build());
     }
-    @Test void agentTaskPromptIsTheFinalReminderAndTheDateAppearsOnce() {
-        var guided = ChatPrompts.forInference(prompt(Set.of(), null), false, false, true, "Always answer with the KPI month.");
-        var last = guided.getInstructions().getLast().getText();
-        assertTrue(last.startsWith("<system-reminder>"));
-        assertTrue(last.contains("Always answer with the KPI month."));
+    @Test void theDateAppearsOnceInTheSystemPrompt() {
         var now = Instant.parse("2026-09-17T00:00:00Z");
         var standard = ChatPrompts.resolve(ChatPrompts.DEFAULT_SYSTEM, false, now, null);
         assertEquals(1, standard.split("2026-09-17", -1).length - 1);
@@ -82,7 +78,7 @@ class ChatWebPromptsTest {
     }
     /** MEM-254: a gateway that keeps only the first system message must still see the agent prompt. */
     @Test void theGuidanceOpensTheAgentPromptInOneSystemMessage() {
-        var guided = ChatPrompts.forInference(prompt(Set.of("search_knowledge"), null), true, true, true, "Task.", true, "Rules.");
+        var guided = ChatPrompts.forInference(prompt(Set.of("search_knowledge"), null), true, true, true, true, "Rules.");
         var systems = guided.getInstructions().stream().filter(SystemMessage.class::isInstance).map(Message::getText).toList();
         assertEquals(1, systems.size());
         assertTrue(systems.getFirst().contains("Answer only from the organization's documents"));
@@ -91,7 +87,7 @@ class ChatWebPromptsTest {
         assertTrue(guided.getInstructions().getFirst() instanceof SystemMessage);
 
         var withoutSystem = new Prompt(List.of(new UserMessage("Hi")), OpenAiChatOptions.builder().build());
-        var created = ChatPrompts.forInference(withoutSystem, false, false, true, "", true, "");
+        var created = ChatPrompts.forInference(withoutSystem, false, false, true, true, "");
         assertEquals(1, created.getInstructions().stream().filter(SystemMessage.class::isInstance).count());
         assertTrue(created.getInstructions().getFirst().getText().startsWith("# Answer only from the organization's documents"));
     }

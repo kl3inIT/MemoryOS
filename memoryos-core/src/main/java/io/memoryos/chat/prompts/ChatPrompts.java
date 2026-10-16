@@ -352,7 +352,7 @@ public final class ChatPrompts {
     }
 
     public static Prompt forInference(Prompt original, boolean hasEvidence, boolean lastCycle, boolean siteFilter) {
-        return forInference(original, hasEvidence, lastCycle, siteFilter, "");
+        return forInference(original, hasEvidence, lastCycle, siteFilter, false);
     }
 
     /**
@@ -369,33 +369,27 @@ public final class ChatPrompts {
             answers only part of it, answer that part with citations and name the part the documents do not cover.
             """;
 
-    public static Prompt forInference(Prompt original, boolean hasEvidence, boolean lastCycle, boolean siteFilter, String taskPrompt) {
-        return forInference(original, hasEvidence, lastCycle, siteFilter, taskPrompt, false);
-    }
-
-    public static Prompt forInference(Prompt original, boolean hasEvidence, boolean lastCycle, boolean siteFilter, String taskPrompt,
+    public static Prompt forInference(Prompt original, boolean hasEvidence, boolean lastCycle, boolean siteFilter,
                                       boolean grounded) {
-        return forInference(original, hasEvidence, lastCycle, siteFilter, taskPrompt, grounded, "");
+        return forInference(original, hasEvidence, lastCycle, siteFilter, grounded, "");
     }
 
     /**
-     * The agent task prompt leads the final reminder of every inference (Onyx {@code llm_loop.py} reminder).
+     * The guidance and final reminder of every inference (Onyx {@code llm_loop.py} reminder).
      *
      * @param topicRules the blocked topics the answer model applies itself, behind the guardrail check
      */
-    public static Prompt forInference(Prompt original, boolean hasEvidence, boolean lastCycle, boolean siteFilter, String taskPrompt,
+    public static Prompt forInference(Prompt original, boolean hasEvidence, boolean lastCycle, boolean siteFilter,
                                       boolean grounded, String topicRules) {
-        boolean task = taskPrompt != null && !taskPrompt.isBlank();
         var tools = lastCycle ? Set.<String>of() : availableTools(original);
         String guidance = toolGuidance(tools, siteFilter);
         if (grounded) guidance = guidance.isEmpty() ? GROUNDED_GUIDANCE : guidance + "\n" + GROUNDED_GUIDANCE;
         if (!topicRules.isEmpty()) guidance = guidance.isEmpty() ? topicRules : guidance + "\n" + topicRules;
         boolean openPages = !lastCycle && tools.contains("open_url") && justSearchedWeb(original);
-        if (!hasEvidence && !lastCycle && !openPages && !task && guidance.isEmpty()) return original;
+        if (!hasEvidence && !lastCycle && !openPages && guidance.isEmpty()) return original;
         var messages = new ArrayList<>(withGuidance(original, guidance).getInstructions());
-        if (!hasEvidence && !lastCycle && !openPages && !task) return new Prompt(messages, original.getOptions());
+        if (!hasEvidence && !lastCycle && !openPages) return new Prompt(messages, original.getOptions());
         var reminder = new StringBuilder("<system-reminder>\n");
-        if (task) reminder.append(taskPrompt.strip()).append('\n');
         if (openPages) reminder.append(OPEN_URL_REMINDER);
         if (hasEvidence) reminder.append(CITATION_GUIDANCE).append("Remember to provide inline citations for the supplied evidence.\n");
         if (lastCycle) reminder.append("""

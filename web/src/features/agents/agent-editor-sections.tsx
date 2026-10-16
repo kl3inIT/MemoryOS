@@ -1,7 +1,8 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { CalendarClock, Paperclip, Plug } from "lucide-react";
+import { Paperclip, Plug } from "lucide-react";
 import {
   ModelSelectorContent,
+  ModelSelectorEffort,
   ModelSelectorEmpty,
   ModelSelectorGroup,
   ModelSelectorItem,
@@ -9,14 +10,13 @@ import {
   ModelSelectorRoot,
   ModelSelectorSearch,
   ModelSelectorTrigger,
+  ModelSelectorValue,
 } from "@/components/assistant-ui/elements/model-selector";
 import { EmptyState } from "@/components/composites/empty-state";
 import { SettingRow, SettingRows } from "@/components/composites/setting-row";
 import { Button } from "@/components/ui/button";
-import { useFieldValidity } from "@/components/form/form-context";
-import { FieldError } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { REASONING_EFFORTS } from "@/features/chat/chat-models";
 import { ChatFilePicker } from "@/features/library/file-picker";
 import { ModelLogo } from "@/features/models/model-logo";
 import { agentTools, type Persona } from "@/features/chat/chat-personas-api";
@@ -29,13 +29,16 @@ import {
   LoadFailure,
   StarterPromptsField,
   TextareaField,
+  TextLineField,
 } from "./agent-editor-fields";
-import { tokenLimits } from "./agent-form";
+import { maxGreeting, maxTitle, type AgentReasoningEffort } from "./agent-form";
 import { AgentSourcePicker } from "./agent-source-picker";
 import { toolIcons, useToolNames } from "./agent-tools";
 import type { AgentChoices, AgentFormApi } from "./use-agent-editor";
 
 const autoModel = "__auto__";
+/** The level a selector shows while the agent sets none. */
+const systemEffort = "SYSTEM";
 
 const toggle = <T,>(values: T[], value: T, on: boolean) =>
   on
@@ -55,7 +58,9 @@ export function GeneralSection({ form, agent, choices, editable }: SectionProps)
     <EditorSection
       id="agent-general"
       title={ui("Thông tin chung")}
-      description={ui("Tên, mô tả và nhãn giúp đồng nghiệp tìm đúng trợ lý trong thư viện.")}
+      description={ui(
+        "Tên, chức danh, mô tả và nhãn giúp đồng nghiệp tìm đúng trợ lý trong thư viện.",
+      )}
     >
       <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
         <form.Subscribe
@@ -98,6 +103,15 @@ export function GeneralSection({ form, agent, choices, editable }: SectionProps)
                 size="lg"
                 maxLength={200}
                 placeholder={ui("Ví dụ: OKR/KPI hằng tháng")}
+              />
+            )}
+          </form.AppField>
+          <form.AppField name="title">
+            {() => (
+              <TextLineField
+                label={ui("Chức danh")}
+                maxLength={maxTitle}
+                placeholder={ui("Ví dụ: Chuyên viên phân tích tài chính")}
               />
             )}
           </form.AppField>
@@ -160,14 +174,14 @@ export function InstructionsSection({ form, editable }: SectionProps) {
           />
         )}
       </form.AppField>
-      <form.AppField name="taskPrompt">
+      <form.AppField name="greeting">
         {() => (
           <TextareaField
-            label={ui("Nhắc việc mỗi lượt")}
-            hint={ui("Gửi kèm mỗi câu hỏi, dùng cho quy tắc ngắn mà trợ lý hay quên.")}
-            maxLength={32000}
+            label={ui("Lời chào")}
+            counter={(value) => `${value.length}/${maxGreeting}`}
+            maxLength={maxGreeting}
             rows={2}
-            placeholder={ui("Ví dụ: luôn nêu tháng và đơn vị của báo cáo")}
+            placeholder={ui("Ví dụ: Chào bạn, mình giúp bạn tra số liệu doanh thu và chi phí.")}
           />
         )}
       </form.AppField>
@@ -255,26 +269,6 @@ export function KnowledgeSection({ form, agent, choices, editable }: SectionProp
             )}
           </form.AppField>
         )}
-        <form.AppField name="knowledgeCutoff">
-          {(field) => (
-            <SettingRow
-              icon={<CalendarClock />}
-              htmlFor="agent-cutoff"
-              title={ui("Chỉ dùng tài liệu cập nhật từ ngày")}
-              description={ui("Bỏ trống để tìm trong mọi tài liệu.")}
-              control={
-                <Input
-                  id="agent-cutoff"
-                  type="date"
-                  className="w-40"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                />
-              }
-            />
-          )}
-        </form.AppField>
       </SettingRows>
     </EditorSection>
   );
@@ -366,51 +360,6 @@ export function ToolsSection({ form, agent, choices }: SectionProps) {
   );
 }
 
-/** A token limit bound to its field, marked with the range or server message when it is refused. */
-function TokenLimitRow({
-  id,
-  title,
-  description,
-  min,
-  max,
-}: {
-  id: string;
-  title: string;
-  description: string;
-  min: number;
-  max: number;
-}) {
-  const ui = useAppTranslation();
-  const { field, invalid, errors } = useFieldValidity<string>();
-  const errorId = `${id}-error`;
-  return (
-    // One row of the list with its message under it.
-    <div>
-      <SettingRow
-        htmlFor={id}
-        title={title}
-        description={description}
-        control={
-          <Input
-            id={id}
-            type="number"
-            min={min}
-            max={max}
-            className="w-32 text-right"
-            aria-invalid={invalid || undefined}
-            aria-describedby={invalid ? errorId : undefined}
-            value={field.state.value}
-            placeholder={ui("Theo model")}
-            onBlur={field.handleBlur}
-            onChange={(event) => field.handleChange(event.target.value)}
-          />
-        }
-      />
-      {invalid && <FieldError id={errorId} className="mx-4 mb-3" errors={errors} />}
-    </div>
-  );
-}
-
 export function AdvancedSection({ form, agent, choices, editable }: SectionProps) {
   const ui = useAppTranslation();
   const { models } = choices;
@@ -418,7 +367,7 @@ export function AdvancedSection({ form, agent, choices, editable }: SectionProps
     <EditorSection
       id="agent-advanced"
       title={ui("Nâng cao")}
-      description={ui("Model và giới hạn token. Để trống để dùng giới hạn của model.")}
+      description={ui("Model và mức suy luận của trợ lý.")}
     >
       {models.isError && (
         <LoadFailure onRetry={() => void models.refetch()}>
@@ -426,107 +375,102 @@ export function AdvancedSection({ form, agent, choices, editable }: SectionProps
         </LoadFailure>
       )}
       <SettingRows>
-        <form.AppField name="modelConfigurationId">
-          {(field) => {
-            const selected = field.state.value;
-            const options = [
-              {
-                id: autoModel,
-                name: ui("Tự động"),
-                description: ui("Dùng model mặc định của tổ chức"),
-              },
-              ...(models.data ?? []).flatMap((model) =>
-                model.id
-                  ? [
-                      {
-                        id: model.id,
-                        name: model.displayName || model.modelName || ui("Model"),
-                        keywords: [model.modelName ?? "", model.providerName ?? ""],
-                        icon: <ModelLogo modelName={model.modelName ?? ""} />,
-                      },
-                    ]
-                  : [],
-              ),
-              ...(selected &&
-              models.isSuccess &&
-              !models.data.some((model) => model.id === selected)
-                ? [{ id: selected, name: ui("Model không còn khả dụng"), disabled: true }]
-                : []),
-            ];
-            return (
-              <SettingRow
-                title={ui("Model mặc định")}
-                description={ui("Người dùng vẫn đổi được model khi chat.")}
-                control={
-                  <ModelSelectorRoot
-                    models={options}
-                    value={selected || autoModel}
-                    onValueChange={(value) => field.handleChange(value === autoModel ? "" : value)}
-                  >
-                    <ModelSelectorTrigger
-                      aria-label={ui("Model mặc định")}
-                      disabled={!editable || models.isPending}
-                      className="h-9 max-w-64 min-w-40"
-                    />
-                    <ModelSelectorContent className="w-80 max-w-[calc(100vw-2rem)]" align="end">
-                      <ModelSelectorSearch
-                        aria-label={ui("Tìm mô hình")}
-                        placeholder={ui("Tìm mô hình…")}
-                      />
-                      <ModelSelectorList>
-                        <ModelSelectorEmpty>{ui("Không tìm thấy mô hình.")}</ModelSelectorEmpty>
-                        <ModelSelectorGroup>
-                          {options.map((model) => (
-                            <ModelSelectorItem key={model.id} model={model} />
-                          ))}
-                        </ModelSelectorGroup>
-                      </ModelSelectorList>
-                    </ModelSelectorContent>
-                  </ModelSelectorRoot>
-                }
-              />
-            );
-          }}
-        </form.AppField>
-        <form.AppField name="contextTokenLimit">
-          {() => (
-            <TokenLimitRow
-              id="agent-context"
-              title={ui("Context window (token)")}
-              description={ui("Lượng hội thoại và tài liệu tối đa gửi cho model.")}
-              {...tokenLimits.contextTokenLimit}
-            />
+        <form.Subscribe selector={(state) => state.values.reasoningEffort}>
+          {(effort) => (
+            <form.AppField name="modelConfigurationId">
+              {(field) => {
+                const selected = field.state.value;
+                const efforts = [
+                  { id: systemEffort, name: ui("Mặc định") },
+                  ...REASONING_EFFORTS.map((level) => ({ id: level.id, name: ui(level.name) })),
+                ];
+                // Only a reasoning model takes a level; "Tự động" follows the organization's default model.
+                const reasons = (id: string) =>
+                  (models.data ?? []).some(
+                    (model) =>
+                      (id === autoModel ? model.isDefault : model.id === id) &&
+                      model.capabilities?.reasoning,
+                  );
+                const options = [
+                  {
+                    id: autoModel,
+                    name: ui("Tự động"),
+                    description: ui("Dùng model mặc định của tổ chức"),
+                    efforts: reasons(autoModel) ? efforts : undefined,
+                  },
+                  ...(models.data ?? []).flatMap((model) =>
+                    model.id
+                      ? [
+                          {
+                            id: model.id,
+                            name: model.displayName || model.modelName || ui("Model"),
+                            keywords: [model.modelName ?? "", model.providerName ?? ""],
+                            icon: <ModelLogo modelName={model.modelName ?? ""} />,
+                            efforts: model.capabilities?.reasoning ? efforts : undefined,
+                          },
+                        ]
+                      : [],
+                  ),
+                  ...(selected &&
+                  models.isSuccess &&
+                  !models.data.some((model) => model.id === selected)
+                    ? [{ id: selected, name: ui("Model không còn khả dụng"), disabled: true }]
+                    : []),
+                ];
+                return (
+                  <SettingRow
+                    title={ui("Model mặc định")}
+                    description={ui("Người dùng vẫn đổi được model khi chat.")}
+                    control={
+                      <ModelSelectorRoot
+                        models={options}
+                        value={selected || autoModel}
+                        onValueChange={(value) => {
+                          field.handleChange(value === autoModel ? "" : value);
+                          // A level the new model cannot take is dropped, as the API refuses it.
+                          if (!reasons(value)) form.setFieldValue("reasoningEffort", "");
+                        }}
+                        effort={effort || systemEffort}
+                        onEffortChange={(value) =>
+                          form.setFieldValue(
+                            "reasoningEffort",
+                            value === systemEffort ? "" : (value as AgentReasoningEffort),
+                          )
+                        }
+                      >
+                        <ModelSelectorTrigger
+                          aria-label={ui("Model mặc định")}
+                          disabled={!editable || models.isPending}
+                          className="h-9 max-w-64 min-w-40"
+                        >
+                          <ModelSelectorValue showEffort={effort !== ""} />
+                        </ModelSelectorTrigger>
+                        <ModelSelectorContent className="w-80 max-w-[calc(100vw-2rem)]" align="end">
+                          <ModelSelectorSearch
+                            aria-label={ui("Tìm mô hình")}
+                            placeholder={ui("Tìm mô hình…")}
+                          />
+                          <ModelSelectorList>
+                            <ModelSelectorEmpty>{ui("Không tìm thấy mô hình.")}</ModelSelectorEmpty>
+                            <ModelSelectorGroup>
+                              {options.map((model) => (
+                                <ModelSelectorItem key={model.id} model={model} />
+                              ))}
+                            </ModelSelectorGroup>
+                          </ModelSelectorList>
+                          <ModelSelectorEffort label={ui("Suy luận")} />
+                        </ModelSelectorContent>
+                      </ModelSelectorRoot>
+                    }
+                  />
+                );
+              }}
+            </form.AppField>
           )}
-        </form.AppField>
-        <form.AppField name="outputTokenLimit">
-          {() => (
-            <TokenLimitRow
-              id="agent-output"
-              title={ui("Max output (token)")}
-              description={ui("Độ dài tối đa của một câu trả lời.")}
-              {...tokenLimits.outputTokenLimit}
-            />
-          )}
-        </form.AppField>
+        </form.Subscribe>
       </SettingRows>
       {!agent?.builtin && (
         <SettingRows>
-          <form.AppField name="replaceBaseSystemPrompt">
-            {(field) => (
-              <SettingRow
-                htmlFor="agent-replace-base"
-                title={ui("Thay hướng dẫn hệ thống mặc định")}
-                description={ui("Chỉ dùng hướng dẫn của trợ lý, bỏ hướng dẫn chung của MemoryOS.")}
-                control={
-                  <Switch
-                    id="agent-replace-base"
-                    checked={field.state.value}
-                    onCheckedChange={field.handleChange}
-                  />
-                }
-              />
-            )}
-          </form.AppField>
           <form.AppField name="grounded">
             {(field) => (
               <SettingRow

@@ -66,8 +66,8 @@ Field coverage (✓ has it):
    starters; empty means the description, as today (LobeHub `openingMessage`, Dify opener, FastGPT welcome text).
 3. **Reasoning effort.** Optional: empty means "Theo hệ thống", or OFF, LOW, MEDIUM, HIGH. The control shows only when
    the chosen model reports `capabilities.reasoning`, as Rakazo shows thinking only for models that support it. A turn
-   resolves the conversation's pinned effort, then the assistant's, then the member default, then the model's own
-   options.
+   resolves the conversation's pinned effort, then the assistant's, either outranking the model configuration; then,
+   as today (Onyx's order), a level the model configuration names, then the member default.
 4. **Removed:** task prompt, knowledge cutoff, both token limits and "replace the base system prompt". Production has
    one assistant and uses none of them; staging has four task prompts on test assistants. The migration appends a
    non-empty task prompt to the instructions after a blank line, then drops the five columns. The system-wide limits in

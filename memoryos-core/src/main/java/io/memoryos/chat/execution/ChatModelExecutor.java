@@ -229,8 +229,7 @@ public final class ChatModelExecutor {
             selectionRunner = selectionRunner.withLlm(Objects.requireNonNull(selectionRunner.getLlm()).withMaxTokens(Math.min(2048, maxOutput)).withoutThinking());
             searchTool = new SearchTool(search, setup.actor(), selectionRunner, selected.policy().tokens(), searchLimits, active,
                     agent.guard()::availableContextTokens, agent.events(), cancellation, List.of(new UserMessage(agent.task())),
-                    timings, setup.options().sourceAllowlist(), agent.evidence(), agent.activity())
-                    .knowledgeCutoff(setup.options().knowledgeCutoff());
+                    timings, setup.options().sourceAllowlist(), agent.evidence(), agent.activity());
             tools.addAll(Tool.fromInstance(searchTool));
         }
         if (setup.webSearch() != WebSearchMode.off && web != null && setup.webAccess().search() != null) {
@@ -267,7 +266,6 @@ public final class ChatModelExecutor {
         if (delegate instanceof ModelTurns turns)
             delegate = turns.forTurn(ChatTurnListener.turn(setup.evidence(), events, nativeWeb, checkActive));
         int contextLimit = Math.min(limits.contextCap(), selected.inputLimit(limits.maxOutputTokens()));
-        if (setup.options().contextTokenLimit() != null) contextLimit = Math.min(contextLimit, setup.options().contextTokenLimit());
         var guard = new ChatModelGuard(delegate, process, metadata,
                 new Budget(limits.costCap(), Integer.MAX_VALUE, limits.tokenCap()), limits.maxCycles(), checkActive,
                 selected.policy(), contextLimit, selected.finalRequest());
@@ -275,7 +273,6 @@ public final class ChatModelExecutor {
         guard.outputLimit(outputBound);
         // Onyx bounds tool work only by MAX_LLM_CYCLES: search helpers have no count of their own.
         guard.synchronousLimit(ChatModelGuard.UNBOUNDED_HELPERS);
-        guard.taskPrompt(setup.options().taskPrompt());
         guard.topicRules(setup.options().topicRules());
         if (setup.options().grounded()) {
             // MEM-195: the first inference may only call search_knowledge, so the answer starts from the documents.
@@ -346,8 +343,7 @@ public final class ChatModelExecutor {
                 selectionRunner = selectionRunner.withLlm(Objects.requireNonNull(selectionRunner.getLlm())
                         .withMaxTokens(Math.min(2048, outputBound)).withoutThinking());
                 searchTool = new SearchTool(search, setup.actor(), selectionRunner, selected.policy().tokens(), searchLimits,
-                        guard::checkActive, guard::availableContextTokens, events::accept, cancellation, setup.messages(), timings, setup.options().sourceAllowlist(), setup.evidence(), activity)
-                        .knowledgeCutoff(setup.options().knowledgeCutoff());
+                        guard::checkActive, guard::availableContextTokens, events::accept, cancellation, setup.messages(), timings, setup.options().sourceAllowlist(), setup.evidence(), activity);
                 if (sandbox != null) searchTool.withSandbox(sandbox);
                 runner = runner.withTools(Tool.fromInstance(searchTool));
             }

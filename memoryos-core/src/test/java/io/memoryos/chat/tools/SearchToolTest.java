@@ -59,21 +59,6 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
 
 class SearchToolTest {
-    @Test
-    void knowledgeCutoffIsALowerBoundThatRequestsCannotWiden() {
-        var cutoff = Instant.parse("2026-01-01T00:00:00Z");
-        var floor = new SearchFilters.Interval(cutoff, null);
-        Assertions.assertEquals(floor, SearchTool.floor(null, floor));
-        var earlier = new SearchFilters.Interval(Instant.parse("2025-01-01T00:00:00Z"), null);
-        Assertions.assertEquals(cutoff, SearchTool.floor(earlier, floor).from());
-        var before = new SearchFilters.Interval(null, Instant.parse("2025-06-01T00:00:00Z"));
-        var empty = SearchTool.floor(before, floor);
-        Assertions.assertEquals(empty.from(), empty.to());
-        Assertions.assertTrue(SearchTool.beforeFloor(before, floor));
-        Assertions.assertFalse(SearchTool.beforeFloor(earlier, floor));
-        Assertions.assertNull(SearchTool.floor(null, null));
-    }
-
     private final DocumentSearchService search = mock(DocumentSearchService.class);
     private final PromptRunner runner = mock(PromptRunner.class);
     private final List<ChatToolEvent> events = new ArrayList<>();
