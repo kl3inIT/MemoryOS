@@ -198,6 +198,27 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     await collect(await send(transport));
     expect(await submitted(fetch)).toMatchObject({ mcpServerIds: [] });
   });
+  it("sends the editor's unsaved assistant as it stands at each send, and nothing without it", async () => {
+    const fetch = fixture(() => sse(delta + terminal()));
+    const transport = new MemoryOsChatTransport(session);
+    await collect(await send(transport));
+    expect(await submitted(fetch)).not.toHaveProperty("draftPersona");
+    let instructions = "Trả lời ngắn gọn.";
+    transport.draftPersona = () => ({
+      name: "Kế toán thuế",
+      description: "",
+      instructions,
+      starterPrompts: [],
+      sourceIds: [],
+    });
+    await collect(await send(transport));
+    expect(await submitted(fetch)).toMatchObject({ draftPersona: { instructions } });
+    instructions = "Ghi rõ số hiệu văn bản.";
+    await collect(await send(transport));
+    expect(await submitted(fetch)).toMatchObject({
+      draftPersona: { instructions: "Ghi rõ số hiệu văn bản." },
+    });
+  });
   it("loads committed artifact metadata once after outcome without a second inference and restores it on reload", async () => {
     const artifacts = [
       {

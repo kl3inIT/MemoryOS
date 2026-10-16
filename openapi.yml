@@ -29230,6 +29230,11 @@ components:
             format: uuid
           maxItems: 8
           minItems: 0
+        draftPersona:
+          $ref: "#/components/schemas/PersonaInput"
+          description: "The assistant's unsaved settings for this turn: only in a\
+            \ temporary conversation, for a person who may edit its assistant; checked\
+            \ as a save is, never stored"
       required:
       - clientRequestId
       - parentMessageId

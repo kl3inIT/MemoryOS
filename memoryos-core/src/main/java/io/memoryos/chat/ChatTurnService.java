@@ -78,6 +78,7 @@ public final class ChatTurnService implements AutoCloseable {
     private final @Nullable ChatGuardrailCheck guardrails;
     private final @Nullable ChatTurnMetrics metrics;
     private final @Nullable ChatCompactions compactions;
+    private final @Nullable ChatPersonaService personas;
     private final ChatExecutionProperties limits;
     private final TaskExecutor executor;
     private final StreamBufferWriter streams;
@@ -161,6 +162,20 @@ public final class ChatTurnService implements AutoCloseable {
             @Nullable McpTurnService mcp,
             @Nullable AiUsageLimitService spending, @Nullable ChatGuardrailCheck guardrails,
             @Nullable ChatTurnMetrics metrics, @Nullable ChatCompactions compactions) {
+        this(persistence, model, limits, executor, streams, models, web, images, settings, research, mcp, spending,
+                guardrails, metrics, compactions, null);
+    }
+
+    public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
+            TaskExecutor executor, StreamBufferWriter streams, ChatModelSelector models,
+            @Nullable WebConnectionService web,
+            @Nullable ImageConnectionService images, @Nullable ChatSettingsService settings,
+            @Nullable ResearchProperties research,
+            @Nullable McpTurnService mcp,
+            @Nullable AiUsageLimitService spending, @Nullable ChatGuardrailCheck guardrails,
+            @Nullable ChatTurnMetrics metrics, @Nullable ChatCompactions compactions,
+            @Nullable ChatPersonaService personas) {
+        this.personas = personas;
         this.compactions = compactions;
         this.guardrails = guardrails;
         this.metrics = metrics;
@@ -223,12 +238,21 @@ public final class ChatTurnService implements AutoCloseable {
     }
 
     public Accepted command(ActorId actor, UUID session, ChatCommand command) {
+        return command(actor, session, command, null);
+    }
+
+    /**
+     * A command whose turn runs the assistant's unsaved settings instead of the saved ones (MEM-273): allowed in a
+     * temporary conversation only, to a person who may edit its assistant, with the settings checked as Save checks
+     * them. Nothing of the draft is stored.
+     */
+    public Accepted command(ActorId actor, UUID session, ChatCommand command, ChatPersonaService.@Nullable PersonaInput draft) {
         persistence.require(actor, IamCapability.CHAT_WRITE);
         if (command.image() != ImageMode.off) persistence.require(actor, IamCapability.IMAGE_GENERATE);
         var lock = commandLock(session);
         Admission admission;
         lock.lock();
-        try { admission = admit(actor, session, command); }
+        try { admission = admit(actor, session, command, draft); }
         finally { lock.unlock(); }
         // The run is registered before the lock is released, so Stop, subscribe and delete see it from here on.
         var run = admission.run();
@@ -270,14 +294,14 @@ public final class ChatTurnService implements AutoCloseable {
         }
     }
 
-    private Admission admit(ActorId actor, UUID session, ChatCommand command) {
+    private Admission admit(ActorId actor, UUID session, ChatCommand command, ChatPersonaService.@Nullable PersonaInput draft) {
         var previous = persistence.existing(actor, session, command);
         if (previous.isPresent()) return new Admission(accepted(previous.orElseThrow()), null, false);
         // Departure from Onyx, which only hides its button: a disabled mode must not run through the public API.
         if (command.deepResearch() && (settings == null || !settings.read(actor).deepResearchEnabled()))
             throw ChatException.researchUnavailable();
         // Onyx attaches tools to the agent: a command may only use tools the session agent allows.
-        var agent = persistence.agent(actor, session);
+        var agent = draft == null ? persistence.agent(actor, session) : draftAgent(actor, session, draft);
         var tools = agent.persona();
         // MEM-195: answers from documents only are refused Deep research and, unless allowed, Web search.
         var policy = settings == null ? ChatSettingsService.TurnPolicy.NONE : settings.turnPolicy(actor);
@@ -376,6 +400,11 @@ public final class ChatTurnService implements AutoCloseable {
                 unclaim(actor, slot);
             }
         }
+    }
+
+    private ChatTurnPersistence.SessionAgent draftAgent(ActorId actor, UUID session, ChatPersonaService.PersonaInput draft) {
+        if (personas == null) throw ChatException.unavailable();
+        return persistence.agent(actor, session, personas.draft(actor, persistence.testedAssistant(actor, session), draft));
     }
 
     /**

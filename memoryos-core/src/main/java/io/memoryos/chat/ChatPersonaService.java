@@ -450,7 +450,40 @@ public class ChatPersonaService {
         return new Avatar(content.open(actor, tenant, entity.avatarFileId()), file.mediaType());
     }
 
+    /**
+     * The editor's unsaved settings for one test turn (MEM-273): checked as Save checks them, under the same edit
+     * authority, and never written. Kept values (null tools, servers, Document Sets, files or {@code grounded}) are
+     * the saved assistant's.
+     */
+    @Transactional(readOnly = true)
+    public JdbcChatRepository.DraftAgent draft(ActorId actor, UUID id, PersonaInput input) {
+        var tenant = tenant(actor);
+        var entity = settings.findByTenantIdAndId(tenant.value(), id).orElseThrow(ChatException::unavailable);
+        if (entity.deleted() || !access(tenant, actor, manages(actor), id).edits()) throw ChatException.unavailable();
+        var checked = check(actor, tenant, entity, input);
+        var relations = checkRelations(tenant, actor, entity, input, false);
+        var values = checked.settings();
+        validateModel(actor, id, values.modelId(), values.reasoningEffort());
+        var documentSetIds = relations.documentSetIds() != null ? relations.documentSetIds()
+                : documentSetRows.personaSets(tenant.value(), List.of(id)).getOrDefault(id, List.of());
+        var tools = relations.tools() != null ? relations.tools() : agents.tools(tenant.value(), id);
+        var servers = relations.mcpServerIds() != null ? relations.mcpServerIds() : agents.mcpServers(tenant.value(), id);
+        return new JdbcChatRepository.DraftAgent(values.instructions(), tools, entity.builtin() ? null : servers,
+                values.sources(), documentSetIds, values.modelId(), values.reasoningEffort(),
+                entity.builtin() ? List.of() : checked.fileIds() != null ? checked.fileIds() : entity.fileIds(),
+                values.grounded());
+    }
+
     private void apply(ActorId actor, TenantId tenant, PersonaEntity entity, PersonaInput input, boolean creating) {
+        var checked = check(actor, tenant, entity, input);
+        if (checked.fileIds() != null) entity.files(checked.fileIds());
+        entity.update(checked.settings());
+    }
+
+    /** Settings checked as Save checks them; {@code fileIds} is null when the input keeps the attached files. */
+    private record Checked(PersonaEntity.Settings settings, @Nullable List<UUID> fileIds) {}
+
+    private Checked check(ActorId actor, TenantId tenant, PersonaEntity entity, PersonaInput input) {
         text(input.name(), 200, true); text(input.description(), 2000, false); text(input.instructions(), 32000, false);
         String title = optional(input.title(), PersonaInput.MAX_TITLE), greeting = optional(input.greeting(), PersonaInput.MAX_GREETING);
         if (input.starterPrompts() == null || input.starterPrompts().size() > 8 || input.sourceIds() == null || input.sourceIds().size() > 100)
@@ -468,7 +501,6 @@ public class ChatPersonaService {
             files.admit(tenant, actor, input.fileIds().stream().filter(id -> !retained.contains(id)).toList());
             if (input.fileIds().size() > 20 || input.fileIds().stream().distinct().count() != input.fileIds().size())
                 throw ChatException.invalid("Use at most 20 unique files.");
-            entity.files(input.fileIds());
         }
         String avatarSeed = input.avatarSeed();
         if (avatarSeed != null && !avatarSeed.matches(PersonaInput.AVATAR_SEED_PATTERN)) throw ChatException.invalid("Invalid avatar.");
@@ -480,31 +512,45 @@ public class ChatPersonaService {
             if (file.status() != UserFile.Status.READY || !AVATAR_TYPES.contains(file.mediaType()) || file.sizeBytes() > AVATAR_MAX_BYTES)
                 throw ChatException.invalid("Use a PNG, JPEG, WebP or GIF avatar of at most 2 MiB.");
         }
-        entity.update(new PersonaEntity.Settings(input.name().strip(), title, input.description(), input.instructions(),
+        return new Checked(new PersonaEntity.Settings(input.name().strip(), title, input.description(), input.instructions(),
                 greeting, input.starterPrompts(), input.sourceIds(), input.modelConfigurationId(), input.reasoningEffort(),
-                avatarSeed, avatar, input.grounded() == null ? entity.grounded() : input.grounded()));
+                avatarSeed, avatar, input.grounded() == null ? entity.grounded() : input.grounded()), input.fileIds());
     }
 
-    private void relations(TenantId tenant, ActorId actor, PersonaEntity entity, PersonaInput input, boolean creating) {
+    /** Attachments checked as Save checks them; null where the input keeps what is saved. Labels are not among them. */
+    private record Relations(@Nullable List<UUID> documentSetIds, @Nullable Set<String> tools,
+                             @Nullable List<UUID> mcpServerIds) {}
+
+    private Relations checkRelations(TenantId tenant, ActorId actor, PersonaEntity entity, PersonaInput input, boolean creating) {
+        List<UUID> documentSetIds = null;
         if (input.documentSetIds() != null || creating) {
             // Only a new agent reaches here without a selection.
-            List<UUID> documentSetIds = input.documentSetIds() == null ? List.of() : input.documentSetIds();
+            documentSetIds = input.documentSetIds() == null ? List.of() : input.documentSetIds();
             documentSets.admitAttachments(actor, tenant, documentSetIds);
-            documentSetRows.replacePersonaSets(tenant.value(), entity.id(), documentSetIds);
         }
+        Set<String> tools = null;
+        List<UUID> servers = null;
         if (input.tools() != null || input.mcpServerIds() != null || creating) {
-            Set<String> tools = input.tools() == null
+            tools = input.tools() == null
                     ? (creating ? DEFAULT_TOOLS : agents.tools(tenant.value(), entity.id())) : input.tools();
             if (tools.stream().anyMatch(tool -> !TOOLS.contains(tool))) throw ChatException.invalid("Unknown agent tool.");
-            List<UUID> servers = input.mcpServerIds() == null
+            servers = input.mcpServerIds() == null
                     ? (creating ? List.of() : agents.mcpServers(tenant.value(), entity.id())) : input.mcpServerIds();
             if (servers.size() > 50 || servers.stream().anyMatch(Objects::isNull) || servers.stream().distinct().count() != servers.size())
                 throw ChatException.invalid("Attach at most 50 unique MCP servers.");
             // The builtin agent reaches every MCP server the actor can use; it has no attachment rows.
             if (entity.builtin() && !servers.isEmpty()) throw ChatException.invalid("The default assistant uses every available MCP server.");
             if (agents.countMcpServers(tenant.value(), servers) != servers.size()) throw ChatException.invalid("A selected MCP server is unavailable.");
-            agents.replaceTools(tenant.value(), entity.id(), new LinkedHashSet<>(tools), servers);
         }
+        return new Relations(documentSetIds, tools, servers);
+    }
+
+    private void relations(TenantId tenant, ActorId actor, PersonaEntity entity, PersonaInput input, boolean creating) {
+        var checked = checkRelations(tenant, actor, entity, input, creating);
+        if (checked.documentSetIds() != null)
+            documentSetRows.replacePersonaSets(tenant.value(), entity.id(), checked.documentSetIds());
+        if (checked.tools() != null)
+            agents.replaceTools(tenant.value(), entity.id(), new LinkedHashSet<>(checked.tools()), Objects.requireNonNull(checked.mcpServerIds()));
         if (input.labelIds() != null) {
             if (input.labelIds().size() > 20 || input.labelIds().stream().anyMatch(Objects::isNull)
                     || input.labelIds().stream().distinct().count() != input.labelIds().size())
@@ -595,10 +641,14 @@ public class ChatPersonaService {
     }
 
     private void validateModel(ActorId actor, PersonaEntity entity) {
-        var available = models.availableModelsForPersona(actor, entity.id());
-        var selected = available.stream().filter(m -> entity.modelConfigurationId() == null ? m.isDefault() : m.id().equals(entity.modelConfigurationId()))
+        validateModel(actor, entity.id(), entity.modelConfigurationId(), entity.reasoningEffort());
+    }
+
+    private void validateModel(ActorId actor, UUID id, @Nullable UUID model, @Nullable ReasoningEffort effort) {
+        var available = models.availableModelsForPersona(actor, id);
+        var selected = available.stream().filter(m -> model == null ? m.isDefault() : m.id().equals(model))
                 .findFirst().orElseThrow(() -> ChatException.invalid("Choose an available model."));
-        if (entity.reasoningEffort() != null && !selected.capabilities().reasoning())
+        if (effort != null && !selected.capabilities().reasoning())
             throw ChatException.invalid("The selected model does not reason.");
     }
 

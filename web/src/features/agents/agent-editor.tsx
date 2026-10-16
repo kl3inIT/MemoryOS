@@ -1,18 +1,22 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { WifiOff } from "lucide-react";
+import { MessageSquare, WifiOff } from "lucide-react";
+import { lazy, Suspense, useState, type ReactNode } from "react";
 import { AppShellHeader } from "@/components/app-shell/app-shell-header";
 import { BrandLoader } from "@/components/brand-loader";
 import { DetailBreadcrumb } from "@/components/composites/detail-header";
 import { EmptyState } from "@/components/composites/empty-state";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Drawer, DrawerContent, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { personaOf, type Persona } from "@/features/chat/chat-personas-api";
 import { getChatPersonaOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { actionErrorText } from "@/lib/action-errors";
+import { useIsWide } from "@/hooks/use-mobile";
 import type { AgentEditorTab } from "./agent-editor-search";
 import {
   DocumentsSection,
@@ -32,6 +36,8 @@ import {
 } from "./use-agent-editor";
 
 const formId = "agent-editor";
+
+const AgentTestChat = lazy(() => import("./agent-test-chat"));
 
 type TabProps = { tab: AgentEditorTab; onTabChange: (tab: AgentEditorTab) => void };
 
@@ -145,9 +151,13 @@ function AgentEditor({ agent, tab, onTabChange }: { agent: Persona } & TabProps)
           </div>
         }
       />
-      <div className="mx-auto w-full max-w-(--page-width-wide) px-(--page-gutter) pt-4 pb-24">
-        <Tabs value={tab} onValueChange={(value) => onTabChange(value as AgentEditorTab)}>
-          <div className="border-b border-border-subtle">
+      <div className="flex h-full min-h-0 flex-col">
+        <Tabs
+          value={tab}
+          onValueChange={(value) => onTabChange(value as AgentEditorTab)}
+          className="min-h-0 flex-1"
+        >
+          <div className="shrink-0 border-b border-border-subtle px-(--page-gutter) pt-4">
             <TabsList variant="line" aria-label={ui("Trợ lý")}>
               <TabsTrigger value="config" className="flex-none">
                 {ui("Cấu hình")}
@@ -158,21 +168,27 @@ function AgentEditor({ agent, tab, onTabChange }: { agent: Persona } & TabProps)
             </TabsList>
           </div>
           {/* The form stays mounted on the other tab, so unsaved changes survive a look at Chia sẻ. */}
-          <TabsContent value="config" forceMount className="mt-6 data-[state=inactive]:hidden">
-            <form
-              id={formId}
-              noValidate
-              onSubmit={(event) => {
-                event.preventDefault();
-                void form.handleSubmit();
-              }}
-              className="pb-24"
-            >
-              <ConfigSections agent={agent} choices={choices} form={form} editable={editable} />
-            </form>
+          <TabsContent
+            value="config"
+            forceMount
+            className="min-h-0 flex-1 data-[state=inactive]:hidden"
+          >
+            <ConfigLayout agent={agent} form={form} dirty={dirty} editable={editable}>
+              <form
+                id={formId}
+                noValidate
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void form.handleSubmit();
+                }}
+                className="px-(--page-gutter) pt-6 pb-24"
+              >
+                <ConfigSections agent={agent} choices={choices} form={form} editable={editable} />
+              </form>
+            </ConfigLayout>
           </TabsContent>
-          <TabsContent value="share" className="mt-6">
-            <div className="max-w-3xl">
+          <TabsContent value="share" className="min-h-0 flex-1 overflow-y-auto">
+            <div className="max-w-3xl px-(--page-gutter) pt-6 pb-24">
               <AgentSharePanel agent={agent} choices={choices} revision={revision} />
             </div>
           </TabsContent>
@@ -191,6 +207,72 @@ function AgentEditor({ agent, tab, onTabChange }: { agent: Persona } & TabProps)
         onConfirm={async () => blocker.proceed?.()}
       />
     </>
+  );
+}
+
+/**
+ * Cấu hình beside its test chat (Dify, FastGPT): two resizable panes from `lg` up, and below it one column with a
+ * "Chat thử" button that opens the test chat in a drawer, as Dify does on phones. Only an editor may test.
+ */
+function ConfigLayout({
+  agent,
+  form,
+  dirty,
+  editable,
+  children,
+}: {
+  agent: Persona;
+  form: AgentFormApi;
+  dirty: boolean;
+  editable: boolean;
+  children: ReactNode;
+}) {
+  const ui = useAppTranslation();
+  const wide = useIsWide();
+  const [drawer, setDrawer] = useState(false);
+  const chat = (
+    <Suspense
+      fallback={
+        <div role="status" className="flex h-full items-center justify-center">
+          <BrandLoader label={ui("Đang mở chat thử…")} />
+        </div>
+      }
+    >
+      <AgentTestChat agent={agent} form={form} dirty={dirty} />
+    </Suspense>
+  );
+  if (!editable) return <div className="h-full overflow-y-auto">{children}</div>;
+  if (wide)
+    return (
+      <ResizablePanelGroup orientation="horizontal">
+        <ResizablePanel defaultSize="58%" minSize="40%">
+          <div className="h-full overflow-y-auto">{children}</div>
+        </ResizablePanel>
+        <ResizableHandle withHandle />
+        <ResizablePanel defaultSize="42%" minSize="28%" maxSize="60%">
+          {chat}
+        </ResizablePanel>
+      </ResizablePanelGroup>
+    );
+  return (
+    <div className="relative h-full overflow-y-auto">
+      {children}
+      <Drawer open={drawer} onOpenChange={setDrawer}>
+        <DrawerTrigger asChild>
+          <Button
+            type="button"
+            className="fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] z-30"
+          >
+            <MessageSquare aria-hidden="true" />
+            {ui("Chat thử")}
+          </Button>
+        </DrawerTrigger>
+        <DrawerContent className="h-4/5">
+          <DrawerTitle className="sr-only">{ui("Chat thử")}</DrawerTitle>
+          <div className="min-h-0 flex-1 bg-surface-base">{chat}</div>
+        </DrawerContent>
+      </Drawer>
+    </div>
   );
 }
 

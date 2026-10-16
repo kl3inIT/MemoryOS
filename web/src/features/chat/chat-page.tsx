@@ -13,6 +13,7 @@ import { useApplicationSession } from "@/features/identity/application-session-c
 import { getChatProjectOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import { ChatThread } from "@/features/chat/thread/chat-thread";
+import { AssistantWelcome } from "@/features/chat/session/assistant-welcome";
 import { ChatComposerMenu } from "@/features/chat/composer/chat-composer-menu";
 import { ChatEditingContext } from "@/features/chat/thread/chat-editing-context";
 import { ChatImageEditContext } from "@/features/chat/image/chat-image-edit-context";
@@ -33,7 +34,6 @@ import {
 } from "@/features/chat/projects/chat-projects-api";
 import { ProjectContextPanel } from "@/features/chat/projects/project-context-panel";
 import { ProjectTabs } from "@/features/chat/projects/project-tabs";
-import { AgentAvatar } from "@/features/agents/agent-avatar";
 import { useChatThreads } from "@/features/chat/runtime/chat-threads-context";
 import type { ChatThreadController } from "@/features/chat/runtime/chat-thread-controller";
 import { ChatModelPicker } from "./chat-model-picker";
@@ -363,40 +363,5 @@ function ChatConversationBody({
         checking={state.checking}
       />
     </>
-  );
-}
-
-/**
- * The opening of a new topic with an assistant: its face, name and title, then its greeting (its description when
- * it has none) above its starters.
- */
-function AssistantWelcome({
-  assistant,
-  children,
-}: {
-  assistant: {
-    id: string;
-    name: string;
-    title: string;
-    description: string;
-    greeting: string;
-    avatarSeed: string;
-    hasAvatar: boolean;
-  };
-  children: ReactNode;
-}) {
-  const opening = assistant.greeting || assistant.description;
-  return (
-    <div className="flex flex-col items-center gap-3">
-      <AgentAvatar agent={assistant} size="lg" />
-      <div className="flex flex-col items-center gap-1">
-        <h1 className="text-2xl font-medium tracking-tight text-balance">{assistant.name}</h1>
-        {assistant.title && <p className="text-content-muted">{assistant.title}</p>}
-      </div>
-      {opening && (
-        <p className="max-w-xl text-pretty whitespace-pre-line text-content-secondary">{opening}</p>
-      )}
-      {children}
-    </div>
   );
 }

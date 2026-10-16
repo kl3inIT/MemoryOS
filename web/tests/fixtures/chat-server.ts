@@ -572,6 +572,7 @@ export async function handleChatFixture(
       else {
         const created = create(input.title, undefined, input.personaId).session;
         created.projectId = input.projectId ?? null;
+        created.temporary = input.temporary === true;
         json(response, created, 201);
       }
     } else {
@@ -580,10 +581,12 @@ export async function handleChatFixture(
         [...sessions.values()]
           .reverse()
           .map((item) => item.session)
+          // A temporary conversation is listed nowhere.
           .filter(
             (session) =>
-              !url.searchParams.get("personaId") ||
-              session.personaId === url.searchParams.get("personaId"),
+              !session.temporary &&
+              (!url.searchParams.get("personaId") ||
+                session.personaId === url.searchParams.get("personaId")),
           )
           .slice(
             Number(url.searchParams.get("offset") ?? 0),

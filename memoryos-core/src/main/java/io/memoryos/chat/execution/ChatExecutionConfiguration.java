@@ -5,6 +5,7 @@ import com.embabel.agent.core.AgentProcessRepository;
 import io.memoryos.chat.ChatExecutionProperties;
 import io.memoryos.chat.ChatModelSelector;
 import io.memoryos.chat.ChatSettingsService;
+import io.memoryos.chat.ChatPersonaService;
 import io.memoryos.chat.ChatTurnService;
 import io.memoryos.chat.ChatTurnMetrics;
 import io.memoryos.ai.ModelCalls;
@@ -96,7 +97,8 @@ class ChatExecutionConfiguration {
                                     ChatSettingsService settings, ResearchProperties research, McpTurnService mcp,
                                     AiUsageLimitService spending, ObjectProvider<ModelCalls> calls, AuditTrail audit,
                                     MeterRegistry meters, ObservationRegistry observations, SystemOneClients systemOne,
-                                    SystemOneConnectionService systemOneConnections) {
+                                    SystemOneConnectionService systemOneConnections,
+                                    ObjectProvider<ChatPersonaService> personas) {
         // MEM-195 Check 1 needs single model calls, which the API application provides; without them a turn that needs
         // the check is refused rather than answered unchecked.
         var modelCalls = calls.getIfAvailable();
@@ -106,7 +108,7 @@ class ChatExecutionConfiguration {
         var compactions = new ChatCompactions(persistence, models, model, spending, chatTaskExecutor,
                 limits.concurrency() / 4, meters, observations);
         return new ChatTurnService(persistence, model, limits, chatTaskExecutor, streams, models, web, images, settings,
-                research, mcp, spending, guardrails, new ChatTurnMetrics(meters), compactions);
+                research, mcp, spending, guardrails, new ChatTurnMetrics(meters), compactions, personas.getIfAvailable());
     }
 
     @Bean

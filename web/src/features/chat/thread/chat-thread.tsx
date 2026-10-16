@@ -55,19 +55,19 @@ export function ChatThread({
   return (
     <ChatAttachmentStaging>
       <ChatSourcesWorkspace>
-        <ThreadPrimitive.Root className="aui-root flex h-full min-h-0 min-w-0 flex-1 flex-col [&_[data-chat-search-match]]:rounded-xl [&_[data-chat-search-match]]:bg-highlight-match/40">
+        <ThreadPrimitive.Root className="aui-root @container/thread flex h-full min-h-0 min-w-0 flex-1 flex-col [&_[data-chat-search-match]]:rounded-xl [&_[data-chat-search-match]]:bg-highlight-match/40">
           <ThreadPrimitive.Viewport
             data-testid="chat-viewport"
             autoScroll={autoScroll}
             className={cn(
-              "relative flex min-h-0 flex-1 scrollbar-gutter-stable flex-col overflow-x-hidden overflow-y-auto px-4 pt-6 sm:px-8",
+              "relative flex min-h-0 flex-1 scrollbar-gutter-stable flex-col overflow-x-hidden overflow-y-auto px-4 pt-6 @xl/thread:px-8",
               isEmpty && !welcome && "justify-center",
             )}
           >
             <AuiIf condition={(state) => state.thread.isEmpty}>
               <div className="mx-auto mb-8 w-full max-w-3xl text-center">
                 {welcome ?? (
-                  <h1 className="text-2xl font-medium tracking-tight text-balance sm:text-3xl">
+                  <h1 className="text-2xl font-medium tracking-tight text-balance @xl/thread:text-3xl">
                     {greeting || ui("Bạn muốn tìm hiểu điều gì?")}
                   </h1>
                 )}
