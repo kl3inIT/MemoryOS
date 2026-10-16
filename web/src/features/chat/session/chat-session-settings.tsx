@@ -1,6 +1,6 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useEffect, useRef, useState } from "react";
-import { useMatch, useNavigate, useParams } from "@tanstack/react-router";
+import { useMatch, useNavigate, useParams, useRouterState } from "@tanstack/react-router";
 import { useAui } from "@assistant-ui/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -248,16 +248,26 @@ export function ChatStarterPrompts({
     from: "/_authenticated/_chat/assistants/$personaId/new",
     shouldThrow: false,
   });
-  const firstQuestion = newTopic?.search?.ask;
+  const firstQuestion = useRouterState({
+    select: (state) => (newTopic ? state.location.state.ask : undefined),
+  });
   const newTopicPersona = newTopic?.params?.personaId;
   useEffect(() => {
     const key = `${newTopicPersona}:${firstQuestion}`;
-    if (!firstQuestion || !persona || disabled || seededSessions.has(key)) return;
+    if (!firstQuestion || !newTopicPersona || !persona || disabled || seededSessions.has(key))
+      return;
     seededSessions.add(key);
+    // Drop the question from history state first, so a reload or Back never sends it again.
+    void navigate({
+      to: "/assistants/$personaId/new",
+      params: { personaId: newTopicPersona },
+      state: (previous) => ({ ...previous, ask: undefined }),
+      replace: true,
+    });
     const composer = aui.thread.composer();
     composer.setText(firstQuestion);
     composer.send();
-  }, [firstQuestion, newTopicPersona, persona, disabled, aui]);
+  }, [firstQuestion, newTopicPersona, persona, disabled, aui, navigate]);
   return (
     <div className="mt-5 flex flex-wrap justify-center gap-2">
       {persona?.starterPrompts.map((text, index) => (

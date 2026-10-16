@@ -84,7 +84,7 @@ export function useAgentChatActions() {
         ? navigate({
             to: "/assistants/$personaId/new",
             params: { personaId: agent.id },
-            search: { ask },
+            state: (previous) => ({ ...previous, ask }),
           })
         : navigate({ to: "/assistants/$personaId", params: { personaId: agent.id } }));
     },
