@@ -170,8 +170,8 @@ export function OpeningSection({ form, editable }: SectionProps) {
 }
 
 /**
- * Searching documents heads the section as its switch; with it off the choices stay but are disabled rather than
- * silently ignored (Onyx "Use Knowledge"). "Chỉ trả lời có căn cứ" is one switch under the list.
+ * Searching documents heads the section as its switch; with it off the choices stay but are disabled, and a turn
+ * then reads none of them, files included (Onyx "Use Knowledge"). "Chỉ trả lời có căn cứ" is one switch under the list.
  */
 export function DocumentsSection({ form, agent, choices, editable }: SectionProps) {
   const ui = useAppTranslation();
@@ -219,6 +219,11 @@ export function DocumentsSection({ form, agent, choices, editable }: SectionProp
                     failed={sources.isError || documentSets.isError}
                     unavailable={sources.isError && documentSets.isError}
                     disabled={!editable || !searching}
+                    searchesEverything={
+                      searching &&
+                      documents.sourceIds.length === 0 &&
+                      documents.documentSetIds.length === 0
+                    }
                     onRetry={() => {
                       void sources.refetch();
                       void documentSets.refetch();

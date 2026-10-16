@@ -536,11 +536,21 @@ public class JdbcChatRepository {
                                     .grounded(row.getBoolean("grounded"))
                                     .build(),
                             row.getString("revision"), row.getObject("model_configuration_id", UUID.class),
-                            List.of(JSON.readValue(row.getString("file_ids"), UUID[].class)), tools,
+                            files(builtin, tools, List.of(JSON.readValue(row.getString("file_ids"), UUID[].class))), tools,
                             builtin ? null : List.of((UUID[]) row.getArray("mcp_servers").getArray()),
                             effort == null ? null : ReasoningEffort.valueOf(effort));
                 })
                 .optional().orElseThrow(ChatException::unavailable);
+    }
+
+    /**
+     * The files a turn reads for its agent. An agent's documents switch is its {@code search} tool, and turning it off
+     * turns off its files too (Onyx drops every knowledge attachment when "Use Knowledge" is off); the stored list is
+     * kept, so turning the switch back on restores it. The builtin agent's files are its Project's, which the switch
+     * does not govern.
+     */
+    private static List<UUID> files(boolean builtin, Set<String> tools, List<UUID> fileIds) {
+        return builtin || tools.contains("search") ? fileIds : List.of();
     }
 
     /**
@@ -598,7 +608,8 @@ public class JdbcChatRepository {
                                     .codeInterpreter(draft.tools().contains("code_interpreter"))
                                     .grounded(draft.grounded() || row.getBoolean("tenant_grounded"))
                                     .build(),
-                            row.getString("revision"), draft.modelConfigurationId(), draft.fileIds(), draft.tools(),
+                            row.getString("revision"), draft.modelConfigurationId(),
+                            files(builtin, draft.tools(), draft.fileIds()), draft.tools(),
                             builtin ? null : draft.mcpServerIds() == null ? List.of() : draft.mcpServerIds(),
                             pinned != null ? ReasoningEffort.valueOf(pinned) : draft.reasoningEffort());
                 })

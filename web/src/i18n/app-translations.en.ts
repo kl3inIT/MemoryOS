@@ -5,6 +5,12 @@ export const vietnameseUi: Record<string, string> = {
   "Chat thử": "Test chat",
   "Đang dùng bản chưa lưu": "Using unsaved changes",
   "Đang mở chat thử…": "Opening the test chat…",
+  // MEM-273 the documents switch: state line and upload from the editor
+  "Tìm trong mọi tài liệu được phép đọc": "Searches every document you may read",
+  "Tìm thêm trong mọi tài liệu được phép đọc": "Also searches every document you may read",
+  "Đang tải lên {{n}}%": "Uploading {{n}}%",
+  "Không tải lên được": "Upload failed",
+  "Hủy tải lên {{v1}}": "Cancel uploading {{v1}}",
   // MEM-114 MemoryOS MCP: the endpoint, its connection guide and authorized apps
   "Ẩn {{label}}": "Hide {{label}}",
   "Hiện {{label}}": "Show {{label}}",
@@ -1420,7 +1426,6 @@ export const vietnameseUi: Record<string, string> = {
   "Chưa có nhãn nào.": "No labels yet.",
   "Có thay đổi chưa lưu": "Unsaved changes",
   "Đang rời trang…": "Leaving…",
-  "Độ dài tối đa của một câu trả lời.": "Maximum length of one answer.",
   "Đổi biểu tượng": "Change icon",
   // MEM-273 agent avatars: a DiceBear face or an uploaded image
   "Đổi ảnh đại diện": "Change avatar",
@@ -1437,14 +1442,8 @@ export const vietnameseUi: Record<string, string> = {
   "Không tải được ảnh lên. Thử lại.": "Could not upload the image. Try again.",
   Xong: "Done",
   "Dùng model mặc định của tổ chức": "Use the organization's default model",
-  "Gửi kèm mỗi câu hỏi, dùng cho quy tắc ngắn mà trợ lý hay quên.":
-    "Sent with every question, for short rules the assistant tends to forget.",
   "Hỏi {{v1}}…": "Ask {{v1}}…",
   "Không tìm thấy nguồn.": "No sources found.",
-  "Lượng hội thoại và tài liệu tối đa gửi cho model.":
-    "Maximum conversation and document context sent to the model.",
-  "Model và giới hạn token. Để trống để dùng giới hạn của model.":
-    "Model and token limits. Leave empty to use the model's limits.",
   "Rời trang": "Leave page",
   "Tạo nhãn “{{v1}}”": "Create label “{{v1}}”",
   // MEM-273: an assistant's title, greeting and reasoning level
@@ -1535,8 +1534,6 @@ export const vietnameseUi: Record<string, string> = {
   "Theo model": "Model default",
   "Tìm hoặc tạo nhãn…": "Search or create a label…",
   "Tìm nguồn…": "Search sources…",
-  "Ví dụ: luôn nêu tháng và đơn vị của báo cáo":
-    "Example: always state the report's month and unit",
   "Ví dụ: OKR/KPI hằng tháng": "Example: Monthly OKR/KPI",
   "Ví dụ: Xếp loại KPI tháng 8 của các đơn vị": "Example: Rank the units' August KPIs",
   "Xóa câu hỏi gợi ý {{v1}}": "Remove starter prompt {{v1}}",
@@ -1614,9 +1611,6 @@ export const vietnameseUi: Record<string, string> = {
   "Tự động": "Automatic",
   "Model không còn khả dụng": "Model unavailable",
   "Không tải được model.": "Could not load models.",
-  "Giới hạn nâng cao": "Advanced limits",
-  "Context window (token)": "Context window (token)",
-  "Max output (token)": "Max output (token)",
   "Không tải được dự án.": "Could not load projects.",
   "Một nơi cho công việc của bạn": "A place for your work",
   "Gom hội thoại và dùng chung hướng dẫn trong một dự án.":
@@ -1766,9 +1760,6 @@ export const vietnameseUi: Record<string, string> = {
   "Bỏ trống để tìm trong mọi tài liệu.": "Leave empty to search every document.",
   "Các hội thoại cũ vẫn được giữ. Người đang dùng trợ lý này cần chọn trợ lý khác để tiếp tục.":
     "Existing conversations are kept. People using this agent need to choose another agent to continue.",
-  "Chỉ dùng hướng dẫn của trợ lý, bỏ hướng dẫn chung của MemoryOS.":
-    "Use only this agent's instructions, without the MemoryOS base instructions.",
-  "Chỉ dùng tài liệu cập nhật từ ngày": "Only use documents updated since",
   "Chỉ người được mời": "Only invited people",
   "Chia sẻ {{v1}}": "Share {{v1}}",
   "Chọn trợ lý hiển thị và nổi bật cho cả tổ chức, khôi phục trợ lý đã xóa và giao trợ lý chưa có chủ sở hữu.":
@@ -1806,8 +1797,6 @@ export const vietnameseUi: Record<string, string> = {
   "Không tải được lệnh tắt.": "Could not load shortcuts.",
   "Lệnh tắt dùng chung": "Shared shortcuts",
   "Lọc theo nhãn": "Filter by label",
-  "Lời nhắc ngắn gửi kèm mỗi câu hỏi, ví dụ: luôn nêu tháng và đơn vị của báo cáo":
-    "A short reminder sent with every question, for example: always state the report month and unit",
   "Mọi người trong tổ chức có thể sửa": "Everyone in the organization can edit",
   "Thêm {{v1}} nhãn": "{{v1}} more labels",
   "Mọi thành viên thấy các lệnh tắt này khi gõ / và có thể ẩn cho riêng mình.":
@@ -1816,7 +1805,6 @@ export const vietnameseUi: Record<string, string> = {
   Người: "People",
   "Người có quyền truy cập": "People with access",
   "Nguồn không còn khả dụng": "Source no longer available",
-  "Nhắc việc mỗi lượt": "Reminder for every turn",
   "Nhãn sẽ được gỡ khỏi mọi trợ lý. Trợ lý không bị ảnh hưởng.":
     "The label is removed from every agent. The agents are not affected.",
   "Nhãn trợ lý": "Agent labels",
@@ -1843,7 +1831,6 @@ export const vietnameseUi: Record<string, string> = {
   "Tên nhãn": "Label name",
   "Thao tác": "Actions",
   "Thao tác khác cho {{v1}}": "More actions for {{v1}}",
-  "Thay hướng dẫn hệ thống mặc định": "Replace the default system instructions",
   "Thêm nhãn": "Add label",
   "Thử đổi bộ lọc hoặc từ khóa tìm kiếm.": "Try another filter or search term.",
   "Tìm người": "Search people",
