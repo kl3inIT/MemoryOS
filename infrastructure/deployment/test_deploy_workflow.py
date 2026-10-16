@@ -19,6 +19,7 @@ CALLERS = (STAGING_CALLER, PRODUCTION_CALLER)
 CI_WORKFLOW = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 PUSH_ACTION = (ROOT / ".github/actions/push-release-images/action.yml").read_text(encoding="utf-8")
 SCRIPT = (ROOT / "infrastructure/deployment/deploy.sh").read_text(encoding="utf-8")
+PRUNE_SCRIPT = (ROOT / "infrastructure/deployment/prune-release-images.sh").read_text(encoding="utf-8")
 
 
 class StagingDeploymentPolicyTest(unittest.TestCase):
@@ -427,6 +428,10 @@ class StagingDeploymentContractTest(unittest.TestCase):
                 for component in ("api", "worker", "web")) + f"MEMORYOS_RELEASE={sha}\n")
             (self.tx / f"{target}.base.env").write_text("OPERATOR_CONFIGURATION=retained\n")
             (self.tx / f"{target}.compose").write_text(str(self.root / f"{target}.yaml") + "\n")
+        deployment = self.tx / "source" / "infrastructure" / "deployment"
+        deployment.mkdir(parents=True)
+        (deployment / "prune-release-images.sh").write_text(PRUNE_SCRIPT)
+        self.images = self.root / "images.txt"
         self.set_runtime()
 
         # Redirect only the installation root and privilege precondition in the
@@ -468,6 +473,11 @@ elif args[0] == "compose" and "ps" in args:
     # Each service runs as one container named for it here; the Worker's replicas are found the same way.
     print("memoryos-" + args[-1])
 elif args[0] == "compose":
+    pass
+elif args[0] == "images":
+    images = root / "images.txt"
+    print(images.read_text() if images.exists() else "", end="")
+elif args[:2] == ["image", "rm"]:
     pass
 else:
     sys.exit("Unexpected Docker operation: " + repr(args))
@@ -519,6 +529,25 @@ else:
         self.assertFalse(self.pending.exists())
         self.assertEqual((self.state / "current.env").read_bytes(), (self.tx / "candidate.env").read_bytes())
         self.assertEqual((self.tx / "database.dump").read_bytes(), self.backup)
+
+    def test_finish_removes_superseded_release_images_and_keeps_the_rest(self):
+        self.images.write_text(
+            "candidate-api ghcr.io/kl3init/memoryos-api\n"
+            "older-api ghcr.io/kl3init/memoryos-api\n"
+            "postgres-id postgres\n")
+        result = self.operate("finish")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(self.pending.exists())
+        removed = [call[-1] for call in self.docker_calls() if call[:2] == ["image", "rm"]]
+        self.assertEqual(removed, ["older-api"])
+
+    def test_a_failed_prune_leaves_the_release_accepted(self):
+        (self.tx / "source" / "infrastructure" / "deployment" / "prune-release-images.sh").write_text("exit 3\n")
+        result = self.operate("finish")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(self.pending.exists())
+        self.assertEqual((self.state / "current.env").read_bytes(), (self.tx / "candidate.env").read_bytes())
+        self.assertIn("superseded release images were not removed", result.stderr)
 
     def test_failed_application_verification_retains_reservation(self):
         for failure in ("health", "revision"):

@@ -424,6 +424,13 @@ elif [[ "$mode" == finish ]]; then
   printf '%s %s\n' "$release" "$target" > "$tx/result"
   rm -- "$state/pending"
   echo "Finalized $target runtime for workflow $release; business acceptance remains separate"
+  # A release brings about 6 GB of images, and a day of merges filled staging's disk before the daily prune ran
+  # (2026-10-03, 2026-10-16), so the next deployment failed in its pull. The record just written names what to keep.
+  # The prune takes the lock itself, so this invocation lets it go first; a prune that fails leaves the release
+  # accepted, and the daily timer tries again.
+  exec 9>&-
+  MEMORYOS_ROOT=$root bash "$tx/source/infrastructure/deployment/prune-release-images.sh" \
+    || echo 'deploy.sh: superseded release images were not removed; the daily prune retries' >&2
 else
   echo 'Expected deploy, rollback or finish' >&2
   exit 1
