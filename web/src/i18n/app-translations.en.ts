@@ -1149,7 +1149,6 @@ export const vietnameseUi: Record<string, string> = {
   "Kênh, tin nhắn và tìm kiếm": "Channels, messages and search",
   "Thiết kế và bình luận": "Designs and comments",
   "Thiết kế và tài sản thương hiệu": "Designs and brand assets",
-  "Công việc và dự án": "Tasks and projects",
   "Đang tải máy chủ MCP": "Loading MCP server",
   "Thông tin": "Information",
   "Không tìm thấy máy chủ MCP này.": "This MCP server could not be found.",

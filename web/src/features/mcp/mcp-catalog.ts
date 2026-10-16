@@ -127,16 +127,6 @@ export const mcpCatalog: McpCatalogEntry[] = [
     scopes: [],
     parameters: {},
   },
-  {
-    id: "asana",
-    name: "Asana",
-    description: "Công việc và dự án",
-    url: "https://mcp.asana.com/v2/mcp",
-    oauthApp: "MANUAL",
-    setupUrl: "https://app.asana.com/0/my-apps",
-    scopes: ["default"],
-    parameters: {},
-  },
 ];
 
 function host(url: string): string {
