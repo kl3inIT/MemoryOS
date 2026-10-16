@@ -186,6 +186,28 @@ it("opens the manual form with the discovered endpoints when registration is imp
   });
 });
 
+it("names a label another OAuth application of the server already uses", async () => {
+  discovering([authorizationServer({ registrationEndpoint: null, registrationAvailable: false })]);
+  http.use(
+    handleCreateMcpServerOAuthClient(() =>
+      HttpResponse.json(
+        { status: 409, title: "Conflict", code: "MCP_OAUTH_CLIENT_LABEL_TAKEN" },
+        { status: 409 },
+      ),
+    ),
+  );
+  show(server());
+  await userEvent.click(await screen.findByRole("button", { name: "start" }));
+  await userEvent.type(await screen.findByLabelText("Client ID"), "client-1");
+  await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
+  expect(
+    await screen.findByText(
+      "Ứng dụng này đã có một ứng dụng OAuth mang nhãn đó. Hãy đặt nhãn khác.",
+    ),
+  ).toBeInTheDocument();
+  expect(screen.queryByText(/Mục này đã thay đổi/)).not.toBeInTheDocument();
+});
+
 it("goes straight to the manual form for a server with a known provider", async () => {
   const calls = discovering([authorizationServer()]);
   show(server({ oauthProviderMode: "KNOWN_PROVIDER" }));
