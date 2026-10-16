@@ -109,6 +109,15 @@ public class OpenSandboxRuntime implements SandboxRuntime, AutoCloseable {
         });
     }
 
+    /** The SDK sends a stream as the request body as it reads it. */
+    @Override
+    public void write(String id, String path, InputStream content) {
+        onFile(id, sandbox -> {
+            files(sandbox).write(List.of(WriteEntry.builder().path(path).data(content).mode(FILE_MODE).build()));
+            return path;
+        });
+    }
+
     @Override
     public byte[] read(String id, String path, long maxBytes) {
         try (InputStream in = open(id, path)) {

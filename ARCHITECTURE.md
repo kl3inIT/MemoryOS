@@ -72,6 +72,7 @@ flowchart TB
     MEET[meeting]
     USAGE[usage]
     AUD[audit]
+    SBX[sandbox]
     SHARED[shared kernel]
 
     MCP --> IAM
@@ -98,6 +99,8 @@ flowchart TB
     CHAT --> OBJ
     CHAT --> DOC
     CHAT --> USAGE
+    CHAT --> SBX
+    SBX --> OBJ
     LIB --> IAM
     LIB --> OBJ
     LIB --> CON
@@ -146,6 +149,7 @@ flowchart TB
     WORKER --> RET
     WORKER --> LIB
     WORKER --> CHAT
+    WORKER --> SBX
     WORKER --> USAGE
     WORKER --> AI
     WORKER --> MCP
@@ -181,7 +185,7 @@ Arrows show allowed use of public capability contracts: a capability's arrows ar
 | `mcp` | Tenant-registered remote MCP servers, their OAuth clients, tool snapshots, sealed credentials and the Streamable HTTP client; the MemoryOS MCP endpoint's switch, the apps trusted to connect to it (projected to Keycloak) and its activity log | [MEM-112 design](docs/increments/completed/mem-112-chat-mcp-client/design.md) · [MemoryOS MCP endpoint](docs/specs/mcp-endpoint.md) |
 | `meeting` | Owner-private meetings: live track recording or an uploaded recording through `voice`, stored utterances, speaker names and notes, leased minutes written by the API from the transcript through `ai`, minutes published to the owner's file library, and the library's `MeetingShelf` port listing the meetings a person may read; audio is never stored, and an uploaded recording is deleted once it has been transcribed | [Meetings](docs/specs/meeting.md) |
 | `channel` | The Tenant's chat bots on messaging platforms (the Lark bot first): their connections, each with a service account its group questions run as, and how a received message becomes a Chat turn through a platform adapter (Lark), administered through `/api/channels` | [Channel](docs/specs/channel.md) |
-| `sandbox` | One runtime sandbox a Chat conversation (MEM-270): its `sandbox_workspaces` row, found or started under the row's lock, renewed on every use, replaced when gone or past four hours, a deployment-wide running bound, and the Worker's reconciliation | [Sandbox](docs/specs/sandbox.md) |
+| `sandbox` | One runtime sandbox a Chat conversation (MEM-270): its `sandbox_workspaces` row, found or started under the row's lock, renewed on every use, replaced when gone or past four hours, a deployment-wide running bound, its `/workspace` archived in Object Storage after each turn that used it and restored into the next sandbox, and the Worker's reconciliation | [Sandbox](docs/specs/sandbox.md) |
 | `usage` | Daily AI usage ledger for every AI flow, the AI costs report, and usage reports (a period's CSV and PDF export, built by the Worker and stored through `objectstorage`) | [AI usage and costs](docs/specs/ai-usage.md) |
 
 **Provider families.** Where an administrator or the deployment chooses among interchangeable protocols, each provider is one adapter class behind a registry ([ADR 0019](docs/decisions/0019-provider-families-use-adapters-behind-a-registry.md)): `WebAdapterRegistry` (eight Web providers in `chat.web.adapter`), `ImageAdapterRegistry` (two in `chat.image.adapter`), `VoiceAdapterRegistry` (five in `voice`, beside its package-private provider clients) and `ai.ProviderAdapterRegistry` (chat models, an open family keyed by the adapter's string type). The closed registries hold exactly one adapter per provider enum constant and fail startup on a missing or duplicate one; the enum is identity only, and what a provider needs, suggests and offers is a capabilities record from its adapter. Each family's client owns transport, bounds and one observation per provider call. `shared.Tokenizers` holds the process's one O200K and one CL100K token counter. Connectors still dispatch on `SourceType` until MEM-118.

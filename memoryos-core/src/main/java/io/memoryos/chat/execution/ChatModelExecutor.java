@@ -59,6 +59,7 @@ import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.Map;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
@@ -128,6 +129,8 @@ public final class ChatModelExecutor {
 
     /** Attachment bytes come from object storage; this bounds that read on its own, not by a turn deadline. */
     private static final Duration FILE_INPUT_TIMEOUT = Duration.ofSeconds(60);
+    /** Workspace archives run on their own virtual threads, off the turn's and the provider's. */
+    private static final Executor SANDBOX_SAVES = save -> Thread.ofVirtual().name("chat-sandbox-save").start(save);
 
     /** {@code run_python} needs a tool-calling model and an agent whose tool policy includes the code interpreter. */
     static boolean pythonAllowed(boolean toolCalling, ChatTurnOptions options) {
@@ -282,6 +285,7 @@ public final class ChatModelExecutor {
         var guards = new CopyOnWriteArrayList<ChatModelGuard>();
         var drains = new CopyOnWriteArrayList<CompletableFuture<Void>>();
         SearchTool searchTool = null;
+        SandboxTools sandboxWork = null;
         var fileWork = new SearchTasks.Scope(searchLimits.cleanupTimeout());
         var fileCancellation = cancellation.subscribe(ignored -> fileWork.cancel());
         Runnable fileActive = () -> { fileWork.checkActive(); guard.checkActive(); };
@@ -368,8 +372,9 @@ public final class ChatModelExecutor {
                         activity, codeEvents).withSandbox(sandbox)));
             }
             if (sandboxTools) {
-                runner = runner.withTools(Tool.fromInstance(new SandboxTools(sandboxes, interpreterSettings, fileContent,
-                        setup.fileIds(), setup.tenant(), setup.actor(), setup.sessionId(), setup.assistantMessageId(), fileActive, activity, codeEvents)));
+                sandboxWork = new SandboxTools(sandboxes, interpreterSettings, fileContent, setup.fileIds(), setup.tenant(),
+                        setup.actor(), setup.sessionId(), setup.assistantMessageId(), fileActive, activity, codeEvents);
+                runner = runner.withTools(Tool.fromInstance(sandboxWork));
             }
             // MEM-250: only the owner's own, non-temporary conversation edits their memory, and only while it is on.
             if (selected.toolCalling() && memories != null && memories.usableIn(setup.tenant(), setup.actor(), setup.sessionId())) {
@@ -398,6 +403,11 @@ public final class ChatModelExecutor {
             drains.add(fileWork.drained());
             if (searchTool != null) drains.add(searchTool.whenDrained());
             var drained = CompletableFuture.allOf(drains.toArray(CompletableFuture[]::new));
+            // MEM-270: a turn that worked in the sandbox ends by archiving its workspace, as Onyx Craft snapshots the
+            // session, after the reply and before the run gives its place back.
+            var saving = sandboxes;
+            var retired = sandboxWork != null && sandboxWork.used() && saving != null
+                    ? drained.thenRunAsync(() -> saving.save(setup.tenant(), setup.sessionId()), SANDBOX_SAVES) : drained;
             try {
                 // A timed-out provider can still record usage. Never persist an incomplete total as known.
                 if (!drained.isDone())
@@ -407,7 +417,7 @@ public final class ChatModelExecutor {
                 else accounting.accept(guards.contains(guard)
                         ? ModelAccounting.of(guards, process, metadata).withContext(guard.contextTokens(), guard.inputLimit())
                         : ModelAccounting.of(guards, process, metadata));
-            } finally { onDrained.accept(drained.thenRun(() -> processes.delete(process))); }
+            } finally { onDrained.accept(retired.thenRun(() -> processes.delete(process))); }
         }
     }
 }

@@ -69,6 +69,7 @@ public final class SandboxTools {
     private final ChatToolActivity activity;
     private final Consumer<ChatCodeEvent> events;
     private boolean attached;
+    private volatile boolean used;
 
     public SandboxTools(SandboxService sandboxes, InterpreterService artifacts, UserFileContentService files,
                         Collection<UUID> fileIds, TenantId tenant, ActorId actor, UUID conversation, UUID messageId,
@@ -339,12 +340,19 @@ public final class SandboxTools {
         return shown.toString();
     }
 
+    /** Whether a tool of this turn worked in the sandbox, so the turn ends by archiving its workspace. */
+    public boolean used() {
+        return used;
+    }
+
     /**
      * Copies the conversation's attachments into {@link #ATTACHMENTS} once a turn, before the first tool that touches
      * the sandbox, so bash and python3 work on the files the user sent. Names follow run_python's, and a file already
-     * there with the same size is kept. A file that cannot be copied is skipped; its tool still runs.
+     * there with the same size is kept. A file that cannot be copied is skipped; its tool still runs. Marks the turn
+     * as one that used the sandbox.
      */
     private void attach() {
+        used = true;
         if (attached || fileIds.isEmpty()) return;
         attached = true;
         var readable = new ArrayList<>(files.readable(actor, tenant, fileIds));
