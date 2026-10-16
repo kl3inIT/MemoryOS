@@ -22,7 +22,7 @@ import { personasOptions, type AgentView, type Persona } from "@/features/chat/c
 import { actionErrorText } from "@/lib/action-errors";
 import { AgentCard } from "./agent-card";
 import { AgentCreatorFilter } from "./agent-creator-filter";
-import { AgentShareDialog } from "./agent-share-dialog";
+import { AgentCreateDialog } from "./agent-create-dialog";
 import { AgentViewer } from "./agent-viewer";
 import { agentCatalog, useAgentChatActions, useOwnerName } from "./use-agent-catalog";
 
@@ -38,8 +38,7 @@ export function AgentsPage() {
   const [labelId, setLabelId] = useState<string>();
   const [creators, setCreators] = useState<string[]>([]);
   const [viewer, setViewer] = useState<Persona>();
-  const [sharing, setSharing] = useState<Persona>();
-  const { agent: linkedAgent } = useSearch({ from: "/_authenticated/agents" });
+  const { agent: linkedAgent, create: creating } = useSearch({ from: "/_authenticated/agents" });
   const list = useQuery(personasOptions(view));
   const agents = list.data ?? [];
   const ownerName = useOwnerName();
@@ -53,8 +52,14 @@ export function AgentsPage() {
   const startChat = (agent: Persona, ask?: string) => {
     if (!start.isPending) start.mutate({ agent, ask });
   };
-  const edit = (agent: Persona) =>
-    void navigate({ to: "/agents/$agentId/edit", params: { agentId: agent.id } });
+  const edit = (agent: Persona, tab?: "share") =>
+    void navigate({
+      to: "/agents/$agentId/edit",
+      params: { agentId: agent.id },
+      search: tab ? { tab } : {},
+    });
+  const setCreating = (open: boolean) =>
+    void navigate({ to: "/agents", search: open ? { create: true } : {}, replace: !open });
   // A copied share link opens that agent's detail view.
   const shownViewer =
     viewer ?? (linkedAgent ? agents.find((agent) => agent.id === linkedAgent) : undefined);
@@ -84,10 +89,7 @@ export function AgentsPage() {
                   {ui("Bộ tài liệu")}
                 </Button>
               ) : null}
-              <CreateAgentButton
-                allowed={canCreate}
-                onCreate={() => void navigate({ to: "/agents/create" })}
-              />
+              <CreateAgentButton allowed={canCreate} onCreate={() => setCreating(true)} />
             </div>
           }
         />
@@ -184,7 +186,7 @@ export function AgentsPage() {
                   onStart={() => startChat(agent)}
                   onOpen={() => setViewer(agent)}
                   onEdit={() => edit(agent)}
-                  onShare={() => setSharing(agent)}
+                  onShare={() => edit(agent, "share")}
                   onPin={() => pin.mutate(agent)}
                 />
               ))}
@@ -201,7 +203,7 @@ export function AgentsPage() {
             onEdit={() => edit(shownViewer)}
           />
         )}
-        {sharing && <AgentShareDialog agent={sharing} onClose={() => setSharing(undefined)} />}
+        {creating && canCreate && <AgentCreateDialog onClose={() => setCreating(false)} />}
       </SettingsLayout>
     </>
   );

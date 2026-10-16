@@ -27,11 +27,14 @@ export function EditorSection({
   id,
   title,
   description,
+  action,
   children,
 }: {
   id: string;
   title: string;
-  description: string;
+  description?: string;
+  /** A control beside the title that governs the whole section, such as its switch. */
+  action?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -40,7 +43,7 @@ export function EditorSection({
       aria-labelledby={`${id}-title`}
       className="flex scroll-mt-20 flex-col gap-5 border-t border-border-subtle py-8 first-of-type:border-t-0 first-of-type:pt-0"
     >
-      <SectionHeader id={`${id}-title`} title={title} description={description} />
+      <SectionHeader id={`${id}-title`} title={title} description={description} actions={action} />
       {children}
     </section>
   );

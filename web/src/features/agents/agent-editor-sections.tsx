@@ -1,5 +1,5 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { Paperclip, Plug } from "lucide-react";
+import { Plug } from "lucide-react";
 import {
   ModelSelectorContent,
   ModelSelectorEffort,
@@ -12,18 +12,14 @@ import {
   ModelSelectorTrigger,
   ModelSelectorValue,
 } from "@/components/assistant-ui/elements/model-selector";
-import { EmptyState } from "@/components/composites/empty-state";
 import { SettingRow, SettingRows } from "@/components/composites/setting-row";
-import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { REASONING_EFFORTS } from "@/features/chat/chat-models";
-import { ChatFilePicker } from "@/features/library/file-picker";
 import { ModelLogo } from "@/features/models/model-logo";
 import { agentTools, type Persona } from "@/features/chat/chat-personas-api";
-import { actionErrorText } from "@/lib/action-errors";
 import { AgentAvatarStudio } from "./agent-avatar-studio";
+import { AgentDocumentPicker } from "./agent-document-picker";
 import {
-  AgentLabelPicker,
   EditorField,
   EditorSection,
   LoadFailure,
@@ -32,7 +28,6 @@ import {
   TextLineField,
 } from "./agent-editor-fields";
 import { maxGreeting, maxTitle, type AgentReasoningEffort } from "./agent-form";
-import { AgentSourcePicker } from "./agent-source-picker";
 import { toolIcons, useToolNames } from "./agent-tools";
 import type { AgentChoices, AgentFormApi } from "./use-agent-editor";
 
@@ -47,21 +42,15 @@ const toggle = <T,>(values: T[], value: T, on: boolean) =>
 
 type SectionProps = {
   form: AgentFormApi;
-  agent?: Persona;
+  agent: Persona;
   choices: AgentChoices;
   editable: boolean;
 };
 
-export function GeneralSection({ form, agent, choices, editable }: SectionProps) {
+export function IdentitySection({ form, agent, editable }: SectionProps) {
   const ui = useAppTranslation();
   return (
-    <EditorSection
-      id="agent-general"
-      title={ui("Thông tin chung")}
-      description={ui(
-        "Tên, chức danh, mô tả và nhãn giúp đồng nghiệp tìm đúng trợ lý trong thư viện.",
-      )}
-    >
+    <EditorSection id="agent-identity" title={ui("Danh tính")}>
       <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
         <form.Subscribe
           selector={(state) => ({
@@ -72,12 +61,12 @@ export function GeneralSection({ form, agent, choices, editable }: SectionProps)
         >
           {({ avatarSeed, keepAvatar, avatarFileId }) => (
             <AgentAvatarStudio
-              agentId={agent?.id ?? "new"}
+              agentId={agent.id}
               avatarSeed={avatarSeed}
-              savedSeed={agent?.avatarSeed ?? form.options.defaultValues?.avatarSeed ?? avatarSeed}
+              savedSeed={agent.avatarSeed || avatarSeed}
               hasAvatar={keepAvatar}
               avatarFileId={avatarFileId}
-              allowImage={!agent?.builtin}
+              allowImage={!agent.builtin}
               disabled={!editable}
               onSeed={(seed) => {
                 form.setFieldValue("avatarSeed", seed);
@@ -128,52 +117,34 @@ export function GeneralSection({ form, agent, choices, editable }: SectionProps)
           </form.AppField>
         </div>
       </div>
-      <form.AppField name="labelIds">
-        {(field) => (
-          <EditorField label={ui("Nhãn")}>
-            <AgentLabelPicker
-              labels={choices.labels.data ?? []}
-              value={field.state.value}
-              disabled={!editable}
-              onChange={field.handleChange}
-              onCreate={async (name) => {
-                try {
-                  const created = await choices.createLabel.mutateAsync({ body: { name } });
-                  if (created.id) field.handleChange([...field.state.value, created.id]);
-                } catch (cause) {
-                  throw new Error(actionErrorText(cause), { cause });
-                }
-              }}
-            />
-          </EditorField>
-        )}
-      </form.AppField>
     </EditorSection>
   );
 }
 
-export function InstructionsSection({ form, editable }: SectionProps) {
+export function InstructionsSection({ form }: SectionProps) {
   const ui = useAppTranslation();
   return (
-    <EditorSection
-      id="agent-instructions"
-      title={ui("Hướng dẫn")}
-      description={ui(
-        "Cách trợ lý trả lời. Hướng dẫn của trợ lý được ưu tiên hơn hướng dẫn dự án.",
-      )}
-    >
+    <EditorSection id="agent-instructions" title={ui("Hướng dẫn")}>
       <form.AppField name="instructions">
         {() => (
           <TextareaField
             label={ui("Hướng dẫn")}
             counter={(value) => `${value.length.toLocaleString("vi-VN")}/32.000`}
             maxLength={32000}
-            rows={9}
-            className="min-h-48"
+            rows={12}
+            className="min-h-64"
             placeholder={ui("Vai trò, phạm vi trả lời, cách trích dẫn và định dạng câu trả lời")}
           />
         )}
       </form.AppField>
+    </EditorSection>
+  );
+}
+
+export function OpeningSection({ form, editable }: SectionProps) {
+  const ui = useAppTranslation();
+  return (
+    <EditorSection id="agent-opening" title={ui("Mở đầu")}>
       <form.AppField name="greeting">
         {() => (
           <TextareaField
@@ -198,79 +169,92 @@ export function InstructionsSection({ form, editable }: SectionProps) {
   );
 }
 
-export function KnowledgeSection({ form, agent, choices, editable }: SectionProps) {
+/**
+ * Searching documents heads the section as its switch; with it off the choices stay but are disabled rather than
+ * silently ignored (Onyx "Use Knowledge"). "Chỉ trả lời có căn cứ" is one switch under the list.
+ */
+export function DocumentsSection({ form, agent, choices, editable }: SectionProps) {
   const ui = useAppTranslation();
   const { sources, documentSets } = choices;
   return (
-    <EditorSection
-      id="agent-knowledge"
-      title={ui("Tri thức")}
-      description={ui("Người dùng chỉ nhận câu trả lời từ tài liệu họ được phép đọc.")}
-    >
-      <form.AppField name="sourceIds">
-        {(field) => (
-          <EditorField label={ui("Nguồn tài liệu")}>
-            <AgentSourcePicker
-              options={sources.data ?? []}
-              known={agent?.sources ?? []}
-              value={field.state.value}
-              pending={sources.isPending}
-              failed={sources.isError}
-              disabled={!editable}
-              onRetry={() => void sources.refetch()}
-              onChange={field.handleChange}
-            />
-          </EditorField>
-        )}
-      </form.AppField>
-      <form.AppField name="documentSetIds">
-        {(field) => (
-          <EditorField label={ui("Bộ tài liệu")}>
-            <AgentSourcePicker
-              kind="document-set"
-              options={documentSets.data ?? []}
-              known={agent?.documentSets ?? []}
-              value={field.state.value}
-              pending={documentSets.isPending}
-              failed={documentSets.isError}
-              disabled={!editable}
-              onRetry={() => void documentSets.refetch()}
-              onChange={field.handleChange}
-            />
-          </EditorField>
-        )}
-      </form.AppField>
-      <SettingRows>
-        {!agent?.builtin && (
-          <form.AppField name="fileIds">
-            {(field) => (
-              <SettingRow
-                icon={<Paperclip />}
-                title={ui("Tệp đính kèm")}
-                description={
-                  field.state.value.length === 0
-                    ? ui("Người dùng trợ lý đọc được các tệp này trong hội thoại.")
-                    : ui("{{v1}} tệp đã chọn", { v1: field.state.value.length })
-                }
-                control={
-                  editable && (
-                    <ChatFilePicker
-                      selected={field.state.value}
-                      onSelect={(fileIds) => field.handleChange(fileIds)}
-                      trigger={
-                        <Button type="button" size="sm" prominence="secondary">
-                          {ui("Chọn tệp")}
-                        </Button>
-                      }
-                    />
-                  )
+    <form.AppField name="tools">
+      {(tools) => {
+        const searching = tools.state.value.includes("search");
+        return (
+          <EditorSection
+            id="agent-documents"
+            title={ui("Tài liệu")}
+            action={
+              <Switch
+                aria-label={ui("Tìm trong tài liệu nội bộ")}
+                checked={searching}
+                disabled={!editable}
+                onCheckedChange={(checked) =>
+                  tools.handleChange(toggle(tools.state.value, "search", checked))
                 }
               />
-            )}
-          </form.AppField>
-        )}
-      </SettingRows>
-    </EditorSection>
+            }
+          >
+            <fieldset
+              disabled={!editable || !searching}
+              className="flex min-w-0 flex-col gap-4 disabled:opacity-60"
+            >
+              <legend className="sr-only">{ui("Tài liệu")}</legend>
+              <form.Subscribe
+                selector={(state) => ({
+                  sourceIds: state.values.sourceIds,
+                  documentSetIds: state.values.documentSetIds,
+                  fileIds: state.values.fileIds,
+                })}
+              >
+                {(documents) => (
+                  <AgentDocumentPicker
+                    sources={sources.data ?? []}
+                    documentSets={documentSets.data ?? []}
+                    known={{ sources: agent.sources, documentSets: agent.documentSets }}
+                    value={documents}
+                    withFiles={!agent.builtin}
+                    // One list loading is enough to start adding; a failed one says so above the rows.
+                    pending={sources.isPending && documentSets.isPending}
+                    failed={sources.isError || documentSets.isError}
+                    unavailable={sources.isError && documentSets.isError}
+                    disabled={!editable || !searching}
+                    onRetry={() => {
+                      void sources.refetch();
+                      void documentSets.refetch();
+                    }}
+                    onChange={(next) => {
+                      form.setFieldValue("sourceIds", next.sourceIds);
+                      form.setFieldValue("documentSetIds", next.documentSetIds);
+                      form.setFieldValue("fileIds", next.fileIds);
+                    }}
+                  />
+                )}
+              </form.Subscribe>
+              {!agent.builtin && (
+                <form.AppField name="grounded">
+                  {(field) => (
+                    <SettingRows>
+                      <SettingRow
+                        htmlFor="agent-grounded"
+                        title={ui("Chỉ trả lời có căn cứ")}
+                        control={
+                          <Switch
+                            id="agent-grounded"
+                            checked={field.state.value}
+                            onCheckedChange={field.handleChange}
+                          />
+                        }
+                      />
+                    </SettingRows>
+                  )}
+                </form.AppField>
+              )}
+            </fieldset>
+          </EditorSection>
+        );
+      }}
+    </form.AppField>
   );
 }
 
@@ -280,95 +264,82 @@ export function ToolsSection({ form, agent, choices }: SectionProps) {
   const connected = choices.mcp.data ?? [];
   const mcpOptions = [
     ...connected.map((server) => ({ id: server.id, name: server.name })),
-    ...(agent?.mcpServers ?? []).filter(
-      (server) => !connected.some((item) => item.id === server.id),
-    ),
+    ...agent.mcpServers.filter((server) => !connected.some((item) => item.id === server.id)),
   ];
   return (
-    <EditorSection
-      id="agent-tools"
-      title={ui("Công cụ")}
-      description={ui("Những việc trợ lý được làm ngoài trả lời.")}
-    >
+    <EditorSection id="agent-tools" title={ui("Công cụ")}>
       <form.AppField name="tools">
         {(field) => (
           <SettingRows>
-            {agentTools.map((tool) => {
-              const Icon = toolIcons[tool];
-              return (
-                <SettingRow
-                  key={tool}
-                  htmlFor={`agent-tool-${tool}`}
-                  icon={<Icon />}
-                  title={toolNames[tool].label}
-                  description={toolNames[tool].hint}
-                  control={
-                    <Switch
-                      id={`agent-tool-${tool}`}
-                      checked={field.state.value.includes(tool)}
-                      onCheckedChange={(checked) =>
-                        field.handleChange(toggle(field.state.value, tool, checked))
-                      }
-                    />
-                  }
-                />
-              );
-            })}
-          </SettingRows>
-        )}
-      </form.AppField>
-      <EditorField label={ui("Ứng dụng MCP")}>
-        {agent?.builtin ? (
-          <p className="font-secondary-body text-content-muted">
-            {ui("Trợ lý mặc định dùng mọi máy chủ MCP mà người dùng được phép dùng.")}
-          </p>
-        ) : mcpOptions.length === 0 ? (
-          <EmptyState
-            icon={<Plug />}
-            title={ui("Chưa có máy chủ MCP nào.")}
-            detail={ui(
-              "Quản trị viên kết nối máy chủ MCP để trợ lý dùng thêm công cụ như Jira, Google Sheets.",
-            )}
-          />
-        ) : (
-          <form.AppField name="mcpServerIds">
-            {(field) => (
-              <SettingRows>
-                {mcpOptions.map((server) => (
+            {agentTools
+              .filter((tool) => tool !== "search")
+              .map((tool) => {
+                const Icon = toolIcons[tool];
+                return (
                   <SettingRow
-                    key={server.id}
-                    htmlFor={`agent-mcp-${server.id}`}
-                    icon={<Plug />}
-                    title={server.name}
+                    key={tool}
+                    htmlFor={`agent-tool-${tool}`}
+                    icon={<Icon />}
+                    title={toolNames[tool].label}
+                    description={toolNames[tool].hint}
                     control={
                       <Switch
-                        id={`agent-mcp-${server.id}`}
-                        checked={field.state.value.includes(server.id)}
+                        id={`agent-tool-${tool}`}
+                        checked={field.state.value.includes(tool)}
                         onCheckedChange={(checked) =>
-                          field.handleChange(toggle(field.state.value, server.id, checked))
+                          field.handleChange(toggle(field.state.value, tool, checked))
                         }
                       />
                     }
                   />
-                ))}
-              </SettingRows>
-            )}
-          </form.AppField>
+                );
+              })}
+          </SettingRows>
         )}
-      </EditorField>
+      </form.AppField>
+      {/* Without an MCP server in the organization there is nothing to choose, so the subsection stays out. */}
+      {mcpOptions.length > 0 && (
+        <EditorField label={ui("Ứng dụng MCP")}>
+          {agent.builtin ? (
+            <p className="font-secondary-body text-content-muted">
+              {ui("Trợ lý mặc định dùng mọi máy chủ MCP mà người dùng được phép dùng.")}
+            </p>
+          ) : (
+            <form.AppField name="mcpServerIds">
+              {(field) => (
+                <SettingRows>
+                  {mcpOptions.map((server) => (
+                    <SettingRow
+                      key={server.id}
+                      htmlFor={`agent-mcp-${server.id}`}
+                      icon={<Plug />}
+                      title={server.name}
+                      control={
+                        <Switch
+                          id={`agent-mcp-${server.id}`}
+                          checked={field.state.value.includes(server.id)}
+                          onCheckedChange={(checked) =>
+                            field.handleChange(toggle(field.state.value, server.id, checked))
+                          }
+                        />
+                      }
+                    />
+                  ))}
+                </SettingRows>
+              )}
+            </form.AppField>
+          )}
+        </EditorField>
+      )}
     </EditorSection>
   );
 }
 
-export function AdvancedSection({ form, agent, choices, editable }: SectionProps) {
+export function ModelSection({ form, choices, editable }: SectionProps) {
   const ui = useAppTranslation();
   const { models } = choices;
   return (
-    <EditorSection
-      id="agent-advanced"
-      title={ui("Nâng cao")}
-      description={ui("Model và mức suy luận của trợ lý.")}
-    >
+    <EditorSection id="agent-model" title={ui("Model và suy luận")}>
       {models.isError && (
         <LoadFailure onRetry={() => void models.refetch()}>
           {ui("Không tải được model.")}
@@ -381,7 +352,7 @@ export function AdvancedSection({ form, agent, choices, editable }: SectionProps
               {(field) => {
                 const selected = field.state.value;
                 const efforts = [
-                  { id: systemEffort, name: ui("Mặc định") },
+                  { id: systemEffort, name: ui("Theo hệ thống") },
                   ...REASONING_EFFORTS.map((level) => ({ id: level.id, name: ui(level.name) })),
                 ];
                 // Only a reasoning model takes a level; "Tự động" follows the organization's default model.
@@ -469,25 +440,6 @@ export function AdvancedSection({ form, agent, choices, editable }: SectionProps
           )}
         </form.Subscribe>
       </SettingRows>
-      {!agent?.builtin && (
-        <SettingRows>
-          <form.AppField name="grounded">
-            {(field) => (
-              <SettingRow
-                htmlFor="agent-grounded"
-                title={ui("Chỉ trả lời từ tài liệu của tổ chức")}
-                control={
-                  <Switch
-                    id="agent-grounded"
-                    checked={field.state.value}
-                    onCheckedChange={field.handleChange}
-                  />
-                }
-              />
-            )}
-          </form.AppField>
-        </SettingRows>
-      )}
     </EditorSection>
   );
 }
