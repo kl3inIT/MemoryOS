@@ -167,6 +167,7 @@ class ChatLifecycleIntegrationTest {
     @Test
     void aConversationHeldInAChannelOpensByItsAddressAndIsListedByNeitherTheSidebarNorTheSearch() {
         var web = sessions.create(owner, "Leave on the web");
+        ask(web, "How many days of leave do I have?");
         var channel = sessions.createInChannel(owner, "Leave in Lark");
 
         assertEquals(channel.id(), sessions.get(owner, channel.id()).id());
@@ -178,7 +179,9 @@ class ChatLifecycleIntegrationTest {
     @Test
     void archivingTakesAConversationOffTheSidebarAndWritingInItBringsItBack() {
         var kept = sessions.create(owner, "Kept");
+        ask(kept, "What is kept?");
         var archived = sessions.create(owner, "Archived");
+        var answer = ask(archived, "What is archived?");
 
         var state = sessions.archive(owner, archived.id(), true);
         assertTrue(state.archived());
@@ -194,7 +197,7 @@ class ChatLifecycleIntegrationTest {
                 assertThrows(ChatException.class, () -> sessions.archive(other, archived.id(), true)).code());
 
         // Asking it something takes it back out of the archive, because it is a conversation being had again.
-        reserve(archived, archived.rootMessageId(), "Back to it");
+        reserve(archived, answer, "Back to it");
         assertFalse(sessions.get(owner, archived.id()).archived());
         assertEquals(List.of(archived.id(), kept.id()), ids(sessions.list(owner, false, 0, 30)));
 
@@ -330,6 +333,13 @@ class ChatLifecycleIntegrationTest {
     private ChatTurnPersistence.Reservation reserve(ChatSession session, UUID parent, String text) {
         return turns.reserve(owner, session.id(), ChatCommand.builder(ChatCommand.Operation.SEND, parent, UUID.randomUUID(),
                 text).build(), Duration.ofMinutes(2), 32000, null);
+    }
+
+    /** A finished first question, so the conversation is a topic the lists show; answers its reply's id. */
+    private UUID ask(ChatSession session, String question) {
+        var reply = reserve(session, session.rootMessageId(), question);
+        turns.finish(session.id(), reply.assistantMessageId(), ChatMessage.Status.COMPLETED, "Answered.");
+        return reply.assistantMessageId();
     }
 
     private List<UUID> ids(List<ChatSession> list) {

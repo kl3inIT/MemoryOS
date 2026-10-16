@@ -369,6 +369,21 @@ class ChatSessionApiIntegrationTest {
                 .param("model", chatModel).param("tenant", TENANT).update();
     }
 
+    /** A finished first question and answer, written as a turn writes them, so the conversation is a listed topic. */
+    private void ask(UUID session, UUID root, String question) {
+        var asked = UUID.randomUUID();
+        var answer = UUID.randomUUID();
+        jdbc.sql("""
+                INSERT INTO chat_message(id, session_id, parent_message_id, role, content, status, client_request_id,
+                                         original_assistant_message_id, created_at, finished_at, deadline_at)
+                VALUES (:asked, :session, :root, 'USER', :question, 'COMPLETED', :request, :answer,
+                        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL),
+                       (:answer, :session, :asked, 'ASSISTANT', 'Đã trả lời.', 'COMPLETED', NULL, NULL,
+                        CURRENT_TIMESTAMP + interval '1 millisecond', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """).param("asked", asked).param("answer", answer).param("session", session).param("root", root)
+                .param("question", question).param("request", UUID.randomUUID()).update();
+    }
+
     /** A real OpenAI model for the opt-in live checks, built by the adapter as any catalog provider's is. */
     private ProviderAdapter.Client liveClient(String key, MeterRegistry meters) {
         var known = Objects.requireNonNull(ModelResolver.findKnown(DEFAULT_MODEL, providerAdapter.knownModels()));
@@ -391,6 +406,10 @@ class ChatSessionApiIntegrationTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.title").value("Private session"));
         mockMvc.perform(get("/api/chat/sessions/" + id + "/messages").with(authentication(actor)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+        // Nobody asked anything yet, so it opens by its address but is no topic of any list.
+        mockMvc.perform(get("/api/chat/sessions").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+        ask(UUID.fromString(id), UUID.fromString(session.path("rootMessageId").asText()), "Câu hỏi đầu tiên?");
         mockMvc.perform(get("/api/chat/sessions").with(authentication(actor)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
         mockMvc.perform(get("/api/chat/sessions").with(authentication(other)))
@@ -593,6 +612,7 @@ class ChatSessionApiIntegrationTest {
             var session = Json.mapper().readTree(created.getResponse().getContentAsString());
             ids.add(session.path("id").asText());
             root = session.path("rootMessageId").asText();
+            if (ids.size() == 1) ask(UUID.fromString(ids.getFirst()), UUID.fromString(root), "Quy trình mua sắm thế nào?");
         }
         var newest = UUID.fromString(ids.get(1));
         // A question and its running answer, written together as a turn writes them.
@@ -652,6 +672,8 @@ class ChatSessionApiIntegrationTest {
                     """).param("id", UUID.randomUUID()).param("session", UUID.fromString(session.path("id").asText()))
                     .param("root", UUID.fromString(session.path("rootMessageId").asText()))
                     .param("text", "Báo cáo doanh thu HUT 2026: lợi nhuận tăng trưởng.").update();
+            ask(UUID.fromString(session.path("id").asText()), UUID.fromString(session.path("rootMessageId").asText()),
+                    "Câu hỏi?");
         }
         jdbc.sql("UPDATE chat_session SET deleted_at = CURRENT_TIMESTAMP WHERE id=:id")
                 .param("id", UUID.fromString(ownedIds.get(2))).update();
@@ -684,7 +706,8 @@ class ChatSessionApiIntegrationTest {
         mockMvc.perform(get("/api/chat/sessions/search").with(authentication(actor)).param("offset", "-1"))
                 .andExpect(status().isBadRequest());
         mockMvc.perform(get("/api/chat/sessions/" + ownedIds.get(1) + "/messages").with(authentication(actor)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].content", Matchers.not(Matchers.hasItem(Matchers.containsString("HUT")))));
         // A valid large answer with many distinct tokens must not break Chat writes or lose tail matches.
         String largeAnswer = IntStream.range(0, 100000).mapToObj(Integer::toString)
                 .collect(Collectors.joining(" ")) + " tận cùng zebratail";

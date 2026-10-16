@@ -968,6 +968,9 @@ class ChatPersistenceIntegrationTest {
         assertEquals(first.personaId(), second.personaId());
         assertEquals(first, sessions.get(owner, first.id()));
         assertTrue(sessions.history(owner, first.id(), null, 20).isEmpty());
+        assertTrue(sessions.list(owner, false, 0, 30).isEmpty(), "a conversation nobody asked anything in is no topic");
+        ask(owner, first, "Câu hỏi đầu tiên?", "Câu trả lời.");
+        ask(owner, second, "Câu hỏi thứ hai?", "Câu trả lời.");
         assertEquals(2, sessions.list(owner, false, 0, 30).size());
         assertTrue(sessions.list(other, false, 0, 30).isEmpty());
         assertEquals("CHAT_UNAVAILABLE", assertThrows(ChatException.class, () -> sessions.get(other, first.id())).code());
@@ -983,6 +986,7 @@ class ChatPersistenceIntegrationTest {
     @Test
     void aChannelConversationOpensForItsOwnerAndStaysOutOfTheSidebarAndSearch() {
         var web = sessions.create(owner, "Doanh thu quý trên web");
+        ask(owner, web, "Doanh thu quý 3?", "Tăng 12%.");
         var channel = sessions.createInChannel(owner, "Doanh thu quý từ Lark");
 
         assertEquals(channel, sessions.get(owner, channel.id()), "its owner opens it by its address");
@@ -1344,11 +1348,15 @@ class ChatPersistenceIntegrationTest {
     void anAssistantsTopicsAreItsConversationsFilteredAndSearchedWithTheirRunningReply() {
         var finance = personas.create(owner, input("Báo cáo tài chính", List.of(), List.of(), false, null, null, List.of()));
         var plain = sessions.create(owner, "Quy trình mua sắm");
+        ask(owner, plain, "Quy trình mua sắm dưới 50 triệu?", "Cần 3 báo giá.");
         var older = sessions.create(owner, "Lợi nhuận gộp quý 3");
         personas.select(owner, older.id(), finance.id());
+        ask(owner, older, "Lợi nhuận gộp quý 3?", "412,6 tỷ đồng.");
         var newer = sessions.create(owner, "Báo cáo tuần 41");
         personas.select(owner, newer.id(), finance.id());
         var reply = reserve(newer, newer.rootMessageId(), UUID.randomUUID(), "Doanh thu tuần 41?");
+        var empty = sessions.create(owner, "Báo cáo tài chính");
+        personas.select(owner, empty.id(), finance.id());
 
         assertEquals(List.of(newer.id(), older.id()), sessions.list(owner, false, finance.id(), 0, 30).stream()
                 .map(ChatSession::id).toList());
@@ -1360,6 +1368,10 @@ class ChatPersistenceIntegrationTest {
         assertEquals(List.of(older.id()), sessions.search(owner, "quý", finance.id(), 0, 30).stream()
                 .map(match -> match.session().id()).toList());
         assertTrue(sessions.search(owner, "mua sắm", finance.id(), 0, 30).isEmpty());
+        assertEquals(List.of(newer.id()), sessions.search(owner, "báo cáo", finance.id(), 0, 30).stream()
+                .map(match -> match.session().id()).toList(), "a conversation nobody asked anything in is no topic");
+        assertTrue(sessions.list(owner, false, null, 0, 30).stream().noneMatch(session -> session.id().equals(empty.id())));
+        assertEquals(empty.id(), sessions.get(owner, empty.id()).id(), "it still opens from its address");
 
         assertTrue(sessions.get(owner, newer.id()).replyRunning());
         assertEquals(List.of(true, false), sessions.list(owner, false, finance.id(), 0, 30).stream()
@@ -1380,14 +1392,19 @@ class ChatPersistenceIntegrationTest {
                 List.of(), "hr-face", null, null, null, null, null, null)));
         personas.replacePins(reader, List.of(hr.id(), finance.id()));
         var plain = sessions.create(reader, "Quy trình mua sắm");
+        ask(reader, plain, "Quy trình mua sắm dưới 50 triệu?", "Cần 3 báo giá.");
         var hrTopic = sessions.create(reader, "Ngày phép còn lại");
         personas.select(reader, hrTopic.id(), hr.id());
+        ask(reader, hrTopic, "Tôi còn bao nhiêu ngày phép?", "Còn 7 ngày.");
         var older = sessions.create(reader, "Lợi nhuận gộp quý 3");
         personas.select(reader, older.id(), finance.id());
+        ask(reader, older, "Lợi nhuận gộp quý 3?", "412,6 tỷ đồng.");
         var newer = sessions.create(reader, "Báo cáo tuần 41");
         personas.select(reader, newer.id(), finance.id());
         var reply = turns.reserve(reader, newer.id(), newer.rootMessageId(), UUID.randomUUID(), "Doanh thu tuần 41?",
                 Duration.ofMinutes(2), 32000);
+        var empty = sessions.create(reader, "Báo cáo tài chính");
+        personas.select(reader, empty.id(), finance.id());
 
         statements.reset();
         var assistants = personas.assistants(reader);
@@ -1398,10 +1415,10 @@ class ChatPersistenceIntegrationTest {
         assertTrue(builtin.builtin() && builtin.usable());
         assertNotNull(builtin.latestTopic());
         assertEquals(plain.id(), builtin.latestTopic().sessionId());
-        assertEquals("", builtin.latestTopic().preview(), "nobody wrote in it yet");
+        assertEquals("Cần 3 báo giá.", builtin.latestTopic().preview());
         var financeRow = assistants.get(2);
         assertNotNull(financeRow.latestTopic());
-        assertEquals(newer.id(), financeRow.latestTopic().sessionId());
+        assertEquals(newer.id(), financeRow.latestTopic().sessionId(), "a newer conversation nobody asked anything in is skipped");
         assertTrue(financeRow.latestTopic().replyRunning());
         assertEquals("Doanh thu tuần 41?", financeRow.latestTopic().preview());
 
@@ -1416,6 +1433,7 @@ class ChatPersistenceIntegrationTest {
         personas.replacePins(reader, List.of(hr.id(), finance.id(), third.id()));
         var kpi = sessions.create(reader, "Xếp loại C tháng 9");
         personas.select(reader, kpi.id(), third.id());
+        ask(reader, kpi, "Chi nhánh nào xếp loại C tháng 9?", "Hải Phòng, Vinh và Cần Thơ.");
         statements.reset();
         assertEquals(4, personas.assistants(reader).size());
         assertEquals(reads, statements.statements().size(), "one more pin reads no more statements");
@@ -1611,6 +1629,13 @@ class ChatPersistenceIntegrationTest {
 
     private ChatTurnPersistence.Reservation reserve(ChatSession session, UUID parent, UUID request, String text) {
         return turns.reserve(owner, session.id(), parent, request, text, Duration.ofMinutes(2), 32000);
+    }
+
+    /** One finished question and answer, so the conversation is a topic the lists show. */
+    private void ask(ActorId actor, ChatSession session, String question, String answer) {
+        var reply = turns.reserve(actor, session.id(), session.rootMessageId(), UUID.randomUUID(), question,
+                Duration.ofMinutes(2), 32000);
+        turns.finish(session.id(), reply.assistantMessageId(), ChatMessage.Status.COMPLETED, answer);
     }
 
     @Test
