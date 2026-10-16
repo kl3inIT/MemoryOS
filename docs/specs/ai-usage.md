@@ -15,13 +15,14 @@ The `usage` capability records every AI call MemoryOS makes into a daily ledger 
 
 ## Flows
 
-`CHAT`, `CHAT_NAMING`, `CHAT_GUARDRAIL`, `DEEP_RESEARCH`, `EMBEDDING_QUERY`, `EMBEDDING_INDEXING`, `IMAGE_GENERATION`, `IMAGE_EDIT`, `SPEECH_TO_TEXT`, `TEXT_TO_SPEECH`, `MEETING_MINUTES`, `MEETING_CORRECTION`. A new AI task adds a value to `AiUsageFlow` and the table's check constraint (V138 added `CHAT_GUARDRAIL`, V139 validates it).
+`CHAT`, `CHAT_NAMING`, `CHAT_GUARDRAIL`, `CHAT_COMPACTION` (the summary of a long conversation's earlier turns, MEM-268), `DEEP_RESEARCH`, `EMBEDDING_QUERY`, `EMBEDDING_INDEXING`, `IMAGE_GENERATION`, `IMAGE_EDIT`, `SPEECH_TO_TEXT`, `TEXT_TO_SPEECH`, `MEETING_MINUTES`, `MEETING_CORRECTION`, `OCR` (a page read by a model chosen as the OCR reader, MEM-243). A new AI task adds a value to `AiUsageFlow` and the table's check constraint (V138 added `CHAT_GUARDRAIL`, V139 validates it).
 
 | Flow | Captured by | Usage |
 | --- | --- | --- |
 | Chat, Deep research | `ChatTurnService` when the turn settles (completed, stopped or failed), summed over every `ChatModelGuard` of the turn | Provider-reported input, output and cache-read tokens; cost from the model price |
 | Conversation naming | `ChatTurnService.recordNaming` after the title call | Same, on the naming model |
 | Question check (guardrail) | `ChatTurnService.recordCheck` after the check's call, on the model that ran it | Same; recorded apart from `CHAT` since 2026-10-02, so Chat counts each turn once |
+| Long conversation summary | `ChatCompactions` after the summary call, on the `CHAT_COMPACTION` model, failed calls included | Same; apart from `CHAT`, as Onyx records `CHAT_HISTORY_SUMMARIZATION` (V172 adds the flow, V173 validates it) |
 | Search and indexing embeddings | `ValidatedEmbeddingService` per batch with a known caller | Reported tokens; priced by `memoryos.search.embedding-input-price-per-million`, unknown when unset |
 | Image generation and editing | `ImageProviderClient` after a delivered image | One image; cost unknown |
 | Speech-to-text | `VoiceTranscriptionService` once when a dictation session closes, and `BatchTranscriptionService` once per uploaded recording | Seconds from the audio received (16-bit mono 24 kHz), or the length the provider reported for a recording; cost unknown |
@@ -30,7 +31,7 @@ The `usage` capability records every AI call MemoryOS makes into a daily ledger 
 
 ## Pricing
 
-Model prices are USD per million tokens on the catalog model (`ModelSettings.Pricing`): input, output and an optional cache-read rate. Prompt tokens include cached ones, as in Onyx, LiteLLM and 9router, so a call costs `(input − cached) × input rate + cached × cache-read rate + output × output rate`; without a cache-read rate cached input costs the input rate. Embabel prices every input token at the input rate; `ModelPricing.cacheDiscount` subtracts the difference once the turn's cached tokens are known. The installed catalog (`known-models.json`) carries LiteLLM's `cache_read_input_token_cost` as `cachedInputPerMillion`. Local models (vLLM, Ollama) have no price until a manager sets one; 0/0 declares them free.
+Model prices are USD per million tokens on the catalog model (`ModelSettings.Pricing`): input, output and an optional cache-read rate. Prompt tokens include cached ones, as in Onyx, LiteLLM and 9router, so a call costs `(input − cached) × input rate + cached × cache-read rate + output × output rate`; without a cache-read rate cached input costs the input rate. Embabel prices every input token at the input rate; `ModelPricing.cacheDiscount` subtracts the difference once the turn's cached tokens are known. Anthropic bills a five-minute cache write at 1.25 times the input rate, so its adapter's `ModelPricing.cacheWritePremium` adds `0.25 × written × input rate`; other providers bill writes as input. Written tokens count as input in the totals and are not stored apart. The installed catalog (`known-models.json`) carries LiteLLM's `cache_read_input_token_cost` as `cachedInputPerMillion`. Local models (vLLM, Ollama) have no price until a manager sets one; 0/0 declares them free.
 
 All costs are estimates from provider-reported usage and catalog prices, not provider invoices.
 
@@ -53,7 +54,10 @@ Every endpoint except `/mine` requires `MODELS_MANAGE` (implied by `SYSTEM_ADMIN
 
 `ai_usage_limit` (V103) caps what may be spent, as Onyx's `token_rate_limit` does. One row per Tenant and scope:
 `TENANT`, `GROUP` (one row per Group) or `PERSON`, where `PERSON` is one budget applied to each person separately,
-not a budget for one named person. A row sets a token budget, an estimated cost budget, or both, over a trailing
+not a budget for one named person. A service account ([identity](identity.md#account-classification-and-group-authority))
+is not a person: `PERSON` never binds it and it is not the "busiest person", while its spend counts in `TENANT`
+and in its Groups' budgets, is its own line in costs by actor, and it is left out of the people of the AI costs
+totals and of the seats and active people of a usage report. A row sets a token budget, an estimated cost budget, or both, over a trailing
 window of `period_days` whole UTC days, and can be kept but switched off.
 
 - **What counts.** Input and output tokens, and known cost, from rows that carry an actor. System work has no actor,
@@ -89,7 +93,7 @@ The ZIP holds:
 
 - `usage_by_user.csv`: one row per `ai_usage` rollup row (person or system work, UTC day, flow, provider, model, data boundary) with the person's current Groups, calls, unpriced calls, tokens, images, audio seconds and cost in USD. Cells from user-controlled text that begin with `=`, `+`, `-`, `@`, tab or carriage return are prefixed with `'`, as in Onyx. The file starts with a UTF-8 byte-order mark so spreadsheets read Vietnamese names.
 - `users.csv`: every Tenant member with their Groups, whether the membership is active and whether they used AI in the period.
-- `usage_report.pdf`: a Vietnamese review pack built from the same rows as the CSV, so the totals reconcile. The cover has three headline figures, the share of active members who used AI, a summary, how costs are counted, and the top three models. Later pages show daily active people, daily cost, cost by model, the heaviest users, cost by task, by Group and by data boundary, and the active members who did not use AI (25 listed, the rest counted). Top lists fold everything after the tenth person, or the eighth model, task or Group, into "Khác (n)", but never fold a single row. It embeds Hanken Grotesk (SIL OFL, `core/src/main/resources/fonts`); a character the typeface cannot draw prints as `?`. If rendering fails, the ZIP ships without the PDF and the report says so.
+- `usage_report.pdf`: a Vietnamese review pack built from the same rows as the CSV, so the totals reconcile. The cover has three headline figures, the share of active members who used AI, a summary, how costs are counted, and the top three models. Later pages show daily active people, daily cost, cost by model, the heaviest users, cost by task, by Group and by data boundary, and the active members who did not use AI (25 listed, the rest counted). Top lists fold everything after the tenth person, or the eighth model, task or Group, into "Khác (n)", but never fold a single row. It embeds Hanken Grotesk (SIL OFL, `memoryos-core/src/main/resources/fonts`); a character the typeface cannot draw prints as `?`. If rendering fails, the ZIP ships without the PDF and the report says so.
 
 Chat message metadata (Onyx `chat_messages.csv`) is not exported; message-level history belongs to MEM-125. Money stays in USD.
 

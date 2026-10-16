@@ -358,6 +358,138 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/ocr/selection:
+    put:
+      tags:
+      - OCR
+      summary: Choose the connection that reads scans and images; null returns them
+        to Docling's own OCR
+      operationId: selectOcrProvider
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OcrSelectionRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid OCR configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: OCR connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: OCR connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: OCR service unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: OCR reader saved
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/ocr/connections/{provider}:
+    put:
+      tags:
+      - OCR
+      summary: Configure one OCR connection without choosing it as the reader
+      operationId: saveOcrConnection
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: provider
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - PADDLEOCR_VL
+          - MODEL
+          - AIHAY
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OcrConnectionRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid OCR configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: OCR connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: OCR connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: OCR service unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved OCR connection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OcrConnectionResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/meetings/{meetingId}:
     get:
       tags:
@@ -1351,96 +1483,12 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
-  /api/mcp/servers/{serverId}/tools/{toolId}/enabled:
+  /api/mcp/servers/{serverId}/tools/policy:
     put:
       tags:
       - MCP
-      summary: Enable or disable one tool at the expected revision
-      operationId: setMcpServerToolEnabled
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: serverId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: toolId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: revision
-        in: query
-        required: true
-        schema:
-          type: integer
-          format: int64
-          exclusiveMinimum: 0
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/McpToolEnablement"
-        required: true
-      responses:
-        "400":
-          description: Invalid MCP configuration or tool snapshot
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: "MCP management, Tenant membership or CSRF requirement not\
-            \ met"
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: MCP server or tool not accessible
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: "Stale revision, duplicate slug, missing credential or server\
-            \ authorization required"
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: MCP server or credential encryption key unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: Saved tool
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/McpToolView"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/mcp/servers/{serverId}/tools/enabled:
-    put:
-      tags:
-      - MCP
-      summary: Enable every exposable tool or disable every tool
-      operationId: setAllMcpServerToolsEnabled
+      summary: Set the policy of every tool of one risk
+      operationId: setMcpServerToolGroupPolicy
       parameters:
       - name: X-MemoryOS-CSRF
         in: header
@@ -1460,7 +1508,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/McpToolEnablement"
+              $ref: "#/components/schemas/McpToolGroupPolicyChange"
         required: true
       responses:
         "400":
@@ -1505,6 +1553,156 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/McpToolView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - MCP
+      summary: Return every tool to the default policy of its risk
+      operationId: resetMcpServerToolPolicies
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid MCP configuration or tool snapshot
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or tool not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Stale revision, duplicate slug, missing credential or server\
+            \ authorization required"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: MCP server or credential encryption key unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Tools with their default policies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/McpToolView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/servers/{serverId}/tools/{toolId}/policy:
+    put:
+      tags:
+      - MCP
+      summary: Set one tool's policy at the expected revision; refreshes keep it
+      operationId: setMcpServerToolPolicy
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: toolId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpToolPolicyChange"
+        required: true
+      responses:
+        "400":
+          description: Invalid MCP configuration or tool snapshot
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or tool not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Stale revision, duplicate slug, missing credential or server\
+            \ authorization required"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: MCP server or credential encryption key unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved tool
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpToolView"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -2717,6 +2915,7 @@ paths:
           enum:
           - CHAT_NAMING
           - CHAT_GUARDRAIL
+          - CHAT_COMPACTION
           - MEETING_MINUTES
           - MEETING_CORRECTION
       requestBody:
@@ -4679,6 +4878,59 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/projects/order:
+    put:
+      tags:
+      - Chat
+      summary: Set the actor's project order from one list of every owned project
+      operationId: reorderChatProjects
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectOrderRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "204":
+          description: Order saved
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/preferences:
     get:
       tags:
@@ -5210,6 +5462,51 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/assistants:
+    get:
+      tags:
+      - Chat
+      summary: "List the caller's assistants for the sidebar: the built-in one, then\
+        \ the pins, each with the newest topic"
+      operationId: listChatAssistants
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: The assistants in order
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatAssistant"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/persona-pins:
     get:
       tags:
@@ -5649,6 +5946,7 @@ paths:
           enum:
           - CHAT_NAMING
           - CHAT_GUARDRAIL
+          - CHAT_COMPACTION
           - MEETING_MINUTES
           - MEETING_CORRECTION
       - name: modelConfigurationId
@@ -6158,6 +6456,11 @@ paths:
           enum:
           - OPENAI_IMAGE
           - CLOUDFLARE_WORKERS_AI
+          - GEMINI_IMAGE
+          - OPENROUTER_IMAGE
+          - XAI_IMAGE
+          - FAL_AI
+          - CUSTOM_HTTP
       requestBody:
         content:
           application/json:
@@ -6415,6 +6718,81 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/View"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/channels/{channelId}/transport:
+    put:
+      tags:
+      - Channels
+      summary: "Change how a bot receives, for a platform that offers both, with a\
+        \ revision precondition"
+      operationId: updateChannelTransport
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateChannelTransportRequest"
+        required: true
+      responses:
+        "400":
+          description: "Invalid bot, or an app the platform rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Bot unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Bot changed, or its app already serves a bot"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "The platform did not answer, or bots are not configured"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Updated bot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -7847,6 +8225,74 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/ocr/connections/{provider}/test:
+    post:
+      tags:
+      - OCR
+      summary: Read a small test picture with a connection; a cloud service or a model's
+        provider may charge for it
+      operationId: testOcrConnection
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: provider
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - PADDLEOCR_VL
+          - MODEL
+          - AIHAY
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OcrConnectionTestRequest"
+      responses:
+        "400":
+          description: Invalid OCR configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: OCR connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: OCR connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: OCR service unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: The connection read the test picture
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/meetings:
     get:
       tags:
@@ -9056,8 +9502,8 @@ paths:
     post:
       tags:
       - MCP
-      summary: Explicitly list tools from the server with the administrator credential
-        and replace the snapshot
+      summary: "List tools from the server with the administrator credential and replace\
+        \ the snapshot, keeping customized policies"
       operationId: refreshMcpServerTools
       parameters:
       - name: X-MemoryOS-CSRF
@@ -11121,6 +11567,13 @@ paths:
         schema:
           type: boolean
           default: false
+      - name: personaId
+        in: query
+        description: Only the topics of this assistant
+        required: false
+        schema:
+          type: string
+          format: uuid
       - name: offset
         in: query
         required: false
@@ -11645,6 +12098,84 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ChatSession"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/sessions/{sessionId}/messages/{assistantMessageId}/tool-calls/{toolCallId}/decision:
+    post:
+      tags:
+      - Chat
+      summary: Approve or decline a tool call that waits for the reply owner's approval
+      operationId: decideChatToolCall
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: assistantMessageId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: toolCallId
+        in: path
+        required: true
+        schema:
+          type: string
+          maxLength: 256
+          minLength: 1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatToolDecision"
+        required: true
+      responses:
+        "204":
+          description: Decision delivered to the running reply
+        "409":
+          description: Conflicting request or active reply
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid request or cursor
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Conversation or message not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Chat capacity exhausted or provider unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
       security:
       - bearerAuth: []
       - browserSession: []
@@ -13496,6 +14027,11 @@ paths:
           enum:
           - OPENAI_IMAGE
           - CLOUDFLARE_WORKERS_AI
+          - GEMINI_IMAGE
+          - OPENROUTER_IMAGE
+          - XAI_IMAGE
+          - FAL_AI
+          - CUSTOM_HTTP
       requestBody:
         content:
           application/json:
@@ -13918,6 +14454,133 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/View"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/channels/zalo:
+    post:
+      tags:
+      - Channels
+      summary: "Check a Zalo bot's token with Zalo and add the bot, switched off;\
+        \ nothing is stored when Zalo rejects it"
+      operationId: createZaloChannel
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateZaloChannelRequest"
+        required: true
+      responses:
+        "400":
+          description: "Invalid bot, or an app the platform rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Bot unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Bot changed, or its app already serves a bot"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "The platform did not answer, or bots are not configured"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "201":
+          description: Added bot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/channels/zalo/test:
+    post:
+      tags:
+      - Channels
+      summary: Check a Zalo bot's token with Zalo without storing anything
+      operationId: testZaloChannelBot
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ZaloBotRequest"
+        required: true
+      responses:
+        "400":
+          description: "Invalid bot, or an app the platform rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Bot unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Bot changed, or its app already serves a bot"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "The platform did not answer, or bots are not configured"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Zalo accepts the token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelAppCheckResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -15257,6 +15920,107 @@ paths:
                 format: binary
         "416":
           description: Requested byte range starts beyond the original
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/ocr/providers:
+    get:
+      tags:
+      - OCR
+      summary: List the installed OCR providers and what a connection of each needs
+      operationId: listOcrProviders
+      responses:
+        "400":
+          description: Invalid OCR configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: OCR connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: OCR connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: OCR service unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Installed OCR providers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OcrProviderResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/ocr/connections:
+    get:
+      tags:
+      - OCR
+      summary: List OCR connections for model managers; the active one reads scans
+        and images
+      operationId: listOcrConnections
+      responses:
+        "400":
+          description: Invalid OCR configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: OCR connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: OCR connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: OCR service unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: OCR connections
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OcrConnectionResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -16611,9 +17375,9 @@ paths:
       summary: Read or resume reply events; reset requires persisted history
       description: "Events: text, reasoning, tool, image, code, research_plan, top_level_branching,\
         \ research_agent_start, intermediate_report, intermediate_report_citations,\
-        \ outcome, reset. Content event id is assistantMessageId:sequence. Only outcome\
-        \ confirms a committed terminal state. Heartbeats are comments. A reset has\
-        \ no event id."
+        \ waiting, tool_approval, outcome, reset. Content event id is assistantMessageId:sequence.\
+        \ Only outcome confirms a committed terminal state. Heartbeats are comments.\
+        \ A reset has no event id."
       operationId: streamChatMessage
       parameters:
       - name: sessionId
@@ -16683,6 +17447,8 @@ paths:
                 - $ref: "#/components/schemas/ResearchAgentStartEvent"
                 - $ref: "#/components/schemas/IntermediateReportEvent"
                 - $ref: "#/components/schemas/IntermediateReportCitationsEvent"
+                - $ref: "#/components/schemas/WaitingEvent"
+                - $ref: "#/components/schemas/ToolApprovalEvent"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -16809,6 +17575,13 @@ paths:
         schema:
           type: string
           default: ""
+      - name: personaId
+        in: query
+        description: Only the topics of this assistant
+        required: false
+        schema:
+          type: string
+          format: uuid
       - name: offset
         in: query
         required: false
@@ -16895,6 +17668,193 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ChatRetentionPreview"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/memory:
+    get:
+      tags:
+      - Chat Memory
+      summary: Read what Chat remembers about you
+      operationId: getChatMemory
+      responses:
+        "400":
+          description: Invalid memory
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Membership unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Your memory
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatMemory"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    put:
+      tags:
+      - Chat Memory
+      summary: Replace what Chat remembers about you
+      operationId: saveChatMemory
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatMemoryInput"
+        required: true
+      responses:
+        "200":
+          description: The saved memory
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatMemory"
+        "409":
+          description: The memory changed since it was read
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid memory
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Membership unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - Chat Memory
+      summary: Forget everything Chat remembers about you
+      operationId: clearChatMemory
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      responses:
+        "400":
+          description: Invalid memory
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Membership unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: The emptied memory
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatMemory"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/memory/enabled:
+    put:
+      tags:
+      - Chat Memory
+      summary: Turn Chat's memory of you on or off
+      operationId: setChatMemoryEnabled
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatMemoryEnabledInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid memory
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Membership unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: The memory with its switch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatMemory"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -19976,6 +20936,7 @@ paths:
           - CHAT
           - CHAT_NAMING
           - CHAT_GUARDRAIL
+          - CHAT_COMPACTION
           - DEEP_RESEARCH
           - EMBEDDING_QUERY
           - EMBEDDING_INDEXING
@@ -19985,6 +20946,7 @@ paths:
           - TEXT_TO_SPEECH
           - MEETING_MINUTES
           - MEETING_CORRECTION
+          - OCR
       responses:
         "400":
           description: Invalid period or filter
@@ -20229,6 +21191,7 @@ paths:
           - CHAT
           - CHAT_NAMING
           - CHAT_GUARDRAIL
+          - CHAT_COMPACTION
           - DEEP_RESEARCH
           - EMBEDDING_QUERY
           - EMBEDDING_INDEXING
@@ -20238,6 +21201,7 @@ paths:
           - TEXT_TO_SPEECH
           - MEETING_MINUTES
           - MEETING_CORRECTION
+          - OCR
       responses:
         "400":
           description: Invalid period or filter
@@ -20318,6 +21282,7 @@ paths:
           - CHAT
           - CHAT_NAMING
           - CHAT_GUARDRAIL
+          - CHAT_COMPACTION
           - DEEP_RESEARCH
           - EMBEDDING_QUERY
           - EMBEDDING_INDEXING
@@ -20327,6 +21292,7 @@ paths:
           - TEXT_TO_SPEECH
           - MEETING_MINUTES
           - MEETING_CORRECTION
+          - OCR
       responses:
         "400":
           description: Invalid period or filter
@@ -20787,6 +21753,1439 @@ paths:
           description: Authentication required
         "204":
           description: File deleted
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/credentials/lark:
+    get:
+      tags:
+      - Credentials
+      summary: List reusable Tenant-owned Lark credentials
+      operationId: listLarkCredentials
+      responses:
+        "400":
+          description: Invalid Lark credential
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Lark credential unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Lark credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Lark did not answer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Lark credentials
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LarkCredentialResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - Credentials
+      summary: Verify a Lark custom app with Lark and store it; nothing is stored
+        when Lark rejects it
+      operationId: createLarkCredential
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LarkCredentialRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Lark credential
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Lark credential unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Lark credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Lark did not answer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "201":
+          description: Stored Lark credential
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LarkCredentialResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/credentials/lark/{credentialId}:
+    put:
+      tags:
+      - Credentials
+      summary: Rename a Lark credential with a revision precondition
+      operationId: renameLarkCredential
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: credentialId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenameLarkCredentialRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Lark credential
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Lark credential unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Lark credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Lark did not answer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Lark credential renamed
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - Credentials
+      summary: Delete an unused Lark credential with a revision precondition
+      operationId: deleteLarkCredential
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: credentialId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      responses:
+        "400":
+          description: Invalid Lark credential
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Lark credential unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Lark credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Lark did not answer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Lark credential deleted
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/credentials/lark/{credentialId}/secret:
+    put:
+      tags:
+      - Credentials
+      summary: Replace the App Secret of an existing Lark credential of the same app
+      operationId: replaceLarkCredentialSecret
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: credentialId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LarkCredentialRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Lark credential
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Lark credential unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Lark credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Lark did not answer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Updated Lark credential
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LarkCredentialResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/credentials/lark/{credentialId}/test:
+    post:
+      tags:
+      - Credentials
+      summary: "Ask Lark for a tenant token, read the bot and probe the read scopes;\
+        \ records what Lark said"
+      operationId: testLarkCredential
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: credentialId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid Lark credential
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Lark credential unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Lark credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Lark did not answer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Lark credential works
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LarkCredentialTestResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/lark:
+    post:
+      tags:
+      - Sources
+      summary: Create a Lark source; its scope is verified with Lark before it takes
+        effect
+      operationId: createLarkSource
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLarkSourceRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Lark scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "202":
+          description: Scope accepted for verification
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LarkSelectionReceiptResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/lark:
+    get:
+      tags:
+      - Sources
+      summary: Get Lark source configuration
+      operationId: getLarkConfiguration
+      parameters:
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid Lark scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Lark configuration
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LarkConfigurationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/lark/selection-requests/{requestId}:
+    get:
+      tags:
+      - Sources
+      summary: Recover the receipt of an accepted scope request
+      operationId: getLarkSelectionRequest
+      parameters:
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid Lark scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Lark scope receipt
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LarkSelectionReceiptResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/lark/scope:
+    put:
+      tags:
+      - Sources
+      summary: Replace what a Lark source synchronizes; the new scope is verified
+        before it applies
+      operationId: replaceLarkScope
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReplaceLarkScopeRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Lark scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "202":
+          description: Scope accepted for verification
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LarkSelectionReceiptResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/lark/schedule:
+    put:
+      tags:
+      - Sources
+      summary: Update the automatic synchronization interval
+      operationId: updateLarkSchedule
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateLarkScheduleRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Lark scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Updated Lark configuration
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LarkConfigurationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/lark/pause:
+    post:
+      tags:
+      - Sources
+      summary: Pause or resume future automatic synchronization
+      operationId: updateLarkPause
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateLarkPauseRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Lark scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Updated Lark configuration
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LarkConfigurationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/lark/sync:
+    post:
+      tags:
+      - Sources
+      summary: Schedule a synchronization run now
+      operationId: synchronizeLarkSource
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid Lark scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "202":
+          description: Run scheduled
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceOperation"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/lark/roots:
+    get:
+      tags:
+      - Sources
+      summary: List the Wiki spaces and Drive folders in scope
+      operationId: getLarkRoots
+      parameters:
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid Lark scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Lark roots
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LarkRootResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/lark/credentials/{credentialId}/spaces:
+    get:
+      tags:
+      - Sources
+      summary: "List the Wiki spaces the credential's app is a member of, read from\
+        \ Lark now"
+      operationId: listLarkSpaces
+      parameters:
+      - name: credentialId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: Wiki spaces a source may name
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LarkSpaceOptionResponse"
+        "503":
+          description: Lark did not answer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid Lark scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/channels/{channelId}/secret:
+    put:
+      tags:
+      - Channels
+      summary: "Replace the App Secret of a bot's app once the platform accepts it,\
+        \ with a revision precondition"
+      operationId: replaceChannelSecret
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReplaceChannelSecretRequest"
+        required: true
+      responses:
+        "400":
+          description: "Invalid bot, or an app the platform rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Bot unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Bot changed, or its app already serves a bot"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "The platform did not answer, or bots are not configured"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Updated bot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/channels/{channelId}/enabled:
+    put:
+      tags:
+      - Channels
+      summary: Switch a bot on or off with a revision precondition
+      operationId: updateChannelEnabled
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateChannelEnabledRequest"
+        required: true
+      responses:
+        "400":
+          description: "Invalid bot, or an app the platform rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Bot unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Bot changed, or its app already serves a bot"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "The platform did not answer, or bots are not configured"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Updated bot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/channels/lark:
+    post:
+      tags:
+      - Channels
+      summary: "Check a Lark app with Lark and add its bot, switched off; nothing\
+        \ is stored when Lark rejects it"
+      operationId: createLarkChannel
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateChannelRequest"
+        required: true
+      responses:
+        "400":
+          description: "Invalid bot, or an app the platform rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Bot unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Bot changed, or its app already serves a bot"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "The platform did not answer, or bots are not configured"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "201":
+          description: Added bot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/channels/lark/test:
+    post:
+      tags:
+      - Channels
+      summary: Check a Lark app with Lark without storing anything
+      operationId: testLarkChannelApp
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChannelAppRequest"
+        required: true
+      responses:
+        "400":
+          description: "Invalid bot, or an app the platform rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Bot unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Bot changed, or its app already serves a bot"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "The platform did not answer, or bots are not configured"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Lark accepts the app
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelAppCheckResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/channels:
+    get:
+      tags:
+      - Channels
+      summary: List the Tenant's bots with the state of their connections
+      operationId: listChannels
+      responses:
+        "400":
+          description: "Invalid bot, or an app the platform rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Bot unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Bot changed, or its app already serves a bot"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "The platform did not answer, or bots are not configured"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Bots
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChannelResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/channels/{channelId}:
+    delete:
+      tags:
+      - Channels
+      summary: "Remove a bot and retire its account, with a revision precondition"
+      operationId: deleteChannel
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      responses:
+        "400":
+          description: "Invalid bot, or an app the platform rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Bot unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Bot changed, or its app already serves a bot"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "The platform did not answer, or bots are not configured"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Bot removed
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/channel-links:
+    get:
+      tags:
+      - Channels
+      summary: "List the Tenant's bots that take a linked account, with the member's\
+        \ own link on each"
+      operationId: listChannelLinks
+      responses:
+        "400":
+          description: Invalid request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Chat access or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: No bot of the Tenant that takes a linked account
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Bots and links
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChannelLinkResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - Channels
+      summary: "Make a code, valid ten minutes, that links the platform account sending\
+        \ it to the bot to the member"
+      operationId: createChannelLinkCode
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateChannelLinkCodeRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Chat access or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: No bot of the Tenant that takes a linked account
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "201":
+          description: Linking code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelLinkCodeResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/channel-links/{connectionId}:
+    delete:
+      tags:
+      - Channels
+      summary: "Remove the member's link on a bot, and any code they made for it"
+      operationId: deleteChannelLink
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: connectionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Chat access or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: No bot of the Tenant that takes a linked account
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Link removed
       security:
       - bearerAuth: []
       - browserSession: []
@@ -21269,6 +23668,78 @@ components:
       - inUse
       - name
       - revision
+    OcrSelectionRequest:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum:
+          - PADDLEOCR_VL
+          - MODEL
+          - AIHAY
+    OcrConnectionRequest:
+      type: object
+      properties:
+        endpoint:
+          type: string
+          maxLength: 2048
+          minLength: 0
+        credentialAction:
+          type: string
+          enum:
+          - KEEP
+          - REPLACE
+          - REMOVE
+        credentialValue:
+          type: string
+          maxLength: 8192
+          minLength: 0
+        dataBoundary:
+          type: string
+          enum:
+          - INTERNAL
+          - EXTERNAL
+        modelConfigurationId:
+          type: string
+          format: uuid
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - credentialAction
+      - endpoint
+    OcrConnectionResponse:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum:
+          - PADDLEOCR_VL
+          - MODEL
+          - AIHAY
+        endpoint:
+          type: string
+        credentialConfigured:
+          type: boolean
+        dataBoundary:
+          type: string
+          enum:
+          - INTERNAL
+          - EXTERNAL
+        modelConfigurationId:
+          type: string
+          format: uuid
+          description: The catalog model a model connection reads with
+        active:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+      required:
+      - dataBoundary
+      - endpoint
+      - provider
     MeetingUpdateRequest:
       type: object
       description: What the owner fills in once the meeting is under way
@@ -21789,13 +24260,17 @@ components:
       - tenantWide
       - toolCount
       - url
-    McpToolEnablement:
+    McpToolPolicyChange:
       type: object
       properties:
-        enabled:
-          type: boolean
+        policy:
+          type: string
+          enum:
+          - ALWAYS
+          - ASK
+          - "OFF"
       required:
-      - enabled
+      - policy
     McpToolView:
       type: object
       description: Annotation hints come from the server and are not enforced guarantees
@@ -21822,8 +24297,23 @@ components:
           type:
           - boolean
           - "null"
-        enabled:
+        risk:
+          type: string
+          description: "From the annotations: READ, WRITE or DESTRUCTIVE"
+          enum:
+          - READ
+          - WRITE
+          - DESTRUCTIVE
+        policy:
+          type: string
+          description: "ALWAYS runs, ASK waits for the person, OFF is never offered"
+          enum:
+          - ALWAYS
+          - ASK
+          - "OFF"
+        policyCustomized:
           type: boolean
+          description: An administrator chose the policy; refreshes keep it
         exposable:
           type: boolean
         snapshotAt:
@@ -21835,15 +24325,37 @@ components:
       required:
       - description
       - destructiveHint
-      - enabled
       - exposable
       - id
       - modelName
       - name
+      - policy
+      - policyCustomized
       - readOnlyHint
       - revision
+      - risk
       - snapshotAt
       - title
+    McpToolGroupPolicyChange:
+      type: object
+      properties:
+        risk:
+          type: string
+          description: The group of tools to change
+          enum:
+          - READ
+          - WRITE
+          - DESTRUCTIVE
+        policy:
+          type: string
+          description: DESTRUCTIVE refuses ALWAYS
+          enum:
+          - ALWAYS
+          - ASK
+          - "OFF"
+      required:
+      - policy
+      - risk
     McpOAuthClientInput:
       type: object
       description: A pre-registered OAuth client; the secret is write-only
@@ -22317,6 +24829,316 @@ components:
       - sourceCount
       - status
       - updatedAt
+    RenameLarkCredentialRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          maxLength: 120
+          minLength: 0
+      required:
+      - name
+    LarkCredentialRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          maxLength: 120
+          minLength: 0
+        region:
+          type: string
+          description: Lark international or Feishu
+          enum:
+          - LARK
+          - FEISHU
+        appId:
+          type: string
+          description: "App ID of the custom app, starting with cli_"
+          maxLength: 64
+          minLength: 0
+        appSecret:
+          type: string
+          description: App Secret of the custom app
+          maxLength: 256
+          minLength: 0
+      required:
+      - appId
+      - appSecret
+      - name
+      - region
+    LarkCredentialResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        region:
+          type: string
+        appId:
+          type: string
+        status:
+          type: string
+        botName:
+          type: string
+          description: "The bot Lark named at the last verification: what is added\
+            \ to a space or a folder"
+        missingScopes:
+          type: array
+          description: Read scopes Lark refused to the app's tenant token at the last
+            verification
+          items:
+            type: string
+        credentialRevision:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        sourceCount:
+          type: integer
+          format: int64
+        actions:
+          type: array
+          items:
+            type: string
+      required:
+      - actions
+      - appId
+      - createdAt
+      - credentialRevision
+      - id
+      - missingScopes
+      - name
+      - region
+      - sourceCount
+      - status
+      - updatedAt
+    LarkCredentialTestResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        botName:
+          type: string
+        missingScopes:
+          type: array
+          items:
+            type: string
+      required:
+      - botName
+      - missingScopes
+    LarkRootRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        kind:
+          type: string
+          enum:
+          - WIKI_SPACE
+          - DRIVE_FOLDER
+        value:
+          type: string
+          description: "A Wiki space ID, or the link or token of a Drive folder"
+          maxLength: 2048
+          minLength: 0
+      required:
+      - kind
+      - value
+    LarkScopeRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        roots:
+          type: array
+          items:
+            $ref: "#/components/schemas/LarkRootRequest"
+          maxItems: 100
+          minItems: 1
+        syncIntervalMinutes:
+          type: integer
+          format: int32
+          maximum: 525600
+          minimum: 1
+      required:
+      - roots
+      - syncIntervalMinutes
+    CreateLarkSourceRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId:
+          type: string
+          format: uuid
+          description: Identifies the request so a retry recovers its receipt
+        name:
+          type: string
+          maxLength: 120
+          minLength: 0
+        credentialId:
+          type: string
+          format: uuid
+        scope:
+          $ref: "#/components/schemas/LarkScopeRequest"
+        access:
+          type: string
+          enum:
+          - PUBLIC
+          - PRIVATE
+          - SYNC
+        groupIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 100
+          minItems: 0
+      required:
+      - access
+      - credentialId
+      - name
+      - requestId
+      - scope
+    ReplaceLarkScopeRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId:
+          type: string
+          format: uuid
+        expectedCredentialRevision:
+          type: integer
+          format: int64
+          description: Credential revision the scope was reviewed against
+          exclusiveMinimum: 0
+        scope:
+          $ref: "#/components/schemas/LarkScopeRequest"
+      required:
+      - expectedCredentialRevision
+      - requestId
+      - scope
+    UpdateLarkPauseRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        expectedRevision:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+        paused:
+          type: boolean
+      required:
+      - expectedRevision
+      - paused
+    UpdateLarkScheduleRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        syncIntervalMinutes:
+          type: integer
+          format: int32
+          maximum: 525600
+          minimum: 1
+      required:
+      - syncIntervalMinutes
+    LarkSelectionReceiptResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        sourceId:
+          type: string
+          format: uuid
+        operation:
+          $ref: "#/components/schemas/SourceOperation"
+      required:
+      - operation
+      - sourceId
+    LarkRootResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        kind:
+          type: string
+          enum:
+          - WIKI_SPACE
+          - DRIVE_FOLDER
+        token:
+          type: string
+        displayName:
+          type: string
+          description: The name Lark gave the space or the folder when it was verified
+      required:
+      - kind
+      - token
+    LarkSpaceOptionResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        spaceId:
+          type: string
+        name:
+          type: string
+      required:
+      - name
+      - spaceId
+    LarkConfigurationResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        sourceId:
+          type: string
+          format: uuid
+        credentialId:
+          type: string
+          format: uuid
+        credentialName:
+          type: string
+        credentialStatus:
+          type: string
+        credentialRevision:
+          type: integer
+          format: int64
+        scopeRevision:
+          type: integer
+          format: int64
+        rootCount:
+          type: integer
+          format: int64
+        syncIntervalMinutes:
+          type: integer
+          format: int32
+        scheduleRevision:
+          type: integer
+          format: int64
+        syncPaused:
+          type: boolean
+        lastSyncedAt:
+          type: string
+          format: date-time
+        pendingWork:
+          type: boolean
+        errorCode:
+          type: string
+        pendingSelectionOperation:
+          $ref: "#/components/schemas/SourceOperation"
+      required:
+      - credentialId
+      - credentialName
+      - credentialRevision
+      - credentialStatus
+      - pendingWork
+      - rootCount
+      - scheduleRevision
+      - scopeRevision
+      - sourceId
+      - syncIntervalMinutes
+      - syncPaused
     GoogleDriveServiceAccountRequest:
       type: object
       additionalProperties: false
@@ -22588,6 +25410,7 @@ components:
           enum:
           - CHAT_NAMING
           - CHAT_GUARDRAIL
+          - CHAT_COMPACTION
           - MEETING_MINUTES
           - MEETING_CORRECTION
         modelConfigurationId:
@@ -22891,6 +25714,79 @@ components:
           minLength: 0
       required:
       - title
+    ChatAssistant:
+      type: object
+      description: "One row of the caller's list of assistants: the built-in assistant\
+        \ first, then their pins in order"
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          description: Empty when the assistant is not usable
+        avatarSeed:
+          type: string
+          description: Seed of the assistant's generated face
+        hasAvatar:
+          type: boolean
+          description: An uploaded image replaces the face; false when the assistant
+            is not usable
+        builtin:
+          type: boolean
+        ownerName:
+          type:
+          - string
+          - "null"
+          description: "The owning group's name, else the owner's name or email; null\
+            \ for the built-in assistant or an unusable one"
+        usable:
+          type: boolean
+          description: False once the assistant was deleted or is no longer shared
+            with the caller; its topics stay readable
+        latestTopic:
+          type:
+          - object
+          - "null"
+          $ref: "#/components/schemas/ChatAssistantTopic"
+          description: The caller's newest web topic with this assistant; null before
+            the first
+      required:
+      - avatarSeed
+      - builtin
+      - description
+      - hasAvatar
+      - id
+      - latestTopic
+      - name
+      - ownerName
+      - usable
+    ChatAssistantTopic:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        lastMessageAt:
+          type: string
+          format: date-time
+          description: When its last question or finished answer was written
+        preview:
+          type: string
+          description: "That message as one line of plain text, at most 120 characters;\
+            \ empty before anyone wrote"
+        replyRunning:
+          type: boolean
+      required:
+      - lastMessageAt
+      - preview
+      - replyRunning
+      - sessionId
+      - title
     ChatSession:
       type: object
       properties:
@@ -22943,6 +25839,9 @@ components:
           type: boolean
           description: "A temporary conversation: listed nowhere, and deleted with\
             \ its uploads after its window"
+        replyRunning:
+          type: boolean
+          description: An answer is being written in it
       required:
       - archivedAt
       - branchedFromMessageId
@@ -22952,6 +25851,7 @@ components:
       - personaId
       - projectId
       - reasoningEffort
+      - replyRunning
       - rootMessageId
       - temporary
       - title
@@ -23254,6 +26154,15 @@ components:
             format: uuid
         iconName:
           type: string
+    ProjectOrderRequest:
+      type: object
+      description: "Every project of the actor exactly once, in the chosen order"
+      properties:
+        projectIds:
+          type: array
+          items:
+            type: string
+            format: uuid
     ChatPreferencesInput:
       type: object
       properties:
@@ -23290,6 +26199,52 @@ components:
       - autoScroll
       - personalPreferences
       - workRole
+    ChatMemory:
+      type: object
+      properties:
+        content:
+          type: string
+          description: The memory document; empty when nothing is remembered
+        enabled:
+          type: boolean
+          description: Whether Chat reads and writes the memory
+        revision:
+          type: integer
+          format: int64
+          description: "Send it back when saving the text, so a newer change is not\
+            \ overwritten"
+        maxLength:
+          type: integer
+          format: int32
+          description: "The longest memory accepted, in characters"
+      required:
+      - content
+      - enabled
+      - maxLength
+      - revision
+    ChatMemoryEnabledInput:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+      required:
+      - enabled
+    ChatMemoryInput:
+      type: object
+      properties:
+        content:
+          type: string
+          description: "The whole memory, at most 4000 characters"
+          maxLength: 4000
+          minLength: 0
+        revision:
+          type: integer
+          format: int64
+          description: The revision this text was edited from
+          minimum: 0
+      required:
+      - content
+      - revision
     ChatPreferences:
       type: object
       properties:
@@ -23394,11 +26349,22 @@ components:
           items:
             type: string
             format: uuid
-        iconName:
-          type: string
+        avatarSeed:
+          type:
+          - string
+          - "null"
+          description: "The seed of the agent's face; null keeps it, and a new agent\
+            \ gets a random one"
+          maxLength: 64
+          pattern: "^[A-Za-z0-9_-]{1,64}$"
         avatarFileId:
           type: string
           format: uuid
+        removeAvatar:
+          type:
+          - boolean
+          - "null"
+          description: True drops the uploaded image so the face shows
         labelIds:
           type: array
           items:
@@ -23561,7 +26527,7 @@ components:
           items:
             type: string
             format: uuid
-        iconName:
+        avatarSeed:
           type: string
         hasAvatar:
           type: boolean
@@ -23699,9 +26665,12 @@ components:
           type: boolean
         reasoning:
           type: boolean
+        structuredOutput:
+          type: boolean
       required:
       - reasoning
       - streaming
+      - structuredOutput
       - toolCalling
       - vision
     ModelInput:
@@ -23783,9 +26752,12 @@ components:
           type: boolean
         reasoning:
           type: boolean
+        structuredOutput:
+          type: boolean
       required:
       - reasoning
       - streaming
+      - structuredOutput
       - toolCalling
       - vision
     Model:
@@ -23916,6 +26888,56 @@ components:
           enum:
           - OPENAI_IMAGE
           - CLOUDFLARE_WORKERS_AI
+          - GEMINI_IMAGE
+          - OPENROUTER_IMAGE
+          - XAI_IMAGE
+          - FAL_AI
+          - CUSTOM_HTTP
+    ImageTemplate:
+      type: object
+      properties:
+        authHeader:
+          type: string
+          maxLength: 64
+          minLength: 0
+        authPrefix:
+          type: string
+          maxLength: 32
+          minLength: 0
+        generate:
+          $ref: "#/components/schemas/ImageTemplateStep"
+        edit:
+          $ref: "#/components/schemas/ImageTemplateStep"
+      required:
+      - authHeader
+      - authPrefix
+      - generate
+    ImageTemplateStep:
+      type: object
+      properties:
+        path:
+          type: string
+          maxLength: 512
+          minLength: 0
+        body:
+          type: string
+          maxLength: 16384
+          minLength: 0
+        imagePointer:
+          type: string
+          maxLength: 200
+          minLength: 0
+        imageFormat:
+          type: string
+          enum:
+          - BASE64
+          - DATA_URI
+          - RAW
+      required:
+      - body
+      - imageFormat
+      - imagePointer
+      - path
     ImageConnectionRequest:
       type: object
       properties:
@@ -23927,6 +26949,8 @@ components:
           type: string
           maxLength: 200
           minLength: 0
+        template:
+          $ref: "#/components/schemas/ImageTemplate"
         credentialAction:
           type: string
           enum:
@@ -23953,10 +26977,17 @@ components:
           enum:
           - OPENAI_IMAGE
           - CLOUDFLARE_WORKERS_AI
+          - GEMINI_IMAGE
+          - OPENROUTER_IMAGE
+          - XAI_IMAGE
+          - FAL_AI
+          - CUSTOM_HTTP
         endpoint:
           type: string
         model:
           type: string
+        template:
+          $ref: "#/components/schemas/ImageTemplate"
         credentialConfigured:
           type: boolean
         active:
@@ -24057,6 +27088,17 @@ components:
           items:
             type: string
             format: uuid
+    UpdateChannelTransportRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        transport:
+          type: string
+          enum:
+          - WEBHOOK
+          - POLLING
+      required:
+      - transport
     AiUsageLimitRequest:
       type: object
       properties:
@@ -24614,6 +27656,7 @@ components:
             - FILE
             - GOOGLE_DRIVE
             - SHAREPOINT
+            - LARK
         documentSetIds:
           type: array
           items:
@@ -24661,6 +27704,7 @@ components:
             - FILE
             - GOOGLE_DRIVE
             - SHAREPOINT
+            - LARK
         authors:
           type: array
           items:
@@ -24763,6 +27807,7 @@ components:
           - FILE
           - GOOGLE_DRIVE
           - SHAREPOINT
+          - LARK
         count:
           type: integer
           format: int32
@@ -24975,6 +28020,22 @@ components:
       - latencyMs
       - model
       - ok
+    OcrConnectionTestRequest:
+      type: object
+      properties:
+        endpoint:
+          type: string
+          maxLength: 2048
+          minLength: 0
+        credentialValue:
+          type: string
+          maxLength: 8192
+          minLength: 0
+        modelConfigurationId:
+          type: string
+          format: uuid
+      required:
+      - endpoint
     MeetingCreateRequest:
       type: object
       description: What the owner enters before recording
@@ -25903,6 +28964,7 @@ components:
             - SOURCES_DELETE
             - MODELS_MANAGE
             - MCP_MANAGE
+            - CHANNELS_MANAGE
             - AGENTS_CREATE
             - AGENTS_MANAGE
             - AUDIT_READ
@@ -25971,12 +29033,13 @@ components:
             - SOURCES_DELETE
             - MODELS_MANAGE
             - MCP_MANAGE
+            - CHANNELS_MANAGE
             - AGENTS_CREATE
             - AGENTS_MANAGE
             - AUDIT_READ
             - CHAT_HISTORY_READ
-          maxItems: 7
-          maxLength: 7
+          maxItems: 8
+          maxLength: 8
           minItems: 0
       required:
       - capabilities
@@ -26265,6 +29328,19 @@ components:
             when absent
           maxLength: 200
           minLength: 0
+    ChatToolDecision:
+      type: object
+      properties:
+        approved:
+          type: boolean
+        alwaysAllow:
+          type:
+          - boolean
+          - "null"
+          description: "With approved, the tool also runs without asking from now\
+            \ on; needs MCP_MANAGE and a tool that is not destructive"
+      required:
+      - approved
     Cancellation:
       type: object
       properties:
@@ -26365,8 +29441,11 @@ components:
           type: boolean
         reasoning:
           type: boolean
+        structuredOutput:
+          type: boolean
       required:
       - reasoning
+      - structuredOutput
       - toolCalling
       - vision
     ChatReportedModelPricing:
@@ -26546,6 +29625,8 @@ components:
           type: string
           maxLength: 200
           minLength: 0
+        template:
+          $ref: "#/components/schemas/ImageTemplate"
         credentialValue:
           type: string
           maxLength: 8192
@@ -26652,6 +29733,49 @@ components:
       - sizeBytes
       - skipped
       - status
+    CreateZaloChannelRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          description: "The bot's name here, and its account's"
+          maxLength: 100
+          minLength: 0
+        token:
+          type: string
+          description: The bot's token from Zalo Bot Creator
+          maxLength: 256
+          minLength: 0
+        noticeLanguage:
+          type: string
+          description: The language of the bot's notices
+          enum:
+          - vi
+          - en
+          pattern: vi|en
+        transport:
+          type: string
+          description: "How the bot receives: WEBHOOK where the deployment has a public\
+            \ address, which is the default there, else POLLING"
+          enum:
+          - WEBHOOK
+          - POLLING
+      required:
+      - name
+      - noticeLanguage
+      - token
+    ZaloBotRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        token:
+          type: string
+          description: The bot's token from Zalo Bot Creator
+          maxLength: 256
+          minLength: 0
+      required:
+      - token
     UsageReportRequest:
       type: object
       description: An inclusive UTC day range of at most 366 days
@@ -26879,6 +30003,7 @@ components:
       type: string
       enum:
       - STANDARD
+      - SERVICE
     TenantMembershipRole:
       type: string
       enum:
@@ -27816,6 +30941,29 @@ components:
       - csv
       - name
       - truncated
+    OcrProviderResponse:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum:
+          - PADDLEOCR_VL
+          - MODEL
+          - AIHAY
+        requiresKey:
+          type: boolean
+        usesModel:
+          type: boolean
+        dataBoundary:
+          type: string
+          enum:
+          - INTERNAL
+          - EXTERNAL
+        defaultEndpoint:
+          type: string
+      required:
+      - dataBoundary
+      - provider
     MeetingSummary:
       type: object
       properties:
@@ -28281,6 +31429,7 @@ components:
             - SOURCES_DELETE
             - MODELS_MANAGE
             - MCP_MANAGE
+            - CHANNELS_MANAGE
             - AGENTS_CREATE
             - AGENTS_MANAGE
             - AUDIT_READ
@@ -28307,6 +31456,7 @@ components:
             - SOURCES_DELETE
             - MODELS_MANAGE
             - MCP_MANAGE
+            - CHANNELS_MANAGE
             - AGENTS_CREATE
             - AGENTS_MANAGE
             - AUDIT_READ
@@ -28414,6 +31564,7 @@ components:
           type: string
           enum:
           - STANDARD
+          - SERVICE
         status:
           type: string
           enum:
@@ -28494,6 +31645,7 @@ components:
           - SOURCES_DELETE
           - MODELS_MANAGE
           - MCP_MANAGE
+          - CHANNELS_MANAGE
           - AGENTS_CREATE
           - AGENTS_MANAGE
           - AUDIT_READ
@@ -28524,6 +31676,7 @@ components:
             - SOURCES_DELETE
             - MODELS_MANAGE
             - MCP_MANAGE
+            - CHANNELS_MANAGE
             - AGENTS_CREATE
             - AGENTS_MANAGE
             - AUDIT_READ
@@ -28719,6 +31872,8 @@ components:
           - AUTHORIZATION_REQUIRED
           - TIMEOUT
           - UNAVAILABLE
+          - DECLINED
+          - NO_DECISION
     ChatActivity:
       type: object
       properties:
@@ -28831,10 +31986,25 @@ components:
           description: "Why a COMPLETED reply declined instead of answering: no_evidence,\
             \ uncited or blocked_topic (answers from documents only, sensitive topics);\
             \ null otherwise"
+        contextTokens:
+          type:
+          - integer
+          - "null"
+          format: int32
+          description: Estimated input tokens of the reply's last model call; null
+            when unknown
+        contextLimit:
+          type:
+          - integer
+          - "null"
+          format: int32
+          description: The model's input limit for that call; null when unknown
       required:
       - activity
       - artifacts
       - content
+      - contextLimit
+      - contextTokens
       - createdAt
       - failureCode
       - files
@@ -28966,6 +32136,7 @@ components:
             - FILE
             - GOOGLE_DRIVE
             - SHAREPOINT
+            - LARK
         providerUrl:
           type: string
       required:
@@ -29097,6 +32268,7 @@ components:
             - FILE
             - GOOGLE_DRIVE
             - SHAREPOINT
+            - LARK
           uniqueItems: true
         created:
           $ref: "#/components/schemas/Interval"
@@ -29148,8 +32320,22 @@ components:
           - "null"
         hasArtifacts:
           type: boolean
+        contextTokens:
+          type:
+          - integer
+          - "null"
+          format: int32
+          description: Estimated input tokens of the reply's last model call
+        contextLimit:
+          type:
+          - integer
+          - "null"
+          format: int32
+          description: The model's input limit for that call
       required:
       - assistantMessageId
+      - contextLimit
+      - contextTokens
       - failureCode
       - hasArtifacts
       - sequence
@@ -29346,6 +32532,11 @@ components:
           enum:
           - stdout
           - stderr
+        title:
+          type:
+          - string
+          - "null"
+          description: "A sandbox command's title, on its running stage"
       required:
       - assistantMessageId
       - code
@@ -29354,6 +32545,7 @@ components:
       - sequence
       - stage
       - stream
+      - title
       - toolCallId
     GeneratedFile:
       type: object
@@ -29473,6 +32665,60 @@ components:
       required:
       - citationId
       - marker
+    WaitingEvent:
+      type: object
+      properties:
+        assistantMessageId:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          format: int64
+        waiting:
+          type: boolean
+      required:
+      - assistantMessageId
+      - sequence
+      - waiting
+    ToolApprovalEvent:
+      type: object
+      properties:
+        assistantMessageId:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          format: int64
+        toolCallId:
+          type: string
+        serverName:
+          type: string
+        toolName:
+          type: string
+        toolTitle:
+          type: string
+          description: "The tool's display name, when the server gives one"
+        arguments:
+          type: string
+          description: "The call's JSON arguments, cut at 4,000 characters"
+        decision:
+          type: string
+          description: Absent while the call waits
+          enum:
+          - APPROVED
+          - DECLINED
+          - NO_DECISION
+        alwaysAllowable:
+          type: boolean
+          description: The reply's owner may answer with always allow
+      required:
+      - alwaysAllowable
+      - arguments
+      - assistantMessageId
+      - sequence
+      - serverName
+      - toolCallId
+      - toolName
     ChatBranch:
       type: object
       properties:
@@ -29644,6 +32890,7 @@ components:
           - FILE
           - GOOGLE_DRIVE
           - SHAREPOINT
+          - LARK
     ChatPersona:
       type: object
       properties:
@@ -29903,6 +33150,7 @@ components:
           - FILE
           - GOOGLE_DRIVE
           - SHAREPOINT
+          - LARK
         providerUrl:
           type:
           - string
@@ -29996,6 +33244,7 @@ components:
           - FILE
           - GOOGLE_DRIVE
           - SHAREPOINT
+          - LARK
         access:
           type: string
           description: "What admits the viewer: every member, a Group of theirs, or\
@@ -30103,6 +33352,7 @@ components:
           - FILE
           - GOOGLE_DRIVE
           - SHAREPOINT
+          - LARK
       required:
       - id
       - name
@@ -30130,6 +33380,11 @@ components:
           enum:
           - OPENAI_IMAGE
           - CLOUDFLARE_WORKERS_AI
+          - GEMINI_IMAGE
+          - OPENROUTER_IMAGE
+          - XAI_IMAGE
+          - FAL_AI
+          - CUSTOM_HTTP
         model:
           type: string
       required:
@@ -30166,6 +33421,11 @@ components:
           enum:
           - OPENAI_IMAGE
           - CLOUDFLARE_WORKERS_AI
+          - GEMINI_IMAGE
+          - OPENROUTER_IMAGE
+          - XAI_IMAGE
+          - FAL_AI
+          - CUSTOM_HTTP
         credentialRequired:
           type: boolean
         defaultEndpoint:
@@ -30223,11 +33483,18 @@ components:
         updatedAt:
           type: string
           format: date-time
+        surface:
+          type: string
+          description: Where the conversation is held
+          enum:
+          - WEB
+          - CHANNEL
       required:
       - deleted
       - feedback
       - id
       - messages
+      - surface
       - title
       - updatedAt
     ChatHistoryPage:
@@ -30751,6 +34018,235 @@ components:
       - instance
       - status
       - title
+    ReplaceChannelSecretRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        appSecret:
+          type: string
+          maxLength: 256
+          minLength: 0
+      required:
+      - appSecret
+    ChannelResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        provider:
+          type: string
+          enum:
+          - LARK
+          - ZALO_BOT
+        name:
+          type: string
+        region:
+          type: string
+          description: Where a Lark bot's app is hosted; absent for another platform
+          enum:
+          - LARK
+          - FEISHU
+        transport:
+          type: string
+          description: How a Zalo bot receives; absent for a platform with one way
+            of its own
+          enum:
+          - WEBHOOK
+          - POLLING
+        appId:
+          type: string
+          description: The platform's id of the bot's app
+        noticeLanguage:
+          type: string
+        enabled:
+          type: boolean
+        serviceAccountId:
+          type: string
+          format: uuid
+          description: The account a group question runs as
+        botName:
+          type: string
+          description: The bot the platform named at the last check
+        missingScopes:
+          type: array
+          description: Scopes the bot needs that the platform refused at the last
+            check
+          items:
+            type: string
+        status:
+          type: string
+          description: "OFF when switched off; NOT_RUNNING when no process holds it;\
+            \ else CONNECTING, CONNECTED or FAILED"
+          enum:
+          - "OFF"
+          - NOT_RUNNING
+          - CONNECTING
+          - CONNECTED
+          - FAILED
+        failureCode:
+          type: string
+          description: The typed code of the last failure to open the connection
+        failedAt:
+          type: string
+          format: date-time
+          description: When that failure happened
+        connectedAt:
+          type: string
+          format: date-time
+          description: Since when the connection has been open
+        lastMessageAt:
+          type: string
+          format: date-time
+          description: When the bot last received a message
+        revision:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+      - appId
+      - createdAt
+      - enabled
+      - id
+      - missingScopes
+      - name
+      - noticeLanguage
+      - provider
+      - revision
+      - serviceAccountId
+      - status
+      - updatedAt
+    UpdateChannelEnabledRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        enabled:
+          type: boolean
+      required:
+      - enabled
+    CreateChannelRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          description: "The bot's name here, and its account's"
+          maxLength: 100
+          minLength: 0
+        region:
+          type: string
+          description: Lark international or Feishu
+          enum:
+          - LARK
+          - FEISHU
+        appId:
+          type: string
+          description: "App ID of the custom app, starting with cli_"
+          maxLength: 64
+          minLength: 0
+        appSecret:
+          type: string
+          description: App Secret of the custom app
+          maxLength: 256
+          minLength: 0
+        noticeLanguage:
+          type: string
+          description: The language of the bot's notices
+          enum:
+          - vi
+          - en
+          pattern: vi|en
+      required:
+      - appId
+      - appSecret
+      - name
+      - noticeLanguage
+      - region
+    ChannelAppRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        region:
+          type: string
+          description: Lark international or Feishu
+          enum:
+          - LARK
+          - FEISHU
+        appId:
+          type: string
+          description: "App ID of the custom app, starting with cli_"
+          maxLength: 64
+          minLength: 0
+        appSecret:
+          type: string
+          description: App Secret of the custom app
+          maxLength: 256
+          minLength: 0
+      required:
+      - appId
+      - appSecret
+      - region
+    ChannelAppCheckResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        botName:
+          type: string
+        missingScopes:
+          type: array
+          items:
+            type: string
+      required:
+      - botName
+      - missingScopes
+    CreateChannelLinkCodeRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        connectionId:
+          type: string
+          format: uuid
+      required:
+      - connectionId
+    ChannelLinkCodeResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+      - code
+      - expiresAt
+    ChannelLinkResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        connectionId:
+          type: string
+          format: uuid
+        botName:
+          type: string
+        provider:
+          type: string
+          enum:
+          - LARK
+          - ZALO_BOT
+        linkedAt:
+          type: string
+          format: date-time
+      required:
+      - botName
+      - connectionId
+      - provider
   securitySchemes:
     browserSession:
       type: apiKey

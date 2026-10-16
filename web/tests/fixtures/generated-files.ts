@@ -242,6 +242,8 @@ export async function generatedFileMessages(
     research: { clarification: false, plan: null, agents: [] },
     failureCode: null,
     refusalReason: null,
+    contextTokens: null,
+    contextLimit: null,
   };
   return [
     {

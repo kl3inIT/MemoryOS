@@ -2,7 +2,12 @@ import { fixtureModels, fixtureSource } from "./chat-data.ts";
 import { randomUUID } from "node:crypto";
 import { generatedFileMessages, handleGeneratedFile } from "./generated-files.ts";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { ChatMessage, ChatSession, ProjectView } from "../../src/lib/hey-api/types.gen.ts";
+import type {
+  ChatMessage,
+  ChatSession,
+  CurrentIdentity,
+  ProjectView,
+} from "../../src/lib/hey-api/types.gen.ts";
 
 type Run = {
   id: string;
@@ -23,6 +28,16 @@ type Session = {
 };
 const sessions = new Map<string, Session>();
 const projects = new Map<string, Required<ProjectView>>();
+// The signed-in person of a browser opened on `pnpm mock-api`; the browser specs route their own identity.
+const fixtureIdentity: CurrentIdentity = {
+  actorId: "e62a621f-41d2-4853-aa76-b600dafd8e34",
+  displayName: "Test user",
+  authorizationVersion: 1,
+  uiLanguage: "vi",
+  tenant: { displayName: "Test tenant", role: "MEMBER" },
+  capabilities: ["SYSTEM_BASIC", "SEARCH_READ", "CHAT_READ", "CHAT_WRITE"],
+  scopedCapabilities: [],
+};
 const answer =
   'Hello 👋\n\nHere is an example:\n\n```java\nSystem.out.println("Hello");\n```\n\n[Reference](https://example.com)';
 function json(response: ServerResponse, data: unknown, status = 200) {
@@ -97,6 +112,8 @@ function seedResearch(value: Session) {
     research: { clarification: false, plan: null, agents: [] },
     failureCode: null,
     refusalReason: null,
+    contextTokens: null,
+    contextLimit: null,
   };
   const assistant: ChatMessage = {
     id: assistantId,
@@ -117,6 +134,8 @@ function seedResearch(value: Session) {
     generatedFiles: [],
     failureCode: null,
     refusalReason: null,
+    contextTokens: null,
+    contextLimit: null,
     research: {
       clarification: false,
       plan: "1. Xác định số ngày phép hằng năm theo thâm niên trong sổ tay nhân sự.\n2. Tìm quy trình duyệt đơn, ai duyệt và thời hạn báo trước.\n3. Đối chiếu với quy chế nội bộ mới nhất và ghi rõ khác biệt.\n4. Kiểm tra cách tính phép chưa dùng khi chuyển sang năm sau.\n5. Xem quy định nghỉ phép nửa ngày và nghỉ gộp nhiều ngày.\n6. Ghi lại các trường hợp ngoại lệ cần trưởng bộ phận phê duyệt.",
@@ -187,6 +206,8 @@ function seedMcp(value: Session) {
     research: { clarification: false, plan: null, agents: [] },
     failureCode: null,
     refusalReason: null,
+    contextTokens: null,
+    contextLimit: null,
   };
   const assistant: ChatMessage = {
     id: assistantId,
@@ -231,6 +252,8 @@ function seedMcp(value: Session) {
     research: { clarification: false, plan: null, agents: [] },
     failureCode: null,
     refusalReason: null,
+    contextTokens: null,
+    contextLimit: null,
   };
   value.messages.push(user, assistant);
   value.allMessages.set(user.id, user);
@@ -253,17 +276,22 @@ const builtinPersona = {
   mcpServers: [],
 };
 
-function create(title = "Browser conversation", mode = "normal"): Session {
+function create(
+  title = "Browser conversation",
+  mode = "normal",
+  personaId = builtinPersonaId,
+): Session {
   const now = new Date().toISOString();
   const session = {
     id: randomUUID(),
     rootMessageId: randomUUID(),
-    personaId: builtinPersonaId,
+    personaId,
     reasoningEffort: null,
     archivedAt: null,
     branchedFromSessionId: null,
     branchedFromMessageId: null,
     temporary: false,
+    replyRunning: false,
     projectId: null,
     title,
     createdAt: now,
@@ -285,6 +313,7 @@ function create(title = "Browser conversation", mode = "normal"): Session {
   if (mode === "mcp") seedMcp(value);
   return value;
 }
+const APPROVAL_CALL = { toolCallId: "call-send", toolName: "mcp_gmail_send_email" };
 function emit(run: Run, event: string, data: object) {
   const sequence = run.packets.length + 1;
   const packet = `id: ${run.id}:${sequence}\nevent: ${event}\ndata: ${JSON.stringify({ assistantMessageId: run.id, sequence, ...data })}\n\n`;
@@ -304,27 +333,99 @@ function finish(state: Session, run: Run, status: "COMPLETED" | "CANCELED" | "FA
       : state.mode === "rejected"
         ? "CHAT_PROVIDER_CREDENTIAL_REJECTED"
         : "CHAT_PROVIDER_FAILED";
+  // MEM-267: a long conversation's answer reports how full the context was.
+  if (status === "COMPLETED" && state.mode === "approval") {
+    message.contextTokens = 96_400;
+    message.contextLimit = 128_000;
+  }
   emit(run, "outcome", {
     status,
     hasArtifacts: message.artifacts.length > 0,
     failureCode: message.failureCode,
+    contextTokens: message.contextTokens,
+    contextLimit: message.contextLimit,
   });
   for (const listener of run.listeners) listener.end();
   run.listeners.clear();
 }
 
 /** Test-only HTTP fixture: real incremental streams; no claims about model/IAM acceptance. */
+/**
+ * Adds Projects with their conversations, for `pnpm mock-api` only: the browser tests never call it, so they
+ * start without any. The first seed is listed first, and each conversation is a little older than the one before.
+ */
+export function seedChatProjects(
+  seeds: ReadonlyArray<{
+    name: string;
+    description: string;
+    instructions: string;
+    iconName: string;
+    fileIds: string[];
+    sessions: string[];
+  }>,
+) {
+  seeds.forEach(({ sessions: titles, ...seed }, index) => {
+    const project = {
+      ...seed,
+      id: randomUUID(),
+      revision: 0,
+      updatedAt: new Date(Date.now() - index * 86_400_000).toISOString(),
+    };
+    projects.set(project.id, project);
+    titles.forEach((title, order) => {
+      const { session } = create(title);
+      session.projectId = project.id;
+      session.updatedAt = new Date(
+        Date.now() - (index * 24 + order * 5 + 1) * 3_600_000,
+      ).toISOString();
+    });
+  });
+}
 export async function handleChatFixture(
   request: IncomingMessage,
   response: ServerResponse,
 ): Promise<boolean> {
   const url = new URL(request.url!, "http://localhost");
+  if (url.pathname === "/api/identity/me" && request.method === "GET") {
+    json(response, fixtureIdentity);
+    return true;
+  }
   if (url.pathname === "/api/chat/models") {
     json(response, fixtureModels);
     return true;
   }
   if (url.pathname === "/api/chat/personas" && request.method === "GET") {
-    json(response, [builtinPersona]);
+    const q = (url.searchParams.get("q") ?? "").toLocaleLowerCase();
+    json(response, builtinPersona.name.toLocaleLowerCase().includes(q) ? [builtinPersona] : []);
+    return true;
+  }
+  if (url.pathname === "/api/chat/assistants" && request.method === "GET") {
+    // The built-in assistant with the newest web topic, as the sidebar reads it; the fixture pins nothing.
+    const latest = [...sessions.values()]
+      .map((item) => item.session)
+      .filter((item) => item.personaId === builtinPersonaId && !item.temporary && !item.archivedAt)
+      .toSorted((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))[0];
+    json(response, [
+      {
+        id: builtinPersonaId,
+        name: builtinPersona.name,
+        description: builtinPersona.description,
+        avatarSeed: "memoryos",
+        hasAvatar: false,
+        builtin: true,
+        ownerName: null,
+        usable: true,
+        latestTopic: latest
+          ? {
+              sessionId: latest.id,
+              title: latest.title,
+              lastMessageAt: latest.updatedAt,
+              preview: "",
+              replyRunning: latest.replyRunning,
+            }
+          : null,
+      },
+    ]);
     return true;
   }
   if (
@@ -362,6 +463,25 @@ export async function handleChatFixture(
   const segments = url.pathname.split("/");
   if (segments[3] === "projects") {
     const project = projects.get(segments[4]!);
+    if (segments.length === 5 && segments[4] === "order" && request.method === "PUT") {
+      // Every project of the actor exactly once; a stale list is a conflict, a malformed one a bad request.
+      const { projectIds } = await body(request);
+      if (!Array.isArray(projectIds) || projectIds.some((id) => typeof id !== "string"))
+        json(response, {}, 400);
+      else if (
+        new Set(projectIds).size !== projectIds.length ||
+        projectIds.length !== projects.size ||
+        projectIds.some((id) => !projects.has(id))
+      )
+        json(response, {}, 409);
+      else {
+        const ordered = projectIds.map((id) => [id, projects.get(id)!] as const);
+        projects.clear();
+        for (const [id, value] of ordered) projects.set(id, value);
+        json(response, null, 204);
+      }
+      return true;
+    }
     if (segments.length === 4) {
       if (request.method === "POST") {
         const input = await body(request);
@@ -371,7 +491,11 @@ export async function handleChatFixture(
           revision: 0,
           updatedAt: new Date().toISOString(),
         };
-        projects.set(created.id, created);
+        // A new project takes the first place, as the API lists it.
+        const others = [...projects];
+        projects.clear();
+        for (const [id, value] of [[created.id, created] as const, ...others])
+          projects.set(id, value);
         json(response, created, 201);
       } else {
         const offset = Number(url.searchParams.get("offset") ?? 0);
@@ -420,12 +544,32 @@ export async function handleChatFixture(
     } else json(response, project);
     return true;
   }
+  if (segments.length === 5 && segments[3] === "sessions" && segments[4] === "search") {
+    const query = (url.searchParams.get("query") ?? "").toLocaleLowerCase();
+    const offset = Number(url.searchParams.get("offset") ?? 0);
+    const limit = Number(url.searchParams.get("limit") ?? 20);
+    const found = [...sessions.values()]
+      .reverse()
+      .map((item) => item.session)
+      .filter(
+        (session) =>
+          !session.temporary &&
+          session.title.toLocaleLowerCase().includes(query) &&
+          (!url.searchParams.get("personaId") ||
+            session.personaId === url.searchParams.get("personaId")),
+      );
+    json(response, {
+      items: found.slice(offset, offset + limit).map((session) => ({ session, snippet: null })),
+      hasMore: found.length > offset + limit,
+    });
+    return true;
+  }
   if (segments.length === 4 && segments[3] === "sessions") {
     if (request.method === "POST") {
       const input = await body(request);
       if (input.projectId && !projects.has(input.projectId)) json(response, {}, 404);
       else {
-        const created = create(input.title).session;
+        const created = create(input.title, undefined, input.personaId).session;
         created.projectId = input.projectId ?? null;
         json(response, created, 201);
       }
@@ -435,6 +579,11 @@ export async function handleChatFixture(
         [...sessions.values()]
           .reverse()
           .map((item) => item.session)
+          .filter(
+            (session) =>
+              !url.searchParams.get("personaId") ||
+              session.personaId === url.searchParams.get("personaId"),
+          )
           .slice(
             Number(url.searchParams.get("offset") ?? 0),
             Number(url.searchParams.get("offset") ?? 0) +
@@ -624,6 +773,8 @@ export async function handleChatFixture(
         research: { clarification: false, plan: null, agents: [] },
         failureCode: null,
         refusalReason: null,
+        contextTokens: null,
+        contextLimit: null,
         sessionId: state.session.id,
         role: "USER",
         content: input.text,
@@ -644,6 +795,8 @@ export async function handleChatFixture(
         research: { clarification: false, plan: null, agents: [] },
         failureCode: null,
         refusalReason: null,
+        contextTokens: null,
+        contextLimit: null,
         sessionId: state.session.id,
         role: "ASSISTANT",
         content: "",
@@ -681,6 +834,24 @@ export async function handleChatFixture(
       202,
     );
     const grounded = state.mode.startsWith("grounded");
+    if (state.mode === "approval") {
+      // MEM-253: a Gmail send that waits for the person; the decision endpoint finishes the reply.
+      emit(run, "tool", { ...APPROVAL_CALL, stage: "STARTED", source: null });
+      emit(run, "tool_approval", {
+        toolCallId: APPROVAL_CALL.toolCallId,
+        serverName: "Gmail",
+        toolName: "send_email",
+        arguments: JSON.stringify({
+          to: "an.nguyen@tasco.vn",
+          subject: "Báo cáo doanh thu tháng 9",
+          body: "Chào anh An,\n\nEm gửi báo cáo doanh thu tháng 9 của khu vực miền Bắc.\n\nTrân trọng,\nMinh Anh",
+        }),
+        decision: null,
+        // MEM-267: the fixture's person manages MCP servers, so the card offers always allow.
+        alwaysAllowable: true,
+      });
+      return true;
+    }
     if (state.mode === "grounded-progress")
       emit(run, "reasoning", { text: "Checking the latest HR policy before answering." });
     if (grounded)
@@ -861,6 +1032,33 @@ export async function handleChatFixture(
   const run = state.runs.get(segments[6]!);
   if (!run) {
     json(response, {}, 404);
+    return true;
+  }
+  if (segments[7] === "tool-calls" && segments[9] === "decision") {
+    const { approved } = (await body(request)) as { approved: boolean };
+    const decision = approved ? "APPROVED" : "DECLINED";
+    emit(run, "tool_approval", {
+      toolCallId: segments[8],
+      serverName: "Gmail",
+      toolName: "send_email",
+      arguments: "{}",
+      decision,
+      alwaysAllowable: false,
+    });
+    emit(run, "tool", {
+      ...APPROVAL_CALL,
+      stage: approved ? "COMPLETED" : "FAILED",
+      source: null,
+      durationMs: 900,
+      failure: approved ? null : "DECLINED",
+    });
+    const text = approved
+      ? "Đã gửi email báo cáo cho anh An."
+      : "Bạn đã từ chối nên email chưa được gửi.";
+    state.messages.at(-1)!.content = text;
+    emit(run, "text", { text });
+    response.writeHead(204).end();
+    setTimeout(() => finish(state, run, "COMPLETED"), 300);
     return true;
   }
   if (segments[7] === "cancel") {

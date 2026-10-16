@@ -1,0 +1,215 @@
+spring:
+  config:
+    import:
+      - classpath:/memoryos-observability.yaml
+      - classpath:/memoryos-search.yaml
+  application:
+    name: memoryos-worker
+  main:
+    keep-alive: true
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: ${MEMORYOS_DATABASE_URL}
+    username: ${MEMORYOS_DATABASE_USERNAME}
+    password: ${MEMORYOS_DATABASE_PASSWORD}
+    hikari:
+      # A fixed-size pool, which is what HikariCP recommends: creating a connection is slow and it
+      # would happen exactly when load arrives. Idle backends are cheap on the PostgreSQL side.
+      #
+      # The size follows the pool-sizing formula, (cores x 2) + effective spindles. The production
+      # node has 12 vCPU on SSD, so about 25 connections may usefully work at once against this
+      # database; api takes 15 and worker 10. Past that point throughput falls rather than rises,
+      # because the server spends its time switching between backends and contending for locks.
+      # Queueing in the application is the better place to wait.
+      pool-name: memoryos-worker
+      maximum-pool-size: ${MEMORYOS_DATABASE_POOL_SIZE:10}
+      minimum-idle: ${MEMORYOS_DATABASE_POOL_SIZE:10}
+      # Fail while a caller is still waiting rather than after it has given up.
+      connection-timeout: ${MEMORYOS_DATABASE_CONNECTION_TIMEOUT:10000}
+      # Retire a connection before anything between here and PostgreSQL decides to drop it.
+      max-lifetime: ${MEMORYOS_DATABASE_CONNECTION_LIFETIME:1500000}
+      # Prints the stack trace of whoever borrowed a connection and never gave it back. A leak is
+      # otherwise indistinguishable from load: the pool is empty and nothing is running.
+      leak-detection-threshold: ${MEMORYOS_DATABASE_LEAK_THRESHOLD:60000}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate.cache.use_second_level_cache: false
+      hibernate.cache.use_query_cache: false
+  data:
+    redis:
+      host: ${MEMORYOS_REDIS_HOST:localhost}
+      port: ${MEMORYOS_REDIS_PORT:6379}
+      username: ${MEMORYOS_REDIS_USERNAME:}
+      password: ${MEMORYOS_REDIS_PASSWORD:}
+      connect-timeout: ${MEMORYOS_REDIS_CONNECT_TIMEOUT:2s}
+      timeout: ${MEMORYOS_REDIS_COMMAND_TIMEOUT:5s}
+      ssl:
+        enabled: ${MEMORYOS_REDIS_SSL_ENABLED:false}
+      lettuce:
+        shutdown-timeout: 1s
+        pool:
+          enabled: true
+          max-active: ${MEMORYOS_REDIS_POOL_MAX_ACTIVE:8}
+          max-idle: ${MEMORYOS_REDIS_POOL_MAX_IDLE:8}
+          min-idle: ${MEMORYOS_REDIS_POOL_MIN_IDLE:0}
+          max-wait: ${MEMORYOS_REDIS_POOL_MAX_WAIT:2s}
+
+db-scheduler:
+  enabled: true
+  table-name: scheduled_tasks
+  scheduler-name: ${MEMORYOS_SCHEDULER_NAME:${HOSTNAME:}}
+  threads: 2
+  # The relays are due every second (memoryos.redis.relay-interval); a task runs only when a poll picks it up, so
+  # a 5 s poll ran each relay once in five seconds (MEM-244).
+  polling-interval: 1s
+  heartbeat-interval: 30s
+  missed-heartbeats-limit: 4
+  immediate-execution-enabled: true
+  delay-startup-until-context-ready: true
+  # Replicas pick due tasks with SELECT ... FOR UPDATE SKIP LOCKED instead of all reading the same rows (MEM-244).
+  polling-strategy: lock-and-fetch
+  priority-enabled: false
+  shutdown-max-wait: 30s
+
+server:
+  port: ${MEMORYOS_WORKER_PORT:8081}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,db,redis,dbScheduler,objectStorage
+
+memoryos:
+  # MEM-270: the Chat sandbox. Empty: the deployment has no sandbox. Compose and the launcher set them.
+  sandbox:
+    computer-image: ${MEMORYOS_SANDBOX_COMPUTER_IMAGE:}
+    max-running: ${MEMORYOS_SANDBOX_MAX_RUNNING:3}
+    opensandbox:
+      endpoint: ${MEMORYOS_SANDBOX_ENDPOINT:}
+      api-key: ${MEMORYOS_SANDBOX_API_KEY:}
+  chat:
+    # MEM-243: an OCR connection's key is sealed with the catalog key, as every provider connection's is.
+    catalog:
+      encryption-key: ${MEMORYOS_CHAT_CATALOG_ENCRYPTION_KEY:}
+    retention:
+      # Onyx HARD_DELETE_CHATS: off keeps a deleted conversation and its generated files, on removes them.
+      hard-delete: ${MEMORYOS_CHAT_HARD_DELETE:false}
+  extraction:
+    docling:
+      endpoint: ${MEMORYOS_EXTRACTION_DOCLING_ENDPOINT:http://localhost:5001}
+      engine-revision: ${MEMORYOS_EXTRACTION_DOCLING_ENGINE_REVISION:sha256:0525640504db7ed8a53e0e443882727888f6a3746948b1b7a8820efe95567bd3}
+      api-key: ${MEMORYOS_EXTRACTION_DOCLING_API_KEY:}
+    # MEM-192. How a PaddleOCR-VL service is called; which one reads scans is the Tenant's OCR connection (MEM-243).
+    paddleocr-vl:
+      timeout: ${MEMORYOS_EXTRACTION_PADDLEOCR_VL_TIMEOUT:30m}
+      revision: ${MEMORYOS_EXTRACTION_PADDLEOCR_VL_REVISION:}
+      max-concurrent-requests: ${MEMORYOS_EXTRACTION_PADDLEOCR_VL_MAX_CONCURRENT_REQUESTS:2}
+  lark:
+    # MEM-245. Empty: Lark credentials cannot be stored or read; the other providers are unaffected.
+    credential-encryption-key: ${MEMORYOS_LARK_CREDENTIAL_ENCRYPTION_KEY:}
+    credential-key-version: ${MEMORYOS_LARK_CREDENTIAL_KEY_VERSION:}
+  sharepoint:
+    credential-encryption-key: ${MEMORYOS_SHAREPOINT_CREDENTIAL_ENCRYPTION_KEY:}
+    credential-key-version: ${MEMORYOS_SHAREPOINT_CREDENTIAL_KEY_VERSION:}
+    authority: https://login.microsoftonline.com
+    graph-base-url: https://graph.microsoft.com/v1.0
+    connect-timeout: 3s
+    request-timeout: 30s
+    acquisition-timeout: 15s
+    max-requests: 64
+    max-response-bytes: 1048576
+  google-drive:
+    credential-encryption-key: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY:}
+    credential-key-version: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION:}
+    token-uri: https://oauth2.googleapis.com/token
+    drive-api-base-url: https://www.googleapis.com/drive/v3
+    sheets-api-base-url: https://sheets.googleapis.com/v4
+    docs-api-base-url: https://docs.googleapis.com/v1
+    admin-api-base-url: https://admin.googleapis.com/admin/directory/v1
+    group-sync-interval: ${MEMORYOS_GOOGLE_DRIVE_GROUP_SYNC_INTERVAL:PT1H}
+    connect-timeout: 3s
+    request-timeout: 30s
+    acquisition-timeout: 120s
+    page-size: 100
+    max-requests: 256
+    max-tabs: 100
+    max-cells: 200000
+    max-binary-bytes: 104857600
+    max-snapshot-bytes: 33554432
+  worker:
+    enabled: true
+  redis:
+    topology-interval: 30s
+    relay-interval: 1s
+    rediscovery-delay: 2m
+    transport-backoff: 5s
+    consumer-block: 2s
+    reclaim-interval: 10s
+    reclaim-idle: 2m
+    # MEM-244: how long a stopping Worker lets started work finish; below the container's stop grace period.
+    shutdown-grace: ${MEMORYOS_WORKER_SHUTDOWN_GRACE:100s}
+    max-stream-depth: 1000
+    ingestion:
+      stream: memoryos:execution:ingestion:operations:v1
+      group: memoryos:execution:ingestion:workers:v1
+      batch-size: ${MEMORYOS_WORKER_INGESTION_BATCH_SIZE:8}
+      # A scan read by OCR takes minutes, so little is published ahead of the Workers' slots.
+      publish-ahead: 8
+    cleanup:
+      stream: memoryos:execution:cleanup:operations:v1
+      group: memoryos:execution:cleanup:workers:v1
+      batch-size: ${MEMORYOS_WORKER_CLEANUP_BATCH_SIZE:8}
+      publish-ahead: 16
+    source-sync:
+      stream: memoryos:execution:source-sync:operations:v1
+      group: memoryos:execution:source-sync:workers:v1
+      batch-size: ${MEMORYOS_WORKER_SOURCE_SYNC_BATCH_SIZE:2}
+      publish-ahead: 2
+    selection-validation:
+      stream: memoryos:execution:selection-validation:operations:v1
+      group: memoryos:execution:selection-validation:workers:v1
+      batch-size: ${MEMORYOS_WORKER_SELECTION_VALIDATION_BATCH_SIZE:2}
+      publish-ahead: 2
+    user-file:
+      stream: memoryos:execution:user-file:operations:v1
+      group: memoryos:execution:user-file:workers:v1
+      batch-size: ${MEMORYOS_WORKER_USER_FILE_BATCH_SIZE:1}
+      publish-ahead: 2
+    search:
+      stream: memoryos:execution:search:operations:v1
+      group: memoryos:execution:search:workers:v1
+      batch-size: ${MEMORYOS_WORKER_SEARCH_BATCH_SIZE:2}
+      # Search work takes a second or two, so a longer line is read well inside the rediscovery delay.
+      publish-ahead: 32
+  object-storage:
+    upload:
+      lifetime: ${MEMORYOS_OBJECT_UPLOAD_LIFETIME:15m}
+      verification-lease: ${MEMORYOS_OBJECT_UPLOAD_VERIFICATION_LEASE:30s}
+      adoption-timeout: ${MEMORYOS_OBJECT_UPLOAD_ADOPTION_TIMEOUT:5m}
+      cleanup-lease: ${MEMORYOS_OBJECT_UPLOAD_CLEANUP_LEASE:1m}
+      cleanup-batch-size: ${MEMORYOS_OBJECT_UPLOAD_CLEANUP_BATCH_SIZE:16}
+    s3:
+      service-endpoint: ${MEMORYOS_OBJECT_STORAGE_SERVICE_ENDPOINT}
+      upload-endpoint: ${MEMORYOS_OBJECT_STORAGE_UPLOAD_ENDPOINT}
+      region: ${MEMORYOS_OBJECT_STORAGE_REGION:us-east-1}
+      bucket: ${MEMORYOS_OBJECT_STORAGE_BUCKET:memoryos}
+      access-key: ${MEMORYOS_OBJECT_STORAGE_ACCESS_KEY}
+      secret-key: ${MEMORYOS_OBJECT_STORAGE_SECRET_KEY}
+      path-style-access: ${MEMORYOS_OBJECT_STORAGE_PATH_STYLE_ACCESS:true}
+      readiness-key: ${MEMORYOS_OBJECT_STORAGE_READINESS_KEY:system/readiness}
+      authorization-lifetime: ${MEMORYOS_OBJECT_UPLOAD_AUTHORIZATION_LIFETIME:10m}
+      connect-timeout: ${MEMORYOS_OBJECT_STORAGE_CONNECT_TIMEOUT:2s}
+      read-timeout: ${MEMORYOS_OBJECT_STORAGE_READ_TIMEOUT:30s}

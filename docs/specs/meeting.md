@@ -63,7 +63,7 @@ An utterance also carries `spans`: the stretches the provider was least sure of,
 
 ## Finding a line, and keeping one
 
-The transcript has no scrollbar of its own: it is read by scrolling the page, and only the lines in view are rendered. While a meeting is being recorded the page keeps the sentence being said on screen. Scrolling back stops the following until the reader returns to the end; opening a meeting never moves the page by itself.
+The transcript has no scrollbar of its own: it is read by scrolling the page, and only the lines in view are rendered. While a meeting is being recorded the page keeps the sentence being said on screen. Scrolling back stops the following until the reader returns to the end; opening a meeting never moves the page by itself. Scrolling back is what the reader does (the wheel or a finger moving up, a key that moves up, dragging the scrollbar), not any movement of the page, since the list moves the page itself when it measures a line above the window.
 
 Searching a transcript happens in the browser over what is already loaded; no route answers a query. Every hit is numbered across the whole meeting so the arrows walk them in reading order, and a hit is drawn over an uncertain stretch where the two overlap.
 
@@ -85,7 +85,7 @@ Rerunning writes the whole minutes again, which throws that work away, so `POST 
 
 The export dialog offers Times New Roman, Arial, Calibri and Tahoma, with Times New Roman first because Nghị định 30 asks for it and a company follows the decree by convention. Word only names the face and the reader's machine supplies it, so these are faces every office machine has; a name outside the list is set in Times New Roman. The face is named on every run, the letterhead and signature tables included, because not every reader honours the document default and a biên bản that changes typeface when somebody else opens it is not the one that was signed. The chosen face is kept with the heading.
 
-`POST /api/meetings/{id}/minutes/export?format=PDF` answers the same biên bản as a PDF. What a biên bản says lives in one layout both renderers read, so the Word file and the PDF can never say different things. A PDF has to carry its face, and the faces offered are licensed, so each is set in the open face drawn to the same metrics: Tinos for Times New Roman, Arimo for Arial and Tahoma, Carlito for Calibri, all under the SIL Open Font License and bundled under `core/src/main/resources/fonts` with their licences. Margins follow the decree — 30 mm left for binding, 15 mm right, 20 mm top and bottom — body text is justified, and the signature block never opens a page of its own: the closing paragraph moves over with it.
+`POST /api/meetings/{id}/minutes/export?format=PDF` answers the same biên bản as a PDF. What a biên bản says lives in one layout both renderers read, so the Word file and the PDF can never say different things. A PDF has to carry its face, and the faces offered are licensed, so each is set in the open face drawn to the same metrics: Tinos for Times New Roman, Arimo for Arial and Tahoma, Carlito for Calibri, all under the SIL Open Font License and bundled under `memoryos-core/src/main/resources/fonts` with their licences. Margins follow the decree — 30 mm left for binding, 15 mm right, 20 mm top and bottom — body text is justified, and the signature block never opens a page of its own: the closing paragraph moves over with it.
 
 ## Taking the transcript away
 

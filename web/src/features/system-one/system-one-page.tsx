@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plug, Settings2, Split, Trash2, WifiOff } from "lucide-react";
+import { Plug, Settings2, Trash2, WifiOff } from "lucide-react";
 import { ConnectionStatusBadge } from "@/components/composites/connection-form";
 import { EmptyState } from "@/components/composites/empty-state";
 import { SectionHeader } from "@/components/composites/section-header";
-import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { ProviderCard } from "@/components/provider-logos/provider-card";
 import { ProviderLogo } from "@/components/provider-logos/provider-logo";
 import { Button } from "@/components/ui/button";
@@ -85,12 +84,7 @@ export function SystemOnePage() {
   const flow = flows.data?.find((entry) => entry.flow === CHECK_FLOW);
   const failed = types.isError || connections.isError || flows.isError;
   return (
-    <SettingsLayout>
-      <PageHeader
-        title={ui("Phân loại (System One)")}
-        icon={<Split />}
-        description={ui("Chạy bước kiểm tra câu hỏi bằng model phân loại nhanh thay cho LLM.")}
-      />
+    <>
       {failed ? (
         <EmptyState
           role="alert"
@@ -182,7 +176,7 @@ export function SystemOnePage() {
           onClose={() => setEditing(null)}
         />
       )}
-    </SettingsLayout>
+    </>
   );
 }
 

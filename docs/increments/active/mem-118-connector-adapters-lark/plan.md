@@ -78,6 +78,9 @@ and are one pull request (owner decision 2026-09-30); what was built is in the d
 
 ## Deferred: Lark Suite
 
+Moved to its own increment, [MEM-245](../../completed/mem-245-lark-connector/plan.md), after the owner go-ahead of 2026-10-12;
+the items below are tracked there.
+
 Needs a separate owner go-ahead and the open questions closed (edition, app type, demo spaces, customer approval).
 
 - [ ] `LarkGateway`/`RestLarkGateway`; `connector.lark`: credential, scope selection, sync adapter (Drive, Docs,

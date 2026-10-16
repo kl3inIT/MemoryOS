@@ -40,7 +40,11 @@ import { LibraryPage } from "./library-page";
 import { librarySearchDefaults, librarySearchSchema } from "./library-search";
 
 /** A person without Search, so the library offers no organisation documents. */
-const session = { capabilities: [], scopedCapabilities: [] } as unknown as ApplicationSession;
+const session = {
+  actorId: "e62a621f-41d2-4853-aa76-b600dafd8e34",
+  capabilities: [],
+  scopedCapabilities: [],
+} as unknown as ApplicationSession;
 
 const uploadChatFile = vi.hoisted(() => vi.fn());
 
@@ -160,6 +164,7 @@ async function show(
 }
 
 beforeEach(async () => {
+  localStorage.clear();
   await i18n.changeLanguage("vi");
   vi.clearAllMocks();
   listed = [];
@@ -206,6 +211,61 @@ it("lists every source with its size, total and originating conversation", async
   );
 });
 
+it("keeps the filter, order and layout controls to an icon each, names them in a tooltip and counts the filters", async () => {
+  await show();
+  const user = userEvent.setup();
+
+  // The page title stands without a description line beneath it.
+  expect(screen.queryByText(/ở cùng một chỗ/)).not.toBeInTheDocument();
+
+  const filter = screen.getByRole("button", { name: "Bộ lọc" });
+  const sort = screen.getByRole("button", { name: "Sắp xếp" });
+  const list = screen.getByRole("button", { name: "Dạng danh sách" });
+  const grid = screen.getByRole("button", { name: "Dạng lưới" });
+  expect(filter).toHaveTextContent("");
+  expect(sort).toHaveTextContent("");
+  // Rows or cards are two buttons of their own, not a menu, and the shown one is pressed.
+  expect(list).toHaveAttribute("aria-pressed", "true");
+  expect(grid).toHaveAttribute("aria-pressed", "false");
+
+  await user.hover(sort);
+  expect(await screen.findByRole("tooltip")).toHaveTextContent("Sắp xếp");
+  await user.unhover(sort);
+  await user.click(grid);
+  expect(grid).toHaveAttribute("aria-pressed", "true");
+  expect(list).toHaveAttribute("aria-pressed", "false");
+
+  await user.click(filter);
+  await user.click(await screen.findByRole("button", { name: "Ảnh AI" }));
+  await user.keyboard("{Escape}");
+  expect(screen.getByRole("button", { name: "Bộ lọc" })).toHaveTextContent("1");
+});
+
+it("keeps rows or cards for the person after the page is left and opened again", async () => {
+  await show();
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Dạng lưới" }));
+  cleanup();
+
+  await show();
+  expect(screen.getByRole("button", { name: "Dạng lưới" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("button", { name: "Dạng danh sách" })).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+});
+
+it("clears the search from the field's own button", async () => {
+  await show();
+  const user = userEvent.setup();
+
+  const field = screen.getByRole("textbox", { name: "Tìm theo tên tệp" });
+  expect(screen.queryByRole("button", { name: "Xóa từ khóa tìm kiếm" })).not.toBeInTheDocument();
+  await user.type(field, "doanh");
+  await user.click(screen.getByRole("button", { name: "Xóa từ khóa tìm kiếm" }));
+  expect(field).toHaveValue("");
+});
+
 it("sends the filters, the search and the sort to the server", async () => {
   await show();
   const user = userEvent.setup();
@@ -214,7 +274,7 @@ it("sends the filters, the search and the sort to the server", async () => {
   await user.click(await screen.findByRole("button", { name: "Ảnh AI" }));
   await user.keyboard("{Escape}");
   await user.type(screen.getByRole("textbox", { name: "Tìm theo tên tệp" }), "doanh");
-  await user.click(screen.getByRole("button", { name: "Cách hiển thị" }));
+  await user.click(screen.getByRole("button", { name: "Sắp xếp" }));
   await user.click(await screen.findByRole("menuitemradio", { name: "Dung lượng giảm dần" }));
 
   await waitFor(() =>
@@ -232,7 +292,7 @@ it("opens the list the address names and keeps a changed order in it, leaving de
   const user = userEvent.setup();
   expect(lastListed()).toMatchObject({ categories: "IMAGE", offset: "0" });
 
-  await user.click(screen.getByRole("button", { name: "Cách hiển thị" }));
+  await user.click(screen.getByRole("button", { name: "Sắp xếp" }));
   await user.click(await screen.findByRole("menuitemradio", { name: "Dung lượng giảm dần" }));
 
   await waitFor(() =>
@@ -560,12 +620,12 @@ it("keeps the storage figures in the settings until the limit is near, then link
   await waitFor(() => expect(lastListed()).toMatchObject({ sort: "LARGEST" }));
 });
 
-it("leaves the search, the filter and the display menu out of a library with no file", async () => {
+it("leaves the search, the filter and the display controls out of a library with no file", async () => {
   await show([]);
 
   expect(await screen.findByRole("button", { name: "Cài đặt thư viện" })).toBeInTheDocument();
   await waitFor(() =>
-    expect(screen.queryByRole("button", { name: "Cách hiển thị" })).not.toBeInTheDocument(),
+    expect(screen.queryByRole("button", { name: "Dạng lưới" })).not.toBeInTheDocument(),
   );
   expect(screen.queryByRole("textbox", { name: "Tìm theo tên tệp" })).not.toBeInTheDocument();
 });
@@ -697,10 +757,47 @@ it("cuts the list into pages of the chosen size, from its first page", async () 
   );
 
   await user.click(screen.getByRole("combobox", { name: "Số tệp mỗi trang" }));
-  await user.click(await screen.findByRole("option", { name: "12" }));
+  await user.click(await screen.findByRole("option", { name: "70" }));
 
   await waitFor(() =>
-    expect(listed).toContainEqual(expect.objectContaining({ offset: "0", limit: "12" })),
+    expect(listed).toContainEqual(expect.objectContaining({ offset: "0", limit: "70" })),
   );
-  expect(screen.getByText("Hiển thị 1–12 trên 60 tệp")).toBeInTheDocument();
+  expect(await screen.findByText("Hiển thị 1–60 trên 60 tệp")).toBeInTheDocument();
+});
+
+it("shows no pager while the files fit one default page", async () => {
+  await show([file()]);
+
+  expect(await screen.findByText("doanh-thu.xlsx")).toBeInTheDocument();
+  expect(screen.queryByRole("navigation", { name: "Phân trang thư viện" })).toBeNull();
+  expect(screen.queryByRole("combobox", { name: "Số tệp mỗi trang" })).toBeNull();
+});
+
+it("reads every page of a hundred when the person asks for the whole list", async () => {
+  await show([file()], true);
+  server.use(
+    handleListChatLibrary(({ request }) => {
+      const query = queryOf(request);
+      listed.push(query);
+      const first = query.offset === "0";
+      return HttpResponse.json({
+        items: [first ? file() : upload],
+        totalCount: 60,
+        totalBytes: 4096,
+        hasMore: first,
+      });
+    }),
+  );
+  const user = userEvent.setup();
+
+  await user.click(screen.getByRole("combobox", { name: "Số tệp mỗi trang" }));
+  await user.click(await screen.findByRole("option", { name: "Tất cả" }));
+
+  await waitFor(() =>
+    expect(listed).toContainEqual(expect.objectContaining({ offset: "1", limit: "100" })),
+  );
+  expect(listed).toContainEqual(expect.objectContaining({ offset: "0", limit: "100" }));
+  expect(await screen.findByText(upload.filename)).toBeInTheDocument();
+  expect(screen.getByText("doanh-thu.xlsx")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Trang sau" })).toBeDisabled();
 });

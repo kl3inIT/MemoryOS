@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Building2, Clock, FolderOpen, Star, Users } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -51,6 +51,9 @@ export function LibraryTabs({
 }) {
   const ui = useAppTranslation();
   const canReadDocuments = useGlobalCapability("SEARCH_READ");
+  // Whether the pointer chose the focused tab. Clicking a tab that already holds a keyboard ring would keep the ring,
+  // so the ring waits for the next key press instead.
+  const [byPointer, setByPointer] = useState(false);
   const sections: Section[] = [
     { value: "recent", label: ui("Gần đây"), icon: <Clock />, views: ["recent"] },
     {
@@ -94,21 +97,30 @@ export function LibraryTabs({
     >
       <div className="flex flex-col gap-6">
         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-border-subtle pb-1">
-          {/* On a phone the tabs are one row that scrolls sideways and fades at its end, to say there is more.
-              The wrapper scrolls, not the list: the mark under the open tab hangs below the list, and a list
-              that scrolled sideways would scroll up and down over it as well. */}
-          <div className="max-w-full min-w-0 max-sm:overflow-x-auto max-sm:overflow-y-hidden max-sm:mask-r-from-90% max-sm:pb-1">
+          {/* The row fades at its end on a phone, to say it scrolls. */}
+          <div
+            role="presentation"
+            data-pointer={byPointer || undefined}
+            onPointerDown={() => setByPointer(true)}
+            onKeyDown={() => setByPointer(false)}
+            className="max-w-full min-w-0 max-sm:overflow-x-auto max-sm:overflow-y-hidden max-sm:mask-r-from-90% max-sm:pb-1.5 data-pointer:[&_[role=tab]]:border-transparent data-pointer:[&_[role=tab]]:shadow-none data-pointer:[&_[role=tab]]:ring-0 data-pointer:[&_[role=tab]]:outline-none"
+          >
             <TabsList
               variant="line"
+              slider
               aria-label={ui("Phần của thư viện")}
-              // On a phone the tabs stay on one row, so the list starts a row sooner, and drop their icons to fit
-              // more of it.
+              // On a phone the tabs are one row that scrolls sideways inside the wrapper above, which keeps room for
+              // the underline and never scrolls up and down; the row fades at its end to say there is more, and the
+              // tabs drop their icons to fit more of it. Wider screens wrap instead and never scroll: the active
+              // tab's underline hangs below the list, and `overflow-x-auto` there would turn that overhang into a
+              // scrollbar.
               className="h-auto justify-start group-data-horizontal/tabs:h-auto sm:max-w-full sm:flex-wrap max-sm:[&_svg]:hidden"
             >
               {sections.map((entry) => (
                 <TabsTrigger
                   key={entry.value}
                   value={entry.value}
+                  focus="soft"
                   className="flex-none pointer-coarse:min-h-11"
                 >
                   {entry.icon}
@@ -122,7 +134,7 @@ export function LibraryTabs({
           )}
         </div>
         {section ? (
-          <TabsContent value={section.value}>
+          <TabsContent key={section.value} value={section.value} animated>
             <div className="flex min-w-0 flex-col gap-4">
               {section.views.length > 1 && (
                 <ToggleGroup
@@ -134,7 +146,7 @@ export function LibraryTabs({
                   onValueChange={(next) => next && onView(next as LibraryView)}
                 >
                   {section.views.map((entry) => (
-                    <ToggleGroupItem key={entry} value={entry} size="sm">
+                    <ToggleGroupItem key={entry} value={entry} size="sm" focus="soft">
                       {viewLabels[entry]}
                       {(counts[entry] ?? 0) > 0 && (
                         <span className="text-content-muted tabular-nums">{counts[entry]}</span>

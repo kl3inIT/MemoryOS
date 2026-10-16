@@ -3,6 +3,7 @@ import type { NamedRef, Person } from "@/features/identity/principals";
 import { allPages } from "@/lib/all-pages";
 import {
   getChatPersonaQueryKey,
+  listChatAssistantsQueryKey,
   listChatPersonaLabelsQueryKey,
   listChatPersonaPinsQueryKey,
   listChatPersonasForAdministrationQueryKey,
@@ -53,7 +54,7 @@ export function personaOf({
   modelConfigurationId = null,
   contextTokenLimit = null,
   outputTokenLimit = null,
-  iconName,
+  avatarSeed = "",
   hasAvatar = false,
   labels,
   owner,
@@ -102,7 +103,7 @@ export function personaOf({
     modelConfigurationId,
     contextTokenLimit,
     outputTokenLimit,
-    iconName: iconName ?? null,
+    avatarSeed,
     hasAvatar,
     labels: namedRefsOf(labels),
     owner: {
@@ -186,13 +187,14 @@ export function personaSourcesOptions() {
 
 /**
  * Refreshes every read of agents after one changes: the lists (all views, all pages, the administration
- * list), the sidebar pins, the labels and, when given, the changed agent.
+ * list), the sidebar pins and assistants, the labels and, when given, the changed agent.
  */
 export function invalidateAgents(cache: QueryClient, personaId?: string) {
   return Promise.all([
     cache.invalidateQueries({ queryKey: listChatPersonasQueryKey() }),
     cache.invalidateQueries({ queryKey: listChatPersonasForAdministrationQueryKey() }),
     cache.invalidateQueries({ queryKey: listChatPersonaPinsQueryKey() }),
+    cache.invalidateQueries({ queryKey: listChatAssistantsQueryKey() }),
     cache.invalidateQueries({ queryKey: listChatPersonaLabelsQueryKey() }),
     personaId === undefined
       ? undefined

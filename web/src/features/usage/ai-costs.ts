@@ -67,6 +67,7 @@ const flowLabels: Record<Flow, AppCopy> = {
   CHAT: "Chat",
   CHAT_NAMING: "Conversation naming",
   CHAT_GUARDRAIL: "Question check",
+  CHAT_COMPACTION: "Long conversation summaries",
   DEEP_RESEARCH: "Deep research",
   EMBEDDING_QUERY: "Search embeddings",
   EMBEDDING_INDEXING: "Indexing embeddings",
@@ -76,6 +77,7 @@ const flowLabels: Record<Flow, AppCopy> = {
   TEXT_TO_SPEECH: "Read aloud",
   MEETING_MINUTES: "Meeting minutes",
   MEETING_CORRECTION: "Transcript corrections",
+  OCR: "Reading scans",
 };
 
 export const dimensionLabels: Record<Dimension, AppCopy> = {

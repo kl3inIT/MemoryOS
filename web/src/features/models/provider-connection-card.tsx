@@ -1,5 +1,6 @@
 import {
   Boxes,
+  Braces,
   Brain,
   ChevronDown,
   Eye,
@@ -83,6 +84,12 @@ function Capabilities({
     { key: "toolCalling", label: "Tool calling", icon: Wrench, on: capabilities.toolCalling },
     { key: "vision", label: "Vision input", icon: Eye, on: capabilities.vision },
     { key: "reasoning", label: "Reasoning", icon: Brain, on: capabilities.reasoning },
+    {
+      key: "structuredOutput",
+      label: "Structured output",
+      icon: Braces,
+      on: capabilities.structuredOutput,
+    },
   ].filter((entry) => entry.on);
   if (declared.length === 0) return null;
   return (

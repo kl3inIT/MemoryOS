@@ -149,7 +149,11 @@ function ProtocolField({
             )}
             {adapters.map((entry) => (
               <option key={entry.type} value={entry.type}>
-                {entry.type === "openai" ? ui("OpenAI-compatible") : entry.type}
+                {entry.type === "openai"
+                  ? ui("OpenAI-compatible")
+                  : entry.type === "anthropic"
+                    ? ui("Anthropic")
+                    : entry.type}
               </option>
             ))}
           </NativeSelect>

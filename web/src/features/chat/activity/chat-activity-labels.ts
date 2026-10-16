@@ -107,6 +107,19 @@ export function stepTitle(
     case "run_python":
       if (state === "failed") return ui("Chạy Python không thành công");
       return running ? ui("Đang chạy Python…") : ui("Đã chạy Python");
+    case "bash":
+      if (state === "failed") return ui("Lệnh không thành công");
+      return running ? ui("Đang chạy lệnh…") : ui("Đã chạy lệnh");
+    case "bash_output":
+      return running ? ui("Đang xem lệnh chạy nền…") : ui("Đã xem lệnh chạy nền");
+    case "edit_file":
+      return running ? ui("Đang làm việc với tệp…") : ui("Đã làm việc với tệp");
+    case "publish_file":
+      if (state === "failed") return ui("Chưa lưu được tệp vào Thư viện");
+      return running ? ui("Đang lưu tệp vào Thư viện…") : ui("Đã lưu tệp vào Thư viện");
+    case "update_memory":
+      if (state === "failed") return ui("Chưa cập nhật bộ nhớ");
+      return running ? ui("Đang cập nhật bộ nhớ…") : ui("Đã cập nhật bộ nhớ");
     default:
       return running ? ui("Đang dùng công cụ…") : ui("Đã dùng công cụ");
   }
@@ -135,6 +148,16 @@ export function liveTitle(ui: Translate, tool: { toolName: string; args: unknown
       return ui("Đang sửa ảnh…");
     case "run_python":
       return ui("Đang chạy Python…");
+    case "bash":
+      return ui("Đang chạy lệnh…");
+    case "bash_output":
+      return ui("Đang xem lệnh chạy nền…");
+    case "edit_file":
+      return ui("Đang làm việc với tệp…");
+    case "publish_file":
+      return ui("Đang lưu tệp vào Thư viện…");
+    case "update_memory":
+      return ui("Đang cập nhật bộ nhớ…");
     default: {
       const mcp = parseMcpToolName(tool.toolName);
       return mcp ? ui("Đang dùng {{tool}}…", { tool: mcp.tool }) : ui("Đang dùng công cụ…");

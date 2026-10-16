@@ -60,7 +60,7 @@ export function AgentViewer({
     search: ui("Tìm tài liệu nội bộ"),
     web_search: ui("Tìm kiếm Web"),
     image_generation: ui("Tạo ảnh"),
-    code_interpreter: ui("Chạy Python"),
+    code_interpreter: ui("Sandbox"),
   };
   const owner = agent.builtin
     ? ui("MemoryOS")

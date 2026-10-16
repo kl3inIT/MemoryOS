@@ -1,0 +1,69 @@
+{
+ "code": 0,
+ "data": {
+  "files": [
+   {
+    "created_time": "1791739252",
+    "modified_time": "1791739252",
+    "name": "Kế hoạch kinh doanh 2027 (nháp)",
+    "owner_id": "ou_a8c60d2416a98fd991f1271fd84de633",
+    "parent_token": "folder-drive-test",
+    "token": "docx-ke-hoach-2027",
+    "type": "docx",
+    "url": "https://yjp1eercgqfv.jp.larksuite.com/docx/docx-ke-hoach-2027"
+   },
+   {
+    "created_time": "1791739171",
+    "modified_time": "1791739238",
+    "name": "tai-chinh-q3.pdf",
+    "owner_id": "ou_a8c60d2416a98fd991f1271fd84de633",
+    "parent_token": "folder-drive-test",
+    "token": "file-tai-chinh-q3-pdf",
+    "type": "file",
+    "url": "https://yjp1eercgqfv.jp.larksuite.com/file/file-tai-chinh-q3-pdf"
+   },
+   {
+    "created_time": "1791739170",
+    "modified_time": "1791739237",
+    "name": "bao-cao-q3.docx",
+    "owner_id": "ou_a8c60d2416a98fd991f1271fd84de633",
+    "parent_token": "folder-drive-test",
+    "token": "file-bao-cao-q3-docx",
+    "type": "file",
+    "url": "https://yjp1eercgqfv.jp.larksuite.com/file/file-bao-cao-q3-docx"
+   },
+   {
+    "created_time": "1791739213",
+    "modified_time": "1791739236",
+    "name": "bien-ban-hop.pdf",
+    "owner_id": "ou_a8c60d2416a98fd991f1271fd84de633",
+    "parent_token": "folder-drive-test",
+    "token": "file-bien-ban-hop-pdf",
+    "type": "file",
+    "url": "https://yjp1eercgqfv.jp.larksuite.com/file/file-bien-ban-hop-pdf"
+   },
+   {
+    "created_time": "1791739210",
+    "modified_time": "1791739234",
+    "name": "Nội quy văn phòng",
+    "owner_id": "ou_a8c60d2416a98fd991f1271fd84de633",
+    "parent_token": "folder-drive-test",
+    "token": "docx-noi-quy",
+    "type": "docx",
+    "url": "https://yjp1eercgqfv.jp.larksuite.com/docx/docx-noi-quy"
+   },
+   {
+    "created_time": "1791739206",
+    "modified_time": "1791739230",
+    "name": "Quy trình mua hàng",
+    "owner_id": "ou_a8c60d2416a98fd991f1271fd84de633",
+    "parent_token": "folder-drive-test",
+    "token": "docx-quy-trinh-mua-hang",
+    "type": "docx",
+    "url": "https://yjp1eercgqfv.jp.larksuite.com/docx/docx-quy-trinh-mua-hang"
+   }
+  ],
+  "has_more": false
+ },
+ "msg": "success"
+}

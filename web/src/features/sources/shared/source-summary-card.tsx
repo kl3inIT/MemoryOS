@@ -10,11 +10,19 @@ import { cn } from "@/lib/utils";
 import { sourceAccessPresentation } from "./source-status-presentation";
 import { SourceHint } from "./source-hint";
 
-/** Who reads a Google Drive Source depends on its mode; Public reads like any other Source. */
-const googleDriveAccessHelp: Partial<Record<SourceSummary["access"], string>> = {
-  PRIVATE:
-    "Document access follows this Source's MemoryOS groups, not Google Drive file permissions.",
-  SYNC: "Whoever can open the file in Google Drive can read it.",
+/** Who reads a provider Source that can follow the provider's own sharing; Public reads like any other. */
+const providerAccessHelp: Partial<
+  Record<SourceSummary["type"], Partial<Record<SourceSummary["access"], string>>>
+> = {
+  GOOGLE_DRIVE: {
+    PRIVATE:
+      "Document access follows this Source's MemoryOS groups, not Google Drive file permissions.",
+    SYNC: "Whoever can open the file in Google Drive can read it.",
+  },
+  LARK: {
+    PRIVATE: "Document access follows this Source's MemoryOS groups, not Lark sharing.",
+    SYNC: "Whoever the document is shared with in Lark can read it.",
+  },
 };
 
 /** The short answer to who can read; the help beside it states the rule. */
@@ -22,6 +30,11 @@ const readersLabel: Record<SourceSummary["access"], string> = {
   PUBLIC: "All members",
   PRIVATE: "Members of the chosen groups",
   SYNC: "People with access in Google Drive",
+};
+
+/** The provider whose sharing a SYNC Source follows, where it is not Google Drive. */
+const providerReadersLabel: Partial<Record<SourceSummary["type"], string>> = {
+  LARK: "People with access in Lark",
 };
 
 const shownGroupCount = 3;
@@ -58,7 +71,7 @@ export function SourceSummaryCard({
   const shownGroupNames = groupNames.slice(0, shownGroupCount);
   const additionalGroupNames = groupNames.slice(shownGroupCount);
   const readers =
-    (source.type === "GOOGLE_DRIVE" ? googleDriveAccessHelp[source.access] : undefined) ??
+    providerAccessHelp[source.type]?.[source.access] ??
     sourceAccessPresentation[source.access].title;
 
   return (
@@ -100,7 +113,10 @@ export function SourceSummaryCard({
           <div className="flex min-w-0 items-center gap-2">
             <dt className={statLabelClass}>{ui("Who can read")}</dt>
             <dd className="flex min-w-0 items-center gap-0.5 text-content-primary">
-              {ui(readersLabel[source.access])}
+              {ui(
+                (source.access === "SYNC" ? providerReadersLabel[source.type] : undefined) ??
+                  readersLabel[source.access],
+              )}
               <HelpPopover label={ui("Who can read")}>
                 <p>{ui(readers)}</p>
               </HelpPopover>

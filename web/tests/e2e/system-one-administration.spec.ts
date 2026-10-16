@@ -58,7 +58,13 @@ const model = {
     contextWindow: 128000,
     maxOutputTokens: 8192,
     tokenizerProfile: "openai-o200k-v1",
-    capabilities: { streaming: true, toolCalling: true, vision: false, reasoning: false },
+    capabilities: {
+      streaming: true,
+      toolCalling: true,
+      vision: false,
+      reasoning: false,
+      structuredOutput: false,
+    },
     options: {},
     pricing: null,
   },
@@ -151,10 +157,10 @@ for (const width of [1440, 390]) {
       await route.fulfill({ json: flow });
     });
 
-    await page.goto("/admin/system-one");
+    await page.goto("/admin/ai-providers?tab=system-one");
     // Below `md` the shell bar names the page and the header steps aside, so the heading is asserted as present.
     await expect(
-      page.getByRole("heading", { name: "Phân loại (System One)", exact: true, level: 1 }),
+      page.getByRole("heading", { name: "AI Provider", exact: true, level: 1 }),
     ).toBeAttached();
     const connections = page.getByRole("region", { name: "Kết nối", exact: true });
     await expect(connections.getByRole("listitem")).toHaveCount(3);

@@ -2,7 +2,7 @@
 
 API and worker use Boot's Micrometer/OpenTelemetry autoconfiguration with one
 aligned SDK/instrumentation train. Logback remains the SLF4J implementation.
-Shared resources live in `core/src/main/resources` and reach both deployables through their `core` dependency. Each `application.yaml` imports `memoryos-observability.yaml`; Spring Boot loads the shared `logback-spring.xml` from the same classpath.
+Shared resources live in `memoryos-core/src/main/resources` and reach both deployables through their `core` dependency. Each `application.yaml` imports `memoryos-observability.yaml`; Spring Boot loads the shared `logback-spring.xml` from the same classpath.
 The explicit SDK version override is required by the newer Logback instrumentation;
 do not upgrade the appender independently of its SDK/API/incubator dependencies.
 
@@ -75,6 +75,7 @@ Four provisioned dashboards, linked by the `memoryos` tag: *overview* (the landi
 ### Chat and model metrics
 
 - Spring AI publishes `gen_ai.client.operation` (timer: `gen_ai_operation_name`, `gen_ai_system`, `gen_ai_request_model`, `gen_ai_response_model`, `error`) and `gen_ai.client.token.usage` (counter, plus `gen_ai_token_type`) for every chat and embedding call. The model name is a bounded label: it comes from the Tenant catalog.
+- `ai.model.call.completed` (log, INFO) records every model call that reports usage: `model`, `streamed`, `input_tokens`, `cache_read_tokens`, `cache_write_tokens`, `output_tokens`, `tools`, `messages`, and twelve-hex SHA-256 fingerprints `tools_fingerprint` and `system_fingerprint`. It carries no content. A cache miss whose fingerprints equal the conversation's call before it points at the history or the provider rather than the prompt. The daily ledger keeps only cache-read totals ([AI usage](../specs/ai-usage.md)).
 - `memoryos.chat.turn` runs from admission to the terminal outcome, once per turn. Labels: `status` (`completed`, `failed`, `canceled`), `failure` (a typed failure code, or `none`), `refusal` (`none`, `no_evidence`, `uncited`, `blocked_topic`), `grounded` and `research` (as admitted).
 - `memoryos.chat.turn.first.text` runs from admission to the first text the person sees, a refusal included; label `grounded`. A grounded turn holds text until its first valid citation, so its first text is later by design.
 - `memoryos.chat.guardrail.check` times the MEM-195 check before the answer model; labels `kind` (`conversational`, `question`, `blocked`, `unchecked`) `classifier` (`llm`, `system_one`) and `review` (`true` when a topic scored between the guardrail's thresholds and the turn was let through).
@@ -82,6 +83,8 @@ Four provisioned dashboards, linked by the `memoryos` tag: *overview* (the landi
 ### Extraction metrics
 
 - `memoryos.extraction.docling.fallback` counts each Docling failure that reaches the native fallback, recorded in the worker. Labels: `reason` (`connection_failed`, `timeout`, `internal`, `malformed`) and `outcome` (`read`: published from Tika without tables or boxes; `refused`: the native text was too thin and Docling's failure stands; `failed`: the native reader failed too). All twelve series are registered at zero. The `MemoryOSDoclingFallback` alert fires on any increase within 15 minutes, and the overview dashboard shows it by reason and outcome.
+
+- `memoryos.extraction.unavailable` counts each Source index attempt that ended because its extraction service could not be reached (`CONNECTION_FAILED`), recorded in the worker. Label `outcome`: `retry_scheduled` (the attempt waits and is delivered again) or `exhausted` (the sixth such attempt failed the document). Both series are registered at zero. The `MemoryOSExtractionUnavailable` alert fires on any `exhausted` increase within 15 minutes; a stale claim is not counted. `ingestion.extraction.failed` carries `retryable`.
 
 ### Extraction lifecycle diagnostics
 

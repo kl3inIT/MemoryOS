@@ -6,7 +6,7 @@ The canonical test policy and boundary-selection table are in [engineering conve
 
 ## Local execution
 
-Use `gradlew.bat :core:test --tests '*IdentityValueObjectsTest' --no-daemon` (or another owning test) while changing a narrow contract. Unit tests do not require Docker simply because the full gate does. The complete `clean check` requires a working Docker daemon: PostgreSQL, Redis, MinIO and OpenSearch integration checks are mandatory.
+Use `gradlew.bat :memoryos-core:test --tests '*IdentityValueObjectsTest' --no-daemon` (or another owning test) while changing a narrow contract. Unit tests do not require Docker simply because the full gate does. The complete `clean check` requires a working Docker daemon: PostgreSQL, Redis, MinIO and OpenSearch integration checks are mandatory.
 
 The JVM modules run with a ten-minute deadline per Test task. Keep JUnit method parallelism disabled while fixtures have class-owned servers, shared schemas or lifecycle transitions. API tests share a PostgreSQL container but allocate a fresh database for each context through `ApiPostgresDatabase`; do not replace that isolation with a shared schema to improve timing.
 

@@ -1,8 +1,6 @@
-import { Sparkles } from "lucide-react";
 import { useLayoutEffect, useState } from "react";
 import { flushSync } from "react-dom";
 import { SectionHeader } from "@/components/composites/section-header";
-import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { BrandLoader } from "@/components/brand-loader";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -58,24 +56,21 @@ function ModelsAdministration() {
   const { providers, adapters, models, catalogPending, catalogError, unavailable, setEditor } =
     page;
   const hasProviders = Boolean(providers.data?.length);
+  // Sits on the connections it reloads; without them, on the failure that asks for it.
+  const refresh = (
+    <Button
+      size="sm"
+      prominence="secondary"
+      pending={page.reloading.pending}
+      disabled={page.busy}
+      onClick={() => void page.reload()}
+    >
+      {ui("Refresh catalog")}
+    </Button>
+  );
 
   return (
-    <SettingsLayout wide>
-      <PageHeader
-        title={ui("Models")}
-        icon={<Sparkles />}
-        actions={
-          <Button
-            prominence="secondary"
-            pending={page.reloading.pending}
-            disabled={page.busy}
-            onClick={() => void page.reload()}
-          >
-            {ui("Refresh catalog")}
-          </Button>
-        }
-      />
-
+    <>
       {/* Models by task — the Onyx default card plus its per-flow defaults */}
       {hasProviders && !catalogError && (
         <section aria-labelledby="task-models" className="flex flex-col gap-3">
@@ -118,6 +113,7 @@ function ModelsAdministration() {
               "The complete catalog could not be loaded. Displayed records may be stale. Refresh before changing configurations or defaults.",
             )}
           </AlertDescription>
+          {!hasProviders && <div className="mt-2">{refresh}</div>}
         </Alert>
       )}
       {page.reloading.error && !page.deletion && (
@@ -129,7 +125,7 @@ function ModelsAdministration() {
       {/* Available connections — Onyx existing-provider cards */}
       {hasProviders && (
         <section aria-labelledby="available-connections" className="flex flex-col gap-3">
-          <SectionHeader id="available-connections" title={ui("Connections")} />
+          <SectionHeader id="available-connections" title={ui("Connections")} actions={refresh} />
           <div className="flex flex-col gap-2">
             {page.sortedProviders.map((provider) => (
               <ProviderConnectionCard
@@ -175,7 +171,7 @@ function ModelsAdministration() {
           onConfirm={page.remove}
         />
       )}
-    </SettingsLayout>
+    </>
   );
 }
 
@@ -190,7 +186,7 @@ function ModelsEditors({ page }: { page: ReturnType<typeof useModelsAdministrati
         models={models.filter((model) => model.providerId === editor.initial?.id)}
         providers={providers.data ?? []}
         adapters={adapters.data}
-        preferredAdapterType={editor.initial ? undefined : "openai"}
+        preferredAdapterType={editor.initial ? undefined : (editor.preset?.adapterType ?? "openai")}
         preferredBaseUrl={editor.preset?.baseUrl}
         preferredName={editor.preset?.name}
         onClose={close}

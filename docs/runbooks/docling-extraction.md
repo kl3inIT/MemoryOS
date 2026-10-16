@@ -24,11 +24,27 @@ Set `MEMORYOS_EXTRACTION_DOCLING_ENGINE_REVISION` from the actual server's verif
 
 ## PaddleOCR-VL for scans and images (MEM-192)
 
-Production reads scanned PDFs and images with PaddleOCR-VL-1.6 on the `serving` node; Docling then runs without OCR. Set `MEMORYOS_EXTRACTION_PADDLEOCR_VL_ENDPOINT` in the application node's environment file to the layout API that `compose.serving.yaml` publishes on the private address, `http://172.24.244.79:18080` by default, and recreate the Worker. Staging reaches the same service through `https://ocr.vadan.app` ([runbook](ci-cd.md#serving-node)). Leaving it empty (local development) keeps today's behaviour: Docling reads scans with its configured OCR. `MEMORYOS_EXTRACTION_PADDLEOCR_VL_TIMEOUT` defaults to `30m` and counts from when a document is sent; `MEMORYOS_EXTRACTION_PADDLEOCR_VL_MAX_CONCURRENT_REQUESTS` (default 2) bounds how many documents one worker has at the GPU at once; `MEMORYOS_EXTRACTION_PADDLEOCR_VL_REVISION` names the model, PaddleX and layout revisions recorded in `parser_configuration` and must change with the serving images.
+Production reads scanned PDFs and images with PaddleOCR-VL-1.6 on the `serving` node; Docling then runs without OCR. The service is an OCR connection, not a deployment variable ([MEM-243](../increments/completed/mem-243-ocr-providers/design.md)): on AI Provider › OCR, an administrator saves the PaddleOCR-VL connection with the layout API that `compose.serving.yaml` publishes on the private address, `http://172.24.244.79:18080` by default, runs *Kiểm tra*, and chooses it as the reader. The Worker reads the choice for each document, so nothing restarts. Staging's connection calls the same service through `https://ocr.vadan.app` ([runbook](ci-cd.md#serving-node)). With no reader chosen (local development, or an organization without the service), Docling reads scans with its configured OCR.
+
+**After the release that removed `MEMORYOS_EXTRACTION_PADDLEOCR_VL_ENDPOINT`**, create and choose that connection on staging and on production at once: until then scans are read by Docling's OCR, and their `parser_configuration` (`ocr=easyocr…` instead of `paddleocr-vl=…`) finds them for a reindex. The variable can then be removed from the environment file; nothing reads it.
+
+`MEMORYOS_EXTRACTION_PADDLEOCR_VL_TIMEOUT` defaults to `30m` and counts from when a document is sent; `MEMORYOS_EXTRACTION_PADDLEOCR_VL_MAX_CONCURRENT_REQUESTS` (default 2) bounds how many documents one worker has at the GPU at once; `MEMORYOS_EXTRACTION_PADDLEOCR_VL_REVISION` names the model, PaddleX and layout revisions recorded in `parser_configuration` and must change with the serving images.
 
 There is no API key. The layout API and its vLLM backend have no authentication; the protection is the network: vLLM publishes no port, the layout API binds only the private address, and the `DOCKER-USER` chain admits only the application node. Do not expose the port through a proxy.
 
 A PaddleOCR-VL outage fails scanned documents with `SOURCE_EXTRACTION_CONNECTION_FAILED` (or `TIMEOUT`, `INTERNAL`); nothing falls back to Docling or Tesseract. Once the service is back, reindex the affected Source. Check reachability from the application node with `curl -sS -o /dev/null -w '%{http_code}' -X POST http://172.24.244.79:18080/layout-parsing`: an empty request answers 4xx, a refused or hanging connection is the network; the Worker logs `paddleocr_vl.request.completed` and `paddleocr_vl.extraction.failed` with the failure and HTTP status. The request contract is in the [ingestion contract](../specs/ingestion.md#paddleocr-vl-for-scans-and-images).
+
+### Documents read before boxes were kept for images and rotated pages
+
+A citation is marked on a picture, or on a PDF page turned by `/Rotate`, only when the document was read by the adapter that keeps those boxes. A document read earlier holds no such box in its stored extraction, so rebuilding chunks or the Search index does not help: the original has to be read again, with the existing Reindex.
+
+1. Which documents: image Sources files (PNG, JPEG, WebP, BMP, TIFF) and scanned PDFs with turned pages, whose `parser_configuration`, in the Document's `metadata_json`, starts `memoryos-extraction-v2;paddleocr-vl=` and does not contain `boxes=displayed-frame-v1`. A scanned PDF without a turned page gains nothing. In the product, such a document's citation opens the original with nothing marked and the rail reads "Không có lớp văn bản".
+2. Before starting: the organization's OCR reader on AI Provider › OCR is the PaddleOCR-VL connection and *Kiểm tra* passes. With another reader the reindex succeeds and still records no box.
+3. For each file: Sources › the Source › Files › the file's menu › Reindex (`SOURCES_MANAGE`, or the Source's recorded manager). The Source must not be paused. Reindex reads the stored original again and publishes a new generation under the same Document; the previous generation stays served until the new one is ready, and a failed attempt leaves it in place.
+4. Each reindex is one OCR request for the whole file, queued behind `MEMORYOS_EXTRACTION_PADDLEOCR_VL_MAX_CONCURRENT_REQUESTS`; reindex a large Source in batches and watch the Indexing history tab for `SOURCE_EXTRACTION_*` failures.
+5. Check one document of each kind: open a citation into it from Search; the region is marked and the rail reads "Đã đánh dấu".
+
+There is no bulk command for this and none is to be added for it.
 
 ## Local verification
 

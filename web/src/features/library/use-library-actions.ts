@@ -162,8 +162,15 @@ export function useLibraryActions({
   /** The commands a file row offers, beside the ones that open a dialog of the page. */
   const rowCommands: Pick<
     RowActions,
-    "onFavorite" | "onRestore" | "onPurge" | "onRetried" | "onRemoveFromProject"
+    "onFavorite" | "onRestore" | "onPurge" | "onRetried" | "onRemoveFromProject" | "onAsk"
   > = {
+    // Opens a conversation with the file attached and nothing sent, as a meeting or an assistant's file does.
+    onAsk:
+      chat &&
+      ((file) =>
+        void askAbout(file, "", { library: [], uploads: [] }).catch((failure: unknown) =>
+          notify({ title: actionErrorText(failure), tone: "error" }),
+        )),
     onFavorite: (file) =>
       change.mutate(
         {

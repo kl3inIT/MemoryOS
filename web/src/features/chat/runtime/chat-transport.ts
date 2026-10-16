@@ -3,6 +3,7 @@ import type { ChatTransport, UIMessageChunk } from "ai";
 import { ApiError } from "@/lib/api";
 import {
   cancelChatMessage,
+  decideChatToolCall,
   getChatHistory,
   pinChatReasoningEffort,
   sendChatMessage,
@@ -46,7 +47,9 @@ import {
   online,
   outcomeSchema,
   pause,
+  waitingSchema,
   textSchema,
+  toolApprovalSchema,
 } from "./chat-stream-events";
 import {
   ActivityChunks,
@@ -64,6 +67,16 @@ import {
   researchReportEventSchema,
   type ResearchState,
 } from "@/features/chat/research/chat-research";
+
+/**
+ * The answers a person who manages MCP servers can give a call that asks first (MEM-267): once, always (the tool then
+ * runs without asking), or not. assistant-ui reads them from the gate's descriptor.
+ */
+const ALWAYS_ALLOW_OPTIONS = [
+  { id: "allow-once", kind: "allow-once" },
+  { id: "allow-always", kind: "allow-always" },
+  { id: "reject-once", kind: "reject-once" },
+];
 
 export type ConnectionState = "ready" | "sending" | "streaming" | "recovering" | "uncertain";
 type Callbacks = {
@@ -133,6 +146,8 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
   private onModelAccepted?: (selection: Accepted) => void;
   /** Project for the session created by the first send; ignored once the session exists. */
   projectId?: string;
+  /** Assistant of the session created by the first send; the default assistant when unset. */
+  personaId?: string;
   onSessionCreated?: (session: ChatSession) => void;
   /** Any failure before the first session exists, so thread initialization can be retried. */
   onSessionFailed?: (error: unknown) => void;
@@ -284,7 +299,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
         this.session = await newChatSession(
           text,
           signal,
-          undefined,
+          this.personaId,
           this.projectId,
           this.temporary,
         );
@@ -353,6 +368,16 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     return this.read(this.openReader(options.abortSignal));
   }
 
+  /** The person's answer to a tool call of the running reply that waits for approval (MEM-253). */
+  async decideToolCall(toolCallId: string, approved: boolean, alwaysAllow = false): Promise<void> {
+    if (!this.runId || !this.session) throw new Error("No running reply to answer");
+    await decideChatToolCall({
+      path: { sessionId: this.session.id, assistantMessageId: this.runId, toolCallId },
+      body: { approved, ...(alwaysAllow && { alwaysAllow }) },
+      throwOnError: true,
+    });
+  }
+
   stop(): Promise<void> {
     if (!this.runId || !this.session) {
       if (this.sending) this.stopWhenAccepted = true;
@@ -414,6 +439,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     let generatedFiles: GeneratedFile[] = [];
     let outcome: "COMPLETED" | "CANCELED" | "FAILED" | undefined;
     let failureCode: string | undefined;
+    let context: { tokens: number; limit: number } | undefined;
     let fallback = false;
     const createdAt = this.runCreatedAt;
     yield {
@@ -483,6 +509,8 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
             } else if (envelope.event === "outcome") {
               const terminal = outcomeSchema.parse(data);
               outcome = terminal.status;
+              if (terminal.contextTokens != null && terminal.contextLimit != null)
+                context = { tokens: terminal.contextTokens, limit: terminal.contextLimit };
               failureCode = terminal.failureCode ?? undefined;
               hasArtifacts = terminal.hasArtifacts;
               break;
@@ -538,6 +566,40 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
                 codeSchema.parse(data),
               ));
               yield { type: "message-metadata", messageMetadata: { codeRuns, generatedFiles } };
+            } else if (envelope.event === "tool_approval") {
+              // MEM-253: the AI SDK's own approval gate on the tool part; assistant-ui adds respondToApproval to it,
+              // and the runtime's onRespondToToolApproval sends the answer to the server, which owns the paused call.
+              // MEM-267: the decided event settles the gate too, so an answer from another tab or a replay after a
+              // reconnect shows on the card, and a call nobody answered in time stops offering its buttons.
+              const approval = toolApprovalSchema.parse(data);
+              const descriptor = {
+                serverName: approval.serverName,
+                toolName: approval.toolName,
+                toolTitle: approval.toolTitle ?? undefined,
+                arguments: approval.arguments,
+              };
+              if (!approval.decision || approval.decision === "NO_DECISION")
+                yield {
+                  type: "tool-approval-request",
+                  approvalId: approval.toolCallId,
+                  toolCallId: approval.toolCallId,
+                  approvalDescriptor: approval.decision
+                    ? { ...descriptor, resolution: "expired" }
+                    : approval.alwaysAllowable
+                      ? { ...descriptor, options: ALWAYS_ALLOW_OPTIONS }
+                      : descriptor,
+                };
+              else
+                yield {
+                  type: "tool-approval-response",
+                  approvalId: approval.toolCallId,
+                  approved: approval.decision === "APPROVED",
+                };
+            } else if (envelope.event === "waiting") {
+              yield {
+                type: "message-metadata",
+                messageMetadata: { waiting: waitingSchema.parse(data).waiting },
+              };
             }
             // Other event types from a newer server are skipped; the committed history stays authoritative.
           }
@@ -604,10 +666,12 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
         messageMetadata: {
           serverStatus: outcome,
           failureCode,
+          ...(context && { context }),
           sources,
           artifacts,
           images,
           imageGenerating: false,
+          waiting: false,
           codeRuns,
           generatedFiles,
         },

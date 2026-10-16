@@ -1,6 +1,5 @@
 import { Globe } from "lucide-react";
 import { ConnectionStatusBadge } from "@/components/composites/connection-form";
-import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { ProviderCard } from "@/components/provider-logos/provider-card";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -52,12 +51,7 @@ export function ChatWebSettings() {
   const searchActive = connections.data?.some((connection) => connection.searchActive) ?? false;
   const builtInReader = !connections.data?.some((connection) => connection.contentActive);
   return (
-    <SettingsLayout>
-      <PageHeader
-        title={ui("Tìm kiếm Web")}
-        icon={<Globe />}
-        description={ui("Cài đặt tìm kiếm bên ngoài trên internet.")}
-      />
+    <>
       {connections.isError ? (
         <Alert variant="destructive">
           <AlertTitle>{ui("Không tải được kết nối Web.")}</AlertTitle>
@@ -118,6 +112,6 @@ export function ChatWebSettings() {
           <AlertTitle>{problemMessage(webProblem(select.error))}</AlertTitle>
         </Alert>
       ) : null}
-    </SettingsLayout>
+    </>
   );
 }

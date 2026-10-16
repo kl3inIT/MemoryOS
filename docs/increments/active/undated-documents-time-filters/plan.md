@@ -23,11 +23,11 @@
 - `SearchToolTest`: an inferred window that returns nothing is retried without it and then answers; a
   window the user asked for is kept and asked once. The Persona cutoff is covered in
   `SearchFiltersUndatedTest`, where the floor is built.
-- `./gradlew :core:test`. The repository-wide `clean check` cannot pass in this working tree: the
+- `./gradlew :memoryos-core:test`. The repository-wide `clean check` cannot pass in this working tree: the
   in-flight meeting-notes work added `ModelFlow.MEETING_MINUTES` without updating
   `ModelCatalogConstraintsTest`, which is the only other failure and is unrelated to this change.
 - Staging after release: re-run the reproduction; `exec` reads and cites both documents. Then
-  `rag-benchmark run --only temporal` and `--only cross_department`.
+  the MEM-230 benchmark's temporal and cross-department questions (`build_config.py --only`).
 
 ## Out of scope
 

@@ -12,6 +12,7 @@ OPTIONAL = (
     ("MAILPIT", "MEMORYOS_MAILPIT_PUBLIC_URL", "MEMORYOS_MAILPIT_OAUTH2_CLIENT_SECRET"),
     ("PGWEB", "MEMORYOS_PGWEB_PUBLIC_URL", "MEMORYOS_PGWEB_OAUTH2_CLIENT_SECRET"),
     ("REDISINSIGHT", "MEMORYOS_REDISINSIGHT_PUBLIC_URL", "MEMORYOS_REDISINSIGHT_OAUTH2_CLIENT_SECRET"),
+    ("PROMPTFOO", "MEMORYOS_PROMPTFOO_PUBLIC_URL", "MEMORYOS_PROMPTFOO_OAUTH2_CLIENT_SECRET"),
     ("MINIO_CONSOLE", "MEMORYOS_MINIO_CONSOLE_PUBLIC_URL", "MEMORYOS_MINIO_CONSOLE_OIDC_CLIENT_SECRET"),
 )
 
@@ -61,7 +62,7 @@ class RealmSessionLifetimeTest(unittest.TestCase):
         update = "jq -cn '{ssoSessionIdleTimeout: 604800, ssoSessionMaxLifespan: 604800}'"
         self.assertEqual(1, SCRIPT.count(update))
         self.assertLess(SCRIPT.index(update), SCRIPT.index('configured_theme=$("$KCADM" get "realms/$TARGET_REALM"'))
-        application = (ROOT / "api/src/main/resources/application.yaml").read_text(encoding="utf-8")
+        application = (ROOT / "memoryos-api/src/main/resources/application.yaml").read_text(encoding="utf-8")
         self.assertIn("session-max-lifetime: 7d", application)
 
 

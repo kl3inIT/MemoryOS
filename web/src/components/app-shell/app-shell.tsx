@@ -5,7 +5,6 @@ import {
   Blocks,
   Cable,
   ChartColumn,
-  ChevronDown,
   HardDrive,
   Menu,
   MessageSquare,
@@ -18,12 +17,10 @@ import {
 } from "lucide-react";
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { AccountMenu } from "@/components/app-shell/account-menu";
-import { readFoldedGroups, rememberFoldedGroups } from "@/components/app-shell/admin-menu-folds";
 import {
   adminGroups,
   adminPages,
   useCurrentAdminPage,
-  type AdminGroup,
   type AdminPage,
 } from "@/components/app-shell/admin-pages";
 import { AppShellHeaderContent } from "@/components/app-shell/app-shell-header";
@@ -39,7 +36,6 @@ import {
   type SourceSetupProgress,
 } from "@/components/app-shell/source-setup-progress";
 import { Brand } from "@/components/brand";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { IconButton } from "@/components/ui/icon-button";
 import { SheetClose } from "@/components/ui/sheet";
 import {
@@ -61,7 +57,6 @@ import { useAdminAccess } from "@/features/identity/application-session-context"
 import { AccessDeniedScreen } from "@/features/identity/session-states";
 import { appText, type AppText } from "@/i18n/app-text";
 import { cn } from "@/lib/utils";
-import { ChatHistorySearch } from "@/features/chat/session/chat-history-search";
 import { ChatNavigation } from "@/features/chat/session/chat-navigation";
 import { MeetingsTab } from "@/features/meetings/meetings-tab";
 
@@ -82,7 +77,12 @@ const settingsPages: readonly SettingsEntry[] = [
   generalSettings,
   { id: "chat", to: "/settings/chat", label: appText("Chat"), icon: MessageSquare },
   { id: "storage", to: "/settings/storage", label: appText("Bộ nhớ lưu trữ"), icon: HardDrive },
-  { id: "connections", to: "/settings/connections", label: appText("Connections"), icon: Blocks },
+  {
+    id: "connections",
+    to: "/settings/connections",
+    label: appText("Ứng dụng"),
+    icon: Blocks,
+  },
   { id: "mcp", to: "/settings/mcp", label: appText("MemoryOS MCP"), icon: Cable },
   { id: "usage", to: "/settings/usage", label: appText("Usage"), icon: ChartColumn },
 ];
@@ -163,49 +163,6 @@ function NavigationGroup({ title, children }: { title: string; children: ReactNo
   );
 }
 
-/**
- * A section of the administration menu that the person folds under its heading. The rail has no headings, so
- * there every row stays; a phone's menu uses {@link NavigationGroup}, which does not fold.
- */
-function FoldingNavigationGroup({
-  title,
-  open,
-  onOpenChange,
-  children,
-}: {
-  title: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  children: ReactNode;
-}) {
-  const headingId = useId();
-  return (
-    <Collapsible open={open} onOpenChange={onOpenChange} asChild>
-      <SidebarGroup role="group" aria-labelledby={headingId}>
-        <SidebarGroupLabel asChild>
-          <h2 id={headingId}>
-            <CollapsibleTrigger asChild>
-              <button
-                type="button"
-                className="group/trigger flex flex-1 items-center gap-2 rounded-sm text-left outline-none hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/40"
-              >
-                <span className="flex-1">{title}</span>
-                <ChevronDown
-                  aria-hidden="true"
-                  className="size-4 shrink-0 transition-transform group-data-[state=open]/trigger:rotate-180"
-                />
-              </button>
-            </CollapsibleTrigger>
-          </h2>
-        </SidebarGroupLabel>
-        <CollapsibleContent>
-          <SidebarMenu>{children}</SidebarMenu>
-        </CollapsibleContent>
-      </SidebarGroup>
-    </Collapsible>
-  );
-}
-
 function SidebarContents({ area, adminPage, settingsPage, sourceSetup }: SidebarContentsProps) {
   const ui = useAppTranslation();
   const { state, isMobile, setOpenMobile, toggleSidebar } = useSidebar();
@@ -218,29 +175,6 @@ function SidebarContents({ area, adminPage, settingsPage, sourceSetup }: Sidebar
 
   // The administration menu outgrows a laptop screen, and its resting scrollbar is invisible: on every navigation
   // the open page's own link scrolls into view, and nothing moves when it is already visible.
-  // Every section is open, so a page is found by reading rather than by remembering its section. A section folds
-  // only when the person folds it, which the browser remembers. The open page's section is always open.
-  const currentGroup = appArea
-    ? undefined
-    : adminPages.find((page) => page.id === adminPage)?.group;
-  const [foldedGroups, setFoldedGroups] = useState<ReadonlySet<AdminGroup>>(
-    () => readFoldedGroups() ?? new Set(),
-  );
-  const [followedGroup, setFollowedGroup] = useState(currentGroup);
-  if (followedGroup !== currentGroup) {
-    setFollowedGroup(currentGroup);
-    if (currentGroup && foldedGroups.has(currentGroup)) {
-      setFoldedGroups((folded) => new Set([...folded].filter((group) => group !== currentGroup)));
-    }
-  }
-  const setGroupOpen = (group: AdminGroup, open: boolean) => {
-    const next = new Set(foldedGroups);
-    if (open) next.delete(group);
-    else next.add(group);
-    setFoldedGroups(next);
-    rememberFoldedGroups(next);
-  };
-
   const navigation = useRef<HTMLElement>(null);
   useEffect(() => {
     if (appArea) return;
@@ -280,9 +214,6 @@ function SidebarContents({ area, adminPage, settingsPage, sourceSetup }: Sidebar
             >
               <Brand />
             </Link>
-            {appArea && sourceSetup === undefined ? (
-              <ChatHistorySearch variant="icon" onNavigate={onNavigate} />
-            ) : null}
             {isMobile ? (
               <SheetClose asChild>
                 <IconButton prominence="internal" size="md" aria-label={ui("Close navigation")}>
@@ -346,34 +277,22 @@ function SidebarContents({ area, adminPage, settingsPage, sourceSetup }: Sidebar
               const pages = adminPages.filter(
                 (page) => page.group === group.id && page.visible(authority),
               );
-              if (pages.length === 0) return null;
-              const links = pages.map((page) => (
-                <SidebarLink
-                  key={page.id}
-                  to={page.to}
-                  label={ui(page.label)}
-                  // Without this the router marks the Sources tab current on every page under /admin.
-                  activeOptions={page.id === "sources" ? { exact: true } : undefined}
-                  icon={<page.icon />}
-                  selected={adminPage === page.id}
-                  onNavigate={onNavigate}
-                />
-              ));
-              // A phone's menu is opened to reach a page and closes on the way there, so its sections never fold.
-              return isMobile ? (
+              return pages.length > 0 ? (
                 <NavigationGroup key={group.id} title={ui(group.label)}>
-                  {links}
+                  {pages.map((page) => (
+                    <SidebarLink
+                      key={page.id}
+                      to={page.to}
+                      label={ui(page.label)}
+                      // Without this the router marks the Sources tab current on every page under /admin.
+                      activeOptions={page.id === "sources" ? { exact: true } : undefined}
+                      icon={<page.icon />}
+                      selected={adminPage === page.id}
+                      onNavigate={onNavigate}
+                    />
+                  ))}
                 </NavigationGroup>
-              ) : (
-                <FoldingNavigationGroup
-                  key={group.id}
-                  title={ui(group.label)}
-                  open={collapsed || !foldedGroups.has(group.id)}
-                  onOpenChange={(open) => setGroupOpen(group.id, open)}
-                >
-                  {links}
-                </FoldingNavigationGroup>
-              );
+              ) : null;
             })
           )}
         </nav>

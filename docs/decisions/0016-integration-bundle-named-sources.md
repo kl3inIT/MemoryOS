@@ -4,7 +4,7 @@ Date: 2026-09-25
 
 ## Status
 
-Accepted; implemented 2026-09-25. Replaces the module name and the `io.memoryos.provider.<provider>` package layout of [ADR 0006](0006-shared-connector-bundle-and-jdbc-source-persistence.md); ADR 0006's single-bundle rationale and its JDBC persistence decision stand.
+Superseded by [ADR 0027](0027-integrations-by-platform-and-memoryos-module-names.md) on 2026-10-12. Accepted; implemented 2026-09-25. Replaces the module name and the `io.memoryos.provider.<provider>` package layout of [ADR 0006](0006-shared-connector-bundle-and-jdbc-source-persistence.md); ADR 0006's single-bundle rationale and its JDBC persistence decision stand.
 
 ## Context
 

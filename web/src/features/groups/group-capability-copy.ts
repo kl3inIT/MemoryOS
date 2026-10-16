@@ -27,6 +27,11 @@ export const capabilityCopy: Record<GroupCapability["id"], { label: string; desc
       description:
         "Read and export who changed sign-in, users, Groups, models, connections and Sources within the organization.",
     },
+    CHANNELS_MANAGE: {
+      label: "Manage chat bots",
+      description:
+        "Connect, configure, switch on or off and remove the organization's chat bots, such as the Lark bot.",
+    },
     MCP_MANAGE: {
       label: "Manage MCP servers",
       description:

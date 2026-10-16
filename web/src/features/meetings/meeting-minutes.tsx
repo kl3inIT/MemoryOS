@@ -155,7 +155,7 @@ function MinutesFailure({ failure }: { failure: string | null }) {
         {manager && (
           <>
             {" · "}
-            <Link to="/admin/models">{ui("Cập nhật API key")}</Link>
+            <Link to="/admin/ai-providers">{ui("Cập nhật API key")}</Link>
           </>
         )}
       </>
@@ -167,7 +167,7 @@ function MinutesFailure({ failure }: { failure: string | null }) {
         {manager && (
           <>
             {" · "}
-            <Link to="/admin/models">{ui("Thêm model")}</Link>
+            <Link to="/admin/ai-providers">{ui("Thêm model")}</Link>
           </>
         )}
       </>

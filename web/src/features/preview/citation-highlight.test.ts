@@ -54,6 +54,29 @@ describe("placeCitations", () => {
     expect(placed?.range?.toString()).toBe("Doanh thu quý 3 đạt 412 tỷ đồng.");
   });
 
+  it("ranges the reader's words inside a placed passage only", () => {
+    const container = render(
+      "<p>Chi phí bán hàng giảm.</p><p>Chi phí <strong>quản lý</strong> tăng 12%.</p>",
+    );
+    const placed = placeCitations(
+      container,
+      ["Chi phí quản lý tăng 12%.", "Không có trong tài liệu."],
+      [],
+      ["chi phí quản lý", "chi phí", "tăng"],
+    );
+    // "Chi phí" also stands in the first paragraph, which is not a cited passage.
+    expect(placed[0]?.terms?.map((term) => term.toString())).toEqual(["Chi phí quản lý", "tăng"]);
+    expect(placed[1]).toEqual({ confidence: "none" });
+  });
+
+  it("ranges no words when none were asked for or none occur", () => {
+    const container = render("<p>Chi phí quản lý tăng 12%.</p>");
+    expect(placeCitations(container, ["Chi phí quản lý tăng 12%."])[0]?.terms).toBeUndefined();
+    expect(
+      placeCitations(container, ["Chi phí quản lý tăng 12%."], [], ["doanh thu"])[0]?.terms,
+    ).toEqual([]);
+  });
+
   it("places nothing in an empty container", () => {
     expect(placeCitations(render(""), ["Doanh thu quý 3."])).toEqual([{ confidence: "none" }]);
   });

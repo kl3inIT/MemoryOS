@@ -1,0 +1,657 @@
+package io.memoryos.worker;
+
+import com.sun.net.httpserver.HttpServer;
+import io.memoryos.connector.SourceUploadReceipt;
+import io.memoryos.document.ExtractionArtifactPort;
+import io.memoryos.iam.TenantAccessResolver;
+import io.memoryos.ingestion.OperationWorkload;
+import io.memoryos.objectstorage.ObjectUploadCleanupPort;
+import io.memoryos.objectstorage.ObjectUploadService;
+import io.memoryos.shared.TenantId;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import io.memoryos.connector.SourceManagementService;
+import io.memoryos.connector.SourceStatus;
+import io.memoryos.objectstorage.ContentSha256;
+import io.memoryos.objectstorage.ObjectUploadSpecification;
+import io.memoryos.shared.ActorId;
+
+import io.micrometer.core.instrument.MeterRegistry;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.context.Context;
+import io.opentelemetry.sdk.OpenTelemetrySdk;
+import io.opentelemetry.sdk.trace.ReadWriteSpan;
+import io.opentelemetry.sdk.trace.ReadableSpan;
+import io.opentelemetry.sdk.trace.SdkTracerProvider;
+import io.opentelemetry.sdk.trace.SpanProcessor;
+import io.opentelemetry.sdk.trace.data.SpanData;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.InetSocketAddress;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.Duration;
+import java.util.HexFormat;
+import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.LockSupport;
+import java.util.UUID;
+import java.util.function.BooleanSupplier;
+import java.util.Map;
+
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
+import javax.imageio.ImageIO;
+import org.assertj.core.api.Assertions;
+import org.assertj.core.data.Offset;
+import org.jspecify.annotations.NonNull;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.slf4j.MDC;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.utility.DockerImageName;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3Configuration;
+import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
+import org.springframework.data.redis.connection.stream.Consumer;
+import org.springframework.data.redis.connection.stream.ReadOffset;
+import org.springframework.data.redis.connection.stream.StreamOffset;
+import org.springframework.data.redis.connection.stream.StreamReadOptions;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import io.memoryos.library.UserFileProperties;
+import io.memoryos.library.UserFileService;
+import io.memoryos.library.LibraryStorageProperties;
+import io.memoryos.library.StorageQuotaService;
+import io.memoryos.library.UserFile;
+import io.memoryos.library.persistence.JdbcLibraryRepository;
+import io.memoryos.library.persistence.JdbcUserFileRepository;
+import io.memoryos.chat.files.ChatFileAttachments;
+import io.memoryos.chat.files.persistence.JdbcChatFileAttachmentRepository;
+import io.memoryos.library.LibraryTrashProperties;
+
+@SpringBootTest(
+        webEnvironment = SpringBootTest.WebEnvironment.NONE,
+        properties = {
+                "arconia.dev.services.redis.enabled=false",
+                "management.otlp.metrics.export.enabled=true",
+                "management.otlp.metrics.export.step=1s",
+                "management.otlp.metrics.export.aggregation-temporality=cumulative",
+                "management.opentelemetry.resource-attributes.service.name=memoryos-worker",
+                "db-scheduler.enabled=true",
+                "db-scheduler.scheduler-name=redis-cutover-integration",
+                "db-scheduler.polling-interval=50ms",
+                "management.endpoint.health.group.readiness.include=readinessState,db,redis,dbScheduler",
+                "memoryos.worker.enabled=true",
+                "memoryos.search.embedding-endpoint=http://127.0.0.1:1",
+                "memoryos.redis.relay-interval=50ms",
+                "memoryos.redis.rediscovery-delay=750ms",
+                "memoryos.redis.transport-backoff=100ms",
+                "memoryos.redis.consumer-block=100ms",
+                "memoryos.redis.reclaim-interval=250ms",
+                "memoryos.redis.reclaim-idle=500ms",
+                "memoryos.redis.ingestion.stream=memoryos:test:cutover:ingestion",
+                "memoryos.redis.ingestion.group=memoryos-test-cutover-ingestion",
+                "memoryos.redis.ingestion.batch-size=4",
+                "memoryos.redis.cleanup.stream=memoryos:test:cutover:cleanup",
+                "memoryos.redis.cleanup.group=memoryos-test-cutover-cleanup",
+                "memoryos.redis.cleanup.batch-size=4",
+                "memoryos.redis.search.stream=memoryos:test:cutover:search",
+                "memoryos.redis.search.group=memoryos-test-cutover-search",
+                "memoryos.redis.source-sync.stream=memoryos:test:cutover:source-sync",
+                "memoryos.redis.source-sync.group=memoryos-test-cutover-source-sync",
+                "memoryos.redis.selection-validation.stream=memoryos:test:cutover:selection-validation",
+                "memoryos.redis.selection-validation.group=memoryos-test-cutover-selection-validation"
+        }
+)
+@Import(WorkerFileProcessingIntegrationTest.TelemetryConfiguration.class)
+@Testcontainers
+@SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection", "unchecked", "resource", "HttpUrlsUsage"})
+class WorkerFileProcessingIntegrationTest {
+    @Autowired
+    private ExtractionArtifactPort extractionArtifacts;
+
+    private static final List<SpanData> SPANS = new CopyOnWriteArrayList<>();
+
+    @TestConfiguration(proxyBeanMethods = false)
+    static class TelemetryConfiguration {
+        @Bean
+        OpenTelemetry operationTestTelemetry() {
+            var processor = new SpanProcessor() {
+                public void onStart(@NonNull Context parent,
+                                    @NonNull ReadWriteSpan span) {}
+                public boolean isStartRequired() { return false; }
+                public void onEnd(ReadableSpan span) { SPANS.add(span.toSpanData()); }
+                public boolean isEndRequired() { return true; }
+            };
+            return OpenTelemetrySdk.builder().setTracerProvider(
+                    SdkTracerProvider.builder().addSpanProcessor(processor).build()).build();
+        }
+    }
+
+    private static final List<String> METRIC_EXPORTS = new CopyOnWriteArrayList<>();
+    private static final HttpServer METRICS_RECEIVER = metricsReceiver();
+
+    private static HttpServer metricsReceiver() {
+        try {
+            var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+            server.createContext("/v1/metrics", exchange -> {
+                byte[] body = exchange.getRequestBody().readAllBytes();
+                METRIC_EXPORTS.add(new String(body, StandardCharsets.ISO_8859_1));
+                String forward = System.getenv("MEMORYOS_TEST_OTLP_FORWARD");
+                if (forward != null) {
+                    var connection = (HttpURLConnection) URI.create(forward + "/v1/metrics").toURL().openConnection();
+                    try {
+                        connection.setConnectTimeout(2000);
+                        connection.setReadTimeout(2000);
+                        connection.setRequestMethod("POST");
+                        connection.setDoOutput(true);
+                        connection.setRequestProperty("Content-Type", "application/x-protobuf");
+                        try (var output = connection.getOutputStream()) { output.write(body); }
+                        if (connection.getResponseCode() != 200) throw new IOException("Collector rejected metrics");
+                    } finally {
+                        connection.disconnect();
+                    }
+                }
+                exchange.sendResponseHeaders(200, -1);
+                exchange.close();
+            });
+            server.start();
+            return server;
+        } catch (IOException exception) {
+            throw new IllegalStateException("Could not start metrics receiver", exception);
+        }
+    }
+
+    @AfterAll
+    static void stopMetricsReceiver() { METRICS_RECEIVER.stop(0); }
+
+    private static final String INGESTION_STREAM = "memoryos:test:cutover:ingestion";
+    private static final String INGESTION_GROUP = "memoryos-test-cutover-ingestion";
+    private static final String CLEANUP_STREAM = "memoryos:test:cutover:cleanup";
+    private static final String CLEANUP_GROUP = "memoryos-test-cutover-cleanup";
+    private static final DockerImageName POSTGRES_IMAGE = DockerImageName.parse(
+            "postgres:18.4-bookworm@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382"
+    ).asCompatibleSubstituteFor("postgres");
+
+    @Container
+    private static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(POSTGRES_IMAGE)
+            .withDatabaseName("memoryos")
+            .withUsername("memoryos")
+            .withPassword("memoryos");
+
+    @Container
+    private static final GenericContainer<?> REDIS = new GenericContainer<>(
+            DockerImageName.parse(
+                    "redis:8.2.1-alpine@sha256:987c376c727652f99625c7d205a1cba3cb2c53b92b0b62aade2bd48ee1593232"
+            )
+    )
+            .withExposedPorts(6379)
+            .waitingFor(Wait.forLogMessage(".*Ready to accept connections.*\\n", 1))
+            .withStartupTimeout(Duration.ofSeconds(30));
+
+
+    @Container
+    private static final GenericContainer<?> MINIO = new GenericContainer<>(
+            DockerImageName.parse(
+                    "ghcr.io/kl3init/memoryos-minio:RELEASE.2025-04-22T22-12-26Z"
+                            + "@sha256:159a90402c72e031227cdf0f3fb0ba82c54e517a110b2d0b462817dc849b0ac2"
+            )
+    )
+            .withEnv("MINIO_ROOT_USER", "memoryos-test")
+            .withEnv("MINIO_ROOT_PASSWORD", "memoryos-test-secret")
+            .withCommand("server", "/data")
+            .withExposedPorts(9000)
+            .waitingFor(Wait.forHttp("/minio/health/ready").forPort(9000));
+
+    private static final String OBJECT_BUCKET = "memoryos-test";
+
+    private static final ActorId OWNER = new ActorId(
+            UUID.fromString("ac009796-bf52-4d3b-b619-acbde4e46717")
+    );
+    private static final UUID TENANT_ID =
+            UUID.fromString("4595ef61-4758-4dcf-982a-a0d69ceec87f");
+
+
+    @Autowired
+    private MeterRegistry registry;
+
+    @Autowired
+    private JdbcClient jdbcClient;
+
+    @Autowired
+    private SourceManagementService sources;
+
+    @Autowired
+    private StringRedisTemplate redis;
+
+    @Autowired
+    private RedisStreamWorker worker;
+
+    @Autowired
+    private RedisExecutionTopology topology;
+
+    @Autowired private TenantAccessResolver tenants;
+    @Autowired private ObjectUploadService objectUploads;
+    @Autowired private ObjectUploadCleanupPort objectCleanup;
+    @Autowired private PlatformTransactionManager transactions;
+    @Autowired private RedisExecutionProperties redisProperties;
+
+    @DynamicPropertySource
+    static void serviceProperties(DynamicPropertyRegistry registry) {
+        if (System.getenv("DOCLING_TEST_ENDPOINT") != null) {
+            registry.add("memoryos.extraction.docling.endpoint", () -> System.getenv("DOCLING_TEST_ENDPOINT"));
+            registry.add("memoryos.extraction.docling.api-key",
+                    () -> System.getenv().getOrDefault("DOCLING_TEST_API_KEY", ""));
+        }
+        registry.add("management.otlp.metrics.export.url", () -> "http://127.0.0.1:" + METRICS_RECEIVER.getAddress().getPort() + "/v1/metrics");
+        WorkerPostgresDatabase.configure(registry, POSTGRES);
+        registry.add("spring.data.redis.host", REDIS::getHost);
+        registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
+        registry.add("memoryos.object-storage.s3.service-endpoint", WorkerFileProcessingIntegrationTest::minioEndpoint);
+        registry.add("memoryos.object-storage.s3.upload-endpoint", WorkerFileProcessingIntegrationTest::minioEndpoint);
+        registry.add("memoryos.object-storage.s3.region", () -> "us-east-1");
+        registry.add("memoryos.object-storage.s3.bucket", () -> OBJECT_BUCKET);
+        registry.add("memoryos.object-storage.s3.access-key", () -> "memoryos-test");
+        registry.add("memoryos.object-storage.s3.secret-key", () -> "memoryos-test-secret");
+        registry.add("memoryos.object-storage.s3.path-style-access", () -> "true");
+        registry.add("memoryos.object-storage.s3.authorization-lifetime", () -> "10m");
+    }
+
+    @BeforeAll
+    static void createObjectBucket() {
+        try (S3Client client = s3Client()) {
+            client.createBucket(CreateBucketRequest.builder().bucket(OBJECT_BUCKET).build());
+        }
+    }
+
+
+    @BeforeEach
+    void seedOwner() {
+        UUID tenantId = TENANT_ID;
+        jdbcClient.sql("INSERT INTO actors (id) VALUES (:id)").param("id", OWNER.value()).update();
+        jdbcClient.sql("""
+                        INSERT INTO tenants (
+                            id, slug, display_name, status, bootstrap_reference
+                        ) VALUES (
+                            :id, 'worker-file', 'Worker file', 'ACTIVE', 'MEM-35-WORKER-TEST'
+                        )
+                        """)
+                .param("id", tenantId)
+                .update();
+        jdbcClient.sql("""
+                        INSERT INTO tenant_memberships (
+                            tenant_id, actor_id, role, status
+                        ) VALUES (:tenantId, :actorId, 'OWNER', 'ACTIVE')
+                        """)
+                .param("tenantId", tenantId)
+                .param("actorId", OWNER.value())
+                .update();
+        UUID adminGroupId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UUID basicGroupId = UUID.fromString("00000000-0000-0000-0000-000000000002");
+        jdbcClient.sql("""
+                        INSERT INTO iam_groups (tenant_id, id, name, system_key)
+                        VALUES (:tenantId, :adminGroupId, 'Admin', 'ADMIN'),
+                               (:tenantId, :basicGroupId, 'Basic', 'BASIC')
+                        """)
+                .param("tenantId", tenantId)
+                .param("adminGroupId", adminGroupId)
+                .param("basicGroupId", basicGroupId)
+                .update();
+        jdbcClient.sql("""
+                        INSERT INTO iam_group_capability_grants (tenant_id, group_id, capability)
+                        VALUES (:tenantId, :adminGroupId, 'SYSTEM_ADMIN')
+                        """)
+                .param("tenantId", tenantId)
+                .param("adminGroupId", adminGroupId)
+                .update();
+        jdbcClient.sql("""
+                        INSERT INTO iam_group_memberships (tenant_id, group_id, actor_id)
+                        VALUES (:tenantId, :adminGroupId, :actorId),
+                               (:tenantId, :basicGroupId, :actorId)
+                        """)
+                .param("tenantId", tenantId)
+                .param("adminGroupId", adminGroupId)
+                .param("basicGroupId", basicGroupId)
+                .param("actorId", OWNER.value())
+                .update();
+    }
+
+    @Test
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
+    void redisStreamsIndexRemoveAndDeleteOneRealFile() throws Exception {
+        worker.stop();
+        var sourceId = sources.createFileSource(OWNER, "Worker knowledge", List.of(), null).id();
+        boolean docling = System.getenv("DOCLING_TEST_ENDPOINT") != null;
+        byte[] content = docling ? docxFixture() : "MemoryOS worker extraction".getBytes(StandardCharsets.UTF_8);
+        String sha256 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
+        var authorization = sources.initiateUpload(
+                OWNER,
+                sourceId,
+                new ObjectUploadSpecification(
+                        docling ? "worker.docx" : "worker.txt",
+                        docling ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : "text/plain",
+                        content.length,
+                        new ContentSha256(sha256)
+                )
+        );
+        HttpRequest.Builder uploadRequest = HttpRequest.newBuilder(authorization.authorization().uri());
+        authorization.authorization().requiredHeaders().forEach(uploadRequest::header);
+        HttpResponse<Void> uploadResponse;
+        try (HttpClient httpClient = HttpClient.newHttpClient()) {
+            uploadResponse = httpClient.send(
+                    uploadRequest.PUT(HttpRequest.BodyPublishers.ofByteArray(content)).build(),
+                    HttpResponse.BodyHandlers.discarding()
+            );
+        }
+        assertEquals(200, uploadResponse.statusCode());
+        SourceUploadReceipt upload;
+        String originTrace = "1234567890abcdef1234567890abcdef";
+        try (var _ = MDC.putCloseable("traceId", originTrace);
+             var _ = MDC.putCloseable("spanId", "1234567890abcdef")) {
+            upload = sources.finalizeUpload(OWNER, sourceId, authorization.uploadId());
+        }
+        assertEquals(originTrace, jdbcClient.sql("SELECT origin_trace_id FROM index_attempts WHERE id = :id")
+                .param("id", upload.operation().id().value()).query(String.class).single());
+        assertEquals(sha256, upload.item().sha256());
+        String objectKey = jdbcClient.sql("""
+                        SELECT object.object_key
+                        FROM connector_item_versions version
+                        JOIN stored_objects object ON object.id = version.stored_object_id
+                        WHERE version.connector_item_id = :itemId
+                        """)
+                .param("itemId", upload.item().id().value())
+                .query(String.class)
+                .single();
+        await(() -> redis.opsForStream().size(INGESTION_STREAM) == 1L);
+        redis.delete(INGESTION_STREAM);
+        topology.reconcileTopology();
+        assertEquals(0L, redis.opsForStream().size(INGESTION_STREAM));
+        await(() -> redis.opsForStream().size(INGESTION_STREAM) == 1L);
+        var abandoned = redis.opsForStream().read(
+                Consumer.from(INGESTION_GROUP, "abandoned-consumer"),
+                StreamReadOptions.empty().count(1).block(Duration.ofSeconds(2)),
+                StreamOffset.create(INGESTION_STREAM, ReadOffset.lastConsumed())
+        );
+        assertEquals(1, abandoned.size());
+        assertEquals(originTrace, abandoned.getFirst().getValue().get("origin_trace_id"));
+        assertEquals(
+                1L,
+                redis.opsForStream().pending(INGESTION_STREAM, INGESTION_GROUP).getTotalPendingMessages()
+        );
+        LockSupport.parkNanos(Duration.ofMillis(600).toNanos());
+        worker.start();
+
+        // The real isolated extractor permits 90 seconds, plus stream reclaim/startup.
+        await(Duration.ofSeconds(120), () -> sources.getSource(OWNER, sourceId).status() == SourceStatus.ACTIVE);
+        assertEquals(1L, sources.getSource(OWNER, sourceId).documentCount());
+        await(() -> registry.get("memoryos.operation.outcomes").tags("workload", "INGESTION", "outcome", "COMPLETED").counter().count() == 1);
+        var initialWait = registry.get("memoryos.operation.initial.queue.wait").tag("workload", "INGESTION").timer();
+        assertEquals(1, initialWait.count());
+        double databaseWaitSeconds = jdbcClient.sql("SELECT EXTRACT(EPOCH FROM started_at - created_at) FROM index_attempts WHERE id = :id")
+                .param("id", upload.operation().id().value()).query(Double.class).single();
+        Assertions.assertThat(initialWait.totalTime(TimeUnit.SECONDS))
+                .isCloseTo(databaseWaitSeconds, Offset.offset(0.000001));
+        await(() -> SPANS.stream().anyMatch(span -> span.getName().equals("memoryos.operation.process")
+                && span.getLinks().stream().anyMatch(link -> link.getSpanContext().getTraceId().equals(originTrace))));
+        Assertions.assertThat(SPANS.stream().filter(span -> span.getName().equals("memoryos.operation.process")))
+                .allMatch(span -> !span.getParentSpanContext().isValid());
+        String artifactKey = jdbcClient.sql("""
+                SELECT a.object_key FROM document_extraction_artifacts a
+                JOIN documents v ON v.tenant_id=a.tenant_id AND v.extraction_artifact_id=a.id
+                WHERE a.state='ACTIVE' AND a.write_complete=TRUE
+                """).query(String.class).single();
+        try (S3Client client = s3Client()) {
+            String artifact = client.getObjectAsBytes(GetObjectRequest.builder()
+                    .bucket(OBJECT_BUCKET).key(artifactKey).build()).asUtf8String();
+            assertTrue(artifact.contains("MemoryOS worker extraction"));
+        }
+        // Rediscovery may publish again while the intentionally stopped consumer is waiting.
+        // Require recovery after stream loss, not an exact timing-dependent delivery count.
+        assertTrue(
+                jdbcClient.sql("SELECT dispatch_attempts FROM index_attempts WHERE id = :id")
+                        .param("id", upload.operation().id().value())
+                        .query(Integer.class)
+                        .single() >= 2
+        );
+        assertEquals(
+                0L,
+                redis.opsForStream().pending(
+                        INGESTION_STREAM,
+                        INGESTION_GROUP
+                ).getTotalPendingMessages()
+        );
+        UUID deliveryId = jdbcClient.sql("SELECT delivery_id FROM index_attempts WHERE id = :id")
+                .param("id", upload.operation().id().value())
+                .query(UUID.class)
+                .single();
+        redis.opsForStream().add(INGESTION_STREAM, Map.of(
+                "tenant_id", TENANT_ID.toString(),
+                "operation_kind", "INGESTION",
+                "operation_id", upload.operation().id().value().toString(),
+                "delivery_id", deliveryId.toString()
+        ));
+        await(() -> redis.opsForStream().size(INGESTION_STREAM) == 0L);
+        assertEquals(
+                1,
+                jdbcClient.sql("SELECT processing_attempts FROM index_attempts WHERE id = :id")
+                        .param("id", upload.operation().id().value())
+                        .query(Integer.class)
+                        .single()
+        );
+
+        await(() -> registry.get("memoryos.operation.outcomes").tags("workload", "INGESTION", "outcome", "SKIPPED").counter().count() >= 1);
+        assertEquals(1, initialWait.count());
+        assertEquals(1, registry.get("memoryos.operation.outcomes").tags("workload", "INGESTION", "outcome", "COMPLETED").counter().count());
+        sources.removeItem(OWNER, sourceId, upload.item().id());
+        await(() -> sources.listItems(OWNER, sourceId, null, 25).items().isEmpty());
+        // The item leaves the listing before its document lets go of the artifact, and cleanup claims only an artifact
+        // no document holds, so a single sweep could run too early and leave nothing to wait for. Sweep until it is gone.
+        await(() -> {
+            extractionArtifacts.cleanup();
+            return jdbcClient.sql("SELECT COUNT(*) FROM document_extraction_artifacts").query(Integer.class).single() == 0;
+        });
+        assertEquals(0L, jdbcClient.sql("SELECT COUNT(*) FROM stored_objects").query(Long.class).single());
+        assertEquals(0L, jdbcClient.sql("SELECT COUNT(*) FROM object_uploads").query(Long.class).single());
+        assertEquals(0L, jdbcClient.sql("SELECT COUNT(*) FROM source_uploads").query(Long.class).single());
+        try (S3Client client = s3Client()) {
+            S3Exception missing = assertThrows(
+                    S3Exception.class,
+                    () -> client.headObject(HeadObjectRequest.builder().bucket(OBJECT_BUCKET).key(objectKey).build())
+            );
+            assertEquals(404, missing.statusCode());
+        }
+
+        verifyPrivateImageWorkerRecovery();
+        sources.deleteSource(OWNER, sourceId);
+        jdbcClient.sql("""
+                        UPDATE tenants SET status = 'INACTIVE', updated_at = CURRENT_TIMESTAMP
+                        WHERE id = :tenantId
+                        """)
+                .param("tenantId", TENANT_ID)
+                .update();
+        await(() -> jdbcClient.sql("""
+                        SELECT COUNT(*) FROM connector_credential_pairs
+                        WHERE id = :sourceId
+                        """)
+                .param("sourceId", sourceId.value())
+                .query(Integer.class)
+                .single() == 0);
+        assertEquals(
+                "SUCCEEDED",
+                jdbcClient.sql("""
+                                SELECT status FROM connector_cleanup_attempts
+                                WHERE target_pair_id = :sourceId AND operation = 'DELETE_SOURCE'
+                                """)
+                        .param("sourceId", sourceId.value())
+                        .query(String.class)
+                        .single()
+        );
+        await(() -> registry.get("memoryos.operation.outcomes").tags("workload", "CLEANUP", "outcome", "COMPLETED").counter().count() == 2);
+        int exportsBeforeFinalOutcomes = METRIC_EXPORTS.size();
+        await(() -> METRIC_EXPORTS.size() > exportsBeforeFinalOutcomes);
+        await(() -> METRIC_EXPORTS.stream().anyMatch(body -> body.contains("memoryos.operation.outcomes")
+                && body.contains("memoryos.operation.initial.queue.wait") && body.contains("COMPLETED")
+                && body.contains("SKIPPED") && body.contains("CLEANUP") && body.contains("memoryos-worker")));
+        assertEquals(2, registry.get("memoryos.operation.initial.queue.wait").tag("workload", "CLEANUP").timer().count());
+        assertEquals(
+                0L,
+                redis.opsForStream().pending(
+                        CLEANUP_STREAM,
+                        CLEANUP_GROUP
+                ).getTotalPendingMessages()
+        );
+    }
+    private void verifyPrivateImageWorkerRecovery() throws Exception {
+        worker.stop();
+        var files = new UserFileService(tenants, new JdbcUserFileRepository(jdbcClient),
+                new ChatFileAttachments(new JdbcChatFileAttachmentRepository(jdbcClient)), objectUploads,
+                new UserFileProperties(104857600, 262144000),
+                new StorageQuotaService(tenants,
+                new LibraryStorageProperties(0), new JdbcLibraryRepository(jdbcClient)),
+                // This suite drives the worker's own release path, so deletion releases at once.
+                new LibraryTrashProperties(Duration.ZERO), transactions);
+        byte[] content;
+        try (var output = new ByteArrayOutputStream()) {
+            var image = new BufferedImage(3000, 2, BufferedImage.TYPE_INT_RGB);
+            assertTrue(ImageIO.write(image, "png", output));
+            image.flush();
+            content = output.toByteArray();
+        }
+        var requestId = UUID.randomUUID();
+        var request = new UserFileService.UploadInput(requestId, "private.png", "image/png", content.length,
+                HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content)));
+        var receipt = files.initiate(OWNER, request);
+        assertEquals(receipt.file().id(), files.initiate(OWNER, request).file().id());
+        var authorization = Objects.requireNonNull(receipt.upload());
+        var upload = HttpRequest.newBuilder(authorization.uri());
+        authorization.requiredHeaders().forEach(upload::header);
+        try (var http = HttpClient.newHttpClient()) {
+            assertEquals(200, http.send(upload.PUT(HttpRequest.BodyPublishers.ofByteArray(content)).build(), HttpResponse.BodyHandlers.discarding()).statusCode());
+        }
+        var id = receipt.file().id();
+        files.finalizeUpload(OWNER, id);
+        files.finalizeUpload(OWNER, id);
+        var stream = redisProperties.workload(OperationWorkload.USER_FILE).stream();
+        await(() -> redis.opsForStream().size(stream) > 0);
+        // This container is test-owned. Lose the delivery and recreate topology, then let durable rediscovery recover it.
+        redis.delete(stream);
+        topology.reconcileTopology();
+        await(() -> redis.opsForStream().size(stream) > 0);
+        worker.start();
+        await(() -> files.get(OWNER, id).status() == UserFile.Status.READY);
+        assertTrue(files.read(OWNER, new TenantId(TENANT_ID), id, 0, 16000).text().contains("3000x2"));
+        assertEquals(1, jdbcClient.sql("SELECT processing_attempts FROM chat_file_work WHERE file_id=:id AND action='PROCESS'")
+                .param("id", id).query(Integer.class).single());
+        assertTrue(jdbcClient.sql("SELECT dispatch_attempts FROM chat_file_work WHERE file_id=:id AND action='PROCESS'")
+                .param("id", id).query(Integer.class).single() >= 2);
+        String rawKey = jdbcClient.sql("SELECT o.object_key FROM stored_objects o JOIN object_uploads u ON u.stored_object_id=o.id JOIN chat_user_file f ON f.upload_id=u.id WHERE f.id=:id")
+                .param("id", id).query(String.class).single();
+        String artifactKey = jdbcClient.sql("SELECT a.object_key FROM document_extraction_artifacts a JOIN documents d ON d.extraction_artifact_id=a.id JOIN chat_user_file f ON f.document_id=d.id WHERE f.id=:id")
+                .param("id", id).query(String.class).single();
+        try (var storage = s3Client()) {
+            String artifact = storage.getObjectAsBytes(GetObjectRequest.builder().bucket(OBJECT_BUCKET).key(artifactKey).build()).asUtf8String();
+            assertTrue(artifact.contains("3000x2"));
+        }
+        files.delete(OWNER, id);
+        await(() -> files.get(OWNER, id).status() == UserFile.Status.DELETED);
+        objectCleanup.cleanupAbandoned();
+        extractionArtifacts.cleanup();
+        try (var storage = s3Client()) {
+            assertEquals(404, assertThrows(S3Exception.class, () -> storage.headObject(HeadObjectRequest.builder().bucket(OBJECT_BUCKET).key(rawKey).build())).statusCode());
+        }
+    }
+
+    private static String minioEndpoint() {
+        return "http://" + MINIO.getHost() + ":" + MINIO.getMappedPort(9000);
+    }
+    private static S3Client s3Client() {
+        return S3Client.builder()
+                .endpointOverride(URI.create(minioEndpoint()))
+                .region(Region.US_EAST_1)
+                .credentialsProvider(StaticCredentialsProvider.create(
+                        AwsBasicCredentials.create("memoryos-test", "memoryos-test-secret")
+                ))
+                .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build())
+                .httpClient(UrlConnectionHttpClient.create())
+                .build();
+    }
+
+
+
+    private static void await(BooleanSupplier condition) {
+        await(Duration.ofSeconds(45), condition);
+    }
+
+    private static void await(Duration timeout, BooleanSupplier condition) {
+        long deadline = System.nanoTime() + timeout.toNanos();
+        while (!condition.getAsBoolean()) {
+            if (System.nanoTime() >= deadline) {
+                throw new AssertionError("worker condition did not converge within " + timeout);
+            }
+            LockSupport.parkNanos(Duration.ofMillis(25).toNanos());
+        }
+    }
+
+    private static byte[] docxFixture() throws Exception {
+        try (var output = new ByteArrayOutputStream(); var zip = new ZipOutputStream(output)) {
+            var entries = Map.of(
+                    "[Content_Types].xml", """
+                    <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+                    <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+                    <Default Extension="xml" ContentType="application/xml"/>
+                    <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+                    </Types>
+                    """,
+                    "_rels/.rels", """
+                    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+                    <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+                    </Relationships>
+                    """,
+                    "word/document.xml", """
+                    <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>
+                    <w:p><w:r><w:t>MemoryOS worker extraction</w:t></w:r></w:p></w:body></w:document>
+                    """);
+            for (var entry : entries.entrySet()) {
+                zip.putNextEntry(new ZipEntry(entry.getKey()));
+                zip.write(entry.getValue().getBytes(StandardCharsets.UTF_8));
+                zip.closeEntry();
+            }
+            zip.finish();
+            return output.toByteArray();
+        }
+    }
+}

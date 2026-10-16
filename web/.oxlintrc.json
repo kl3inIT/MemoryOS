@@ -110,6 +110,8 @@
       "files": [
         "src/features/sources/google-drive/google-drive-icon.tsx",
         "src/features/sources/sharepoint/sharepoint-icon.tsx",
+        "src/components/lark-icon.tsx",
+        "src/components/zalo-icon.tsx",
         "src/components/assistant-ui/elements/logos.tsx",
         "src/components/brand-loader.tsx",
         "src/components/brand.tsx"

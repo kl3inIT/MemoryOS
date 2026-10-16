@@ -51,6 +51,19 @@ describe("interaction controls", () => {
     expect(onClick).not.toHaveBeenCalled();
   });
 
+  it("shows the spinner in place of a leading icon while pending", () => {
+    render(
+      <Button pending>
+        <ArrowRight data-icon="inline-start" data-testid="leading" />
+        Refresh
+      </Button>,
+    );
+
+    const button = screen.getByRole("button", { name: "Refresh" });
+    expect(screen.queryByTestId("leading")).not.toBeInTheDocument();
+    expect(button.querySelectorAll("[data-icon='inline-start']")).toHaveLength(1);
+  });
+
   it("blocks mouse and keyboard activation for disabled or pending composed actions", () => {
     const activation = vi.fn();
     const childProps = {

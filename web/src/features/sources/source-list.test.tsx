@@ -113,3 +113,32 @@ it("gives a provider with more Sources than a page holds its own pages", async (
   expect(rows()).toBe(2);
   expect(within(pages).getByRole("status")).toHaveTextContent("2 / 2");
 });
+
+it("collapses and expands every group from one icon button, and searches through the shared field", async () => {
+  const user = userEvent.setup();
+  const onSearch = vi.fn();
+  render(
+    <SourceList
+      sources={[handbooks]}
+      search="hand"
+      onSearch={onSearch}
+      filters={noSourceFilters}
+      onFilters={() => {}}
+      documents={() => 0}
+      documentsLabel="Total docs"
+      renderName={(source) => <span>{source.name}</span>}
+    />,
+  );
+
+  const collapse = screen.getByRole("button", { name: "Collapse all" });
+  expect(collapse).toHaveTextContent("");
+  expect(screen.getByText("Handbooks")).toBeInTheDocument();
+  await user.click(collapse);
+  expect(screen.queryByText("Handbooks")).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Expand all" }));
+  expect(screen.getByText("Handbooks")).toBeInTheDocument();
+
+  expect(screen.getByRole("textbox", { name: "Search sources" })).toHaveValue("hand");
+  await user.click(screen.getByRole("button", { name: "Clear the search" }));
+  expect(onSearch).toHaveBeenLastCalledWith("");
+});

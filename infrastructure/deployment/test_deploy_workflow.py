@@ -27,7 +27,7 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         ignored = re.compile(re.search(r"grep -Ev '([^']+)'", resolve).group(1))
         for path in ("docs/runbooks/ci-cd.md", "AGENTS.md", "tools/visual-paradigm-mcp/mcp-server/build.gradle.kts"):
             self.assertTrue(ignored.search(path), path)
-        for path in ("landing/src/content/page.md", "core/src/main/java/io/memoryos/A.java", ".github/workflows/ci.yml", "openapi.yml"):
+        for path in ("landing/src/content/page.md", "memoryos-core/src/main/java/io/memoryos/A.java", ".github/workflows/ci.yml", "openapi.yml"):
             self.assertFalse(ignored.search(path), path)
         # The filter mirrors CI's paths-ignore; a new ignored path must be added to both.
         for entry in ("'docs/**'", "'*.md'", "'tools/visual-paradigm-mcp/**'"):
@@ -66,6 +66,13 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         finish = SCRIPT.split('elif [[ "$mode" == finish ]]', 1)[1]
         self.assertLess(finish.index('"$(cat "$state/pending")" == "$release"'), finish.index("verify_runtime"))
         self.assertLess(finish.index("verify_runtime"), finish.index('rm -- "$state/pending"'))
+
+    def test_no_pipe_ends_in_a_grep_that_stops_reading(self):
+        # Under pipefail, grep -q exits at its first match and the writer before it dies of SIGPIPE, so the pipeline
+        # fails or succeeds by timing; on 2026-10-14 that started no channels and then failed the verification.
+        for number, line in enumerate(SCRIPT.splitlines(), 1):
+            self.assertNotRegex(line, r"\|\s*grep\s+-[a-zA-Z]*q", f"deploy.sh:{number}")
+        self.assertIn('services=$(compose config --services)\n  grep -qx channels <<< "$services"', SCRIPT)
 
     def test_a_failure_reports_its_line_and_command(self):
         # The trap is set before the first assertion so no refusal is silent.
@@ -142,14 +149,17 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
 
     def test_interpreter_images_join_the_release_contract(self):
         publish = CI_WORKFLOW.split("name: Publish verified release", 1)[1].split("publish-landing:", 1)[0]
-        interpreter = CI_WORKFLOW.split("  interpreter:\n", 1)[1].split("\n  backend-images:\n", 1)[0]
+        interpreter = CI_WORKFLOW.split("  interpreter:\n", 1)[1].split("\n  sandbox:\n", 1)[0]
         self.assertIn("components: interpreter interpreter-executor", interpreter)
         self.assertIn("${{ needs.interpreter.outputs.images }}", publish)
-        self.assertIn("for component in api worker web interpreter interpreter-executor keycloak; do", publish)
+        self.assertIn(
+            "for component in api worker web interpreter interpreter-executor keycloak channels sandbox sandbox-computer; do",
+            publish)
         # Compose rejects a hyphen in an environment key.
         self.assertIn("key=${component//-/_}", publish)
         self.assertIn("key=${component//-/_}", PUSH_ACTION)
-        self.assertIn("images=(api worker web interpreter interpreter-executor keycloak)", SCRIPT)
+        self.assertIn(
+            "images=(api worker web interpreter interpreter-executor keycloak channels sandbox sandbox-computer)", SCRIPT)
         # images.env holds one line per image plus the release; the count follows the list.
         self.assertIn('[[ $(wc -l < "$tx/images.env") == $(( ${#images[@]} + 1 )) ]]', SCRIPT)
         self.assertNotIn('== 7 ]]', SCRIPT)
@@ -159,11 +169,13 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         self.assertLess(deploy.index("docker pull --quiet"), deploy.index('> "$state/pending"'))
         # A runtime accepted before the interpreter joined the release has no interpreter container.
         self.assertIn('has_interpreter "$state/current.env"', deploy)
-        self.assertIn('--argjson count "${#previous_components[@]}"', deploy)
+        # Each captured component is found by its Compose service, so a runtime without the interpreter is not read.
+        self.assertIn('--filter "label=com.docker.compose.service=$component"', deploy)
 
     def test_only_a_main_build_pushes_and_only_the_gate_makes_a_release(self):
         main_push = "if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}\n        uses: ./.github/actions/push-release-images"
-        for job, end in (("frontend-image", "landing"), ("interpreter", "backend-images"), ("backend-images", "secrets")):
+        for job, end in (("frontend-image", "landing"), ("interpreter", "sandbox"), ("sandbox", "backend-images"),
+                         ("backend-images", "secrets")):
             text = CI_WORKFLOW.split(f"  {job}:\n", 1)[1].split(f"\n  {end}:\n", 1)[0]
             self.assertEqual(text.count("uses: ./.github/actions/push-release-images"), 1, job)
             self.assertIn(main_push, text, job)
@@ -171,15 +183,32 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         # Images are pushed with the labels that name this revision; a tag alone is never deployable.
         self.assertIn('.["org.opencontainers.image.revision"] == $sha', PUSH_ACTION)
         publish = CI_WORKFLOW.split("name: Publish verified release", 1)[1].split("publish-landing:", 1)[0]
-        self.assertIn("needs: [gate, backend-images, frontend-image, interpreter]", publish)
+        self.assertIn("needs: [gate, backend-images, frontend-image, interpreter, sandbox]", publish)
         self.assertIn("packages: read", publish)
         self.assertNotIn("docker push", publish)
         # A main push whose tree a pull request verified skips the test jobs behind the gate; without a status
         # function that skip would skip the release too, so the gate and the image jobs are checked by name.
         condition = CI_WORKFLOW.split("  publish:\n", 1)[1].split("    needs:", 1)[0]
         self.assertIn("!cancelled()", condition)
-        for job in ("gate", "backend-images", "frontend-image", "interpreter"):
+        for job in ("gate", "backend-images", "frontend-image", "interpreter", "sandbox"):
             self.assertIn(f"needs.{job}.result == 'success'", condition, job)
+
+    def test_sandbox_images_join_the_release_contract(self):
+        sandbox = CI_WORKFLOW.split("  sandbox:\n", 1)[1].split("\n  backend-images:\n", 1)[0]
+        self.assertIn("components: sandbox sandbox-computer", sandbox)
+        self.assertIn("context: memoryos-sandbox/computer", sandbox)
+        self.assertIn("context: memoryos-sandbox/server", sandbox)
+        publish = CI_WORKFLOW.split("name: Publish verified release", 1)[1].split("publish-landing:", 1)[0]
+        self.assertIn("${{ needs.sandbox.outputs.images }}", publish)
+        deploy = SCRIPT.split('if [[ "$mode" == deploy ]]', 1)[1].split('elif [[ "$mode" == rollback ]]', 1)[0]
+        # The computer image is not a Compose service: pull it with the job-scoped credentials before reserving.
+        pull = 'docker pull --quiet "$(image_reference sandbox-computer "$tx/candidate.env")"'
+        self.assertLess(deploy.index("docker login ghcr.io"), deploy.index(pull))
+        self.assertLess(deploy.index(pull), deploy.index('> "$state/pending"'))
+        # A runtime accepted before the sandbox joined the release has no sandbox server to capture.
+        self.assertIn('has_sandbox "$state/current.env"', deploy)
+        rollback = SCRIPT.split('elif [[ "$mode" == rollback ]]', 1)[1].split('elif [[ "$mode" == finish ]]', 1)[0]
+        self.assertIn('target=candidate; compose stop --timeout 30 sandbox', rollback)
 
     def test_keycloak_is_rolled_out_by_the_release_on_every_host(self):
         backend = CI_WORKFLOW.split("  backend-images:\n", 1)[1].split("\n  secrets:\n", 1)[0]
@@ -307,7 +336,8 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         # interpreter kept the earlier transaction's labels and every later deployment stopped here.
         rollout = SCRIPT.split("rollout() {", 1)[1].split("\n}\n", 1)[0]
         self.assertEqual(rollout.count("compose up -d"), rollout.count("--force-recreate"))
-        program = SCRIPT.split("--argjson count \"${#previous_components[@]}\" '", 1)[1].split("\n    ')", 1)[0]
+        program = SCRIPT.split("previous=$(docker inspect \"${previous_containers[@]}\" | jq --exit-status '", 1)[1]
+        program = program.split("\n    ')", 1)[0]
         jq = shutil.which("jq")
         if jq is None:
             self.skipTest("jq is required to run the runtime check")
@@ -318,14 +348,18 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
             return {"Name": "/memoryos-" + name, "Image": "sha256:" + "0" * 64,
                     "State": {"Running": True, "Health": {"Status": health}},
                     "Config": {"Labels": {"org.opencontainers.image.revision": revision,
+                                          "com.docker.compose.service": name,
                                           "com.docker.compose.project.config_files": files}}}
 
         def check(runtime):
-            return subprocess.run([jq, "--exit-status", "--argjson", "count", str(len(runtime)), program],
+            return subprocess.run([jq, "--exit-status", program],
                                   input=json.dumps(runtime), capture_output=True, text=True)
 
         two_transactions = [container("api", "c-2-1"), container("worker", "c-1-1"), container("web", "c-1-1")]
         self.assertEqual(0, check(two_transactions).returncode)
+        # MEM-244: the Worker's replicas are one service, each captured, none a mixed runtime.
+        replicas = two_transactions + [container("worker", "c-1-1")]
+        self.assertEqual(0, check(replicas).returncode)
         mixed_release = [container("api", "c-2-1"), container("worker", "c-1-1", revision="d" * 40), container("web", "c-1-1")]
         self.assertIn("Unhealthy or mixed runtime", check(mixed_release).stderr)
         unhealthy = [container("api", "c-2-1"), container("worker", "c-2-1", health="starting"), container("web", "c-2-1")]
@@ -362,7 +396,7 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         self.assertIn("- interpreter_api_key", api)
         # The launcher reads any MEMORYOS_<NAME>_FILE rather than naming this key; that behaviour is
         # exercised in test_launcher_secret_files.py.
-        launcher = (ROOT / "api/src/main/docker/application-launcher.sh").read_text(encoding="utf-8")
+        launcher = (ROOT / "memoryos-api/src/main/docker/application-launcher.sh").read_text(encoding="utf-8")
         self.assertIn('export "${secret_variable%_FILE}=$secret_value"', launcher)
 
 
@@ -430,6 +464,9 @@ elif args[:2] == ["exec", "memoryos-postgres"] and any("to_regclass" in arg for 
     print("t" if (root / "schema").read_text().strip() else "f")
 elif args[:2] == ["exec", "memoryos-postgres"]:
     print((root / "schema").read_text(), end="")
+elif args[0] == "compose" and "ps" in args:
+    # Each service runs as one container named for it here; the Worker's replicas are found the same way.
+    print("memoryos-" + args[-1])
 elif args[0] == "compose":
     pass
 else:
@@ -507,7 +544,9 @@ else:
         result = self.operate("rollback")
         self.assertNotEqual(result.returncode, 0)
         calls = self.docker_calls()
-        self.assertTrue(any("stop" in call and "api" in call and "worker" in call for call in calls))
+        # The Worker is stopped with its own longer timeout, so it can finish what it started (MEM-244).
+        self.assertTrue(any("stop" in call and "worker" in call for call in calls))
+        self.assertTrue(any("stop" in call and "api" in call for call in calls))
         self.assertFalse(any("up" in call or "pg_restore" in call for call in calls))
         self.assertEqual(self.pending.read_text().strip(), self.release)
         self.assertEqual((self.tx / "database.dump").read_bytes(), self.backup)
@@ -529,10 +568,10 @@ else:
 
 class VerifiedTreeReuseTest(unittest.TestCase):
     JOBS = ("backend", "backend-images", "changes", "frontend", "frontend-check", "frontend-image", "frontend-preview",
-            "infrastructure", "interpreter", "landing", "secrets")
+            "infrastructure", "interpreter", "landing", "sandbox", "secrets")
     AREAS = {"backend": (["infrastructure", "backend"], ["backend-images"]),
              "web": (["frontend-check", "frontend", "frontend-preview"], ["frontend-image"]),
-             "landing": ([], ["landing"]), "interpreter": ([], ["interpreter"])}
+             "landing": ([], ["landing"]), "interpreter": ([], ["interpreter"]), "sandbox": ([], ["sandbox"])}
 
     def gate(self, outputs, override=None):
         jq = shutil.which("jq")
@@ -555,7 +594,7 @@ class VerifiedTreeReuseTest(unittest.TestCase):
                               capture_output=True).returncode
 
     def test_a_verified_area_skips_its_tests_but_still_builds_its_images(self):
-        every = {"backend": "true", "web": "true", "landing": "true", "interpreter": "true"}
+        every = {"backend": "true", "web": "true", "landing": "true", "interpreter": "true", "sandbox": "true"}
         self.assertEqual(0, self.gate(every))
         verified = {**every, "backend_verified": "true", "web_verified": "true"}
         self.assertEqual(0, self.gate(verified))
@@ -563,8 +602,10 @@ class VerifiedTreeReuseTest(unittest.TestCase):
         self.assertNotEqual(0, self.gate(verified, {"frontend-image": "failure"}))
         # Tests may be skipped only when the area was found verified.
         self.assertNotEqual(0, self.gate(every, {"backend": "skipped"}))
-        self.assertNotEqual(0, self.gate({"backend": "false", "web": "true", "landing": "false", "interpreter": "false"},
-                                         {"backend-images": "success"}))
+        self.assertNotEqual(0, self.gate({"backend": "false", "web": "true", "landing": "false", "interpreter": "false",
+                                          "sandbox": "false"}, {"backend-images": "success"}))
+        # The sandbox images are built whenever the sandbox area is selected.
+        self.assertNotEqual(0, self.gate(every, {"sandbox": "skipped"}))
 
     def test_only_a_successful_same_repository_pull_request_run_of_this_commit_is_trusted(self):
         changes = CI_WORKFLOW.split("  changes:\n", 1)[1].split("\n  infrastructure:\n", 1)[0]

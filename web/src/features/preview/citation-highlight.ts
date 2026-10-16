@@ -1,9 +1,11 @@
-import { locatePassage, normalizeForMatch } from "./preview-highlight";
+import { locatePassage, matchTerms, normalizeForMatch } from "./preview-highlight";
 
 export type CitationPlacement = {
   confidence: "exact" | "approximate" | "none";
   /** Absent whenever the passage could not be placed; nothing is drawn for it. */
   range?: Range;
+  /** Where the reader's own words occur inside the placed passage; empty when none do. */
+  terms?: Range[];
 };
 
 const UNPLACED: CitationPlacement = { confidence: "none" };
@@ -11,6 +13,7 @@ const UNPLACED: CitationPlacement = { confidence: "none" };
 /** The highlight names the stylesheet paints; see `::highlight()` in `styles/base.css`. */
 const CITATION_HIGHLIGHT = "memoryos-citation";
 const ACTIVE_CITATION_HIGHLIGHT = "memoryos-citation-active";
+const TERM_HIGHLIGHT = "memoryos-citation-term";
 
 type TextRun = { node: Text; from: number };
 
@@ -18,12 +21,15 @@ type TextRun = { node: Text; from: number };
  * Places each passage in the text the container renders, reading that text once however deeply it is
  * nested. The heading each passage was read under is passed with it, because a figure that appears in two
  * statements is told apart only by its own section. A passage the locator will not commit to comes back
- * without a range, so the caller draws nothing for it rather than drawing it somewhere plausible.
+ * without a range, so the caller draws nothing for it rather than drawing it somewhere plausible. `terms`,
+ * the words a reader searched for, are ranged only inside a placed passage: a word marked across the whole
+ * document is noise, and nothing is drawn for a passage that was not found.
  */
 export function placeCitations(
   container: Node,
   passages: readonly string[],
   sections: readonly (string | undefined)[] = [],
+  terms: readonly string[] = [],
 ): CitationPlacement[] {
   const runs: TextRun[] = [];
   let raw = "";
@@ -39,7 +45,12 @@ export function placeCitations(
     const found = locatePassage(document_, passage, sections[index]);
     if (found.confidence === "none") return UNPLACED;
     const range = rangeOf(runs, found.start, found.end);
-    return range ? { confidence: found.confidence, range } : UNPLACED;
+    if (!range) return UNPLACED;
+    if (!terms.length) return { confidence: found.confidence, range };
+    const marked = matchTerms(document_, terms, found)
+      .map((term) => rangeOf(runs, term.start, term.end))
+      .filter((term): term is Range => term !== undefined);
+    return { confidence: found.confidence, range, terms: marked };
   });
 }
 
@@ -48,22 +59,34 @@ export function paintCitations(placements: readonly CitationPlacement[], active?
   const highlights = globalThis.CSS?.highlights;
   if (!highlights || typeof Highlight === "undefined") return;
   const ranges = placements.map((placement) => placement.range);
-  const paint = (name: string, drawn: readonly (Range | undefined)[]) => {
+  const paint = (name: string, drawn: readonly (Range | undefined)[], priority = 0) => {
     const present = drawn.filter((range): range is Range => range !== undefined);
-    if (present.length) highlights.set(name, new Highlight(...present));
-    else highlights.delete(name);
+    if (!present.length) {
+      highlights.delete(name);
+      return;
+    }
+    const highlight = new Highlight(...present);
+    highlight.priority = priority;
+    highlights.set(name, highlight);
   };
   paint(
     CITATION_HIGHLIGHT,
     ranges.filter((_, index) => index !== active),
   );
   paint(ACTIVE_CITATION_HIGHLIGHT, active === undefined ? [] : [ranges[active]]);
+  // The words sit on top of both passage highlights, whichever was registered last.
+  paint(
+    TERM_HIGHLIGHT,
+    placements.flatMap((placement) => placement.terms ?? []),
+    1,
+  );
 }
 
 export function clearCitations(): void {
   const highlights = globalThis.CSS?.highlights;
   highlights?.delete(CITATION_HIGHLIGHT);
   highlights?.delete(ACTIVE_CITATION_HIGHLIGHT);
+  highlights?.delete(TERM_HIGHLIGHT);
 }
 
 function rangeOf(runs: readonly TextRun[], start: number, end: number): Range | undefined {

@@ -75,6 +75,33 @@ describe("readSourceLocation", () => {
     expect(readSourceLocation(['{"source":[{"page_no":5}],"tableRow":2}']).row).toBeUndefined();
   });
 
+  it("reads the frame a box is measured in, and no box when the frame is unusable", () => {
+    const framed = (frame: string, origin = "TOPLEFT") =>
+      `{"page_no":1,"bbox":{"l":158,"t":286,"r":1520,"b":876,"coord_origin":"${origin}"${frame}}}`;
+    expect(readSourceLocation([framed(',"frame_width":1685,"frame_height":1191')]).boxes).toEqual([
+      {
+        page: 1,
+        left: 158,
+        top: 286,
+        right: 1520,
+        bottom: 876,
+        origin: "TOPLEFT",
+        frame: { width: 1685, height: 1191 },
+      },
+    ]);
+    // Half a frame, a frame without a size, or a framed box from the bottom left is not a user-space box.
+    for (const broken of [
+      framed(',"frame_width":1685'),
+      framed(',"frame_width":0,"frame_height":1191'),
+      framed(',"frame_width":"1685","frame_height":1191'),
+      framed(',"frame_width":1685,"frame_height":1191', "BOTTOMLEFT"),
+    ]) {
+      const location = readSourceLocation([broken]);
+      expect(location.boxes).toEqual([]);
+      expect(location.pages).toEqual([1]);
+    }
+  });
+
   it("reads spreadsheet sheet names and ignores malformed or unrelated provenance", () => {
     const location = readSourceLocation([
       "not json",

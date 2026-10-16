@@ -75,10 +75,7 @@ test("renders the authenticated application shell", async ({ page }) => {
   await page.goto("/");
 
   await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "New conversation", exact: true })).toHaveAttribute(
-    "aria-current",
-    "page",
-  );
+  await expect(page.getByRole("button", { name: "Search", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Admin Panel" })).toHaveAttribute("href", "/admin");
   await expect(
     page.getByRole("heading", { name: "What would you like to explore?" }),
@@ -387,8 +384,6 @@ test("closes mobile administration navigation after a client route change", asyn
   await page.getByRole("button", { name: "Open navigation" }).click();
   await expect(page.getByRole("dialog", { name: "Navigation" })).toBeVisible();
   await expectNoSeriousA11yViolations(page);
-  // A phone's menu shows every section and folds none.
-  await expect(page.getByRole("button", { name: "Organization", exact: true })).toHaveCount(0);
   await page.getByRole("link", { name: "Users", exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/users(?:\?|$)/);
   await expect(page.getByRole("dialog", { name: "Navigation" })).toHaveCount(0);
@@ -1213,7 +1208,7 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   });
 
   await page.goto("/admin");
-  const sourceTable = page.getByRole("region", { name: "Connected sources" });
+  const sourceTable = page.getByRole("table", { name: "Connected sources" });
   await expect(page.getByRole("heading", { name: "Sources", exact: true })).toBeVisible();
   await expect(sourceTable.getByText("Scheduled", { exact: true })).toBeVisible();
   const fileGroup = sourceTable.getByRole("button", {
@@ -1221,7 +1216,7 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   });
   const supportSource = sourceTable.getByRole("link", { name: otherSource.name, exact: true });
   await expect(fileGroup).toHaveAttribute("aria-expanded", "true");
-  const sourceSearch = page.getByRole("searchbox", { name: "Search sources" });
+  const sourceSearch = page.getByRole("textbox", { name: "Search sources" });
   await sourceSearch.fill("missing source");
   await expect(page.getByText("No sources match your search and filters.")).toBeVisible();
   await sourceSearch.fill("");
@@ -1240,8 +1235,14 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await expect(supportSource).toBeHidden();
   await fileGroup.click();
   await expect(supportSource).toBeVisible();
-  // Each provider has a table of its own under its heading.
-  await expect(sourceTable.getByRole("table", { name: "File", exact: true })).toBeVisible();
+  // The whole group row is a pointer target for its toggle.
+  const fileGroupRow = fileGroup.locator("xpath=ancestor::tr");
+  const groupRowBox = await fileGroupRow.boundingBox();
+  const beyondToggle = { x: (groupRowBox?.width ?? 0) - 24, y: (groupRowBox?.height ?? 0) / 2 };
+  await fileGroupRow.click({ position: beyondToggle });
+  await expect(fileGroup).toHaveAttribute("aria-expanded", "false");
+  await fileGroupRow.click({ position: beyondToggle });
+  await expect(supportSource).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   const manageSource = sourceTable.getByRole("link", {
     name: `Manage ${otherSource.name}`,
@@ -1296,7 +1297,7 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await page.getByRole("link", { name: "Sources", exact: true }).last().click();
   await expect(page).toHaveURL(/\/admin$/);
   await page
-    .getByRole("region", { name: "Connected sources" })
+    .getByRole("table", { name: "Connected sources" })
     .getByRole("link", { name: otherSource.name, exact: true })
     .click();
   await expect(page.getByRole("heading", { name: otherSource.name })).toBeVisible();

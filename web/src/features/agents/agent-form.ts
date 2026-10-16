@@ -3,6 +3,7 @@ import { agentTools, type Persona } from "@/features/chat/chat-personas-api";
 import type { PersonaInput } from "@/lib/hey-api/types.gen";
 import { zPersonaInput } from "@/lib/hey-api/zod.gen";
 import type { ErrorMessage } from "@/lib/problem-presentation";
+import { randomAvatarSeed } from "./agent-face";
 
 /** A conversation starter list longer than this is refused by the API. */
 export const maxStarterPrompts = 8;
@@ -14,7 +15,7 @@ export const maxStarterPrompts = 8;
 const agentValuesSchema = z.object({
   name: z.string(),
   description: z.string(),
-  iconName: z.string(),
+  avatarSeed: z.string(),
   avatarFileId: z.string().nullable(),
   keepAvatar: z.boolean(),
   labelIds: z.array(z.string()),
@@ -83,7 +84,7 @@ export function initialValues(agent?: Persona): AgentValues {
   return {
     name: agent?.name ?? "",
     description: agent?.description ?? "",
-    iconName: agent?.iconName ?? "bot",
+    avatarSeed: agent?.avatarSeed ?? randomAvatarSeed(),
     avatarFileId: null,
     keepAvatar: agent?.hasAvatar ?? false,
     labelIds: agent?.labels.map((label) => label.id) ?? [],
@@ -121,8 +122,10 @@ export function agentRequest(values: AgentValues, agent?: Persona): PersonaInput
     modelConfigurationId: values.modelConfigurationId || null,
     contextTokenLimit: values.contextTokenLimit ? Number(values.contextTokenLimit) : null,
     outputTokenLimit: values.outputTokenLimit ? Number(values.outputTokenLimit) : null,
-    iconName: values.avatarFileId || values.keepAvatar ? undefined : values.iconName,
+    avatarSeed: values.avatarSeed,
     avatarFileId: values.avatarFileId ?? undefined,
+    // An image that was saved and is now neither kept nor replaced is dropped, so the face shows.
+    removeAvatar: !!agent?.hasAvatar && !values.keepAvatar && !values.avatarFileId,
     labelIds: values.labelIds,
     replaceBaseSystemPrompt: values.replaceBaseSystemPrompt,
     grounded: values.grounded,
@@ -130,8 +133,11 @@ export function agentRequest(values: AgentValues, agent?: Persona): PersonaInput
   };
 }
 
-/** A draft kept before the grounded switch existed reads as not grounded. */
-const draftSchema = agentValuesSchema.extend({ grounded: z.boolean().default(false) });
+/** A draft kept before the grounded switch existed reads as not grounded; one kept before faces gets a new face. */
+const draftSchema = agentValuesSchema.extend({
+  grounded: z.boolean().default(false),
+  avatarSeed: z.string().default(() => randomAvatarSeed()),
+});
 
 const draftKey = (actorId: string) => `memoryos.agent-draft.${actorId}`;
 

@@ -42,9 +42,82 @@ class WorkerRedisTimeoutTest(unittest.TestCase):
         timeout = re.search(r"MEMORYOS_REDIS_COMMAND_TIMEOUT: \$\{MEMORYOS_WORKER_REDIS_COMMAND_TIMEOUT:-(\w+)\}",
                             worker)
         self.assertIsNotNone(timeout, "the worker must not inherit the api's command timeout")
-        application = (ROOT / "worker/src/main/resources/application.yaml").read_text(encoding="utf-8")
+        application = (ROOT / "memoryos-worker/src/main/resources/application.yaml").read_text(encoding="utf-8")
         block = re.search(r"(?m)^\s+consumer-block: (\w+)$", application).group(1)
         self.assertGreater(seconds(timeout.group(1)), seconds(block))
+
+
+class SignalForwardingTest(unittest.TestCase):
+    def test_a_service_that_switches_user_can_still_be_stopped_gracefully(self):
+        # MEM-244: docker-init runs as root with every capability dropped. A process that switched to another
+        # user (SETUID) cannot be signalled without KILL: tini logged "Unexpected error when forwarding
+        # signal: 'Operation not permitted'" and the Worker died mid-extraction on every stop.
+        found = 0
+        for name in ("compose.base.yaml", "compose.staging.yaml", "compose.production.yaml"):
+            text = (DEPLOYMENT / name).read_text(encoding="utf-8")
+            for block in re.findall(r"cap_add:\n((?:\s+- [A-Z_]+\n)+)", text):
+                capabilities = re.findall(r"- ([A-Z_]+)", block)
+                if "SETUID" in capabilities:
+                    found += 1
+                    self.assertIn("KILL", capabilities, name)
+        self.assertGreaterEqual(found, 4)
+
+
+class WorkerMemoryTest(unittest.TestCase):
+    def test_the_worker_has_a_memory_limit_its_jvm_and_its_child_jvms_fit(self):
+        # MEM-244: without a limit the heap could grow to 70% of the host, and each Tika child took 512 MB at start.
+        worker = BASE.split("\n  worker:\n", 1)[1].split("\n  web:\n", 1)[0]
+        self.assertRegex(worker, r"limits:\n\s+memory: \$\{MEMORYOS_WORKER_MEMORY_LIMIT:-4g\}")
+        dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+        stage = dockerfile.split("FROM runtime AS worker", 1)[1].split("FROM runtime AS api", 1)[0]
+        options = re.search(r'JAVA_TOOL_OPTIONS="([^"]+)"', stage).group(1).split()
+        # The collector is named so that a changed limit cannot change it; the heap leaves half the limit to the children.
+        self.assertIn("-XX:+UseSerialGC", options)
+        self.assertIn("-XX:MaxRAMPercentage=50", options)
+        extractor = (ROOT / "memoryos-extraction/src/main/java/io/memoryos/ingestion/extraction/TikaSourceContentExtractor.java"
+                     ).read_text(encoding="utf-8")
+        # The child inherits JAVA_TOOL_OPTIONS; its own initial size keeps it from committing its whole heap.
+        self.assertIn('"-Xms32m"', extractor)
+
+    def test_a_stopping_worker_gets_the_time_its_container_states(self):
+        worker = BASE.split("\n  worker:\n", 1)[1].split("\n  web:\n", 1)[0]
+        grace = int(re.search(r"stop_grace_period: (\d+)s", worker).group(1))
+        deploy = (DEPLOYMENT / "deploy.sh").read_text(encoding="utf-8")
+        timeouts = [int(value) for value in re.findall(r"compose stop --timeout (\d+) worker", deploy)]
+        self.assertEqual([grace, grace], timeouts)
+        application = (ROOT / "memoryos-worker/src/main/resources/application.yaml").read_text(encoding="utf-8")
+        shutdown = seconds(re.search(r"MEMORYOS_WORKER_SHUTDOWN_GRACE:(\w+)\}", application).group(1))
+        # The grace, then the rest of the shutdown: about 9 s measured, and up to 60 s for a running scheduled task.
+        self.assertGreaterEqual(grace - shutdown, 70)
+
+
+class WorkerAotCacheTest(unittest.TestCase):
+    def test_the_cache_is_made_before_the_running_worker_stops_and_never_fails_a_deployment(self):
+        # MEM-244: the training start takes about a minute; made after the stop it would be downtime.
+        deploy = (DEPLOYMENT / "deploy.sh").read_text(encoding="utf-8")
+        train = deploy.index("    train_worker_aot || echo")
+        self.assertLess(train, deploy.index("printf '%s\\n' \"$release\" > \"$state/pending\""))
+        self.assertLess(train, deploy.index("compose stop --timeout 180 worker"))
+        function = deploy.split("train_worker_aot() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertIn("compose --profile aot run --rm --no-deps -T worker-aot", function)
+        trainer = BASE.split("\n  worker-aot:\n", 1)[1].split("\n  docling:\n", 1)[0]
+        # Compose starts it only when asked; it is the Worker with no stream readers, no validation of a schema
+        # that is not migrated yet, and two connections.
+        self.assertRegex(trainer, r"profiles:\n\s+- aot")
+        self.assertRegex(trainer, r"extends:\n\s+service: worker")
+        for setting in ('MEMORYOS_AOT_TRAIN: "true"', 'MEMORYOS_WORKER_ENABLED: "false"',
+                        "SPRING_JPA_HIBERNATE_DDL_AUTO: none", 'MEMORYOS_DATABASE_POOL_SIZE: "2"'):
+            self.assertIn(setting, trainer)
+
+    def test_a_worker_that_reads_documents_cannot_write_the_cache_it_starts_from(self):
+        # A cache is code the next start runs; only the training start, which reads no document, mounts it writable.
+        worker = BASE.split("\n  worker:\n", 1)[1].split("\n  web:\n", 1)[0]
+        self.assertIn("MEMORYOS_AOT_CACHE_DIR: /aot", worker)
+        self.assertIn("- memoryos_worker_aot:/aot:ro", worker)
+        self.assertNotRegex(worker, r"- memoryos_worker_aot:/aot\n")
+        trainer = BASE.split("\n  worker-aot:\n", 1)[1].split("\n  docling:\n", 1)[0]
+        self.assertRegex(trainer, r"- memoryos_worker_aot:/aot\n")
+        self.assertEqual(1, BASE.count("MEMORYOS_AOT_CACHE_DIR"))
 
 
 class ComposeLayeringTest(unittest.TestCase):
@@ -55,7 +128,7 @@ class ComposeLayeringTest(unittest.TestCase):
             self.assertFalse(defines(PRODUCTION, service), service)
 
     def test_staging_keeps_only_what_staging_runs(self):
-        for inspection in ("mailpit", "pgweb", "redisinsight"):
+        for inspection in ("mailpit", "pgweb", "redisinsight", "promptfoo"):
             self.assertTrue(defines(STAGING, inspection), inspection)
             self.assertNotIn(inspection, BASE, inspection)
             self.assertNotIn(inspection, PRODUCTION, inspection)
@@ -90,7 +163,7 @@ class ComposeLayeringTest(unittest.TestCase):
     def test_both_deployables_trust_the_redis_authority_under_the_production_profile(self):
         # Compose enables Redis TLS for every environment, but the trust material lived only in the
         # staging profile: production alone would enable TLS and trust nothing but the system store.
-        for module in ("api", "worker"):
+        for module in ("memoryos-api", "memoryos-worker"):
             profile = (ROOT / module / "src/main/resources/application-production.yaml").read_text(encoding="utf-8")
             self.assertIn("bundle: memoryos-redis", profile, module)
             self.assertIn("${MEMORYOS_REDIS_TLS_CA_CERTIFICATE}", profile, module)
@@ -140,6 +213,23 @@ class ComposeLayeringTest(unittest.TestCase):
         declared = production.split("\nnetworks:\n", 1)[1]
         egress = re.search(r"\n  egress:\n((?:    .*\n?)*)", "\n" + declared).group(1)
         self.assertNotIn("internal: true", egress, "an internal network is no way out")
+
+
+def networks(text, service):
+    """The networks a service block names, in its own text."""
+    block = re.search(r"\n  %s:\n(.*?)(?=\n  [a-z0-9_-]+:\n|\Z)" % re.escape(service), text, re.S).group(1)
+    listed = re.search(r"\n    networks:\n((?:      .*\n?)*)", "\n" + block)
+    return set(re.findall(r"^      ([a-z0-9-]+):", listed.group(1), re.M)) if listed else set()
+
+
+class ChannelsEgressTest(unittest.TestCase):
+    def test_the_bots_process_reaches_out_as_the_api_does(self):
+        # MEM-246: the first staging run of the bots' process had only internal networks; it could resolve neither
+        # Lark nor a model provider, and every bot failed to open with CHANNEL_OPEN_FAILED.
+        egress = networks(STAGING, "api") - {"memoryos-telemetry"}
+        self.assertTrue(egress)
+        self.assertLessEqual(egress, networks(STAGING, "channels"))
+
 
 if __name__ == "__main__":
     unittest.main()

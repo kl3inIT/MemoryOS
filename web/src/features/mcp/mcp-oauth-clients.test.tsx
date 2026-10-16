@@ -6,6 +6,7 @@ import { beforeEach, expect, it } from "vitest";
 import { i18n } from "@/i18n";
 import {
   handleCreateMcpServerOAuthClient,
+  handleDeleteMcpServerOAuthClient,
   handleDisconnectMcpServerOAuth,
   handleDiscoverMcpServerOAuth,
   handleListMcpServerOAuthClients,
@@ -20,6 +21,7 @@ import type {
 } from "@/lib/hey-api/types.gen";
 import { server as http } from "@/test/msw";
 import { McpOAuthClients } from "./mcp-oauth-clients";
+import { useOAuthSetup } from "./mcp-oauth-setup";
 
 const server = (overrides: Partial<McpServerView> = {}): McpServerView => ({
   id: "22222222-2222-4222-8222-222222222222",
@@ -36,7 +38,7 @@ const server = (overrides: Partial<McpServerView> = {}): McpServerView => ({
   sharedCredentialConfigured: false,
   tenantWide: true,
   groupIds: [],
-  status: "AWAITING_AUTH",
+  status: "CREATED",
   lastRefreshedAt: null,
   toolCount: 0,
   enabledToolCount: 0,
@@ -74,6 +76,19 @@ const authorizationServer = (
   ...overrides,
 });
 
+/** The server row starts adding the first application; its button is the step under test here. */
+function Harness({ view }: { view: McpServerView }) {
+  const setup = useOAuthSetup(view);
+  return (
+    <>
+      <button type="button" onClick={setup.begin}>
+        start
+      </button>
+      <McpOAuthClients server={view} setup={setup} />
+    </>
+  );
+}
+
 function show(view: McpServerView, clients: McpOAuthClientView[] = []) {
   http.use(
     handleListMcpServerOAuthClients({ body: clients }),
@@ -83,74 +98,100 @@ function show(view: McpServerView, clients: McpOAuthClientView[] = []) {
   const queries = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={queries}>
-      <McpOAuthClients server={view} />
+      <Harness view={view} />
     </QueryClientProvider>,
   );
 }
 
 function discovering(authorizationServers: McpOAuthAuthorizationServer[]) {
+  let calls = 0;
   http.use(
-    handleDiscoverMcpServerOAuth({
-      body: { resource: "https://drive.example/mcp", suggestedScopes: [], authorizationServers },
+    handleDiscoverMcpServerOAuth(() => {
+      calls += 1;
+      return HttpResponse.json({
+        resource: "https://drive.example/mcp",
+        suggestedScopes: [],
+        authorizationServers,
+      });
     }),
   );
+  return () => calls;
+}
+
+function creating() {
+  const created: unknown[] = [];
+  http.use(
+    handleCreateMcpServerOAuthClient(async ({ request }) => {
+      created.push(await request.json());
+      return HttpResponse.json(client());
+    }),
+  );
+  return created;
 }
 
 beforeEach(async () => {
   await i18n.changeLanguage("vi");
 });
 
-it("says nobody can connect while the server has no OAuth application", async () => {
+it("says the server has no OAuth application yet", async () => {
   show(server());
-  expect(
-    await screen.findByText(
-      "Chưa có ứng dụng OAuth nào. Người dùng chưa kết nối được máy chủ này.",
-    ),
-  ).toBeInTheDocument();
+  expect(await screen.findByText("Chưa có ứng dụng OAuth nào.")).toBeInTheDocument();
 });
 
-it("offers discovery only for an auto-discovery server", async () => {
-  show(server({ oauthProviderMode: "KNOWN_PROVIDER" }));
-  expect(await screen.findByRole("button", { name: "Nhập ứng dụng" })).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "Dò máy chủ OAuth" })).not.toBeInTheDocument();
-});
-
-it("requires a label before registering a discovered authorization server", async () => {
+it("creates the application automatically, named after the server, preferring the metadata document", async () => {
   const registered: unknown[] = [];
-  discovering([authorizationServer()]);
+  discovering([authorizationServer({ metadataDocumentAvailable: true })]);
   http.use(
     handleRegisterMcpServerOAuthClient(async ({ request }) => {
       registered.push(await request.json());
-      return HttpResponse.json(client({ source: "REGISTERED" }));
+      return HttpResponse.json(client({ source: "METADATA_DOCUMENT" }));
     }),
   );
   show(server());
-  await userEvent.click(await screen.findByRole("button", { name: "Dò máy chủ OAuth" }));
-  const register = await screen.findByRole("button", { name: "Tự đăng ký (DCR)" });
-  expect(register).toBeDisabled();
-  await userEvent.type(screen.getByLabelText("Nhãn cho ứng dụng này"), "Tasco North");
-  expect(register).toBeEnabled();
-  await userEvent.click(register);
+  await userEvent.click(await screen.findByRole("button", { name: "start" }));
+  expect(await screen.findByLabelText("Nhãn")).toHaveValue("Drive");
+  await userEvent.click(screen.getByRole("button", { name: "Tạo tự động" }));
   await waitFor(() =>
     expect(registered).toEqual([
-      { issuer: "https://accounts.google.com", label: "Tasco North", source: "REGISTERED" },
+      { issuer: "https://accounts.google.com", label: "Drive", source: "METADATA_DOCUMENT" },
     ]),
   );
 });
 
-it("says so when a discovered server supports neither registration route", async () => {
+it("opens the manual form with the discovered endpoints when registration is impossible", async () => {
+  const created = creating();
   discovering([
     authorizationServer({
       registrationEndpoint: null,
-      issParameterSupported: false,
       registrationAvailable: false,
+      revocationEndpoint: "https://oauth2.googleapis.com/revoke",
     }),
   ]);
   show(server());
-  await userEvent.click(await screen.findByRole("button", { name: "Dò máy chủ OAuth" }));
-  expect(
-    await screen.findByText("Máy chủ này không tự đăng ký được. Hãy nhập ứng dụng thủ công."),
-  ).toBeInTheDocument();
+  await userEvent.click(await screen.findByRole("button", { name: "start" }));
+  await userEvent.type(await screen.findByLabelText("Client ID"), "client-1");
+  await userEvent.type(screen.getByLabelText(/Client secret/), "s3cret");
+  expect(screen.queryByLabelText("Issuer")).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
+  await waitFor(() => expect(created).toHaveLength(1));
+  expect(created[0]).toMatchObject({
+    label: "Drive",
+    issuer: "https://accounts.google.com",
+    clientId: "client-1",
+    authorizationEndpoint: "https://accounts.google.com/authorize",
+    tokenEndpoint: "https://oauth2.googleapis.com/token",
+    revocationEndpoint: "https://oauth2.googleapis.com/revoke",
+    tokenEndpointAuthMethod: "CLIENT_SECRET_POST",
+    clientSecret: { action: "REPLACE", value: "s3cret" },
+  });
+});
+
+it("goes straight to the manual form for a server with a known provider", async () => {
+  const calls = discovering([authorizationServer()]);
+  show(server({ oauthProviderMode: "KNOWN_PROVIDER" }));
+  await userEvent.click(await screen.findByRole("button", { name: "start" }));
+  expect(await screen.findByLabelText("Issuer")).toBeInTheDocument();
+  expect(calls()).toBe(0);
 });
 
 it("offers the administrator's own connect only on a shared-connection server", async () => {
@@ -159,7 +200,7 @@ it("offers the administrator's own connect only on a shared-connection server", 
   expect(screen.queryByRole("button", { name: "Kết nối" })).not.toBeInTheDocument();
 });
 
-it("connects and disconnects the shared connection", async () => {
+it("connects the shared account and asks before disconnecting it", async () => {
   const started: unknown[] = [];
   let disconnected = false;
   http.use(
@@ -173,41 +214,31 @@ it("connects and disconnects the shared connection", async () => {
     }),
   );
   show(server({ authPerformer: "ADMIN", sharedCredentialConfigured: true }), [client()]);
-  await userEvent.click(await screen.findByRole("button", { name: "Kết nối" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Kết nối lại" }));
   await waitFor(() => expect(started).toEqual([{ oauthClientId: "c1" }]));
   await userEvent.click(screen.getByRole("button", { name: "Ngắt kết nối dùng chung" }));
+  expect(disconnected).toBe(false);
+  await userEvent.click(await screen.findByRole("button", { name: "Ngắt kết nối" }));
   await waitFor(() => expect(disconnected).toBe(true));
 });
 
-it("sends a pasted application with its secret posted in the token request", async () => {
-  const created: unknown[] = [];
+it("asks before deleting an application", async () => {
+  let deleted = false;
   http.use(
-    handleCreateMcpServerOAuthClient(async ({ request }) => {
-      created.push(await request.json());
-      return HttpResponse.json(client());
+    handleDeleteMcpServerOAuthClient(() => {
+      deleted = true;
+      return new HttpResponse(null, { status: 204 });
     }),
   );
-  show(server());
-  await userEvent.click(await screen.findByRole("button", { name: "Nhập ứng dụng" }));
-  await userEvent.type(screen.getByLabelText("Nhãn"), "Tasco North");
-  await userEvent.type(screen.getByLabelText("Issuer"), "https://accounts.google.com");
-  await userEvent.type(screen.getByLabelText("Client ID"), "client-1");
-  await userEvent.type(screen.getByLabelText("Client secret"), "s3cret");
-  await userEvent.type(
-    screen.getByLabelText("Điểm cuối cấp quyền"),
-    "https://accounts.google.com/authorize",
+  show(server(), [client()]);
+  await userEvent.click(await screen.findByRole("button", { name: "Xóa Tasco North" }));
+  expect(deleted).toBe(false);
+  expect(await screen.findByText("Xóa ứng dụng Tasco North?")).toBeInTheDocument();
+  const dialog = screen.getByRole("alertdialog");
+  await userEvent.click(
+    [...dialog.querySelectorAll("button")].find((button) => button.textContent === "Xóa")!,
   );
-  await userEvent.type(
-    screen.getByLabelText("Điểm cuối lấy token"),
-    "https://oauth2.googleapis.com/token",
-  );
-  await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
-  await waitFor(() => expect(created).toHaveLength(1));
-  expect(created[0]).toMatchObject({
-    label: "Tasco North",
-    tokenEndpointAuthMethod: "CLIENT_SECRET_POST",
-    clientSecret: { action: "REPLACE", value: "s3cret" },
-  });
+  await waitFor(() => expect(deleted).toBe(true));
 });
 
 it("shows an alert instead of an empty list when the load fails", async () => {
@@ -215,11 +246,9 @@ it("shows an alert instead of an empty list when the load fails", async () => {
   const queries = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={queries}>
-      <McpOAuthClients server={server()} />
+      <Harness view={server()} />
     </QueryClientProvider>,
   );
   expect(await screen.findByRole("alert")).toBeInTheDocument();
-  expect(
-    screen.queryByText("Chưa có ứng dụng OAuth nào. Người dùng chưa kết nối được máy chủ này."),
-  ).not.toBeInTheDocument();
+  expect(screen.queryByText("Chưa có ứng dụng OAuth nào.")).not.toBeInTheDocument();
 });

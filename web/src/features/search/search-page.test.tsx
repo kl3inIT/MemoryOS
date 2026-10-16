@@ -14,6 +14,7 @@ import { ThemeProvider } from "@/features/theme/theme-provider";
 import { MicrophoneUnavailableError } from "@/features/voice/capture/audio-capture";
 import type * as VoiceDictationModule from "@/features/voice/voice-dictation";
 import { AppShell } from "@/components/app-shell/app-shell";
+import { ActionNotifications } from "@/components/ui/action-notifications";
 import { SearchPage } from "./search-page";
 import { searchPageSearchSchema } from "./search-params";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -119,7 +120,9 @@ async function renderNewSession(session: ApplicationSession = OWNER_SESSION, pat
   renderedRouter = router;
   return render(
     <QueryClientProvider client={new QueryClient()}>
-      <RouterProvider router={router} />
+      <ActionNotifications>
+        <RouterProvider router={router} />
+      </ActionNotifications>
     </QueryClientProvider>,
   );
 }
@@ -317,7 +320,11 @@ describe("SearchPage", () => {
       "/search",
     );
     expect(screen.queryByRole("button", { name: /switch mode/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Search conversations" })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("navigation", { name: "Primary navigation" })).getByRole("button", {
+        name: "Search",
+      }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Admin Panel" })).toHaveAttribute("href", "/admin");
     expect(screen.getByRole("heading", { name: "Search documents" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Search your workspace" })).toBeInTheDocument();
@@ -353,7 +360,9 @@ describe("SearchPage", () => {
     const recording = await screen.findByRole("group", { name: "Recording" });
     expect(within(recording).getByRole("button", { name: "Mute microphone" })).toBeEnabled();
     // While recording, the controls stand in for clearing, the microphone and Search.
-    expect(screen.queryByRole("button", { name: "Search" })).not.toBeInTheDocument();
+    expect(
+      within(screen.getByRole("main")).queryByRole("button", { name: "Search" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByText("Listening… Speak now, then review your query.")).toBeInTheDocument();
     expect(options?.language).toBe("en");
 
@@ -363,7 +372,7 @@ describe("SearchPage", () => {
     await user.click(within(recording).getByRole("button", { name: "Stop recording" }));
     await waitFor(() => expect(input).toHaveValue("quy định nghỉ phép năm"));
     expect(screen.getByRole("button", { name: "Search by voice" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Search" })).toBeEnabled();
+    expect(within(screen.getByRole("main")).getByRole("button", { name: "Search" })).toBeEnabled();
     expect(input).toHaveFocus();
     expect(searchDocumentsMock).not.toHaveBeenCalled();
   });
@@ -435,7 +444,7 @@ describe("SearchPage", () => {
     await renderNewSession();
 
     await user.type(screen.getByRole("textbox", { name: "Search documents" }), "nghỉ phép");
-    await user.click(screen.getByRole("button", { name: "Search" }));
+    await user.click(within(screen.getByRole("main")).getByRole("button", { name: "Search" }));
 
     expect(await screen.findByRole("heading", { name: /^1 result for “/ })).toBeInTheDocument();
     expect(
@@ -513,7 +522,7 @@ describe("SearchPage", () => {
     await renderNewSession();
 
     await user.type(screen.getByRole("textbox", { name: "Search documents" }), "nghỉ phép");
-    await user.click(screen.getByRole("button", { name: "Search" }));
+    await user.click(within(screen.getByRole("main")).getByRole("button", { name: "Search" }));
     await user.click(
       await screen.findByRole("button", { name: "Document Sets: All Document Sets" }),
     );
@@ -556,7 +565,7 @@ describe("SearchPage", () => {
     await renderNewSession();
 
     await user.type(screen.getByRole("textbox", { name: "Search documents" }), "báo cáo");
-    await user.click(screen.getByRole("button", { name: "Search" }));
+    await user.click(within(screen.getByRole("main")).getByRole("button", { name: "Search" }));
 
     const rail = await screen.findByRole("complementary", { name: "Source" });
     expect(within(rail).getByRole("button", { name: "All sources: 3 results" })).toHaveAttribute(
@@ -599,7 +608,7 @@ describe("SearchPage", () => {
     await renderNewSession();
 
     await user.type(screen.getByRole("textbox", { name: "Search documents" }), "sổ tay");
-    await user.click(screen.getByRole("button", { name: "Search" }));
+    await user.click(within(screen.getByRole("main")).getByRole("button", { name: "Search" }));
 
     const rail = await screen.findByRole("complementary", { name: "Source" });
     expect(within(rail).getByRole("button", { name: "Uploaded files: 1 results" })).toBeEnabled();
@@ -641,12 +650,12 @@ describe("SearchPage", () => {
 
     const input = screen.getByRole("textbox", { name: "Search documents" });
     await user.type(input, "policy");
-    await user.click(screen.getByRole("button", { name: "Search" }));
+    await user.click(within(screen.getByRole("main")).getByRole("button", { name: "Search" }));
     expect(await screen.findByText("Existing policy document")).toBeVisible();
 
     await user.clear(input);
     await user.type(input, "onboarding");
-    await user.click(screen.getByRole("button", { name: "Search" }));
+    await user.click(within(screen.getByRole("main")).getByRole("button", { name: "Search" }));
 
     expect(screen.queryByText("Existing policy document")).not.toBeInTheDocument();
     expect(screen.getByText("Searching documents…")).toBeVisible();
@@ -662,7 +671,11 @@ describe("SearchPage", () => {
         results: [],
       },
     });
-    await waitFor(() => expect(screen.getByRole("button", { name: "Search" })).toBeEnabled());
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole("main")).getByRole("button", { name: "Search" }),
+      ).toBeEnabled(),
+    );
   });
 
   it("preselects a landing file type and reruns this actor's recent search with the real total", async () => {
@@ -746,7 +759,7 @@ describe("SearchPage", () => {
     await renderNewSession();
 
     await user.type(screen.getByRole("textbox", { name: "Search documents" }), "policy");
-    await user.click(screen.getByRole("button", { name: "Search" }));
+    await user.click(within(screen.getByRole("main")).getByRole("button", { name: "Search" }));
     expect(await screen.findByText("First page policy")).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "Next" }));

@@ -4,8 +4,16 @@ import { HighlightedCode } from "@/components/assistant-ui/elements/code-rendere
 import type { CodeRun } from "@/features/chat/interpreter/chat-code";
 import type { ToolState } from "./chat-activity-labels";
 
-/** The code run_python executed and the output it produced, streamed while it runs. */
-export function ChatCodeStep({ toolCallId, state }: { toolCallId: string; state: ToolState }) {
+/** The code run_python or a sandbox command ran and the output it produced, streamed while it runs. */
+export function ChatCodeStep({
+  toolCallId,
+  state,
+  language = "python",
+}: {
+  toolCallId: string;
+  state: ToolState;
+  language?: "python" | "bash";
+}) {
   const ui = useAppTranslation();
   const run = useAuiState(
     (aui) =>
@@ -16,7 +24,7 @@ export function ChatCodeStep({ toolCallId, state }: { toolCallId: string; state:
   return (
     <div className="flex flex-col gap-2 text-xs">
       <div className="text-xs [&_pre]:max-h-64 [&_pre]:rounded-lg! [&_pre]:border-t!">
-        <HighlightedCode code={run.code.trim()} language="python" />
+        <HighlightedCode code={run.code.trim()} language={language} />
       </div>
       {run.stdout && (
         <section aria-label={ui("Kết quả")} className="rounded-lg bg-surface-subtle p-2.5">

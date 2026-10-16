@@ -8,6 +8,7 @@ import {
   getChatBranchesQueryKey,
   getChatFeedbackQueryKey,
   getChatSessionQueryKey,
+  listChatAssistantsQueryKey,
   listChatSessionsQueryKey,
   listProjectChatSessionsQueryKey,
   searchChatSessionsQueryKey,
@@ -31,6 +32,8 @@ export type ChatUiMessage = UIMessage<
     failureCode?: string;
     /** MEM-195: why a completed reply declined instead of answering. */
     refusalReason?: string;
+    /** MEM-267: what the reply's last model call carried, against the model's input limit. */
+    context?: { tokens: number; limit: number };
     createdAt?: string;
     /** Set by assistant-ui on a live question sent with a composer quote. */
     custom?: { quote?: { text: string; messageId: string } };
@@ -40,6 +43,8 @@ export type ChatUiMessage = UIMessage<
     toolCitations?: Record<string, number[]>;
     images?: GeneratedImage[];
     imageGenerating?: boolean;
+    /** The live reply waits for a turn: the server runs a bounded number at once. */
+    waiting?: boolean;
     /** Files run_python generated, saved on the assistant message. */
     generatedFiles?: GeneratedFile[];
   },
@@ -53,14 +58,16 @@ function everyCall([{ _id }]: readonly [{ _id: string }]) {
 }
 
 /**
- * Refreshes every cached read of conversations after one changes: the session lists (open and archived),
- * conversation search, every Project's conversation list and, when given, the changed conversation. The
+ * Refreshes every cached read of conversations after one changes: the session lists (open, archived and each
+ * assistant's topics), conversation search, every Project's conversation list, the sidebar's assistants with their
+ * latest topic and, when given, the changed conversation. The
  * assistant-ui thread list is not a query; `useRefreshChatSessions` reloads it beside this.
  */
 export function invalidateChatSessions(cache: QueryClient, sessionId?: string) {
   return Promise.all([
     cache.invalidateQueries({ queryKey: listChatSessionsQueryKey() }),
     cache.invalidateQueries({ queryKey: searchChatSessionsQueryKey() }),
+    cache.invalidateQueries({ queryKey: listChatAssistantsQueryKey() }),
     cache.invalidateQueries({
       queryKey: everyCall(listProjectChatSessionsQueryKey({ path: { projectId: "" } })),
     }),
@@ -165,7 +172,7 @@ export function initialChatTitle(text: string) {
     title += segment;
     count++;
   }
-  return title || i18n.t("app:Hội thoại mới", { keySeparator: false });
+  return title || i18n.t("Hội thoại mới", { ns: "app", keySeparator: false, nsSeparator: false });
 }
 
 /** Saved deep research renders before the answer, as it streamed. */
@@ -196,6 +203,10 @@ export function toUiMessages(messages: ChatMessage[]): ChatUiMessage[] {
       serverStatus: message.status,
       failureCode: message.failureCode ?? undefined,
       refusalReason: message.refusalReason ?? undefined,
+      ...(message.contextTokens != null &&
+        message.contextLimit != null && {
+          context: { tokens: message.contextTokens, limit: message.contextLimit },
+        }),
       createdAt: message.createdAt,
       sources: sourcesSchema.parse(message.sources),
       artifacts: artifactsSchema.parse(message.artifacts),

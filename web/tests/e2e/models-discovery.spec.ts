@@ -18,7 +18,7 @@ const gateway: ChatReportedModels = {
       modelName: "gpt-5-mini",
       contextWindow: 272000,
       maxOutputTokens: 128000,
-      capabilities: { toolCalling: true, vision: true, reasoning: true },
+      capabilities: { toolCalling: true, vision: true, reasoning: true, structuredOutput: true },
       pricing: { inputPerMillion: 0.25, outputPerMillion: 2 },
       source: "catalog",
     },
@@ -26,7 +26,7 @@ const gateway: ChatReportedModels = {
       modelName: "gpt-5.6-luna",
       contextWindow: 922000,
       maxOutputTokens: 128000,
-      capabilities: { toolCalling: true, vision: true, reasoning: true },
+      capabilities: { toolCalling: true, vision: true, reasoning: true, structuredOutput: true },
       pricing: { inputPerMillion: 0.2, outputPerMillion: 1.2 },
       source: "catalog",
     },
@@ -34,7 +34,7 @@ const gateway: ChatReportedModels = {
       modelName: "qwen3-32b-awq",
       contextWindow: 32768,
       maxOutputTokens: null,
-      capabilities: { toolCalling: true, vision: false, reasoning: false },
+      capabilities: { toolCalling: true, vision: false, reasoning: false, structuredOutput: false },
       pricing: null,
       source: "provider",
     },
@@ -42,7 +42,7 @@ const gateway: ChatReportedModels = {
       modelName: "tasco-internal-7b",
       contextWindow: 32000,
       maxOutputTokens: null,
-      capabilities: { toolCalling: true, vision: false, reasoning: false },
+      capabilities: { toolCalling: true, vision: false, reasoning: false, structuredOutput: false },
       pricing: null,
       source: "none",
     },
@@ -84,7 +84,13 @@ const configured: Model = {
   settings: {
     contextWindow: 1000000,
     maxOutputTokens: 131072,
-    capabilities: { streaming: true, toolCalling: true, vision: true, reasoning: true },
+    capabilities: {
+      streaming: true,
+      toolCalling: true,
+      vision: true,
+      reasoning: true,
+      structuredOutput: false,
+    },
     options: { maxCompletionTokens: false },
     pricing: { inputPerMillion: 0.214, outputPerMillion: 2.55 },
     tokenizerProfile: "openai-o200k-v1",
@@ -145,7 +151,7 @@ async function open(page: Page, width: number, scheme: "light" | "dark") {
   await page.route("**/api/chat/models", (route) => route.fulfill({ json: [] }));
   // Adding models refreshes the whole catalog, task models included.
   await page.route("**/api/chat/model-flows", (route) => route.fulfill({ json: [] }));
-  await page.goto("/admin/models");
+  await page.goto("/admin/ai-providers");
   // Below `md` the shell bar names the page and this heading is off screen, so the wait is for its presence.
   await expect(page.getByRole("heading", { name: /Mô hình|Models/ }).first()).toBeAttached({
     timeout: 60_000,

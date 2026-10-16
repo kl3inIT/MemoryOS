@@ -270,8 +270,10 @@ test("a meeting being recorded keeps its newest sentence on screen", async ({ pa
     true,
   );
 
-  // Scrolling back to reread is left alone: what is said meanwhile does not pull the reader away.
-  await transcript.hover();
+  // Scrolling back to reread is left alone: what is said meanwhile does not pull the reader away. The pointer
+  // goes over the lines where they are on screen, as a reader's does; hovering the whole transcript would make the
+  // test itself scroll the page to its top before the wheel turns.
+  await page.mouse.move(720, 600);
   await page.mouse.wheel(0, -10_000);
   await expect(page.locator("#u0")).toBeInViewport();
   limit += LATER_LINES;

@@ -122,7 +122,12 @@ function useToolChoices(controller: ChatThreadController, sessionId: string | un
 }
 
 /** Everything one conversation page reads and changes, apart from the thread body assistant-ui renders. */
-export function useChatConversation(controller: ChatThreadController, project?: Project) {
+export function useChatConversation(
+  controller: ChatThreadController,
+  project?: Project,
+  /** The assistant a new topic is opened with; a saved conversation keeps its own. */
+  personaId?: string,
+) {
   const ui = useAppTranslation();
   const state = useSyncExternalStore(controller.subscribe, controller.getState);
   const { transport } = controller;
@@ -132,6 +137,7 @@ export function useChatConversation(controller: ChatThreadController, project?: 
   );
   // The controller outlives this page; it learns which Project a new conversation is created in.
   useEffect(() => controller.setProject(project?.id), [controller, project?.id]);
+  useEffect(() => controller.setPersona(personaId), [controller, personaId]);
   const model = useChatModelChoice(transport);
   const tools = useToolChoices(controller, session?.id);
 
@@ -150,8 +156,9 @@ export function useChatConversation(controller: ChatThreadController, project?: 
 
   const chatSettings = useQuery({ ...getChatSettingsOptions(), retry: false });
   const personas = useQuery(personasOptions());
-  const persona = session?.personaId
-    ? personas.data?.find((candidate) => candidate.id === session.personaId)
+  const chosenPersona = session?.personaId ?? personaId;
+  const persona = chosenPersona
+    ? personas.data?.find((candidate) => candidate.id === chosenPersona)
     : personas.data?.find((candidate) => candidate.builtin);
   const webAvailability = useQuery({
     ...getChatWebAvailabilityOptions({ query: { sessionId: session?.id } }),
@@ -336,6 +343,11 @@ export function useChatConversation(controller: ChatThreadController, project?: 
     headerSession: session && { ...session, title: sessionTitle ?? session.title },
     busy,
     persona,
+    /**
+     * The assistant the conversation or new topic names was deleted or is no longer shared: its topic stays readable,
+     * never continued. The default assistant is never gone.
+     */
+    personaGone: personas.isSuccess && chosenPersona !== undefined && !persona,
     model,
     pinnedEffort,
     pinEffort,

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Regenerates core/src/main/resources/chat/known-models.json from the pinned LiteLLM
+// Regenerates memoryos-core/src/main/resources/chat/known-models.json from the pinned LiteLLM
 // model metadata file. Run with: node scripts/sync-chat-known-models.mjs [commit-sha]
 // Bump SOURCE_COMMIT to refresh prices; review the diff before committing it.
 import { writeFileSync } from "node:fs";
@@ -8,14 +8,14 @@ import { fileURLToPath } from "node:url";
 
 const SOURCE_REPO = "BerriAI/litellm";
 const SOURCE_FILE = "model_prices_and_context_window.json";
-const SOURCE_COMMIT = process.argv[2] ?? "7370650d91bea7ecdd04dd7350a6cf4229441048";
+const SOURCE_COMMIT = process.argv[2] ?? "780c504e001200af8d0143d9b06f4b71a7ae58fd";
 // Vendors whose OpenAI-compatible /models endpoint names models without their limits (MEM-130). LiteLLM keys the
 // non-OpenAI ones as "<provider>/<model>"; the prefix is dropped because the endpoints report the bare name.
 const PROVIDERS = new Set(["openai", "anthropic", "gemini", "xai", "deepseek", "mistral"]);
 const OUTPUT = join(
   dirname(fileURLToPath(import.meta.url)),
   "..",
-  "core",
+  "memoryos-core",
   "src",
   "main",
   "resources",
@@ -55,6 +55,7 @@ for (const [modelName, entry] of Object.entries(source)) {
     toolCalling: entry.supports_function_calling === true,
     vision: entry.supports_vision === true,
     reasoning: entry.supports_reasoning === true,
+    structuredOutput: entry.supports_response_schema === true,
     inputPerMillion: Number((input * 1e6).toFixed(6)),
     outputPerMillion: Number((output * 1e6).toFixed(6)),
     // Prompt-cache reads are billed at their own rate; absent means the input rate applies.

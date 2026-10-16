@@ -142,6 +142,7 @@ export type ModelDraft = {
   toolCalling: boolean;
   vision: boolean;
   reasoning: boolean;
+  structuredOutput: boolean;
   completionTokens: boolean;
   temperature: string;
   topP: string;
@@ -174,6 +175,7 @@ export function modelDraft(model?: ManagedModel, adapter?: InstalledAdapter): Mo
     toolCalling: settings?.capabilities.toolCalling ?? false,
     vision: settings?.capabilities.vision ?? false,
     reasoning: settings?.capabilities.reasoning ?? false,
+    structuredOutput: settings?.capabilities.structuredOutput ?? false,
     completionTokens: settings?.options.maxCompletionTokens === true,
     temperature: optionText(settings?.options.temperature),
     topP: optionText(settings?.options.topP),
@@ -209,6 +211,7 @@ export function reportedDraft(reported: ReportedModel, adapter?: InstalledAdapte
     toolCalling: capabilities.toolCalling,
     vision: capabilities.vision,
     reasoning,
+    structuredOutput: capabilities.structuredOutput,
     // OpenAI-compatible reasoning models reject max_tokens, so the option family follows the capability.
     completionTokens: reasoning,
     inputPrice: reported.pricing == null ? "" : String(reported.pricing.inputPerMillion),
@@ -240,6 +243,7 @@ export function matchesKnownModel(draft: ModelDraft, known: KnownModel | undefin
     draft.toolCalling === known.capabilities.toolCalling &&
     draft.vision === known.capabilities.vision &&
     draft.reasoning === known.capabilities.reasoning &&
+    draft.structuredOutput === known.capabilities.structuredOutput &&
     draft.inputPrice === String(known.pricing.inputPerMillion) &&
     draft.outputPrice === String(known.pricing.outputPerMillion) &&
     draft.cachedInputPrice ===
@@ -277,6 +281,7 @@ export function changeModelDraft<K extends keyof ModelDraft>(
       next.toolCalling = known.capabilities.toolCalling;
       next.vision = known.capabilities.vision;
       next.reasoning = known.capabilities.reasoning;
+      next.structuredOutput = known.capabilities.structuredOutput;
       // OpenAI rejects max_tokens on a reasoning model, so the option family follows the capability.
       next.completionTokens = known.capabilities.reasoning;
       if (next.reasoning) {
@@ -299,6 +304,7 @@ export function changeModelDraft<K extends keyof ModelDraft>(
       next.toolCalling = false;
       next.vision = false;
       next.reasoning = false;
+      next.structuredOutput = false;
       next.reasoningEffort = "";
       next.inputPrice = "";
       next.outputPrice = "";
@@ -333,9 +339,9 @@ export function modelDraftError(
     if (value.trim() && (!Number.isFinite(Number(value)) || Number(value) < 0))
       return "Prices must be finite, nonnegative USD per million tokens.";
   }
-  if (!draft.completionTokens) {
+  if (!draft.completionTokens || !openAiOptions(adapter)) {
     for (const [key, label, min, max] of [
-      ["temperature", "Temperature", 0, 2],
+      ["temperature", "Temperature", 0, openAiOptions(adapter) ? 2 : 1],
       ["topP", "Top P", 0, 1],
       ["frequencyPenalty", "Frequency penalty", -2, 2],
       ["presencePenalty", "Presence penalty", -2, 2],
@@ -355,21 +361,38 @@ export function modelDraftError(
   if (
     draft.reasoning &&
     draft.reasoningEffort &&
-    !["minimal", "low", "medium", "high"].includes(draft.reasoningEffort)
+    !reasoningEfforts(adapter).includes(draft.reasoningEffort)
   )
     return "Choose a supported reasoning effort.";
   return null;
 }
 
-export function modelBody(draft: ModelDraft): ModelBody {
-  const options: ManagedModel["settings"]["options"] = {
-    maxCompletionTokens: draft.completionTokens,
-  };
-  if (!draft.completionTokens)
-    for (const key of ["temperature", "topP", "frequencyPenalty", "presencePenalty"] as const) {
-      if (draft[key].trim()) options[key] = Number(draft[key]);
-    }
-  if (draft.reasoning && draft.reasoningEffort) options.reasoningEffort = draft.reasoningEffort;
+/** Whether the adapter takes the OpenAI option families; the Messages API has neither them nor the penalties. */
+export function openAiOptions(adapter: InstalledAdapter | undefined) {
+  return adapter?.type !== "anthropic";
+}
+
+/** The reasoning levels a model configuration may name on this adapter. */
+export function reasoningEfforts(adapter: InstalledAdapter | undefined) {
+  return openAiOptions(adapter) ? ["minimal", "low", "medium", "high"] : ["low", "medium", "high"];
+}
+
+export function modelBody(draft: ModelDraft, adapter: InstalledAdapter | undefined): ModelBody {
+  const options: ManagedModel["settings"]["options"] = {};
+  if (openAiOptions(adapter)) {
+    options.maxCompletionTokens = draft.completionTokens;
+    if (!draft.completionTokens)
+      for (const key of ["temperature", "topP", "frequencyPenalty", "presencePenalty"] as const) {
+        if (draft[key].trim()) options[key] = Number(draft[key]);
+      }
+  } else {
+    // A reasoning model on the Messages API takes no temperature.
+    if (!draft.reasoning && draft.temperature.trim())
+      options.temperature = Number(draft.temperature);
+    if (draft.topP.trim()) options.topP = Number(draft.topP);
+  }
+  if (draft.reasoning && reasoningEfforts(adapter).includes(draft.reasoningEffort))
+    options.reasoningEffort = draft.reasoningEffort;
   return {
     modelName: draft.modelName.trim(),
     displayName: draft.displayName.trim(),
@@ -383,6 +406,7 @@ export function modelBody(draft: ModelDraft): ModelBody {
         toolCalling: draft.toolCalling,
         vision: draft.vision,
         reasoning: draft.reasoning,
+        structuredOutput: draft.structuredOutput,
       },
       options,
       pricing:

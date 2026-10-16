@@ -8,8 +8,8 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 DEPLOYMENT = ROOT / "infrastructure/deployment"
 BASE = (DEPLOYMENT / "compose.base.yaml").read_text(encoding="utf-8")
-ENTRYPOINT = (ROOT / "api/src/main/docker/api-entrypoint.sh").read_text(encoding="utf-8")
-LAUNCHER = (ROOT / "api/src/main/docker/application-launcher.sh").read_text(encoding="utf-8")
+ENTRYPOINT = (ROOT / "memoryos-api/src/main/docker/api-entrypoint.sh").read_text(encoding="utf-8")
+LAUNCHER = (ROOT / "memoryos-api/src/main/docker/application-launcher.sh").read_text(encoding="utf-8")
 DOCKERFILE = (ROOT / "Dockerfile").read_text(encoding="utf-8")
 
 # Every secret the running services read, and the Compose secret each one arrives through.
@@ -21,6 +21,7 @@ MOUNTED = {
     "MEMORYOS_EXTRACTION_DOCLING_API_KEY_FILE": "docling_api_key",
     "MEMORYOS_CHAT_CATALOG_ENCRYPTION_KEY_FILE": "chat_catalog_encryption_key",
     "MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY_FILE": "google_drive_credential_encryption_key",
+    "MEMORYOS_LARK_CREDENTIAL_ENCRYPTION_KEY_FILE": "lark_credential_encryption_key",
     "MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY_FILE": "mcp_credential_encryption_key",
     "MEMORYOS_MCP_ADMIN_CLIENT_SECRET_FILE": "mcp_admin_client_secret",
 }
@@ -63,7 +64,7 @@ class ServerSecretSourceTest(unittest.TestCase):
 
     def test_the_deployment_holds_no_model_key(self):
         # Every Chat and embedding key is a catalog entry an administrator enters (MEM-211, MEM-216).
-        search = (ROOT / "core/src/main/resources/memoryos-search.yaml").read_text(encoding="utf-8")
+        search = (ROOT / "memoryos-core/src/main/resources/memoryos-search.yaml").read_text(encoding="utf-8")
         self.assertNotIn("api-key:", search)
         self.assertNotIn("model_api_key", BASE)
         self.assertNotIn("MEMORYOS_EMBEDDING_API_KEY", BASE)

@@ -57,6 +57,7 @@ function ToggleGroupItem({
   children,
   variant = "default",
   size = "default",
+  focus,
   ...props
 }: React.ComponentProps<typeof ToggleGroupPrimitive.Item> & VariantProps<typeof toggleVariants>) {
   const context = React.use(ToggleGroupContext);
@@ -72,6 +73,7 @@ function ToggleGroupItem({
         toggleVariants({
           variant: context.variant || variant,
           size: context.size || size,
+          focus,
         }),
         className,
       )}

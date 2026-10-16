@@ -21,8 +21,8 @@ import { ChatFilePicker } from "@/features/library/file-picker";
 import { ModelLogo } from "@/features/models/model-logo";
 import { agentTools, type Persona } from "@/features/chat/chat-personas-api";
 import { actionErrorText } from "@/lib/action-errors";
+import { AgentAvatarStudio } from "./agent-avatar-studio";
 import {
-  AgentIconPicker,
   AgentLabelPicker,
   EditorField,
   EditorSection,
@@ -60,23 +60,22 @@ export function GeneralSection({ form, agent, choices, editable }: SectionProps)
       <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
         <form.Subscribe
           selector={(state) => ({
-            name: state.values.name,
-            iconName: state.values.iconName,
+            avatarSeed: state.values.avatarSeed,
             keepAvatar: state.values.keepAvatar,
             avatarFileId: state.values.avatarFileId,
           })}
         >
-          {({ name, iconName, keepAvatar, avatarFileId }) => (
-            <AgentIconPicker
+          {({ avatarSeed, keepAvatar, avatarFileId }) => (
+            <AgentAvatarStudio
               agentId={agent?.id ?? "new"}
-              name={name}
-              iconName={iconName}
+              avatarSeed={avatarSeed}
+              savedSeed={agent?.avatarSeed ?? form.options.defaultValues?.avatarSeed ?? avatarSeed}
               hasAvatar={keepAvatar}
               avatarFileId={avatarFileId}
               allowImage={!agent?.builtin}
               disabled={!editable}
-              onIcon={(key) => {
-                form.setFieldValue("iconName", key);
+              onSeed={(seed) => {
+                form.setFieldValue("avatarSeed", seed);
                 form.setFieldValue("keepAvatar", false);
                 form.setFieldValue("avatarFileId", null);
               }}
@@ -324,7 +323,7 @@ export function ToolsSection({ form, agent, choices }: SectionProps) {
           </SettingRows>
         )}
       </form.AppField>
-      <EditorField label={ui("Máy chủ MCP")}>
+      <EditorField label={ui("Ứng dụng MCP")}>
         {agent?.builtin ? (
           <p className="font-secondary-body text-content-muted">
             {ui("Trợ lý mặc định dùng mọi máy chủ MCP mà người dùng được phép dùng.")}

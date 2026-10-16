@@ -237,7 +237,7 @@ test("keeps the new conversation mounted through server ID promotion and resets 
   ).toBeVisible();
   const sessionUrl = page.url();
 
-  await page.getByRole("link", { name: "Hội thoại mới", exact: true }).click();
+  await page.getByRole("link", { name: "Chủ đề mới", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Bạn muốn tìm hiểu điều gì?" })).toBeVisible();
   await expect(
     page.getByRole("main").getByText("Keep this conversation visible", { exact: true }),
@@ -399,8 +399,8 @@ test("grounds prose citations in message sources, opens the cited range, and pre
   expect(new Set(originalReads.map(({ url }) => url.searchParams.get("generation")))).toEqual(
     new Set([fixtureSource.generation]),
   );
-  // One whole-file response supplies the headers; the cited page then needs only a few ranges of the original.
-  expect(originalReads.filter(({ range }) => !range)).toHaveLength(1);
+  // The reader opens the file by range itself; the cited page then needs only a few ranges of the original.
+  expect(originalReads.filter(({ range }) => !range)).toHaveLength(0);
   expect(originalReads.some(({ range }) => range)).toBe(true);
   expect(
     rangedBytes(
@@ -626,7 +626,7 @@ for (const manager of [false, true]) {
       await expect(page.getByRole("alert")).toContainText("Provider từ chối API key");
       await expect(page.getByRole("link", { name: "Cập nhật API key" })).toHaveAttribute(
         "href",
-        "/admin/models",
+        "/admin/ai-providers",
       );
     } else {
       await expect(page.getByRole("alert")).toContainText("Model không dùng được");
@@ -670,6 +670,8 @@ test("mobile drawer, Search navigation, and leaving a running chat only closes t
   await expect(page.getByRole("banner").getByRole("button", { name: /chuyển chế độ/ })).toHaveCount(
     0,
   );
+  // An open topic shows its assistant's sidebar; the app's pages are on the home behind Back.
+  await navigation.getByRole("button", { name: "Về danh sách trợ lý" }).click();
   await navigation.getByRole("link", { name: "Tìm tài liệu", exact: true }).click();
   await expect(page).toHaveURL(/\/search$/);
   await expect(navigation).toBeHidden();
@@ -684,7 +686,10 @@ test("mobile drawer, Search navigation, and leaving a running chat only closes t
   ).json();
   expect(history.at(-1).status).toBe("RUNNING");
   await page.getByRole("button", { name: "Mở điều hướng" }).click();
-  await navigation.locator(`a[href="/chat/${session.id}"]`).click();
+  await navigation
+    .locator("section[aria-labelledby=sidebar-recent]")
+    .locator(`a[href="/chat/${session.id}"]`)
+    .click();
   await expect(page.getByRole("button", { name: "Dừng trả lời" })).toBeVisible();
   await page.getByRole("button", { name: "Dừng trả lời" }).click();
   await expect(page.getByText("Đã dừng", { exact: true })).toBeVisible();

@@ -1,6 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { ChatImageSettings } from "@/features/chat/image/chat-image-settings";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
+/** The page became a tab of AI Providers; its old address still leads there. */
 export const Route = createFileRoute("/_authenticated/admin/image-generation")({
-  component: ChatImageSettings,
+  beforeLoad: () => {
+    throw redirect({
+      to: "/admin/ai-providers",
+      search: { tab: "image-generation" },
+      replace: true,
+    });
+  },
 });

@@ -1,6 +1,7 @@
 import { QueryClient } from "@tanstack/react-query";
 import { AssistantMessageStream } from "assistant-stream";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
+import { getChatSessionQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { ChatMessage, ChatSession } from "@/lib/hey-api/types.gen";
 import { ChatThreadRegistry } from "./chat-thread-controller";
 import {
@@ -22,6 +23,7 @@ const session: ChatSession = {
   branchedFromSessionId: null,
   branchedFromMessageId: null,
   temporary: false,
+  replyRunning: false,
 };
 const message = (id: string, role: ChatMessage["role"], status: ChatMessage["status"]) =>
   ({
@@ -43,6 +45,8 @@ const message = (id: string, role: ChatMessage["role"], status: ChatMessage["sta
     research: { clarification: false, plan: null, agents: [] },
     failureCode: null,
     refusalReason: null,
+    contextTokens: null,
+    contextLimit: null,
   }) satisfies ChatMessage;
 const json = (data: unknown, status = 200) => Response.json(data, { status });
 
@@ -63,7 +67,7 @@ function stubFetch(handler: (request: Request, path: string) => Response) {
 function setup() {
   const queries = new QueryClient();
   const registry = new ChatThreadRegistry(queries, "actor");
-  return { registry, adapter: createChatThreadListAdapter(registry, queries) };
+  return { queries, registry, adapter: createChatThreadListAdapter(registry, queries) };
 }
 
 afterEach(() => vi.unstubAllGlobals());
@@ -111,7 +115,7 @@ describe("assistant-ui thread list adapter over the session API", () => {
     const requests = stubFetch((request) =>
       request.method === "POST" ? json(session, 201) : json({}, 404),
     );
-    const { registry, adapter } = setup();
+    const { queries, registry, adapter } = setup();
     const controller = registry.obtain("__LOCALID_a", undefined);
 
     const failed = adapter.initialize("__LOCALID_a");
@@ -140,6 +144,22 @@ describe("assistant-ui thread list adapter over the session API", () => {
     await expect(retried).resolves.toEqual({ remoteId: session.id, externalId: undefined });
     expect(requests[0]).toBe("POST /api/chat/sessions");
     expect(registry.byRemoteId(session.id)).toBe(controller);
+    // The created conversation is stored for readers such as the sidebar, which then request nothing.
+    expect(
+      queries.getQueryData(getChatSessionQueryKey({ path: { sessionId: session.id } })),
+    ).toEqual(session);
+  });
+
+  it("stores a conversation it loads, for readers that must not request it again", async () => {
+    const requests = stubFetch(() => json(session));
+    const { queries, adapter } = setup();
+
+    await adapter.fetch(session.id);
+
+    expect(requests).toEqual([`GET /api/chat/sessions/${session.id}`]);
+    expect(
+      queries.getQueryData(getChatSessionQueryKey({ path: { sessionId: session.id } })),
+    ).toEqual(session);
   });
 
   it("asks the server for a title only after the first answer completes", async () => {

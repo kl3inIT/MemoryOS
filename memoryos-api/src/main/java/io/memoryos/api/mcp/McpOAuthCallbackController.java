@@ -1,0 +1,73 @@
+package io.memoryos.api.mcp;
+
+import io.memoryos.shared.ActorId;
+import io.memoryos.mcp.McpException;
+import io.memoryos.mcp.McpOAuthProperties;
+import io.memoryos.mcp.McpOAuthService;
+import io.memoryos.mcp.McpServerService;
+import io.swagger.v3.oas.annotations.Hidden;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+/** Authorization-code callback; the browser returns to the originating page with an outcome code only. */
+@Hidden
+@RestController
+final class McpOAuthCallbackController {
+    private static final Logger LOG = LoggerFactory.getLogger(McpOAuthCallbackController.class);
+    private final McpOAuthService oauth;
+    private final McpServerService servers;
+
+    McpOAuthCallbackController(McpOAuthService oauth, McpServerService servers) {
+        this.oauth = oauth;
+        this.servers = servers;
+    }
+
+    @GetMapping(McpOAuthProperties.CALLBACK_PATH)
+    void callback(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        response.setHeader("Referrer-Policy", "no-referrer");
+        var pending = McpAuthorizationSessionState.consume(request, single(request, "state"));
+        String outcome = "authorization-failed";
+        String code = single(request, "code");
+        String error = request.getParameter("error");
+        String[] issuers = request.getParameterValues("iss");
+        if (pending != null && "access_denied".equals(error)) {
+            outcome = "authorization-cancelled";
+        } else if (pending != null && error == null && code != null && !code.isBlank() && code.length() <= 8192
+                && (issuers == null || issuers.length == 1)) {
+            try {
+                var actor = new ActorId(pending.actorId());
+                oauth.complete(actor, pending.pending(), code, pending.verifier(), issuers == null ? null : issuers[0]);
+                outcome = "connected";
+                // The first connection lists the server's tools, so nobody has to press refresh (MEM-264).
+                servers.discoverTools(actor, pending.pending().serverId());
+            } catch (McpException failure) {
+                LOG.atWarn().addKeyValue("event", "mcp.oauth.callback.failed").addKeyValue("error_code", failure.code())
+                        .log("MCP OAuth authorization could not be completed");
+                outcome = switch (failure.code()) {
+                    case "MCP_OAUTH_ISSUER_MISMATCH" -> "issuer-mismatch";
+                    case "MCP_CONFLICT" -> "configuration-changed";
+                    default -> "authorization-failed";
+                };
+            } catch (RuntimeException failure) {
+                // Provider bodies and tokens must never enter logs, sessions, or redirect queries: the type only.
+                LOG.atWarn().addKeyValue("event", "mcp.oauth.callback.failed")
+                        .addKeyValue("error_type", failure.getClass().getName())
+                        .log("MCP OAuth authorization could not be completed");
+            }
+        }
+        // A replayed or expired callback has no pending state, so it returns to a page every User may open.
+        response.sendRedirect(pending == null ? McpReturnPath.DEFAULT + "?mcp=" + outcome
+                : pending.pending().returnPath() + "?mcp=" + outcome + "&serverId=" + pending.pending().serverId());
+    }
+
+    private static @Nullable String single(HttpServletRequest request, String name) {
+        String[] values = request.getParameterValues(name);
+        return values != null && values.length == 1 ? values[0] : null;
+    }
+}

@@ -6,6 +6,8 @@ import {
   exportMeetingMinutes,
   exportMeetingTranscript,
   getMeetingMinutesHeading,
+  listChatLibraryShared,
+  listChatLibraryStarred,
   publishMeetingMinutes,
   recordChatLibraryEntryOpened,
 } from "@/lib/hey-api/sdk.gen";
@@ -18,7 +20,12 @@ import type { ChatLibraryEntry, ChatLibrarySourceOption } from "@/lib/hey-api/ty
 import { imageArtifactUrl } from "./content-urls";
 import { downloadUrl, type PreviewTarget } from "./file-preview";
 import type { ChatFile } from "./files";
-import { libraryCopy, type LibraryCategory } from "./library";
+import {
+  libraryCopy,
+  readWholeListing,
+  type LibraryCategory,
+  type LibraryPageSize,
+} from "./library";
 
 /**
  * One row of a view other than the owned listing: an owned file, or a read-only reference to a meeting, an
@@ -41,19 +48,40 @@ export type EntryFilter = {
 /** The server keeps the viewer's last opens and returns at most this many. */
 export const RECENT_LIMIT = 100;
 
-/** One page of one of the offset-paged views, as its generated query reads it. */
+/**
+ * One page of one of the offset-paged views as its generated query reads it, or the whole view under a key that
+ * names no page.
+ */
 export function entryPageOptions(
   view: "shared" | "starred",
   filter: EntryFilter,
   offset: number,
-  limit: number,
+  size: LibraryPageSize,
 ) {
   const { query, kinds, categories, sort } = filter;
-  if (view === "shared")
-    return listChatLibrarySharedOptions({
-      query: { query, kinds, categories, sort, offset, limit },
-    });
-  return listChatLibraryStarredOptions({ query: { query, kinds, offset, limit } });
+  const limit = size === "all" ? undefined : size;
+  const options =
+    view === "shared"
+      ? listChatLibrarySharedOptions({ query: { query, kinds, categories, sort, offset, limit } })
+      : listChatLibraryStarredOptions({ query: { query, kinds, offset, limit } });
+  if (size !== "all") return options;
+  const read = (from: number, pageLimit: number, signal: AbortSignal) =>
+    view === "shared"
+      ? listChatLibraryShared({
+          query: { query, kinds, categories, sort, offset: from, limit: pageLimit },
+          signal,
+          throwOnError: true,
+        }).then((response) => response.data)
+      : listChatLibraryStarred({
+          query: { query, kinds, offset: from, limit: pageLimit },
+          signal,
+          throwOnError: true,
+        }).then((response) => response.data);
+  return {
+    ...options,
+    queryFn: ({ signal }: { signal: AbortSignal }) =>
+      readWholeListing((from, pageLimit) => read(from, pageLimit, signal)),
+  };
 }
 
 /** The keyset pages of the Source documents the viewer may read; each page continues the previous one. */
@@ -111,6 +139,7 @@ export function entryReason(entry: LibraryEntry): AppText | undefined {
 const PROVIDERS: Partial<Record<ChatLibrarySourceOption["type"], string>> = {
   GOOGLE_DRIVE: "Google Drive",
   SHAREPOINT: "SharePoint",
+  LARK: "Lark",
 };
 
 /**

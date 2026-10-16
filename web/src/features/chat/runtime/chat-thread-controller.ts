@@ -2,6 +2,7 @@ import type { UseChatHelpers } from "@ai-sdk/react";
 import type { QueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/lib/api";
 import {
+  getChatSessionQueryKey,
   getCurrentIdentityQueryKey,
   listProjectChatSessionsQueryKey,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
@@ -105,6 +106,11 @@ export class ChatThreadController {
     this.transport.onSessionCreated = (session) => {
       this.remoteId = session.id;
       this.set({ session });
+      // The sidebar reads the open conversation's Project from this entry instead of requesting it again.
+      this.queries.setQueryData(
+        getChatSessionQueryKey({ path: { sessionId: session.id } }),
+        session,
+      );
       this.created.resolve(session);
       this.onRemoteId(this);
     };
@@ -137,6 +143,11 @@ export class ChatThreadController {
   /** Project for the session created by the first send; an existing session keeps its own. */
   setProject(projectId: string | undefined) {
     if (!this.transport.session) this.transport.projectId = projectId;
+  }
+
+  /** Assistant of the session created by the first send; an existing session keeps its own. */
+  setPersona(personaId: string | undefined) {
+    if (!this.transport.session) this.transport.personaId = personaId;
   }
 
   updateSession(session: ChatSession) {

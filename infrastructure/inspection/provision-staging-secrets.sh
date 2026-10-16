@@ -43,6 +43,8 @@ create_base64_secret "$INSPECTION_DIRECTORY/redisinsight-oauth2-client-secret.tx
 create_hex_secret "$INSPECTION_DIRECTORY/redisinsight-oauth2-cookie-secret.txt" 16
 create_hex_secret "$INSPECTION_DIRECTORY/redisinsight-encryption-key.txt" 32
 create_base64_secret "$INSPECTION_DIRECTORY/minio-console-oidc-client-secret.txt" 48
+create_base64_secret "$INSPECTION_DIRECTORY/promptfoo-oauth2-client-secret.txt" 48
+create_hex_secret "$INSPECTION_DIRECTORY/promptfoo-oauth2-cookie-secret.txt" 16
 
 create_hex_secret "$REDIS_DIRECTORY/admin-password.txt" 32
 create_hex_secret "$REDIS_DIRECTORY/worker-password.txt" 32

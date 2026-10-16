@@ -3,13 +3,18 @@ import { useAppTranslation, type AppTranslate } from "@/i18n/use-app-translation
 import {
   ChevronDown,
   ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
   Files,
   FileText,
+  FilterX,
   ListFilter,
   Plug,
   TriangleAlert,
 } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
+import { SearchField } from "@/components/composites/search-field";
+import { TooltipIconButton } from "@/components/composites/tooltip-icon-button";
 import {
   statLabelClass,
   statValueClass,
@@ -19,9 +24,6 @@ import {
 } from "@/components/composites/stat-strip";
 import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
-import { Button } from "@/components/ui/button";
-import { IconButton } from "@/components/ui/icon-button";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -177,20 +179,20 @@ export function SourceList<T extends SourceListItem>({
       </StatStrip>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Input
-          type="search"
-          size="sm"
+        <SearchField
           value={search}
-          placeholder={ui("Search sources")}
-          aria-label={ui("Search sources")}
+          onChange={onSearch}
+          label={ui("Search sources")}
           className="min-w-40 flex-1"
-          onChange={(event) => onSearch(event.target.value)}
         />
-        <Button size="sm" prominence="secondary" onClick={toggleAll}>
-          {hasExpandedGroups ? ui("Collapse all") : ui("Expand all")}
-        </Button>
-        <IconButton
-          size="sm"
+        <TooltipIconButton
+          prominence="secondary"
+          aria-label={hasExpandedGroups ? ui("Collapse all") : ui("Expand all")}
+          onClick={toggleAll}
+        >
+          {hasExpandedGroups ? <ChevronsDownUp /> : <ChevronsUpDown />}
+        </TooltipIconButton>
+        <TooltipIconButton
           prominence="secondary"
           aria-label={ui("Filter sources")}
           aria-expanded={filtersOpen}
@@ -198,7 +200,7 @@ export function SourceList<T extends SourceListItem>({
           onClick={() => setFiltersOpen((open) => !open)}
         >
           <ListFilter />
-        </IconButton>
+        </TooltipIconButton>
       </div>
 
       {filtersOpen ? (
@@ -303,14 +305,16 @@ function SourceFilterFields({
               </Select>
             </Field>
           ))}
-          <Button
+          <TooltipIconButton
             size="sm"
-            prominence="tertiary"
+            prominence="secondary"
+            className="justify-self-start"
+            aria-label={ui("Clear filters")}
             disabled={!value.status && !value.provider && !value.access}
             onClick={() => onChange(noSourceFilters)}
           >
-            {ui("Clear filters")}
-          </Button>
+            <FilterX />
+          </TooltipIconButton>
         </div>
       </CardContent>
     </Card>

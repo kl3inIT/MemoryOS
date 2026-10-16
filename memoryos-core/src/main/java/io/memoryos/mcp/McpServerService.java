@@ -1,0 +1,575 @@
+package io.memoryos.mcp;
+
+import io.memoryos.audit.AuditAction;
+import io.memoryos.audit.AuditRecord;
+import io.memoryos.audit.AuditTrail;
+import io.memoryos.iam.GroupId;
+import io.memoryos.iam.GroupIdentityPage;
+import io.memoryos.iam.GroupScopeService;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.TenantId;
+import io.memoryos.mcp.persistence.JpaMcpCredentialRepository;
+import io.memoryos.mcp.persistence.JpaMcpServerRepository;
+import io.memoryos.mcp.persistence.JpaMcpServerToolRepository;
+import io.memoryos.mcp.persistence.McpAccessRepository;
+import io.memoryos.mcp.persistence.McpCredentialEntity;
+import io.memoryos.mcp.persistence.McpServerEntity;
+import io.memoryos.mcp.persistence.McpServerToolEntity;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
+import java.util.function.Function;
+import java.util.function.UnaryOperator;
+import java.util.stream.Collectors;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
+
+/**
+ * Tenant administration of MCP servers under {@link IamCapability#MCP_MANAGE}. Configuration changes run in
+ * transactions; tool refresh calls the server between two transactions and fences the write by revision.
+ * Changing the URL, authentication type or performer removes stored credentials so they never reach another
+ * endpoint or authentication scheme; the administrator-typed header template is kept.
+ */
+@Service
+public class McpServerService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(McpServerService.class);
+    /** Refresh is an explicit administrator action; the configured request timeout still bounds each call. */
+    private static final Duration REFRESH_DEADLINE = Duration.ofMinutes(2);
+
+    private final JpaMcpServerRepository servers;
+    private final JpaMcpServerToolRepository tools;
+    private final JpaMcpCredentialRepository credentials;
+    private final McpAccessRepository access;
+    private final IamAuthorization authorization;
+    private final GroupScopeService groups;
+    private final McpSecrets secrets;
+    private final McpClients clients;
+    private final McpOAuthService oauth;
+    private final TransactionTemplate transactions;
+    private final AuditTrail audit;
+
+    public McpServerService(JpaMcpServerRepository servers, JpaMcpServerToolRepository tools,
+                            JpaMcpCredentialRepository credentials, McpAccessRepository access,
+                            IamAuthorization authorization,
+                            GroupScopeService groups, McpSecrets secrets, McpClients clients, McpOAuthService oauth,
+                            PlatformTransactionManager transactionManager, AuditTrail audit) {
+        this.audit = audit;
+        this.servers = servers; this.tools = tools; this.credentials = credentials; this.access = access;
+        this.authorization = authorization;
+        this.groups = groups; this.secrets = secrets; this.clients = clients; this.oauth = oauth;
+        this.transactions = new TransactionTemplate(transactionManager);
+    }
+
+    public record HeaderChange(McpSecretAction action, @Nullable Map<String, String> values) {
+        @Override public @NonNull String toString() { return "McpHeaderChange[redacted]"; }
+    }
+
+    public record SecretChange(McpSecretAction action, @Nullable String value) {
+        @Override public @NonNull String toString() { return "McpSecretChange[redacted]"; }
+    }
+
+    public record ServerInput(String name, @Nullable String description, String url, McpAuthType authType,
+                              McpAuthPerformer authPerformer, @Nullable McpOAuthProviderMode oauthProviderMode,
+                              List<String> oauthScopes, Map<String, String> oauthAdditionalParameters,
+                              HeaderChange headers, SecretChange sharedApiKey, boolean tenantWide, Set<UUID> groupIds) {
+        @Override public @NonNull String toString() { return "McpServerInput[redacted]"; }
+    }
+
+    public record ServerView(UUID id, String slug, String name, @Nullable String description, String url,
+                             McpAuthType authType, McpAuthPerformer authPerformer,
+                             @Nullable McpOAuthProviderMode oauthProviderMode, List<String> oauthScopes,
+                             Map<String, String> oauthAdditionalParameters, List<String> headerNames,
+                             boolean sharedCredentialConfigured, boolean tenantWide, Set<UUID> groupIds,
+                             McpServerStatus status, @Nullable Instant lastRefreshedAt, long toolCount,
+                             long enabledToolCount, long revision) {}
+
+    /** {@code exposable} is false when {@code mcp_<slug>_<name>} does not fit model tool-name limits. */
+    public record ToolView(UUID id, String name, String modelName, @Nullable String title, String description,
+                           @Nullable Boolean readOnlyHint, @Nullable Boolean destructiveHint, McpToolRisk risk,
+                           McpToolPolicy policy, boolean policyCustomized, boolean exposable, Instant snapshotAt,
+                           long revision) {}
+
+    public record Refresh(ServerView server, List<ToolView> tools) {}
+
+    /** {@code ownerActorId} is the refreshing administrator's own credential on a per-User server, else null. */
+    private record Target(UUID tenantId, String url, Map<String, String> headers, long revision, boolean oauth,
+                          @Nullable UUID ownerActorId) {
+        @Override public @NonNull String toString() { return "McpRefreshTarget[redacted]"; }
+    }
+
+    @Transactional(readOnly = true)
+    public List<ServerView> list(ActorId actor) {
+        UUID tenant = read(actor);
+        return servers.findByTenantIdOrderByNameAsc(tenant).stream().map(this::view).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public ServerView get(ActorId actor, UUID serverId) {
+        return view(server(read(actor), serverId));
+    }
+
+    /** Groups an MCP manager may grant server access to. */
+    @Transactional
+    public GroupIdentityPage groupOptions(ActorId actor, @Nullable String search, int page, int size) {
+        var access = authorization.lockAndRequire(actor, IamCapability.MCP_MANAGE, false);
+        return groups.listGroupOptions(access.tenantId(), search, page, size);
+    }
+
+    @Transactional
+    public ServerView create(ActorId actor, @Nullable String slug, ServerInput input) {
+        UUID tenant = write(actor);
+        String validSlug = McpServerRules.slug(slug);
+        if (servers.countByTenantId(tenant) >= McpServerRules.MAX_SERVERS)
+            throw McpException.invalid("This organization has reached the MCP server limit.");
+        if (servers.existsByTenantIdAndSlug(tenant, validSlug)) throw McpException.slugTaken();
+        Instant now = Instant.now();
+        var created = save(tenant, new McpServerEntity(UUID.randomUUID(), tenant, validSlug, now), input, true, now);
+        record(tenant, actor, AuditAction.MCP_SERVER_CREATE, created.id(), created.name(),
+                event -> event.detail("after", facts(created.url(), created.authType(), created.authPerformer(),
+                        created.tenantWide(), created.groupIds().size())));
+        return created;
+    }
+
+    @Transactional
+    public ServerView update(ActorId actor, UUID serverId, long revision, @Nullable String slug, ServerInput input) {
+        UUID tenant = write(actor);
+        var server = server(tenant, serverId);
+        if (server.revision() != revision) throw McpException.conflict();
+        if (!server.slug().equals(slug)) throw McpException.invalid("The slug of an MCP server cannot change.");
+        var before = facts(server.url(), server.authType(), server.authPerformer(), server.tenantWide(), server.groupIds().size());
+        var updated = save(tenant, server, input, false, Instant.now());
+        record(tenant, actor, AuditAction.MCP_SERVER_UPDATE, updated.id(), updated.name(), event -> event
+                .detail("before", before)
+                .detail("after", facts(updated.url(), updated.authType(), updated.authPerformer(), updated.tenantWide(),
+                        updated.groupIds().size()))
+                .detail("credentialChange", input.sharedApiKey() == null ? "KEEP" : input.sharedApiKey().action().name()));
+        return updated;
+    }
+
+    /** Deletes the server with its OAuth clients, then deletes its dynamically registered clients remotely. */
+    public void delete(ActorId actor, UUID serverId, long revision) {
+        var registered = Objects.requireNonNull(transactions.execute(_ -> {
+            UUID tenant = write(actor);
+            var server = server(tenant, serverId);
+            if (server.revision() != revision) throw McpException.conflict();
+            var deregistrations = oauth.deregistrations(tenant, serverId);
+            servers.delete(server);
+            record(tenant, actor, AuditAction.MCP_SERVER_DELETE, serverId, server.name(),
+                    event -> event.detail("url", server.url()));
+            return deregistrations;
+        }));
+        oauth.deregister(registered);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ToolView> tools(ActorId actor, UUID serverId) {
+        return toolViews(server(read(actor), serverId));
+    }
+
+    /** Sets one tool's policy as the administrator's choice, which later refreshes keep (MEM-264). */
+    @Transactional
+    public ToolView setToolPolicy(ActorId actor, UUID serverId, UUID toolId, long revision, McpToolPolicy policy) {
+        UUID tenant = write(actor);
+        var server = server(tenant, serverId);
+        var tool = tools.findByTenantIdAndServerIdAndId(tenant, serverId, toolId).orElseThrow(McpException::notFound);
+        if (tool.revision() != revision) throw McpException.conflict();
+        if (policy != McpToolPolicy.OFF && McpServerRules.modelToolName(server.slug(), tool.name()).isEmpty())
+            throw McpException.toolNameUnsupported();
+        if (!McpServerRules.allowed(risk(tool), policy)) throw McpException.toolPolicyNotAllowed();
+        boolean changed = tool.policy() != policy;
+        tool.policy(policy, true);
+        var saved = tools.saveAndFlush(tool);
+        if (changed) record(tenant, actor, AuditAction.MCP_TOOL_CHANGE, serverId, server.name(),
+                event -> event.detail("tools", List.of(tool.name())).detail("policy", policy.name()));
+        return toolView(server, saved);
+    }
+
+    /** "Always allow" from an approval card: the named tool runs without asking from now on (MEM-267). */
+    @Transactional
+    public void allowAlways(ActorId actor, UUID serverId, String toolName) {
+        UUID tenant = write(actor);
+        var server = server(tenant, serverId);
+        var tool = tools.findByTenantIdAndServerIdAndName(tenant, serverId, toolName).orElseThrow(McpException::notFound);
+        if (!McpServerRules.allowed(risk(tool), McpToolPolicy.ALWAYS)) throw McpException.toolPolicyNotAllowed();
+        if (tool.policy() == McpToolPolicy.ALWAYS) return;
+        tool.policy(McpToolPolicy.ALWAYS, true);
+        tools.saveAndFlush(tool);
+        record(tenant, actor, AuditAction.MCP_TOOL_CHANGE, serverId, server.name(),
+                event -> event.detail("tools", List.of(tool.name())).detail("policy", McpToolPolicy.ALWAYS.name()));
+    }
+
+    /** Sets every tool of one risk; a tool whose name cannot be exposed stays off. */
+    @Transactional
+    public List<ToolView> setGroupPolicy(ActorId actor, UUID serverId, McpToolRisk risk, McpToolPolicy policy) {
+        UUID tenant = write(actor);
+        var server = server(tenant, serverId);
+        if (!McpServerRules.allowed(risk, policy)) throw McpException.toolPolicyNotAllowed();
+        var changed = new ArrayList<String>();
+        for (var tool : tools.findByTenantIdAndServerIdOrderByNameAsc(tenant, serverId)) {
+            if (risk(tool) != risk) continue;
+            var target = McpServerRules.modelToolName(server.slug(), tool.name()).isPresent() ? policy : McpToolPolicy.OFF;
+            if (tool.policy() != target) changed.add(tool.name());
+            tool.policy(target, true);
+        }
+        tools.flush();
+        if (!changed.isEmpty()) record(tenant, actor, AuditAction.MCP_TOOL_CHANGE, serverId, server.name(),
+                event -> event.detail("tools", changed).detail("risk", risk.name()).detail("policy", policy.name()));
+        return toolViews(server);
+    }
+
+    /** Clears every customization, so each tool takes the default of its risk again. */
+    @Transactional
+    public List<ToolView> resetToolPolicies(ActorId actor, UUID serverId) {
+        UUID tenant = write(actor);
+        var server = server(tenant, serverId);
+        var changed = new ArrayList<String>();
+        for (var tool : tools.findByTenantIdAndServerIdOrderByNameAsc(tenant, serverId)) {
+            var policy = defaultPolicy(server, tool.name(), risk(tool));
+            if (tool.policy() != policy) changed.add(tool.name());
+            tool.policy(policy, false);
+        }
+        tools.flush();
+        if (!changed.isEmpty()) record(tenant, actor, AuditAction.MCP_TOOL_CHANGE, serverId, server.name(),
+                event -> event.detail("tools", changed).detail("policy", "DEFAULT"));
+        return toolViews(server);
+    }
+
+    /** Lists the server's tools with the administrator credential and replaces the stored snapshot. */
+    public Refresh refreshTools(ActorId actor, UUID serverId) {
+        Target target = Objects.requireNonNull(transactions.execute(_ -> {
+            UUID tenant = read(actor);
+            return target(tenant, server(tenant, serverId), actor);
+        }));
+        List<McpToolDescriptor> listed;
+        try {
+            listed = listTools(target, serverId);
+        } catch (McpException failure) {
+            boolean unauthorized = "MCP_AUTHORIZATION_REQUIRED".equals(failure.code());
+            // AWAITING_AUTH reports a missing shared connection, so one administrator's own credential never sets it.
+            if (!unauthorized || target.ownerActorId() == null)
+                recordFailure(actor, serverId, target.revision(),
+                        unauthorized ? McpServerStatus.AWAITING_AUTH : McpServerStatus.DISCONNECTED);
+            throw failure;
+        }
+        var snapshot = McpServerRules.snapshot(listed);
+        return Objects.requireNonNull(transactions.execute(_ -> {
+            var server = server(write(actor), serverId);
+            if (server.revision() != target.revision()) throw McpException.conflict();
+            store(server, snapshot);
+            return new Refresh(view(server), toolViews(server));
+        }));
+    }
+
+    /**
+     * Lists the tools of a server that has none stored yet, with the caller's own or the shared credential, right
+     * after a connection completes or an administrator saves a server (MEM-264). Anyone who may use the server can
+     * fill an empty snapshot, since the defaults decide what the tools may do; replacing one stays a refresh. Never
+     * throws: the request that triggered it has already succeeded.
+     */
+    public void discoverTools(ActorId actor, UUID serverId) {
+        try {
+            Target target = transactions.execute(_ -> {
+                boolean manages = authorization.effectiveCapabilities(actor).contains(IamCapability.MCP_MANAGE);
+                UUID tenant = manages ? read(actor)
+                        : authorization.require(actor, IamCapability.CHAT_WRITE, false).tenantId().value();
+                if (!manages && !access.accessible(tenant, serverId, actor.value())) throw McpException.notFound();
+                var server = server(tenant, serverId);
+                if (!usable(tenant, server, actor) || tools.countByTenantIdAndServerId(tenant, serverId) > 0) return null;
+                return target(tenant, server, actor);
+            });
+            if (target == null) return;
+            var snapshot = McpServerRules.snapshot(listTools(target, serverId));
+            transactions.executeWithoutResult(_ -> {
+                var server = server(target.tenantId(), serverId);
+                // A refresh or a changed endpoint in the meantime wins over this first listing.
+                if (server.revision() != target.revision() || tools.countByTenantIdAndServerId(target.tenantId(), serverId) > 0)
+                    return;
+                store(server, snapshot);
+            });
+            LOGGER.atInfo().addKeyValue("event", "mcp.tools.discovered").addKeyValue("mcp_server_id", serverId)
+                    .addKeyValue("tool_count", snapshot.size()).log("MCP server tools listed after connecting");
+        } catch (RuntimeException failure) {
+            var warning = LOGGER.atWarn().addKeyValue("event", "mcp.tools.discovery_failed")
+                    .addKeyValue("mcp_server_id", serverId).addKeyValue("error_type", failure.getClass().getName());
+            if (failure instanceof McpException mcp) warning = warning.addKeyValue("error_code", mcp.code());
+            warning.log("MCP server tools could not be listed after connecting");
+        }
+    }
+
+    /** Whether the caller holds the credential a listing needs: none, the shared one, or their own. */
+    private boolean usable(UUID tenant, McpServerEntity server, ActorId actor) {
+        if (server.authType() == McpAuthType.NONE) return true;
+        var credential = server.authPerformer() == McpAuthPerformer.PER_USER
+                ? credentials.findByTenantIdAndServerIdAndOwnerActorId(tenant, server.getId(), actor.value())
+                : credentials.findByTenantIdAndServerIdAndOwnerActorIdIsNull(tenant, server.getId());
+        return credential.filter(stored -> stored.status() == McpCredentialStatus.ACTIVE).isPresent();
+    }
+
+    private Target target(UUID tenant, McpServerEntity server, ActorId actor) {
+        UUID owner = server.authPerformer() == McpAuthPerformer.PER_USER ? actor.value() : null;
+        return new Target(tenant, server.url(), headers(server, owner), server.revision(),
+                server.authType() == McpAuthType.OAUTH, owner);
+    }
+
+    private List<McpToolDescriptor> listTools(Target target, UUID serverId) {
+        Map<String, String> headers = target.headers();
+        if (target.oauth()) {
+            var authorized = new LinkedHashMap<>(headers);
+            authorized.put("Authorization", "Bearer " + oauth.accessToken(target.tenantId(), serverId, target.ownerActorId()));
+            headers = authorized;
+        }
+        try (var session = clients.open(target.url(), headers, REFRESH_DEADLINE)) {
+            return session.listTools();
+        }
+    }
+
+    /**
+     * Replaces the snapshot. A customized policy is kept, lowered to asking when the tool became destructive; every
+     * other tool takes the default of its risk, so changed annotations take effect.
+     */
+    private void store(McpServerEntity server, List<McpServerRules.ToolSnapshot> snapshot) {
+        UUID tenant = server.tenantId();
+        Instant now = Instant.now();
+        Map<String, McpServerToolEntity> existing = tools.findByTenantIdAndServerIdOrderByNameAsc(tenant, server.getId())
+                .stream().collect(Collectors.toMap(McpServerToolEntity::name, Function.identity()));
+        var listedNames = new HashSet<String>();
+        for (var tool : snapshot) {
+            listedNames.add(tool.name());
+            var entity = existing.get(tool.name());
+            if (entity == null) entity = new McpServerToolEntity(UUID.randomUUID(), tenant, server.getId(), tool.name());
+            entity.snapshot(tool.title(), tool.description(), tool.inputSchema(), tool.annotations(), tool.readOnly(), now);
+            var risk = risk(entity);
+            var policy = defaultPolicy(server, tool.name(), risk);
+            if (entity.policyCustomized() && policy != McpToolPolicy.OFF)
+                policy = McpServerRules.allowed(risk, entity.policy()) ? entity.policy() : McpToolPolicy.ASK;
+            entity.policy(policy, entity.policyCustomized());
+            tools.save(entity);
+        }
+        tools.deleteAll(existing.values().stream().filter(tool -> !listedNames.contains(tool.name())).toList());
+        server.status(McpServerStatus.CONNECTED, now, now);
+        servers.saveAndFlush(server);
+    }
+
+    private static McpToolRisk risk(McpServerToolEntity tool) {
+        return McpServerRules.risk(tool.readOnly(), tool.annotations());
+    }
+
+    private static McpToolPolicy defaultPolicy(McpServerEntity server, String toolName, McpToolRisk risk) {
+        return McpServerRules.defaultPolicy(risk, McpServerRules.modelToolName(server.slug(), toolName).isPresent());
+    }
+
+    private ServerView save(UUID tenant, McpServerEntity server, ServerInput input, boolean created, Instant now) {
+        if (input == null) throw McpException.invalid("MCP server configuration is required.");
+        String name = McpServerRules.text(input.name(), 200, "name");
+        String description = McpServerRules.optionalText(input.description(), 2000, "description");
+        String url = McpServerRules.url(input.url());
+        McpAuthType authType = input.authType();
+        McpAuthPerformer performer = input.authPerformer();
+        if (authType == null || performer == null) throw McpException.invalid("Choose how the server authenticates.");
+        if (authType == McpAuthType.NONE && performer != McpAuthPerformer.ADMIN)
+            throw McpException.invalid("A server without authentication uses one shared connection.");
+        if ((authType == McpAuthType.OAUTH) != (input.oauthProviderMode() != null))
+            throw McpException.invalid("Only OAuth servers take an OAuth provider mode, and they require one.");
+        var scopes = McpServerRules.scopes(input.oauthScopes());
+        var parameters = McpServerRules.parameters(input.oauthAdditionalParameters());
+        if (authType != McpAuthType.OAUTH && (!scopes.isEmpty() || !parameters.isEmpty()))
+            throw McpException.invalid("Only OAuth servers take scopes or authorization parameters.");
+        Set<UUID> groupIds = accessGroups(tenant, input.tenantWide(), input.groupIds());
+
+        boolean urlChanged = !created && !server.url().equals(url);
+        boolean connectionChanged = created || urlChanged || server.authType() != authType || server.authPerformer() != performer;
+        String headerTemplate = headerTemplate(tenant, server, input.headers(), authType, created);
+
+        SecretChange key = input.sharedApiKey();
+        if (key == null || key.action() == null) throw McpException.invalid("Choose what to do with the shared API key.");
+        if (key.action() != McpSecretAction.REPLACE && key.value() != null)
+            throw McpException.invalid("Only replacing the shared API key accepts a value.");
+        boolean sharedKeyAccepted = authType == McpAuthType.API_TOKEN && performer == McpAuthPerformer.ADMIN;
+        if (key.action() != McpSecretAction.KEEP && !sharedKeyAccepted)
+            throw McpException.invalid("Only API-key servers with a shared connection store a shared API key.");
+        String apiKey = key.action() == McpSecretAction.REPLACE ? McpServerRules.apiKey(key.value()) : null;
+        var shared = created ? null : credentials.findByTenantIdAndServerIdAndOwnerActorIdIsNull(tenant, server.getId()).orElse(null);
+        boolean sharedAfter = switch (key.action()) {
+            case KEEP -> shared != null && !connectionChanged;
+            case REPLACE -> true;
+            case REMOVE -> false;
+        };
+
+        server.configure(name, description, url, authType, performer, input.oauthProviderMode(), McpServerRules.json(scopes),
+                McpServerRules.json(parameters), headerTemplate, input.tenantWide(), groupIds, now);
+        if (urlChanged) server.reconnect(readiness(authType, performer, sharedAfter), now);
+        else if (connectionChanged || key.action() != McpSecretAction.KEEP)
+            server.status(readiness(authType, performer, sharedAfter), null, now);
+        servers.saveAndFlush(server);
+
+        if (!created && connectionChanged) credentials.deleteAll(credentials.findByTenantIdAndServerId(tenant, server.getId()));
+        if (urlChanged) tools.deleteAll(tools.findByTenantIdAndServerIdOrderByNameAsc(tenant, server.getId()));
+        if (key.action() == McpSecretAction.REMOVE && shared != null && !connectionChanged) credentials.delete(shared);
+        // Hibernate flushes inserts before deletes; a replacement shared credential would hit uq_mcp_credential_shared.
+        credentials.flush();
+        if (apiKey != null) {
+            var credential = shared != null && !connectionChanged ? shared
+                    : new McpCredentialEntity(UUID.randomUUID(), tenant, server.getId(), null, now);
+            credential.store(null, secrets.seal(tenant, credential.getId(), McpSecrets.Purpose.CREDENTIAL,
+                    McpServerRules.json(Map.of(McpServerRules.API_KEY, apiKey))), null, now);
+            credentials.save(credential);
+        }
+        credentials.flush();
+        return view(server);
+    }
+
+    private @Nullable String headerTemplate(UUID tenant, McpServerEntity server, @Nullable HeaderChange change,
+                                            McpAuthType authType, boolean created) {
+        if (change == null || change.action() == null) throw McpException.invalid("Choose what to do with the header template.");
+        if (change.action() != McpSecretAction.REPLACE && change.values() != null)
+            throw McpException.invalid("Only replacing the header template accepts headers.");
+        return switch (change.action()) {
+            case KEEP -> {
+                String previous = created ? null : server.headerTemplate();
+                // Revalidate against a changed authentication type, e.g. {api_key} on a server that no longer has one.
+                if (previous != null) McpServerRules.headerTemplate(openTemplate(server), authType);
+                yield previous;
+            }
+            case REMOVE -> null;
+            case REPLACE -> {
+                var headers = McpServerRules.headerTemplate(change.values(), authType);
+                yield headers.isEmpty() ? null : secrets.seal(tenant, server.getId(), McpSecrets.Purpose.SERVER_HEADERS,
+                        McpServerRules.json(headers));
+            }
+        };
+    }
+
+    private Set<UUID> accessGroups(UUID tenant, boolean tenantWide, @Nullable Set<UUID> groupIds) {
+        if (groupIds == null || groupIds.size() > McpServerRules.MAX_GROUPS || groupIds.stream().anyMatch(Objects::isNull))
+            throw McpException.invalid("Provide at most " + McpServerRules.MAX_GROUPS + " Groups.");
+        if (tenantWide && !groupIds.isEmpty()) throw McpException.invalid("Choose organization-wide access or Groups, not both.");
+        if (!tenantWide && groupIds.isEmpty()) throw McpException.invalid("Choose organization-wide access or at least one Group.");
+        if (!groupIds.isEmpty()) groups.validateGroupIds(new TenantId(tenant), groupIds.stream().map(GroupId::new).toList());
+        return Set.copyOf(groupIds);
+    }
+
+    private static McpServerStatus readiness(McpAuthType authType, McpAuthPerformer performer, boolean sharedCredential) {
+        if (performer == McpAuthPerformer.PER_USER || authType == McpAuthType.NONE) return McpServerStatus.CREATED;
+        return sharedCredential ? McpServerStatus.CREATED : McpServerStatus.AWAITING_AUTH;
+    }
+
+    /**
+     * Headers for a refresh. {@code ownerActorId} selects the refreshing administrator's own credential on a
+     * per-User server and is null for the shared one; OAuth adds the bearer token outside the transaction.
+     */
+    private Map<String, String> headers(McpServerEntity server, @Nullable UUID ownerActorId) {
+        Map<String, String> template = server.headerTemplate() == null ? null : openTemplate(server);
+        return switch (server.authType()) {
+            case NONE -> McpServerRules.resolveHeaders(template, McpAuthType.NONE, null);
+            case API_TOKEN -> {
+                var credential = (ownerActorId == null
+                        ? credentials.findByTenantIdAndServerIdAndOwnerActorIdIsNull(server.tenantId(), server.getId())
+                        : credentials.findByTenantIdAndServerIdAndOwnerActorId(server.tenantId(), server.getId(), ownerActorId))
+                        .orElseThrow(McpException::credentialRequired);
+                String apiKey = McpServerRules.stringMap(secrets.open(server.tenantId(), credential.getId(),
+                        McpSecrets.Purpose.CREDENTIAL, credential.payload())).get(McpServerRules.API_KEY);
+                if (apiKey == null) throw McpException.credentialUnreadable();
+                yield McpServerRules.resolveHeaders(template, McpAuthType.API_TOKEN, apiKey);
+            }
+            case OAUTH -> McpServerRules.resolveHeaders(template, McpAuthType.OAUTH, null);
+        };
+    }
+
+    private Map<String, String> openTemplate(McpServerEntity server) {
+        return McpServerRules.stringMap(secrets.open(server.tenantId(), server.getId(), McpSecrets.Purpose.SERVER_HEADERS,
+                Objects.requireNonNull(server.headerTemplate())));
+    }
+
+    private void recordFailure(ActorId actor, UUID serverId, long revision, McpServerStatus status) {
+        try {
+            transactions.executeWithoutResult(_ -> {
+                var server = server(write(actor), serverId);
+                if (server.revision() == revision && server.status() != status) {
+                    server.status(status, null, Instant.now());
+                    servers.saveAndFlush(server);
+                }
+            });
+        } catch (RuntimeException exception) {
+            // The refresh failure the caller receives matters more than a status that could not be recorded.
+            LOGGER.atWarn().addKeyValue("event", "mcp.server.status.not_recorded")
+                    .addKeyValue("mcp_server_id", serverId)
+                    .addKeyValue("status", status.name())
+                    .addKeyValue("error_type", exception.getClass().getName())
+                    .log("MCP server refresh failure could not be recorded");
+        }
+    }
+
+    private ServerView view(McpServerEntity server) {
+        List<String> headerNames;
+        try {
+            headerNames = server.headerTemplate() == null ? List.of() : List.copyOf(openTemplate(server).keySet());
+        } catch (McpException unreadable) {
+            headerNames = List.of();
+        }
+        return new ServerView(server.getId(), server.slug(), server.name(), server.description(), server.url(),
+                server.authType(), server.authPerformer(), server.oauthProviderMode(),
+                McpServerRules.stringList(server.oauthScopes()), McpServerRules.stringMap(server.oauthAdditionalParameters()),
+                headerNames, credentials.findByTenantIdAndServerIdAndOwnerActorIdIsNull(server.tenantId(), server.getId()).isPresent(),
+                server.tenantWide(), server.groupIds(), server.status(), server.lastRefreshedAt(),
+                tools.countByTenantIdAndServerId(server.tenantId(), server.getId()),
+                tools.countByTenantIdAndServerIdAndPolicyNot(server.tenantId(), server.getId(), McpToolPolicy.OFF),
+                server.revision());
+    }
+
+    private List<ToolView> toolViews(McpServerEntity server) {
+        return tools.findByTenantIdAndServerIdOrderByNameAsc(server.tenantId(), server.getId()).stream()
+                .map(tool -> toolView(server, tool)).toList();
+    }
+
+    private static ToolView toolView(McpServerEntity server, McpServerToolEntity tool) {
+        var modelName = McpServerRules.modelToolName(server.slug(), tool.name());
+        return new ToolView(tool.getId(), tool.name(), modelName.orElse(""), tool.title(), tool.description(),
+                McpServerRules.hint(tool.annotations(), "readOnlyHint"), McpServerRules.hint(tool.annotations(), "destructiveHint"),
+                risk(tool), tool.policy(), tool.policyCustomized(), modelName.isPresent(), tool.snapshotAt(), tool.revision());
+    }
+
+    private McpServerEntity server(UUID tenant, UUID serverId) {
+        return servers.findByTenantIdAndId(tenant, serverId).orElseThrow(McpException::notFound);
+    }
+
+    private UUID read(ActorId actor) {
+        return authorization.require(actor, IamCapability.MCP_MANAGE, false).tenantId().value();
+    }
+
+    private UUID write(ActorId actor) {
+        return authorization.lockAndRequireExclusive(actor, IamCapability.MCP_MANAGE).tenantId().value();
+    }
+
+    private void record(UUID tenant, ActorId actor, AuditAction action, UUID serverId, String name,
+                        UnaryOperator<AuditRecord.Builder> details) {
+        audit.record(details.apply(AuditRecord.of(action, new TenantId(tenant))
+                .actor(actor).resource("MCP_SERVER", serverId, name)).build());
+    }
+
+    /** Where the server is, how it authenticates and who may use it; header values and keys are never recorded. */
+    private static Map<String, Object> facts(String url, McpAuthType authType, McpAuthPerformer performer, boolean tenantWide,
+                                             int groups) {
+        var facts = new LinkedHashMap<String, Object>();
+        facts.put("url", url);
+        facts.put("authentication", authType.name());
+        facts.put("performer", performer.name());
+        facts.put("tenantWide", tenantWide);
+        facts.put("groups", groups);
+        return facts;
+    }
+}

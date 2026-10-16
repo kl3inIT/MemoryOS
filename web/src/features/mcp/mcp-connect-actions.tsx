@@ -1,7 +1,14 @@
 import { useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CatalogDialog } from "@/components/composites/catalog-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -20,15 +27,19 @@ export function ConnectAction({
   sessionId,
   returnPath,
   onApiKey,
+  label,
+  primary = false,
 }: {
   connection: McpConnection;
   sessionId?: string;
   /** Where the OAuth callback returns; the conversation by default. */
   returnPath?: string;
   onApiKey: (connection: McpConnection) => void;
+  /** Replaces "Kết nối" / "Kết nối lại", e.g. for the administrator's own account. */
+  label?: string;
+  primary?: boolean;
 }) {
   const ui = useAppTranslation();
-  const [choosing, setChoosing] = useState(false);
   const problem = useProblemMessage();
   const authorize = useMutation({
     ...startMcpConnectionAuthorizationMutation(),
@@ -45,11 +56,14 @@ export function ConnectAction({
         returnPath: returnPath ?? (sessionId === undefined ? "/" : `/chat/${sessionId}`),
       },
     });
+  const text =
+    label ?? ui(connection.connectionState === "REAUTH_REQUIRED" ? "Kết nối lại" : "Kết nối");
+  const prominence = primary ? "primary" : "secondary";
 
   if (connection.authType === "API_TOKEN") {
     return (
-      <Button size="sm" prominence="secondary" onClick={() => onApiKey(connection)}>
-        {ui("Kết nối")}
+      <Button size="sm" prominence={prominence} onClick={() => onApiKey(connection)}>
+        {text}
       </Button>
     );
   }
@@ -60,35 +74,36 @@ export function ConnectAction({
   const failure = authorize.isError ? (
     <FieldError>{problem(presentProblem(authorize.error, "mutation").message)}</FieldError>
   ) : null;
-  const onlyClient = clients.length === 1 ? clients[0] : undefined;
-  if (onlyClient || !choosing) {
-    return (
-      <div className="flex flex-col items-end gap-1">
-        <Button
-          size="sm"
-          prominence="secondary"
-          pending={authorize.isPending}
-          onClick={() => (onlyClient ? start(onlyClient.id) : setChoosing(true))}
-        >
-          {ui("Kết nối")}
-        </Button>
-        {failure}
-      </div>
-    );
-  }
+  const only = clients.length === 1 ? clients[0] : undefined;
   return (
     <div className="flex flex-col items-end gap-1">
-      {clients.map((client) => (
+      {only ? (
         <Button
-          key={client.id}
           size="sm"
-          prominence="secondary"
+          prominence={prominence}
           pending={authorize.isPending}
-          onClick={() => start(client.id)}
+          onClick={() => start(only.id)}
         >
-          {client.label}
+          {text}
         </Button>
-      ))}
+      ) : (
+        // Each organization signs in through its own application, named by the administrator.
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" prominence={prominence} pending={authorize.isPending}>
+              {text}
+              <ChevronDown data-icon="inline-end" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {clients.map((client) => (
+              <DropdownMenuItem key={client.id} onSelect={() => start(client.id)}>
+                {client.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
       {failure}
     </div>
   );
@@ -102,6 +117,7 @@ export function McpApiKeyDialog({
   onClose: () => void;
 }) {
   const ui = useAppTranslation();
+  const problem = useProblemMessage();
   const cache = useQueryClient();
   const [value, setValue] = useState("");
   const save = useMutation({
@@ -142,7 +158,11 @@ export function McpApiKeyDialog({
             }}
           />
           {save.isError ? (
-            <FieldError>{ui("Máy chủ từ chối khóa này. Khóa chưa được lưu.")}</FieldError>
+            <FieldError>
+              {presentProblem(save.error, "mutation").code === "MCP_AUTHORIZATION_REQUIRED"
+                ? ui("Máy chủ từ chối khóa này. Khóa chưa được lưu.")
+                : problem(presentProblem(save.error, "mutation").message)}
+            </FieldError>
           ) : null}
         </Field>
         <div className="flex justify-end gap-2">

@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { appText, type AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 
-/** A new connection prefilled for one vendor, gateway or server; every preset speaks the OpenAI protocol. */
-export type ProviderPreset = { name: string; baseUrl?: string };
+/** A new connection prefilled for one vendor, gateway or server; a preset without an adapter speaks the OpenAI protocol. */
+export type ProviderPreset = { name: string; baseUrl?: string; adapterType?: string };
 
 type PresetCard = ProviderPreset & { subtitle: AppCopy; logo: ReactNode };
 
@@ -22,7 +22,8 @@ const vendors: PresetCard[] = [
   {
     name: "Claude",
     subtitle: "Claude models from Anthropic.",
-    baseUrl: "https://api.anthropic.com/v1",
+    baseUrl: "https://api.anthropic.com",
+    adapterType: "anthropic",
     logo: <ProviderLogo mark="ANTHROPIC" />,
   },
 ];
@@ -101,7 +102,13 @@ function PresetGrid({
                     ? appText("Add another {{name}} connection", { name: preset.name })
                     : appText("Connect {{name}}", { name: preset.name }),
                 )}
-                onClick={() => onConnect({ name: preset.name, baseUrl: preset.baseUrl })}
+                onClick={() =>
+                  onConnect({
+                    name: preset.name,
+                    baseUrl: preset.baseUrl,
+                    adapterType: preset.adapterType,
+                  })
+                }
               >
                 {another ? ui("Add another") : ui("Connect")}
               </Button>
