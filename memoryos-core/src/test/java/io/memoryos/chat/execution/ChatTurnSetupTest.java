@@ -1,5 +1,9 @@
 package io.memoryos.chat.execution;
 import com.embabel.chat.AssistantMessage;
+import com.embabel.chat.AssistantMessageWithToolCalls;
+import com.embabel.chat.ToolCall;
+import com.embabel.chat.ToolResultMessage;
+import io.memoryos.chat.ChatToolTranscript;
 import io.memoryos.ai.ModelBinding;
 import io.memoryos.ai.ModelRequestPolicy;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -231,7 +235,7 @@ class ChatTurnSetupTest {
         var context = new TurnContext(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "Answer",
                 List.of(message(ChatMessage.Role.USER, "Make the shirt red"), imageOnly, message(ChatMessage.Role.USER, "Draw a man")),
                 ChatTurnOptions.DEFAULT, Map.of(), List.of(), null,
-                Map.of(imageOnly.id(), List.of(image)), null);
+                Map.of(imageOnly.id(), List.of(image)), null, Map.of());
         var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, 32000, binding(), "");
         assertEquals(List.of("Draw a man", "Make the shirt red"), setup.messages().stream()
                 .filter(m -> m instanceof UserMessage).map(Message::getContent).toList());
@@ -397,5 +401,74 @@ class ChatTurnSetupTest {
         var expected = List.of("First question", "First answer", "Second question", "Second answer", "Newest");
         assertEquals(expected, plain.messages().stream().skip(1).map(Message::getContent).toList());
         assertEquals(expected, research.messages().stream().skip(1).map(Message::getContent).toList());
+    }
+
+    private static ModelBinding toolBinding() {
+        return ModelBinding.builder(new SpringAiLlmService("binding-model", "fixture", mock(ChatModel.class)), p -> p,
+                ModelRequestPolicy.hosted(Tokenizers.o200k(), p -> p), 32000, 4096, true, false).build();
+    }
+
+    private TurnContext withCalls(ChatMessage answer, List<ChatToolTranscript.Call> calls, List<ChatMessage> newestFirst) {
+        return TurnContext.builder(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "Answer", newestFirst)
+                .toolCalls(Map.of(answer.id(), calls)).build();
+    }
+
+    @Test
+    void anEarlierAnswersToolCallsAndResultsGoBeforeItInCallOrder() {
+        var answer = message(ChatMessage.Role.ASSISTANT, "Cleaned; here is the workbook.");
+        var calls = List.of(
+                new ChatToolTranscript.Call("call_1", "bash", "{\"command\":\"python3 clean.py\"}", "saved /workspace/clean.xlsx"),
+                new ChatToolTranscript.Call("call_2", "search_knowledge", "{\"queries\":[\"sales\"]}", null));
+        var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), withCalls(answer, calls, List.of(
+                message(ChatMessage.Role.USER, "Add a chart"), answer, message(ChatMessage.Role.USER, "Clean this"))),
+                32000, toolBinding(), "");
+        var messages = setup.messages().subList(1, setup.messages().size());
+        assertEquals("Clean this", messages.get(0).getContent());
+        var first = assertInstanceOf(AssistantMessageWithToolCalls.class, messages.get(1));
+        assertEquals(List.of(new ToolCall("call_1", "bash", "{\"command\":\"python3 clean.py\"}")), first.getToolCalls());
+        var firstResult = assertInstanceOf(ToolResultMessage.class, messages.get(2));
+        assertEquals("call_1", firstResult.getToolCallId());
+        assertEquals("saved /workspace/clean.xlsx", firstResult.getContent());
+        assertInstanceOf(AssistantMessageWithToolCalls.class, messages.get(3));
+        assertEquals(ChatToolTranscript.NOT_KEPT, messages.get(4).getContent());
+        assertEquals("Cleaned; here is the workbook.", messages.get(5).getContent());
+        assertEquals("Add a chart", messages.get(6).getContent());
+    }
+
+    @Test
+    void underPressureAnEarlierResultIsPrunedBeforeItsCallAndThenTheCallsGo() {
+        var answer = message(ChatMessage.Role.ASSISTANT, "Done.");
+        var bulky = List.of(new ChatToolTranscript.Call("call_1", "bash", "{\"command\":\"seq 1 9\"}", "1 2 3 ".repeat(3000)));
+        var history = List.of(message(ChatMessage.Role.USER, "Next"), answer, message(ChatMessage.Role.USER, "Count"));
+        var pruned = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), withCalls(answer, bulky, history), 9000, toolBinding(), "");
+        assertEquals(ChatTurnSetup.PRUNED_RESULT, pruned.messages().stream().filter(ToolResultMessage.class::isInstance)
+                .findFirst().orElseThrow().getContent());
+        var dropped = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), withCalls(answer, List.of(
+                new ChatToolTranscript.Call("call_1", "bash", "{\"command\":\"" + "word ".repeat(9000) + "\"}", "ok")), history),
+                9000, toolBinding(), "");
+        assertEquals(List.of("Count", "Done.", "Next"), dropped.messages().stream().skip(1).map(Message::getContent).toList());
+    }
+
+    @Test
+    void aModelWithoutToolsGetsNoToolMessagesAndAToollessCallStripsThem() {
+        var answer = message(ChatMessage.Role.ASSISTANT, "Done.");
+        var calls = List.of(new ChatToolTranscript.Call("call_1", "bash", "{}", "ok"));
+        var history = List.of(message(ChatMessage.Role.USER, "Next"), answer, message(ChatMessage.Role.USER, "Count"));
+        var plain = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), withCalls(answer, calls, history), 32000, binding(), "");
+        assertEquals(List.of("Count", "Done.", "Next"), plain.messages().stream().skip(1).map(Message::getContent).toList());
+        var tooled = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), withCalls(answer, calls, history), 32000, toolBinding(), "");
+        assertEquals(6, tooled.messages().size());
+        assertEquals(List.of("Count", "Done.", "Next"), ChatTurnSetup.withoutToolHistory(tooled.messages()).stream().skip(1)
+                .map(Message::getContent).toList());
+    }
+
+    @Test
+    void aWindowNeverStartsWithAToolCallCutFromItsQuestion() {
+        var answer = message(ChatMessage.Role.ASSISTANT, "Done.");
+        var calls = List.of(new ChatToolTranscript.Call("call_1", "bash", "{}", "ok"));
+        var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), withCalls(answer, calls, List.of(
+                message(ChatMessage.Role.USER, "Next"), answer, message(ChatMessage.Role.USER, "Old question ".repeat(3000)))),
+                2000, toolBinding(), "");
+        assertEquals(List.of("Next"), setup.messages().stream().skip(1).map(Message::getContent).toList());
     }
 }

@@ -392,6 +392,23 @@ class ChatPersistenceIntegrationTest {
     }
 
     @Test
+    void anAnswersToolCallsReachTheNextTurnInOrderAndGoWithTheirMessage() {
+        var session = sessions.create(owner, "Tools");
+        var first = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Clean this");
+        turns.finish(session.id(), first.assistantMessageId(), ChatMessage.Status.COMPLETED, "Cleaned.");
+        var calls = List.of(new ChatToolTranscript.Call("call_1", "bash", "{\"command\":\"python3 clean.py\"}", "saved"),
+                new ChatToolTranscript.Call("call_2", "search_knowledge", "{}", null));
+        turns.recordToolCalls(first.assistantMessageId(), calls);
+        // Finishing again records nothing twice.
+        turns.recordToolCalls(first.assistantMessageId(), calls);
+        var second = reserve(session, first.assistantMessageId(), UUID.randomUUID(), "Add a chart");
+        assertEquals(calls, turns.loadContext(owner, session.id(), second).toolCalls().get(first.assistantMessageId()));
+        assertEquals(2, jdbc.sql("SELECT count(*) FROM chat_message_tool_calls").query(Long.class).single());
+        jdbc.sql("DELETE FROM chat_session WHERE id = :id").param("id", session.id()).update();
+        assertEquals(0, jdbc.sql("SELECT count(*) FROM chat_message_tool_calls").query(Long.class).single());
+    }
+
+    @Test
     void interpreterSettingRevisesAndGeneratedFilesServeOnlyTheirOwner() {
         var interpreter = new JdbcInterpreterRepository(jdbc);
         var scope = new TenantId(tenant);

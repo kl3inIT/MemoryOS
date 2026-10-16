@@ -4,8 +4,11 @@ import io.memoryos.ai.ModelBinding;
 import io.memoryos.ai.ModelRequestPolicy;
 import io.memoryos.ai.TokenizerProfiles;
 import com.embabel.chat.AssistantMessage;
+import com.embabel.chat.AssistantMessageWithToolCalls;
 import com.embabel.chat.Message;
 import com.embabel.chat.SystemMessage;
+import com.embabel.chat.ToolCall;
+import com.embabel.chat.ToolResultMessage;
 import com.embabel.chat.UserMessage;
 import io.memoryos.chat.ImageMode;
 import io.memoryos.chat.WebSearchMode;
@@ -16,6 +19,7 @@ import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatTurnOptions;
 import io.memoryos.chat.ChatFileDescriptor;
 import io.memoryos.chat.ChatEvidence;
+import io.memoryos.chat.ChatToolTranscript;
 import io.memoryos.chat.web.WebConnectionService;
 import io.memoryos.mcp.McpTurnTools;
 import io.memoryos.shared.ActorId;
@@ -46,7 +50,8 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
                             Set<UUID> fileIds, Map<Integer, List<ChatFileDescriptor>> images, ChatEvidence evidence,
                             WebSearchMode webSearch, WebConnectionService.Access webAccess,
                             ImageMode image, ImageConnectionService.Access imageAccess,
-                            Research research, @Nullable McpTurnTools mcp) {
+                            Research research, @Nullable McpTurnTools mcp,
+                            ChatToolTranscript transcript) {
     /**
      * Deep research state of the turn: whether it runs, whether the previous answer was a clarification question (Onyx
      * skips clarification then), the account language for user-facing research prompts and the turn's attached files.
@@ -96,26 +101,26 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
         public ChatTurnSetup build() {
             return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options,
                     fileIds, images, evidence, WebSearchMode.off, new WebConnectionService.Access(null, null),
-                    ImageMode.off, new ImageConnectionService.Access(null), Research.OFF, null);
+                    ImageMode.off, new ImageConnectionService.Access(null), Research.OFF, null, new ChatToolTranscript());
         }
     }
 
     public ChatTurnSetup withWeb(WebSearchMode intent, WebConnectionService.Access access) {
-        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, intent, access, image, imageAccess, research, mcp);
+        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, intent, access, image, imageAccess, research, mcp, transcript);
     }
     public ChatTurnSetup withImage(ImageMode intent, ImageConnectionService.Access access) {
-        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, webSearch, webAccess, intent, access, research, mcp);
+        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, webSearch, webAccess, intent, access, research, mcp, transcript);
     }
     public ChatTurnSetup withResearch(Research value) {
-        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, webSearch, webAccess, image, imageAccess, value, mcp);
+        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, webSearch, webAccess, image, imageAccess, value, mcp, transcript);
     }
     /** The same turn with other agent restrictions, for example a conversational message in grounded mode (MEM-195). */
     public ChatTurnSetup withOptions(ChatTurnOptions value) {
-        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, value, fileIds, images, evidence, webSearch, webAccess, image, imageAccess, research, mcp);
+        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, value, fileIds, images, evidence, webSearch, webAccess, image, imageAccess, research, mcp, transcript);
     }
     /** The turn owns the opened MCP sessions and closes them when it ends. */
     public ChatTurnSetup withMcp(McpTurnTools tools) {
-        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, webSearch, webAccess, image, imageAccess, research, tools);
+        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, webSearch, webAccess, image, imageAccess, research, tools, transcript);
     }
     /** Admission estimate, not reported provider usage. The native response remains the usage ledger. */
     public static final int IMAGE_INPUT_TOKENS = ModelRequestPolicy.IMAGE_INPUT_TOKENS;
@@ -127,6 +132,7 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
         images = Map.copyOf(images);
         Objects.requireNonNull(binding);
         if (research == null) research = Research.OFF;
+        if (transcript == null) transcript = new ChatToolTranscript();
     }
 
     private static final class Hosted {
@@ -154,6 +160,40 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
      * question the guardrails stopped. Nothing is left to answer when a later message asks for it again.
      */
     static final String HIDDEN_QUESTION = "<<<This text is hidden because the assistant should not talk about this.>>>";
+
+    /** MEM-287: in place of an earlier result pruned to fit the history budget, as Dust and Anthropic prune. */
+    static final String PRUNED_RESULT = "This tool result is no longer available (pruned to fit the context).";
+
+    /** One assistant message with each call, then its result, in call order, as Deep research builds its history. */
+    static List<Message> toolMessages(List<ChatToolTranscript.Call> calls, boolean results) {
+        var messages = new ArrayList<Message>();
+        for (var call : calls) {
+            messages.add(new AssistantMessageWithToolCalls("", List.of(new ToolCall(call.callId(), call.name(), call.arguments()))));
+            messages.add(new ToolResultMessage(call.callId(), call.name(), results ? call.shownResult() : PRUNED_RESULT));
+        }
+        return messages;
+    }
+
+    /** {@code messages} without replayed tool calls and results, for a model call that offers no tools. */
+    public static List<Message> withoutToolHistory(List<Message> messages) {
+        return messages.stream().filter(message -> !(message instanceof AssistantMessageWithToolCalls)
+                && !(message instanceof ToolResultMessage)).toList();
+    }
+
+    /** {@link #toolMessages} in Spring AI's form, for the token count. */
+    private static List<org.springframework.ai.chat.messages.Message> nativeToolMessages(List<ChatToolTranscript.Call> calls,
+                                                                                         boolean results) {
+        var messages = new ArrayList<org.springframework.ai.chat.messages.Message>();
+        for (var call : calls) {
+            messages.add(org.springframework.ai.chat.messages.AssistantMessage.builder().content("")
+                    .toolCalls(List.of(new org.springframework.ai.chat.messages.AssistantMessage.ToolCall(call.callId(),
+                            "function", call.name(), call.arguments()))).build());
+            messages.add(org.springframework.ai.chat.messages.ToolResponseMessage.builder().responses(List.of(
+                    new org.springframework.ai.chat.messages.ToolResponseMessage.ToolResponse(call.callId(), call.name(),
+                            results ? call.shownResult() : PRUNED_RESULT))).build());
+        }
+        return messages;
+    }
 
     /** MEM-268: how a turn introduces the summary of the turns before its replayed tail. */
     static final String SUMMARY_LABEL =
@@ -261,6 +301,20 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
             allowedFiles.addAll(files.stream().map(ChatFileDescriptor::id).toList());
             selected.add(message.role() == ChatMessage.Role.USER
                     ? new UserMessage(text + metadata) : new AssistantMessage(text));
+            // MEM-287: the answer's tool calls go before it, as Dust and Anthropic replay earlier tool work. Newest
+            // first under the same budget: with their results, then with the results pruned, as both replace results
+            // before calls, then without them. Only a model that calls tools takes tool messages.
+            var calls = message.role() == ChatMessage.Role.ASSISTANT && binding.toolCalling()
+                    ? context.toolCalls().getOrDefault(message.id(), List.of()) : List.<ChatToolTranscript.Call>of();
+            for (boolean results : calls.isEmpty() ? new boolean[0] : new boolean[]{true, false}) {
+                var replay = nativeToolMessages(calls, results);
+                nativeMessages.addAll(insertion, replay);
+                if (count(policy, nativeMessages, imageTokens) <= historyLimit) {
+                    selected.addAll(toolMessages(calls, results).reversed());
+                    break;
+                }
+                nativeMessages.subList(insertion, insertion + replay.size()).clear();
+            }
             if (!imageFiles.isEmpty()) media.put(selected.getLast(), imageFiles);
             // Traversing backwards: reverse later places file context immediately before its question.
             for (var file : inlineFiles ? files.reversed() : List.<ChatFileDescriptor>of()) {
@@ -287,7 +341,8 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
         if (selected.isEmpty())
             throw ChatException.invalid("The current question exceeds the configured context limit.");
         Collections.reverse(selected);
-        if (selected.getFirst() instanceof AssistantMessage) {
+        // The window starts at a question: an answer, or the tool calls before it, cut from their question go.
+        while (!selected.isEmpty() && !(selected.getFirst() instanceof UserMessage)) {
             selected.removeFirst();
             nativeMessages.remove(insertion);
         }

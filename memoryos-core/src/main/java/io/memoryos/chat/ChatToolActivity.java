@@ -16,13 +16,20 @@ import org.jspecify.annotations.Nullable;
  */
 public final class ChatToolActivity implements ToolCallInspector {
     private final Consumer<? super ChatToolEvent> events;
+    private final @Nullable ChatToolTranscript transcript;
     private volatile ChatToolEvent.@Nullable Call current;
     private volatile boolean failed;
     private volatile ChatToolEvent.@Nullable Failure failure;
     private volatile Set<String> quiet = Set.of();
 
     public ChatToolActivity(Consumer<? super ChatToolEvent> events) {
+        this(events, null);
+    }
+
+    /** Also keeps each call with its arguments and result in {@code transcript}, for later turns (MEM-287). */
+    public ChatToolActivity(Consumer<? super ChatToolEvent> events, @Nullable ChatToolTranscript transcript) {
         this.events = events;
+        this.transcript = transcript;
     }
 
     /**
@@ -60,6 +67,8 @@ public final class ChatToolActivity implements ToolCallInspector {
         var call = active != null && active.name().equals(context.getToolCall().getName()) ? active
                 : call(context.getToolCall().getId(), context.getToolCall().getName());
         current = null;
+        if (transcript != null)
+            transcript.record(call.id(), call.name(), context.getToolCall().getArguments(), context.getResultAsString());
         events.accept(ChatToolEvent.finished(call, failed || context.getResult() instanceof Tool.Result.Error, context.getDurationMs(), failure));
     }
 

@@ -20,6 +20,7 @@ import io.memoryos.library.UserFile;
 import io.memoryos.chat.ChatContextUse;
 import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatSource;
+import io.memoryos.chat.ChatToolTranscript;
 import io.memoryos.chat.ChatTurnOptions;
 import io.memoryos.ai.ModelBinding;
 import io.memoryos.chat.execution.ChatTurnSetup;
@@ -352,9 +353,12 @@ public class ChatTurnPersistence {
                 generated.put(message, images.stream().map(GeneratedImage::id).toList()));
         var summary = summaries.forTurn(tenant, session, user)
                 .map(found -> new TurnContext.Summary(found.cutoffMessageId(), found.content())).orElse(null);
+        // MEM-287: earlier answers' tool calls, replayed before each answer on this branch.
+        var toolCalls = chats.toolCalls(history.stream().filter(message -> message.role() == ChatMessage.Role.ASSISTANT)
+                .map(ChatMessage::id).toList());
         return new TurnContext(actor, tenant, instructions, history,
                 settings.options().withSampling(sampling(settings, own)), plaintext, workspaceFiles,
-                language, generated, summary);
+                language, generated, summary, toolCalls);
     }
 
     /** A message's attachments as Chat records them, from the library files it admitted. */
@@ -366,8 +370,8 @@ public class ChatTurnPersistence {
                               List<ChatMessage> newestFirst, ChatTurnOptions options,
                               Map<UUID, UserFileService.FileText> fileTexts, List<ChatFileDescriptor> workspaceFiles,
                               @Nullable String uiLanguage, Map<UUID, List<UUID>> generatedImages,
-                              @Nullable Summary summary) {
-        public TurnContext { newestFirst = List.copyOf(newestFirst); fileTexts = Map.copyOf(fileTexts); workspaceFiles = List.copyOf(workspaceFiles); generatedImages = Map.copyOf(generatedImages); }
+                              @Nullable Summary summary, Map<UUID, List<ChatToolTranscript.Call>> toolCalls) {
+        public TurnContext { newestFirst = List.copyOf(newestFirst); fileTexts = Map.copyOf(fileTexts); workspaceFiles = List.copyOf(workspaceFiles); generatedImages = Map.copyOf(generatedImages); toolCalls = Map.copyOf(toolCalls); }
 
         /** MEM-268: the branch's summary of the turns up to and including {@code cutoffMessageId}. */
         public record Summary(UUID cutoffMessageId, String content) {
@@ -376,7 +380,13 @@ public class ChatTurnPersistence {
         /** The same context replaying its whole window, as a Deep research turn does. */
         public TurnContext withoutSummary() {
             return summary == null ? this : new TurnContext(actor, tenant, instructions, newestFirst, options, fileTexts,
-                    workspaceFiles, uiLanguage, generatedImages, null);
+                    workspaceFiles, uiLanguage, generatedImages, null, toolCalls);
+        }
+
+        /** The same context without earlier tool calls, as a Deep research turn replays (MEM-287). */
+        public TurnContext withoutToolCalls() {
+            return toolCalls.isEmpty() ? this : new TurnContext(actor, tenant, instructions, newestFirst, options, fileTexts,
+                    workspaceFiles, uiLanguage, generatedImages, summary, Map.of());
         }
 
         /** A context with default options and no files, account language, generated images or summary. */
@@ -396,6 +406,7 @@ public class ChatTurnPersistence {
             private @Nullable String uiLanguage;
             private Map<UUID, List<UUID>> generatedImages = Map.of();
             private @Nullable Summary summary;
+            private Map<UUID, List<ChatToolTranscript.Call>> toolCalls = Map.of();
 
             private Builder(ActorId actor, TenantId tenant, String instructions,
                             List<ChatMessage> newestFirst) {
@@ -411,12 +422,19 @@ public class ChatTurnPersistence {
             public Builder uiLanguage(@Nullable String value) { uiLanguage = value; return this; }
             public Builder generatedImages(Map<UUID, List<UUID>> value) { generatedImages = value; return this; }
             public Builder summary(@Nullable Summary value) { summary = value; return this; }
+            public Builder toolCalls(Map<UUID, List<ChatToolTranscript.Call>> value) { toolCalls = value; return this; }
 
             public TurnContext build() {
                 return new TurnContext(actor, tenant, instructions, newestFirst, options, fileTexts,
-                        workspaceFiles, uiLanguage, generatedImages, summary);
+                        workspaceFiles, uiLanguage, generatedImages, summary, toolCalls);
             }
         }
+    }
+
+    /** MEM-287: keeps a finished answer's tool calls for later turns of its branch. */
+    @Transactional
+    public void recordToolCalls(UUID assistant, List<ChatToolTranscript.Call> calls) {
+        if (!calls.isEmpty()) chats.saveToolCalls(assistant, calls);
     }
 
     /** Renews rows still RUNNING and returns their IDs; a missing ID means the run no longer owns its row. */

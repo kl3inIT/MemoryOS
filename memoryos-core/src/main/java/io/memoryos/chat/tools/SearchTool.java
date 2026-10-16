@@ -3,7 +3,9 @@ package io.memoryos.chat.tools;
 import io.memoryos.ai.TurnFailureException;
 import com.embabel.agent.api.common.PromptRunner;
 import com.embabel.agent.api.annotation.LlmTool;
+import com.embabel.chat.AssistantMessageWithToolCalls;
 import com.embabel.chat.Message;
+import com.embabel.chat.ToolResultMessage;
 import com.embabel.chat.SystemMessage;
 import com.embabel.chat.UserMessage;
 import io.memoryos.chat.ChatEvidence;
@@ -136,7 +138,9 @@ public final class SearchTool implements AutoCloseable {
         this.availableTokens = availableTokens;
         this.events = event -> { this.checkActive.run(); events.accept(event); };
         this.timings = timings;
-        this.history = messages.stream().filter(m -> !(m instanceof SystemMessage)).toList();
+        // The rewrite calls offer no tools, so earlier turns' tool calls (MEM-287) are left out.
+        this.history = messages.stream().filter(m -> !(m instanceof SystemMessage) && !(m instanceof AssistantMessageWithToolCalls)
+                && !(m instanceof ToolResultMessage)).toList();
         this.question = history.stream().filter(UserMessage.class::isInstance).map(Message::getContent)
                 .reduce((ignored, current) -> current).orElseThrow(() -> new IllegalArgumentException("Missing user question"));
         this.cancellation = cancellation.subscribe(ignored -> work.cancel());
