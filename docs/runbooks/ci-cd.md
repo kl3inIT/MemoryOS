@@ -145,7 +145,10 @@ call healthy. That happened on staging. Superseded release images are removed in
 `infrastructure/deployment/prune-release-images.sh`, which keeps every image named by the running
 release and by the one accepted before it — the rollback target — including the executor, and
 never considers an image outside `ghcr.io/kl3init/memoryos-*`. It does nothing while a deployment
-holds the lock or a reservation is pending. Install it once per host:
+holds the lock or a reservation is pending. `deploy.sh finish` runs the release's own copy right after
+it records the accepted runtime, because a day of merges filled staging's disk before the daily run
+and the next pull failed; a prune that fails there leaves the release accepted and only warns. The
+daily timer stays for images left by a run that never finished. Install it once per host:
 
 ```sh
 sudo install -m 0755 infrastructure/deployment/prune-release-images.sh /usr/local/sbin/memoryos-prune-release-images
