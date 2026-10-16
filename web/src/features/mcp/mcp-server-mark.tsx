@@ -53,7 +53,7 @@ const brands: [string, Brand][] = [
   ["jira", { logo: jiraLogo }],
   ["atlassian", { logo: atlassianLogo }],
   ["linear", { logo: linearLogo, monochrome: true }],
-  ["notion", { logo: notionLogo, monochrome: true }],
+  ["notion", { logo: notionLogo }],
   ["github", { logo: githubLogo, monochrome: true }],
   ["gitlab", { logo: gitlabLogo }],
   ["slack", { logo: slackLogo }],
