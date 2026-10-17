@@ -7,6 +7,7 @@ import io.memoryos.chat.ChatChannelBindings;
 import io.memoryos.chat.ChatPersonaService;
 import io.memoryos.channel.persistence.ChannelCredentialConfiguration;
 import io.memoryos.channel.persistence.JdbcChannelConnectionRepository;
+import io.memoryos.channel.persistence.JdbcChannelGroupRepository;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
 import io.memoryos.iam.ServiceAccounts;
@@ -47,12 +48,14 @@ public class ChannelConnectionService {
     private final TransactionTemplate transactions;
     private final ChatPersonaService personas;
     private final ChatChannelBindings bindings;
+    private final JdbcChannelGroupRepository groups;
     private final Semaphore verifications = new Semaphore(CONCURRENT_VERIFICATIONS);
 
     public ChannelConnectionService(IamAuthorization authorization, JdbcChannelConnectionRepository connections,
                                     ChannelCredentialConfiguration credentials, ServiceAccounts accounts, AuditTrail audit,
                                     ChannelAdapters adapters, PlatformTransactionManager transactionManager,
-                                    ChatPersonaService personas, ChatChannelBindings bindings) {
+                                    ChatPersonaService personas, ChatChannelBindings bindings,
+                                    JdbcChannelGroupRepository groups) {
         this.authorization = authorization;
         this.connections = connections;
         this.credentials = credentials;
@@ -62,6 +65,7 @@ public class ChannelConnectionService {
         this.transactions = new TransactionTemplate(transactionManager);
         this.personas = personas;
         this.bindings = bindings;
+        this.groups = groups;
     }
 
     /** The Tenant's bots with what the process that holds them last wrote of each. */
@@ -236,25 +240,101 @@ public class ChannelConnectionService {
         }
         UUID leaving = bindings.bound(tenant, id).orElse(null);
         if (Objects.equals(target, leaving)) return current;
-        if (leaving != null && personas.names(actor, List.of(leaving)).containsKey(leaving)
-                && !personas.get(actor, leaving).permissions().edit()) {
-            throw ChannelException.assistantNotEditable();
-        }
+        requireMayLeave(actor, leaving);
         bindings.bind(tenant, id, target);
         record(actor, tenant, current, target == null ? "assistant-removed" : "assistant");
         return current;
     }
 
     /**
-     * The bots bound to an assistant, for whoever may use it: its page lists them read-only to anyone who may not bind
-     * them (MEM-273).
+     * Where an assistant answers, for whoever may use it (MEM-273): the bots it is the default of and each bot's group
+     * chats given it. Its page lists them read-only.
      */
     @Transactional(readOnly = true)
-    public List<ChannelConnection> boundTo(ActorId actor, UUID personaId) {
+    public List<Answering> boundTo(ActorId actor, UUID personaId) {
         var tenant = authorization.require(actor, IamCapability.CHAT_READ, false).tenantId();
         personas.get(actor, personaId);
         var bound = bindings.all(tenant);
-        return connections.list(tenant).stream().filter(bot -> personaId.equals(bound.get(bot.id()))).toList();
+        var grouped = bindings.groupsBoundTo(tenant, personaId);
+        return connections.list(tenant).stream()
+                .filter(bot -> personaId.equals(bound.get(bot.id())) || grouped.containsKey(bot.id()))
+                .map(bot -> {
+                    var chats = grouped.getOrDefault(bot.id(), List.of());
+                    var known = groups.list(tenant, bot.id()).stream()
+                            .filter(group -> chats.contains(group.chatId())).toList();
+                    return new Answering(bot, personaId.equals(bound.get(bot.id())), known);
+                }).toList();
+    }
+
+    /** A bot an assistant answers with: by default, and in which of its group chats. */
+    public record Answering(ChannelConnection connection, boolean byDefault, List<ChannelGroup> groups) {}
+
+    /** A group chat of a bot with the assistant it is given, both null when it answers with the bot's default. */
+    public record Group(ChannelGroup group, @Nullable UUID assistantId, @Nullable String assistant) {}
+
+    /** The group chats a bot has answered in, the most recently asked first, each with its own assistant. */
+    @Transactional(readOnly = true)
+    public List<Group> groups(ActorId actor, UUID id) {
+        var tenant = reader(actor);
+        connections.find(tenant, id).orElseThrow(ChannelException::notFound);
+        var given = bindings.groups(tenant, id);
+        var names = personas.names(actor, given.values());
+        return groups.list(tenant, id).stream().map(group -> {
+            UUID assistant = given.get(group.chatId());
+            String name = assistant == null ? null : names.get(assistant);
+            return new Group(group, name == null ? null : assistant, name);
+        }).toList();
+    }
+
+    /**
+     * Gives a group chat of a bot an assistant of its own, or none so it answers with the bot's default (MEM-273). It
+     * decides who may ask the assistant, so it takes the capability to manage bots and edit rights on the assistant
+     * the group goes to and on the one it leaves while that one exists; the built-in assistant is everyone's and takes
+     * no edit rights. Conversations held with the assistant it left no longer use it, and the group's conversation
+     * starts over.
+     */
+    @Transactional
+    public void bindGroupPersona(ActorId actor, UUID id, String chatId, @Nullable UUID personaId) {
+        var tenant = writer(actor);
+        var current = connections.find(tenant, id).orElseThrow(ChannelException::notFound);
+        groups.find(tenant, id, chatId).orElseThrow(ChannelException::groupNotFound);
+        UUID target = null;
+        if (personaId != null) {
+            var assistant = personas.get(actor, personaId);
+            if (!assistant.builtin() && !assistant.permissions().edit()) throw ChannelException.assistantNotEditable();
+            target = assistant.id();
+        }
+        UUID leaving = bindings.groupBound(tenant, id, chatId).orElse(null);
+        if (Objects.equals(target, leaving)) return;
+        requireMayLeave(actor, leaving);
+        bindings.bindGroup(tenant, id, chatId, target);
+        record(actor, tenant, current, target == null ? "group-assistant-removed" : "group-assistant", chatId);
+    }
+
+    /** Names a group chat for the bot's page, or clears the name with a blank one. */
+    @Transactional
+    public void labelGroup(ActorId actor, UUID id, String chatId, @Nullable String label) {
+        var tenant = writer(actor);
+        var current = connections.find(tenant, id).orElseThrow(ChannelException::notFound);
+        String given = label == null || label.isBlank() ? null : label.strip();
+        if (given != null && given.length() > 100) throw ChannelException.invalid("Name the group in up to 100 characters.");
+        if (!groups.label(tenant, id, chatId, given)) throw ChannelException.groupNotFound();
+        record(actor, tenant, current, "group-label", chatId);
+    }
+
+    /**
+     * Forgets a group chat and the assistant it was given; it comes back when the bot next answers there. Taking the
+     * group's assistant away takes edit rights on it while it exists, as {@link #bindGroupPersona} does.
+     */
+    @Transactional
+    public void forgetGroup(ActorId actor, UUID id, String chatId) {
+        var tenant = writer(actor);
+        var current = connections.find(tenant, id).orElseThrow(ChannelException::notFound);
+        groups.find(tenant, id, chatId).orElseThrow(ChannelException::groupNotFound);
+        requireMayLeave(actor, bindings.groupBound(tenant, id, chatId).orElse(null));
+        if (!groups.forget(tenant, id, chatId)) throw ChannelException.groupNotFound();
+        bindings.bindGroup(tenant, id, chatId, null);
+        record(actor, tenant, current, "group-forgotten", chatId);
     }
 
     @Transactional
@@ -262,10 +342,20 @@ public class ChannelConnectionService {
         var tenant = writer(actor);
         var current = connections.find(tenant, id).orElseThrow(ChannelException::notFound);
         if (!connections.delete(tenant, id, revision)) throw ChannelException.changed();
-        bindings.bind(tenant, id, null);
+        bindings.release(tenant, id);
         accounts.retire(tenant, current.serviceAccount());
         audit.record(AuditRecord.of(AuditAction.CHANNEL_DELETE, tenant).actor(actor)
                 .resource("CHANNEL", id, current.name()).detail("provider", current.provider().name()).build());
+    }
+
+    /**
+     * A bot or group may leave the assistant it answers with only for someone who may edit it: the built-in one and an
+     * assistant the actor can no longer see take none.
+     */
+    private void requireMayLeave(ActorId actor, @Nullable UUID leaving) {
+        if (leaving == null || !personas.names(actor, List.of(leaving)).containsKey(leaving)) return;
+        var left = personas.get(actor, leaving);
+        if (!left.builtin() && !left.permissions().edit()) throw ChannelException.assistantNotEditable();
     }
 
     private TenantId reader(ActorId actor) {
@@ -283,6 +373,12 @@ public class ChannelConnectionService {
     private void record(ActorId actor, TenantId tenant, ChannelConnection connection, String change) {
         audit.record(AuditRecord.of(AuditAction.CHANNEL_UPDATE, tenant).actor(actor)
                 .resource("CHANNEL", connection.id(), connection.name()).detail("change", change).build());
+    }
+
+    private void record(ActorId actor, TenantId tenant, ChannelConnection connection, String change, String chatId) {
+        audit.record(AuditRecord.of(AuditAction.CHANNEL_UPDATE, tenant).actor(actor)
+                .resource("CHANNEL", connection.id(), connection.name()).detail("change", change)
+                .detail("group", chatId).build());
     }
 
     private static String name(String name) {

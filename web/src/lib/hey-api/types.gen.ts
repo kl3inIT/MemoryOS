@@ -3781,6 +3781,21 @@ export type AvailableModel = {
     isDefault: boolean;
 };
 
+export type AssistantChannelGroupResponse = {
+    /**
+     * The platform's id of the group chat
+     */
+    id: string;
+    /**
+     * The administrator's own name for the group
+     */
+    label?: string;
+    /**
+     * The group's name on the platform; absent when the platform gives none
+     */
+    name?: string;
+};
+
 export type AssistantChannelResponse = {
     id: string;
     provider: 'LARK' | 'ZALO_BOT';
@@ -3790,6 +3805,14 @@ export type AssistantChannelResponse = {
      */
     botName?: string;
     enabled: boolean;
+    /**
+     * Whether the assistant is the bot's default, used where no group chat has its own
+     */
+    byDefault: boolean;
+    /**
+     * The bot's group chats given the assistant as their own
+     */
+    groups: Array<AssistantChannelGroupResponse>;
 };
 
 export type SourceOption = {
@@ -4334,6 +4357,47 @@ export type BindChannelAssistantRequest = {
      * The assistant; null answers with the built-in one, and a bot bound elsewhere moves
      */
     personaId?: string | null;
+};
+
+export type BindChannelGroupAssistantRequest = {
+    /**
+     * The assistant, the built-in one included; null answers with the bot's default
+     */
+    personaId?: string | null;
+};
+
+export type ChannelGroupResponse = {
+    /**
+     * The platform's id of the group chat
+     */
+    id: string;
+    /**
+     * The administrator's own name for the group, shown before the platform's
+     */
+    label?: string;
+    /**
+     * The group's name on the platform; absent when the platform gives none (Zalo)
+     */
+    name?: string;
+    /**
+     * When the bot first answered there
+     */
+    firstMessageAt: string;
+    /**
+     * When the bot last answered there
+     */
+    lastMessageAt: string;
+    /**
+     * The assistant the group answers with; absent when it answers with the bot's default
+     */
+    assistant?: ChannelAssistantResponse;
+};
+
+export type LabelChannelGroupRequest = {
+    /**
+     * The name; blank or null clears it
+     */
+    label?: string | null;
 };
 
 export type ChannelResponse = {
@@ -20969,6 +21033,102 @@ export type BindChannelAssistantResponses = {
 
 export type BindChannelAssistantResponse = BindChannelAssistantResponses[keyof BindChannelAssistantResponses];
 
+export type BindChannelGroupAssistantData = {
+    body: BindChannelGroupAssistantRequest;
+    path: {
+        channelId: string;
+        groupId: string;
+    };
+    query?: never;
+    url: '/api/channels/{channelId}/groups/{groupId}/persona';
+};
+
+export type BindChannelGroupAssistantErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type BindChannelGroupAssistantError = BindChannelGroupAssistantErrors[keyof BindChannelGroupAssistantErrors];
+
+export type BindChannelGroupAssistantResponses = {
+    /**
+     * Updated group chat
+     */
+    200: ChannelGroupResponse;
+};
+
+export type BindChannelGroupAssistantResponse = BindChannelGroupAssistantResponses[keyof BindChannelGroupAssistantResponses];
+
+export type LabelChannelGroupData = {
+    body: LabelChannelGroupRequest;
+    path: {
+        channelId: string;
+        groupId: string;
+    };
+    query?: never;
+    url: '/api/channels/{channelId}/groups/{groupId}/label';
+};
+
+export type LabelChannelGroupErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type LabelChannelGroupError = LabelChannelGroupErrors[keyof LabelChannelGroupErrors];
+
+export type LabelChannelGroupResponses = {
+    /**
+     * Updated group chat
+     */
+    200: ChannelGroupResponse;
+};
+
+export type LabelChannelGroupResponse = LabelChannelGroupResponses[keyof LabelChannelGroupResponses];
+
 export type UpdateChannelEnabledData = {
     body: UpdateChannelEnabledRequest;
     headers: {
@@ -21154,6 +21314,53 @@ export type ListChannelsResponses = {
 
 export type ListChannelsResponse = ListChannelsResponses[keyof ListChannelsResponses];
 
+export type ListChannelGroupsData = {
+    body?: never;
+    path: {
+        channelId: string;
+    };
+    query?: never;
+    url: '/api/channels/{channelId}/groups';
+};
+
+export type ListChannelGroupsErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type ListChannelGroupsError = ListChannelGroupsErrors[keyof ListChannelGroupsErrors];
+
+export type ListChannelGroupsResponses = {
+    /**
+     * Group chats
+     */
+    200: Array<ChannelGroupResponse>;
+};
+
+export type ListChannelGroupsResponse = ListChannelGroupsResponses[keyof ListChannelGroupsResponses];
+
 export type DeleteChannelData = {
     body?: never;
     headers: {
@@ -21203,6 +21410,54 @@ export type DeleteChannelResponses = {
 };
 
 export type DeleteChannelResponse = DeleteChannelResponses[keyof DeleteChannelResponses];
+
+export type ForgetChannelGroupData = {
+    body?: never;
+    path: {
+        channelId: string;
+        groupId: string;
+    };
+    query?: never;
+    url: '/api/channels/{channelId}/groups/{groupId}';
+};
+
+export type ForgetChannelGroupErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type ForgetChannelGroupError = ForgetChannelGroupErrors[keyof ForgetChannelGroupErrors];
+
+export type ForgetChannelGroupResponses = {
+    /**
+     * Group chat forgotten
+     */
+    204: void;
+};
+
+export type ForgetChannelGroupResponse = ForgetChannelGroupResponses[keyof ForgetChannelGroupResponses];
 
 export type ListChannelLinksData = {
     body?: never;

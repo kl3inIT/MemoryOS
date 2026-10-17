@@ -258,7 +258,7 @@ class PostgresSandboxServiceTest {
         service.save(tenant, conversation);
         assertEquals(1, storage.objects.size());
         String key = storage.objects.keySet().iterator().next();
-        assertTrue(key.startsWith("sandbox/" + tenant.value() + "/" + conversation + "/"), key);
+        assertTrue(key.startsWith("raw/" + tenant.value() + "/"), key);
         assertEquals(key, archiveKey(conversation));
 
         runtime.alive.remove(first.runtimeId());

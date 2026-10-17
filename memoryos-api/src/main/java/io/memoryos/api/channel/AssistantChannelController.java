@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
-/** The bots bound to an assistant (MEM-273), for its Kênh tab: read by anyone who may use the assistant. */
+/** Where an assistant answers (MEM-273), for its Kênh tab: read by anyone who may use the assistant. */
 @RestController
 @Tag(name = "Channels")
 @SecurityRequirement(name = "browserSession")
@@ -33,7 +33,7 @@ final class AssistantChannelController {
         this.channels = channels;
     }
 
-    @Operation(operationId = "listAssistantChannels", summary = "List the bots that answer with an assistant")
+    @Operation(operationId = "listAssistantChannels", summary = "List the bots that answer with an assistant, by default or in their group chats")
     @ApiResponse(responseCode = "200", description = "Bots", useReturnTypeSchema = true)
     @GetMapping(value = "/api/chat/personas/{personaId}/channels", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<List<AssistantChannelResponse>> list(@CurrentActor IdentityContext identity, @PathVariable UUID personaId) {

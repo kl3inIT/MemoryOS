@@ -3780,12 +3780,20 @@ export const zAvailableModel = z.object({
     isDefault: z.boolean()
 });
 
+export const zAssistantChannelGroupResponse = z.object({
+    id: z.string(),
+    label: z.string().optional(),
+    name: z.string().optional()
+});
+
 export const zAssistantChannelResponse = z.object({
     id: z.uuid(),
     provider: z.enum(['LARK', 'ZALO_BOT']),
     name: z.string(),
     botName: z.string().optional(),
-    enabled: z.boolean()
+    enabled: z.boolean(),
+    byDefault: z.boolean(),
+    groups: z.array(zAssistantChannelGroupResponse)
 });
 
 export const zSourceOption = z.object({
@@ -4285,6 +4293,23 @@ export const zReplaceChannelSecretRequest = z.object({
 
 export const zBindChannelAssistantRequest = z.object({
     personaId: z.uuid().nullish()
+});
+
+export const zBindChannelGroupAssistantRequest = z.object({
+    personaId: z.uuid().nullish()
+});
+
+export const zChannelGroupResponse = z.object({
+    id: z.string(),
+    label: z.string().optional(),
+    name: z.string().optional(),
+    firstMessageAt: z.iso.datetime(),
+    lastMessageAt: z.iso.datetime(),
+    assistant: zChannelAssistantResponse.optional()
+});
+
+export const zLabelChannelGroupRequest = z.object({
+    label: z.string().min(0).max(100).nullish()
 });
 
 export const zChannelResponse = z.object({
@@ -8655,6 +8680,30 @@ export const zBindChannelAssistantPath = z.object({
  */
 export const zBindChannelAssistantResponse = zChannelResponse;
 
+export const zBindChannelGroupAssistantBody = zBindChannelGroupAssistantRequest;
+
+export const zBindChannelGroupAssistantPath = z.object({
+    channelId: z.uuid(),
+    groupId: z.string()
+});
+
+/**
+ * Updated group chat
+ */
+export const zBindChannelGroupAssistantResponse = zChannelGroupResponse;
+
+export const zLabelChannelGroupBody = zLabelChannelGroupRequest;
+
+export const zLabelChannelGroupPath = z.object({
+    channelId: z.uuid(),
+    groupId: z.string()
+});
+
+/**
+ * Updated group chat
+ */
+export const zLabelChannelGroupResponse = zChannelGroupResponse;
+
 export const zUpdateChannelEnabledBody = zUpdateChannelEnabledRequest;
 
 export const zUpdateChannelEnabledHeaders = z.object({
@@ -8689,6 +8738,15 @@ export const zTestLarkChannelAppResponse = zChannelAppCheckResponse;
  */
 export const zListChannelsResponse = z.array(zChannelResponse);
 
+export const zListChannelGroupsPath = z.object({
+    channelId: z.uuid()
+});
+
+/**
+ * Group chats
+ */
+export const zListChannelGroupsResponse = z.array(zChannelGroupResponse);
+
 export const zDeleteChannelHeaders = z.object({
     'If-Match': z.string()
 });
@@ -8701,6 +8759,16 @@ export const zDeleteChannelPath = z.object({
  * Bot removed
  */
 export const zDeleteChannelResponse = z.void();
+
+export const zForgetChannelGroupPath = z.object({
+    channelId: z.uuid(),
+    groupId: z.string()
+});
+
+/**
+ * Group chat forgotten
+ */
+export const zForgetChannelGroupResponse = z.void();
 
 /**
  * Bots and links

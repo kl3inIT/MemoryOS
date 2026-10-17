@@ -1,6 +1,7 @@
 package io.memoryos.integration.zalo;
 
 import io.memoryos.channel.ChannelAdapter;
+import io.memoryos.channel.ChannelChat;
 import io.memoryos.channel.ChannelConnection;
 import io.memoryos.channel.ChannelCredentials;
 import io.memoryos.channel.ChannelDelivery;
@@ -202,9 +203,10 @@ public final class ZaloChannelAdapter implements ChannelAdapter, AutoCloseable {
         return ChannelSender.UNKNOWN;
     }
 
+    /** Zalo has no organisations and gives a group no name. */
     @Override
-    public boolean externalChat(ChannelConnection connection, String chatId) {
-        return false;
+    public ChannelChat chat(ChannelConnection connection, String chatId) {
+        return ChannelChat.UNNAMED;
     }
 
     @Override
