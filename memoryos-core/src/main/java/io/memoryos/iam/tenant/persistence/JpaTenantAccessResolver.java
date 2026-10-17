@@ -38,12 +38,6 @@ public class JpaTenantAccessResolver implements TenantAccessResolver {
 
     @Override
     @Transactional(readOnly = true)
-    public boolean isActiveTenant(TenantId tenantId) {
-        return tenants.findActiveTenant(Objects.requireNonNull(tenantId, "tenantId must not be null")).isPresent();
-    }
-
-    @Override
-    @Transactional(readOnly = true)
     public Optional<TenantId> operatingTenant() {
         return tenants.findBootstrapTenant();
     }

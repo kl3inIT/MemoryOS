@@ -42,7 +42,6 @@ import org.testcontainers.utility.DockerImageName;
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
-                "arconia.dev.services.redis.enabled=false",
                 "memoryos.worker.enabled=false",
                 "memoryos.redis.topology-interval=1h",
                 "memoryos.redis.relay-interval=100ms",

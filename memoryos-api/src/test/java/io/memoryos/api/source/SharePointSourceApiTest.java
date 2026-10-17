@@ -63,7 +63,6 @@ import org.testcontainers.junit.jupiter.Testcontainers;
         "memoryos.sharepoint.credential-encryption-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
         "memoryos.sharepoint.credential-key-version=sp-test-v1",
         "spring.security.oauth2.client.registration.memoryos.client-secret=client-secret",
-        "arconia.multitenancy.resolution.fixed.tenant-identifier=10000000-0000-0000-0000-000000000025",
         "memoryos.initial-tenant.id=10000000-0000-0000-0000-000000000025",
         "memoryos.initial-tenant.owner-subject=sharepoint-source-owner",
         "memoryos.initial-tenant.slug=sharepoint-source",

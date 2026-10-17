@@ -11,8 +11,6 @@ public interface TenantAccessResolver {
     /** Requires a write transaction; serializes membership validation with IAM revocation. */
     Optional<TenantMembership> lockActiveMembership(ActorId actorId);
 
-    boolean isActiveTenant(TenantId tenantId);
-
     /**
      * The Tenant the deployment was bootstrapped with, once it is published. Deployment-wide settings, such as the
      * search configuration every Tenant shares, belong to it.

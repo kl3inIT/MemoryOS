@@ -32,7 +32,6 @@ import org.testcontainers.utility.DockerImageName;
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
-                "arconia.dev.services.redis.enabled=false",
                 "memoryos.worker.enabled=false",
                 "db-scheduler.enabled=false",
                 "management.endpoint.health.group.readiness.include=readinessState,db,redis",
