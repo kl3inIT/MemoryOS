@@ -9,19 +9,19 @@ keycloak-admin-client = "26.0.12"
 tika = "4.1.0"
 jsoup = "1.23.2"
 pdfbox = "3.0.8"
-imageio = "3.15.2"
+imageio = "3.15.3"
 db-scheduler = "16.12.0"
-aws-sdk = "2.55.7"
-docling-java = "0.6.6"
+aws-sdk = "2.55.16"
+docling-java = "0.7.0"
 poi = "5.5.1"
 commons-csv = "1.14.1"
 commons-compress = "1.28.0"
 spring-ai = "2.0.1"
-embabel = "1.5.2"
+embabel = "1.5.3"
 opensearch-java = "3.10.0"
 msal4j = "1.26.0"
-microsoft-graph = "6.70.0"
-lark-oapi = "2.8.5"
+microsoft-graph = "6.71.0"
+lark-oapi = "2.8.6"
 # MEM-270: the Chat sandbox runtime (ADR 0029).
 opensandbox = "1.1.1"
 google-api-drive = "v3-rev20260916-2.0.0"
@@ -36,7 +36,7 @@ typesafe = "0.4.0"
 # reads are bounded.
 mcp-sdk = "2.1.0"
 # MEM-114 rate limit of the MCP endpoint.
-bucket4j = "8.20.0"
+bucket4j = "8.21.0"
 
 [libraries]
 azure-speech = { module = "com.microsoft.cognitiveservices.speech:client-sdk", version.ref = "azure-speech" }
@@ -69,14 +69,14 @@ okhttp = { module = "com.squareup.okhttp3:okhttp" }
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
 pdfbox = { module = "org.apache.pdfbox:pdfbox", version.ref = "pdfbox" }
 # MEM-243: PDFBox renders a scanned page for a model to read; black-and-white scans are commonly JBIG2.
-pdfbox-jbig2 = { module = "org.apache.pdfbox:jbig2-imageio", version = "3.0.4" }
+pdfbox-jbig2 = { module = "org.apache.pdfbox:jbig2-imageio", version = "3.0.5" }
 docling-client = { module = "ai.docling:docling-serve-client", version.ref = "docling-java" }
-otel-instrumentation-bom = { module = "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom-alpha", version = "2.31.1-alpha" }
+otel-instrumentation-bom = { module = "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom-alpha", version = "2.32.0-alpha" }
 spring-boot-starter-opentelemetry = { module = "org.springframework.boot:spring-boot-starter-opentelemetry" }
 micrometer-core = { module = "io.micrometer:micrometer-core" }
 micrometer-context = { module = "io.micrometer:context-propagation" }
 micrometer-registry-otlp = { module = "io.micrometer:micrometer-registry-otlp" }
-otel-logback-appender = { module = "io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0", version = "2.31.1-alpha" }
+otel-logback-appender = { module = "io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0", version = "2.32.0-alpha" }
 aws-sdk-bom = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk" }
 aws-sdk-s3 = { module = "software.amazon.awssdk:s3" }
 aws-sdk-auth = { module = "software.amazon.awssdk:auth" }
