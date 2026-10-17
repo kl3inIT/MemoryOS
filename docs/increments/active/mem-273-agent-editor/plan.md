@@ -69,7 +69,7 @@ Design: [design-groups.md](design-groups.md). Three pull requests.
   `GET /api/chat/personas/{id}/channels` with groups; permissions and audit as decision 6. Tests: each resolution
   branch; changing, removing and forgetting end access and start the group's conversation over; a direct message
   ignores group overrides; permission refusals; an external Lark group is not recorded.
-- [ ] 5c. Web: the bot page's "Trợ lý mặc định" picker and "Theo nhóm" list; the Kênh tab read-only with links to the
+- [x] 5c. Web: the bot page's "Trợ lý mặc định" picker and "Theo nhóm chat" list; the Kênh tab read-only with links to the
   bot pages. Unit and e2e tests; staging screenshots; channel and chat specs, test matrices.
 
 ## Verification

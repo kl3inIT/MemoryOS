@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Link, useNavigate, useParams } from "@tanstack/react-router";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import { BotMessageSquare } from "lucide-react";
 import { BrandLoader } from "@/components/brand-loader";
 import { DetailHeader } from "@/components/composites/detail-header";
@@ -21,9 +21,13 @@ import type { ChannelResponse } from "@/lib/hey-api/types.gen";
 import { cn } from "@/lib/utils";
 import { ChannelMark, ChannelMenu, ChannelSwitch } from "./channel-actions";
 import { type ChannelAdmin, useChannelAdmin, useChannels } from "./channel-admin";
+import { ChannelAssistantsSection } from "./channel-assistants-section";
 import { channelFailure, channelLine, channelState } from "./channel-status";
 
-/** One bot's page: its name, line and switch at the top, then its facts and the scopes Lark still refuses. */
+/**
+ * One bot's page: its name, line and switch at the top, then its facts, which assistant answers where and the scopes
+ * Lark still refuses.
+ */
 export function ChannelDetailPage() {
   const ui = useAppTranslation();
   const navigate = useNavigate();
@@ -65,22 +69,6 @@ function ChannelDetail({ channel, admin }: { channel: ChannelResponse; admin: Ch
   const facts: [string, ReactNode][] = [
     [ui("Trạng thái"), ui(channelState(channel.status))],
     [zalo ? ui("Bot trên Zalo") : ui("Bot trên Lark"), channel.botName ?? ui("Chưa rõ")],
-    [
-      ui("Trợ lý"),
-      channel.assistant ? (
-        <Link
-          key="assistant"
-          to="/agents/$agentId/edit"
-          params={{ agentId: channel.assistant.id }}
-          search={{ tab: "channels" }}
-          className="underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-none"
-        >
-          {channel.assistant.name}
-        </Link>
-      ) : (
-        ui("Trợ lý mặc định")
-      ),
-    ],
     ...(zalo
       ? ([
           [ui("Bot ID"), channel.appId],
@@ -145,6 +133,8 @@ function ChannelDetail({ channel, admin }: { channel: ChannelResponse; admin: Ch
           ))}
         </dl>
       </section>
+
+      <ChannelAssistantsSection channel={channel} />
 
       {channel.missingScopes.length > 0 ? (
         <section className="flex flex-col gap-3">

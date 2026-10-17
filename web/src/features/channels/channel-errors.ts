@@ -15,6 +15,9 @@ const messages: Readonly<Record<string, string>> = {
     "Máy chủ chưa có địa chỉ công khai, nên Zalo không gọi được webhook. Hãy chọn Polling.",
   CHANNEL_WEBHOOK_UNREACHABLE: "Zalo không gọi được tới webhook của MemoryOS. Hãy chọn Polling.",
   CHANNEL_PROVIDER_QUOTA: "Bot đã dùng hết quota tin nhắn của Zalo trong tháng.",
+  CHANNEL_ASSISTANT_NOT_EDITABLE:
+    "Bạn cần quyền sửa cả trợ lý đang dùng và trợ lý muốn chuyển sang thì mới đổi được.",
+  CHANNEL_GROUP_NOT_FOUND: "Nhóm chat này không còn trong danh sách của bot.",
 };
 
 /** Zalo's own words where Lark's would be wrong. */
