@@ -142,8 +142,15 @@ Lark refuses, else that the bot is off, connecting or answering; the list is rea
 bot switched on is not connected. Each bot has its page, `/admin/channels/{id}`: its status, the platform's name for
 the bot, a Lark bot's region and App ID or a Zalo bot's Bot ID and way of receiving (a select of Webhook or Polling
 that saves on change through `PUT /api/channels/{id}/transport`), notice language, when it connected, its last
-message and its last failure, the scopes still missing, the assistant it answers with (a link to that assistant's
-Kênh tab, or "Trợ lý mặc định"), and a menu to replace the App Secret or the token, or delete the bot. Each row of
+message and its last failure, the scopes still missing, and a menu to replace the App Secret or the token, or delete
+the bot. Under *Trợ lý* the page sets which assistant answers where, as Onyx's Slack bot sets one per channel: *Trợ lý
+mặc định* picks the bot's default (the built-in assistant first, then the assistants the administrator may edit,
+through `PUT /api/channels/{id}/persona`), and *Theo nhóm chat* lists the group chats the bot has answered in, each
+with the platform's mark, its label or name (a Zalo group without a label is *Nhóm Zalo* and the end of its id), *Nhóm
+Lark* or *Nhóm Zalo* and when it last asked, an assistant picker whose first choice is *Theo mặc định*, and a menu to
+rename it (*Đổi tên nhóm chat*, blank clears the label) or forget it after a confirmation. "Nhóm chat" keeps these
+apart from MemoryOS's own Groups of people. Each choice saves on change; a refusal such as
+`CHANNEL_ASSISTANT_NOT_EDITABLE` shows above the section. With no group yet, the list is only its heading. Each row of
 the list ends its line with the bot's assistant. Adding a bot is a dialog that asks the platform first, then shows that platform's form beside its setup
 steps: Lark's App ID and App Secret with the console steps and scopes, or Zalo's token and way of receiving with the
 Zalo Bot Creator steps. A secret or token stays in a ref, never in query state or storage, and is cleared once sent.

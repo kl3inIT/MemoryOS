@@ -5,19 +5,22 @@ export const vietnameseUi: Record<string, string> = {
   "Chat thử": "Test chat",
   "Đang dùng bản chưa lưu": "Using unsaved changes",
   "Đang mở chat thử…": "Opening the test chat…",
-  // MEM-273 the bots that answer with an assistant
+  // MEM-273 where an assistant answers, and each group chat's assistant on the bot's page
   Kênh: "Channels",
   "Chưa có bot nào trả lời bằng trợ lý này.": "No bot answers with this assistant yet.",
-  "Gỡ {{v1}}": "Remove {{v1}}",
-  "Chuyển bot sang trợ lý này?": "Move the bot to this assistant?",
-  "{{bot}} đang trả lời bằng {{from}}. Sau khi chuyển, bot sẽ trả lời bằng {{to}}.":
-    "{{bot}} answers with {{from}}. Once moved, it answers with {{to}}.",
-  Chuyển: "Move",
-  "Đang chuyển…": "Moving…",
-  "Thêm kênh": "Add channel",
-  "Tìm bot…": "Search bots…",
-  "Không còn bot nào để thêm.": "No other bot to add.",
-  "Đang trả lời bằng {{v1}}": "Answers with {{v1}}",
+  "Trợ lý mặc định của bot": "The bot's default assistant",
+  "Nhóm Lark": "Lark group",
+  "Nhóm Zalo": "Zalo group",
+  "Theo nhóm chat": "By group chat",
+  "Theo mặc định": "Bot default",
+  "hỏi {{v1}}": "asked {{v1}}",
+  "Trợ lý của {{v1}}": "Assistant for {{v1}}",
+  "Quên nhóm": "Forget group",
+  "Quên nhóm {{name}}?": "Forget {{name}}?",
+  "Nhóm rời khỏi danh sách và trả lời bằng trợ lý mặc định. Nhóm hiện lại khi bot trả lời ở đó lần sau.":
+    "The group leaves the list and answers with the default assistant. It comes back the next time the bot answers there.",
+  "Đổi tên nhóm chat": "Rename group chat",
+  "Tên nhóm": "Group name",
   // MEM-273 the documents switch: state line and upload from the editor
   "Tìm trong mọi tài liệu được phép đọc": "Searches every document you may read",
   "Tìm thêm trong mọi tài liệu được phép đọc": "Also searches every document you may read",

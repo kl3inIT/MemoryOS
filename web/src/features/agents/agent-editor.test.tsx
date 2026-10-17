@@ -154,7 +154,7 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("AgentEditorPage", () => {
-  it("lists the assistant's bots on Kênh, read-only without the capability to manage bots", async () => {
+  it("shows on Kênh where the assistant answers, without links to someone who does not manage bots", async () => {
     server.use(
       handleListAssistantChannels({
         body: [
@@ -167,15 +167,25 @@ describe("AgentEditorPage", () => {
             byDefault: true,
             groups: [],
           },
+          {
+            id: "80000000-0000-4000-8000-000000000002",
+            provider: "LARK",
+            name: "Tasco helpdesk",
+            enabled: true,
+            byDefault: false,
+            groups: [{ id: "oc_5f1e2d3c4b5a69788796a5b4c3d2e1f0", name: "HR team" }],
+          },
         ],
       }),
     );
     await renderEditor("channels");
     const panel = await screen.findByRole("tabpanel", { name: "Channels" });
     expect(await within(panel).findByText("HR questions")).toBeVisible();
-    expect(within(panel).getByText("Zalo · HR bot · Off")).toBeVisible();
-    expect(within(panel).queryByRole("button", { name: "Add channel" })).not.toBeInTheDocument();
-    expect(within(panel).queryByRole("button", { name: /^Remove/ })).not.toBeInTheDocument();
+    expect(within(panel).getByText("Zalo · The bot's default assistant · Off")).toBeVisible();
+    expect(within(panel).getByText("HR team")).toBeVisible();
+    expect(within(panel).getByText("Lark group · Tasco helpdesk")).toBeVisible();
+    expect(within(panel).queryByRole("link")).not.toBeInTheDocument();
+    expect(within(panel).queryByRole("button")).not.toBeInTheDocument();
   });
 
   it("gives the built-in assistant no Kênh tab", async () => {

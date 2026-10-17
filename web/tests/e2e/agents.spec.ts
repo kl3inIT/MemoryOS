@@ -823,126 +823,77 @@ test("uploads a file from the editor, attaches it once ready and says where the 
   await expect(page.getByText(uploaded.filename)).toBeVisible();
 });
 
-/** MEM-273: a bot answers with one assistant; the assistant's Kênh tab binds, moves and removes them. */
-async function mockBots(page: Page) {
-  const bot = (
-    id: string,
-    name: string,
-    provider: "LARK" | "ZALO_BOT",
-    assistant?: { id: string; name: string },
-  ) => ({
-    id,
-    provider,
-    name,
-    appId: provider === "LARK" ? "cli_aa4102bd7238de15" : "1234567890",
-    noticeLanguage: "vi",
-    enabled: true,
-    serviceAccountId: "4c6f0e2a-1b2c-4d5e-8f90-a1b2c3d4e5f6",
-    botName: provider === "LARK" ? "Tasco Assistant" : "Bot Nhân sự",
-    missingScopes: [],
-    status: "CONNECTED",
-    revision: 3,
-    createdAt: "2026-10-14T03:40:00Z",
-    updatedAt: "2026-10-14T03:41:00Z",
-    ...(assistant ? { assistant } : {}),
-  });
-  const state = {
-    bots: [
-      bot("80000000-0000-4000-8000-000000000001", "Hỏi đáp Nhân sự", "ZALO_BOT", {
-        id: hr,
-        name: "Chính sách nhân sự",
-      }),
-      bot("80000000-0000-4000-8000-000000000002", "Trợ lý Tasco", "LARK"),
-      bot("80000000-0000-4000-8000-000000000003", "Hỏi đáp Tài chính", "LARK", {
-        id: finance,
-        name: "Báo cáo tài chính",
-      }),
-    ],
-    bindings: [] as { channelId: string; personaId: string | null }[],
-  };
-  await page.route("**/api/channels", (route) => route.fulfill({ json: state.bots }));
-  await page.route("**/api/channels/*/persona", async (route) => {
-    expect(route.request().headers()["x-memoryos-csrf"]).toBe("1");
-    const channelId = route.request().url().split("/").at(-2) ?? "";
-    const { personaId } = route.request().postDataJSON() as { personaId: string | null };
-    state.bindings.push({ channelId, personaId });
-    state.bots = state.bots.map((item) =>
-      item.id === channelId
-        ? {
-            ...item,
-            assistant: personaId ? { id: personaId, name: "Chính sách nhân sự" } : undefined,
-          }
-        : item,
-    );
-    await route.fulfill({ json: state.bots.find((item) => item.id === channelId) });
-  });
-  await page.route("**/api/chat/personas/*/channels", (route) => {
-    const personaId = route.request().url().split("/").at(-2);
-    return route.fulfill({
-      json: state.bots
-        .filter((item) => item.assistant?.id === personaId)
-        .map(({ id, provider, name, botName, enabled }) => ({
-          id,
-          provider,
-          name,
-          botName,
-          enabled,
+/**
+ * MEM-273: an assistant's Kênh tab shows where it answers, the bots it is the default of and the group chats given it
+ * as their own; which assistant answers where is set on each bot's page.
+ */
+async function mockAssistantChannels(page: Page) {
+  await page.route("**/api/chat/personas/*/channels", (route) =>
+    route.fulfill({
+      json: [
+        {
+          id: "80000000-0000-4000-8000-000000000001",
+          provider: "ZALO_BOT",
+          name: "Hỏi đáp Nhân sự",
+          botName: "Bot Nhân sự",
+          enabled: true,
           byDefault: true,
           groups: [],
-        })),
-    });
-  });
-  return state;
+        },
+        {
+          id: "80000000-0000-4000-8000-000000000003",
+          provider: "LARK",
+          name: "Trợ lý Tasco",
+          botName: "Tasco Assistant",
+          enabled: true,
+          byDefault: false,
+          groups: [{ id: "oc_5f1e2d3c4b5a69788796a5b4c3d2e1f0", name: "Phòng Nhân sự" }],
+        },
+      ],
+    }),
+  );
 }
 
-test("binds, moves and removes the bots that answer with an assistant from its Kênh tab", async ({
+test("shows where an assistant answers and links each place to its bot's page", async ({
   page,
 }) => {
   await mockAgents(page, ["AGENTS_CREATE", "CHANNELS_MANAGE"], tascoAgents());
-  const bots = await mockBots(page);
+  await mockAssistantChannels(page);
   await page.goto(`/agents/${hr}/edit?tab=channels`);
   const panel = page.getByRole("tabpanel", { name: "Kênh" });
-  await expect(panel.getByText("Hỏi đáp Nhân sự")).toBeVisible();
-  await expect(panel.getByText("Zalo · Bot Nhân sự")).toBeVisible();
-
-  // A bot that answers with no assistant joins at once.
-  await panel.getByRole("button", { name: "Thêm kênh" }).click();
-  const menu = page.getByRole("dialog");
-  await expect(menu.getByText("Đang trả lời bằng Báo cáo tài chính")).toBeVisible();
-  await menu.getByRole("option", { name: /Trợ lý Tasco/ }).click();
-  await expect(panel.getByText("Trợ lý Tasco")).toBeVisible();
-  expect(bots.bindings.at(-1)).toEqual({
-    channelId: "80000000-0000-4000-8000-000000000002",
-    personaId: hr,
-  });
-
-  // A bot bound elsewhere moves only once confirmed, and the question names both assistants.
-  await panel.getByRole("button", { name: "Thêm kênh" }).click();
-  await page.getByRole("option", { name: /Hỏi đáp Tài chính/ }).click();
-  const confirm = page.getByRole("alertdialog", { name: "Chuyển bot sang trợ lý này?" });
-  await expect(confirm).toContainText("Hỏi đáp Tài chính đang trả lời bằng Báo cáo tài chính");
-  await expect(confirm).toContainText("Chính sách nhân sự");
-  await confirm.getByRole("button", { name: "Chuyển" }).click();
-  await expect(panel.getByText("Hỏi đáp Tài chính")).toBeVisible();
-  expect(bots.bindings.at(-1)).toEqual({
-    channelId: "80000000-0000-4000-8000-000000000003",
-    personaId: hr,
-  });
-
-  await panel.getByRole("button", { name: "Gỡ Hỏi đáp Nhân sự" }).click();
-  await expect(panel.getByText("Hỏi đáp Nhân sự")).toHaveCount(0);
-  expect(bots.bindings.at(-1)).toEqual({
-    channelId: "80000000-0000-4000-8000-000000000001",
-    personaId: null,
-  });
-});
-
-test("lists an assistant's bots read-only to someone who cannot bind them", async ({ page }) => {
-  await mockAgents(page, ["AGENTS_CREATE"], tascoAgents());
-  await mockBots(page);
-  await page.goto(`/agents/${hr}/edit?tab=channels`);
-  const panel = page.getByRole("tabpanel", { name: "Kênh" });
-  await expect(panel.getByText("Hỏi đáp Nhân sự")).toBeVisible();
+  await expect(panel.getByText("Zalo · Trợ lý mặc định của bot")).toBeVisible();
+  await expect(panel.getByText("Nhóm Lark · Trợ lý Tasco")).toBeVisible();
+  await expect(panel.getByRole("link", { name: /Phòng Nhân sự/ })).toHaveAttribute(
+    "href",
+    "/admin/channels/80000000-0000-4000-8000-000000000003",
+  );
   await expect(panel.getByRole("button", { name: "Thêm kênh" })).toHaveCount(0);
   await expect(panel.getByRole("button", { name: /^Gỡ/ })).toHaveCount(0);
+});
+
+for (const theme of ["light", "dark"] as const) {
+  for (const width of [1440, 390] as const) {
+    test(`the Kênh tab is captured in ${theme} at ${width}px`, async ({ page }) => {
+      await page.addInitScript((value) => localStorage.setItem("memoryos-theme", value), theme);
+      await page.emulateMedia({ colorScheme: theme });
+      await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+      await mockAgents(page, ["AGENTS_CREATE", "CHANNELS_MANAGE"], tascoAgents());
+      await mockAssistantChannels(page);
+      await page.goto(`/agents/${hr}/edit?tab=channels`);
+      await expect(page.getByText("Phòng Nhân sự")).toBeVisible();
+      await page.screenshot({ path: `../output/playwright/agent-channels-${theme}-${width}.png` });
+    });
+  }
+}
+
+test("lists where an assistant answers without links to someone who does not manage bots", async ({
+  page,
+}) => {
+  await mockAgents(page, ["AGENTS_CREATE"], tascoAgents());
+  await mockAssistantChannels(page);
+  await page.goto(`/agents/${hr}/edit?tab=channels`);
+  const panel = page.getByRole("tabpanel", { name: "Kênh" });
+  await expect(panel.getByText("Hỏi đáp Nhân sự")).toBeVisible();
+  await expect(panel.getByText("Phòng Nhân sự")).toBeVisible();
+  await expect(panel.getByRole("link")).toHaveCount(0);
 });
