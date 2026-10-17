@@ -7,6 +7,7 @@ import {
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import {
   createMeetingTicket,
+  deleteMeeting,
   endMeeting,
   finalizeMeetingRecording,
   reserveMeetingRecording,
@@ -49,6 +50,15 @@ export const headingQueryKey = (meetingId: string) =>
 /** Marks the meeting list stale; a meeting's own detail, its proposals and the transcribers stay as they are. */
 export function invalidateMeetingList(cache: QueryClient) {
   return cache.invalidateQueries({ queryKey: listMeetingsQueryKey() });
+}
+
+/**
+ * Removes a meeting that was created for content which then never arrived. A removal that fails leaves the empty
+ * meeting in the list, where its owner can delete it.
+ */
+export async function discardMeeting(cache: QueryClient, meetingId: string) {
+  await deleteMeeting({ path: { meetingId } }).catch(() => undefined);
+  await invalidateMeetingList(cache);
 }
 
 /**

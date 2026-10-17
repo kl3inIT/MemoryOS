@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useId, useMemo, useState, type CSSProperties } from "react";
 import { Mic, PanelRightOpen, Square, WifiOff } from "lucide-react";
 import { AppShellHeader } from "@/components/app-shell/app-shell-header";
 import { BrandLoader } from "@/components/brand-loader";
@@ -84,6 +84,8 @@ function MeetingView({ meeting, page }: { meeting: MeetingDetail; page: MeetingP
   const { live } = page;
   // Everything that changes the meeting belongs to whoever recorded it; a reader reads.
   const owned = meeting.owned;
+  const id = useId();
+  const waiting = owned && meeting.speakers.some((speaker) => speaker.suggestion);
   const timeline = useMemo(() => timelineOf(meeting), [meeting]);
   const [reading, setReading] = useState<string>();
   // The panel stands beside a wide page; a page too narrow for it opens it over the transcript.
@@ -125,17 +127,23 @@ function MeetingView({ meeting, page }: { meeting: MeetingDetail; page: MeetingP
                 size="sm"
                 prominence="secondary"
                 aria-label={ui("Chi tiết cuộc họp")}
+                aria-describedby={waiting ? `${id}-waiting` : undefined}
                 onClick={() => setSheetOpen(true)}
               >
                 <PanelRightOpen data-icon="inline-start" aria-hidden="true" />
                 {ui("Chi tiết")}
               </Button>
               {/* Names are waiting for an answer inside the panel. */}
-              {owned && meeting.speakers.some((speaker) => speaker.suggestion) && (
-                <span
-                  className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-status-info-emphasis"
-                  aria-hidden="true"
-                />
+              {waiting && (
+                <>
+                  <span
+                    className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-status-info-emphasis"
+                    aria-hidden="true"
+                  />
+                  <span id={`${id}-waiting`} className="sr-only">
+                    {ui("Có tên người nói đang chờ bạn xác nhận")}
+                  </span>
+                </>
               )}
             </span>
           )

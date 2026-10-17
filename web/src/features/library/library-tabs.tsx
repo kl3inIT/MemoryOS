@@ -31,7 +31,7 @@ type Section = {
  */
 export function LibraryTabs({
   view,
-  count,
+  counts,
   usage,
   sources,
   onView,
@@ -39,8 +39,8 @@ export function LibraryTabs({
   children,
 }: {
   view: LibraryView;
-  /** How many items the view on screen holds, when it counts them. */
-  count?: number;
+  /** How many items each view holds, for the views that count them. */
+  counts: Partial<Record<LibraryView, number>>;
   usage?: LibraryUsage;
   /** Whether the organisation's tab lists its Sources, which the composing page supplies. */
   sources: boolean;
@@ -148,8 +148,8 @@ export function LibraryTabs({
                   {section.views.map((entry) => (
                     <ToggleGroupItem key={entry} value={entry} size="sm" focus="soft">
                       {viewLabels[entry]}
-                      {entry === view && (count ?? 0) > 0 && (
-                        <span className="text-content-muted tabular-nums">{count}</span>
+                      {(counts[entry] ?? 0) > 0 && (
+                        <span className="text-content-muted tabular-nums">{counts[entry]}</span>
                       )}
                     </ToggleGroupItem>
                   ))}
