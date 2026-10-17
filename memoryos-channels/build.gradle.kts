@@ -10,7 +10,6 @@ extra["opentelemetry.version"] = libs.versions.opentelemetry.get()
 
 dependencies {
     implementation(project(":memoryos-core"))
-    implementation(platform(libs.arconia.bom))
     implementation(platform(libs.otel.instrumentation.bom))
     implementation(platform(libs.spring.ai.bom))
     // A turn runs on the agent platform, as in the API.
@@ -36,8 +35,6 @@ dependencies {
     // MEM-263: the Zalo bot, which no Source type uses.
     runtimeOnly(project(":memoryos-integration-zalo"))
     runtimeOnly(libs.postgresql)
-    testAndDevelopmentOnly(platform(libs.arconia.bom))
-    testAndDevelopmentOnly(libs.arconia.spring.boot)
     testImplementation(libs.spring.boot.starter.test)
     testImplementation(libs.archunit.junit5)
     testImplementation(libs.spring.boot.starter.webmvc.test)
@@ -47,4 +44,9 @@ dependencies {
     testImplementation(libs.flyway.core)
     testRuntimeOnly(libs.flyway.database.postgresql)
     testRuntimeOnly(libs.junit.platform.launcher)
+}
+
+// A local run is a development run; staging and production images select their own profiles.
+tasks.bootRun {
+    systemProperty("spring.profiles.active", "development")
 }

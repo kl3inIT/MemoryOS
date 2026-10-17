@@ -1,7 +1,7 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="MemoryOS API Dev" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
     <envs>
-      <env name="ARCONIA_BOOTSTRAP_MODE" value="dev" />
+      <env name="SPRING_PROFILES_ACTIVE" value="development" />
       <env name="MEMORYOS_CHAT_CATALOG_ENCRYPTION_KEY" value="XC0Up0KtWu0Tmdx59uApaRtBLoswUO+MCHJC2VP2j7Q=" />
       <env name="SERVER_PORT" value="18080" />
       <env name="SPRING_CONFIG_IMPORT" value="file:$PROJECT_DIR$/.memoryos-dev.yaml,optional:file:$PROJECT_DIR$/.memoryos-local.yaml" />

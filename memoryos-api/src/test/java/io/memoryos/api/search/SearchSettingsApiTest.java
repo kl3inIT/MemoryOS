@@ -59,7 +59,6 @@ import tools.jackson.databind.ObjectMapper;
         "spring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://127.0.0.1:1/jwks",
         "memoryos.identity.audience=memoryos-api",
         "spring.security.oauth2.client.registration.memoryos.client-secret=client-secret",
-        "arconia.multitenancy.resolution.fixed.tenant-identifier=10000000-0000-0000-0000-000000000024",
         "memoryos.initial-tenant.id=10000000-0000-0000-0000-000000000024",
         "memoryos.initial-tenant.owner-subject=search-settings-owner",
         "memoryos.initial-tenant.slug=search-settings",
