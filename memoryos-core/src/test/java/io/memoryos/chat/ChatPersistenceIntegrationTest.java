@@ -1053,10 +1053,10 @@ class ChatPersistenceIntegrationTest {
         var tenantId = new TenantId(tenant);
         UUID bot = UUID.randomUUID();
         UUID builtin = sessions.create(other, "Web").personaId();
-        assertEquals(builtin, sessions.channelPersona(other, bot), "a bot bound to nothing answers with the built-in one");
+        assertEquals(builtin, sessions.channelPersona(other, bot, null), "a bot bound to nothing answers with the built-in one");
 
         tx.executeWithoutResult(_ -> bindings.bind(tenantId, bot, agent.id()));
-        var held = sessions.createInChannel(other, "Nghỉ phép từ Zalo", bot);
+        var held = sessions.createInChannel(other, "Nghỉ phép từ Zalo", bot, null);
         assertEquals(agent.id(), held.personaId());
         // While the bot is bound to it, a question asked through the bot runs with the assistant.
         assertTrue(snapshot(held.id()).instructions().contains("Trả lời theo quy chế."));
@@ -1067,15 +1067,69 @@ class ChatPersistenceIntegrationTest {
         // Moving the bot ends the old conversation's use of the assistant, instructions and files alike.
         tx.executeWithoutResult(_ -> bindings.bind(tenantId, bot, finance.id()));
         assertEquals("CHAT_UNAVAILABLE", assertThrows(ChatException.class, () -> snapshot(held.id())).code());
-        assertEquals(finance.id(), sessions.createInChannel(other, "Sau khi chuyển", bot).personaId());
+        assertEquals(finance.id(), sessions.createInChannel(other, "Sau khi chuyển", bot, null).personaId());
         // So does unbinding it, and a deleted assistant is the built-in one.
-        var onFinance = sessions.createInChannel(other, "Tài chính từ Zalo", bot);
+        var onFinance = sessions.createInChannel(other, "Tài chính từ Zalo", bot, null);
         tx.executeWithoutResult(_ -> bindings.bind(tenantId, bot, null));
         assertEquals("CHAT_UNAVAILABLE", assertThrows(ChatException.class, () -> snapshot(onFinance.id())).code());
         tx.executeWithoutResult(_ -> bindings.bind(tenantId, bot, agent.id()));
         personas.delete(owner, agent.id(), personas.get(owner, agent.id()).revision());
-        assertEquals(builtin, sessions.channelPersona(other, bot));
-        assertEquals(builtin, sessions.createInChannel(other, "Sau khi xoá", bot).personaId());
+        assertEquals(builtin, sessions.channelPersona(other, bot, null));
+        assertEquals(builtin, sessions.createInChannel(other, "Sau khi xoá", bot, null).personaId());
+    }
+
+    @Test
+    void aGroupChatAnswersWithItsOwnAssistantOnlyWhileItIsGivenIt() {
+        var hr = personas.create(owner, new ChatPersonaService.PersonaInput("Nhân sự", null, "", "Trả lời theo quy chế.",
+                null, List.of(), List.of(), null, Set.of("search"), null, null, null, null, null, null, null, null, null));
+        var finance = personas.create(owner, new ChatPersonaService.PersonaInput("Tài chính", null, "", "Trả lời theo báo cáo.",
+                null, List.of(), List.of(), null, Set.of("search"), null, null, null, null, null, null, null, null, null));
+        var bindings = new ChatChannelBindings(new JdbcChatRepository(jdbc));
+        var tenantId = new TenantId(tenant);
+        UUID bot = UUID.randomUUID();
+        UUID builtin = sessions.create(other, "Web").personaId();
+        tx.executeWithoutResult(_ -> bindings.bind(tenantId, bot, finance.id()));
+
+        // No group of its own: the bot's default, in a group and in a direct message alike.
+        assertEquals(finance.id(), sessions.channelPersona(other, bot, "oc_hr"));
+        tx.executeWithoutResult(_ -> bindings.bindGroup(tenantId, bot, "oc_hr", hr.id()));
+        assertEquals(hr.id(), sessions.channelPersona(other, bot, "oc_hr"), "the group's own assistant wins");
+        assertEquals(finance.id(), sessions.channelPersona(other, bot, "oc_board"), "another group keeps the default");
+        assertEquals(finance.id(), sessions.channelPersona(other, bot, null), "a direct message keeps the default");
+
+        var inGroup = sessions.createInChannel(other, "Nghỉ phép trong nhóm", bot, "oc_hr");
+        assertEquals(hr.id(), inGroup.personaId());
+        assertTrue(snapshot(inGroup.id()).instructions().contains("Trả lời theo quy chế."));
+        var inBoard = sessions.createInChannel(other, "Doanh thu trong nhóm", bot, "oc_board");
+        assertTrue(snapshot(inBoard.id()).instructions().contains("Trả lời theo báo cáo."));
+        assertEquals("CHAT_UNAVAILABLE", assertThrows(ChatException.class, () -> turns.agent(other, inGroup.id(), false)).code(),
+                "a group's conversation continued from the web needs the owner to be able to use the assistant");
+
+        // Giving the group another assistant ends the old conversation's use of it at once.
+        tx.executeWithoutResult(_ -> bindings.bindGroup(tenantId, bot, "oc_hr", finance.id()));
+        assertEquals("CHAT_UNAVAILABLE", assertThrows(ChatException.class, () -> snapshot(inGroup.id())).code());
+        var onFinance = sessions.createInChannel(other, "Sau khi đổi", bot, "oc_hr");
+        assertEquals(finance.id(), onFinance.personaId());
+        // Returning the group to the default leaves a conversation held with the default usable, and the default's
+        // move ends it.
+        tx.executeWithoutResult(_ -> bindings.bindGroup(tenantId, bot, "oc_hr", hr.id()));
+        assertEquals("CHAT_UNAVAILABLE", assertThrows(ChatException.class, () -> snapshot(onFinance.id())).code(),
+                "a conversation held with the default is cut off while the group has an assistant of its own");
+        tx.executeWithoutResult(_ -> bindings.bindGroup(tenantId, bot, "oc_hr", null));
+        assertTrue(snapshot(onFinance.id()).instructions().contains("Trả lời theo báo cáo."));
+        tx.executeWithoutResult(_ -> bindings.bind(tenantId, bot, null));
+        assertEquals("CHAT_UNAVAILABLE", assertThrows(ChatException.class, () -> snapshot(onFinance.id())).code());
+
+        // A deleted group assistant falls back to the default, and then to the built-in one.
+        tx.executeWithoutResult(_ -> bindings.bind(tenantId, bot, finance.id()));
+        tx.executeWithoutResult(_ -> bindings.bindGroup(tenantId, bot, "oc_hr", hr.id()));
+        personas.delete(owner, hr.id(), personas.get(owner, hr.id()).revision());
+        assertEquals(finance.id(), sessions.channelPersona(other, bot, "oc_hr"));
+        assertTrue(snapshot(onFinance.id()).instructions().contains("Trả lời theo báo cáo."),
+                "a deleted group assistant no longer resolves, so the default's conversation is usable again");
+        tx.executeWithoutResult(_ -> bindings.release(tenantId, bot));
+        assertEquals(builtin, sessions.channelPersona(other, bot, "oc_hr"));
+        assertEquals(Map.of(), tx.execute(_ -> bindings.groups(tenantId, bot)), "removing the bot drops its groups' assistants");
     }
 
     private JdbcChatRepository.Persona snapshot(UUID session) {

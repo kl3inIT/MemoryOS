@@ -48,8 +48,8 @@ the Tenant's exclusive authority lock and checks the revision it was given (`CHA
   `CHANNEL_<PROVIDER>`. Without the key every bot call fails with `CHANNEL_NOT_CONFIGURED` and nothing else is
   affected. No view carries the secret.
 - Each change is audited as `channel.create`, `channel.update` (`change`: `enabled`, `disabled`, `secret`,
-  `settings`, `assistant`, `assistant-removed`) or
-  `channel.delete`.
+  `settings`, `assistant`, `assistant-removed`, and with the group chat's id in `group`: `group-assistant`,
+  `group-assistant-removed`, `group-label`, `group-forgotten`) or `channel.delete`.
 
 ### The bot's assistant
 
@@ -65,17 +65,43 @@ none.
   `CHAT_UNAVAILABLE`), since binding decides who may ask an assistant. A bot bound to another assistant moves in the
   same step; choosing the built-in assistant unbinds. Binding keeps the revision and does not reopen the bot: the
   assistant is read again for each question.
-- **Reading** (`boundTo`) lists the bots of an assistant to anyone who may use it, without app, secret or account.
-- **Answering.** A new conversation is created with `ChatSessionService.createInChannel(actor, title, bot)`, which
-  records the bot on it and holds it with the bot's live assistant, else the built-in one
-  (`ChatSessionService.channelPersona`). A question asked through the bot runs with that assistant while the bot is
-  still bound to it, whether or not the sender may use the assistant elsewhere, as Onyx's Slack bot answers with its
-  configured persona; moving or unbinding the bot ends that at once, and the same conversation continued from the
-  web needs the owner to be able to use the assistant (`CHAT_UNAVAILABLE`). The documents a turn reads stay the
-  sender's own: Sources, Document Sets and search are resolved for the sender, or for the bot's account in a group,
-  and the assistant's files are read only by someone who may use the assistant. A conversation held with another
-  assistant than the bot answers with now is not continued, so moving a bot starts its conversations over. A bot
-  switched off receives nothing, so its binding admits no channel turn.
+- **Reading** (`boundTo`) lists where an assistant answers to anyone who may use it, without app, secret or account:
+  each bot it is the default of (`byDefault`) or whose group chats are given it, with those groups.
+- **Answering.** A new conversation is created with `ChatSessionService.createInChannel(actor, title, bot, group)`,
+  which records the bot and, in a group, the group chat on it (`chat_session.channel_chat_id`) and holds it with the
+  assistant they resolve to (`ChatSessionService.channelPersona`): the group's own live assistant, else the bot's live
+  custom one, else the built-in one. A question asked through the bot runs with that assistant while the bot and the
+  group still resolve to it, whether or not the sender may use the assistant elsewhere, as Onyx's Slack bot answers
+  with the persona of the channel's config; moving or unbinding the bot, or giving its group another assistant or
+  none, ends that at once, and the same conversation continued from the web needs the owner to be able to use the
+  assistant (`CHAT_UNAVAILABLE`). The documents a turn reads stay the sender's own: Sources, Document Sets and search
+  are resolved for the sender, or for the bot's account in a group, and the assistant's files are read only by
+  someone who may use the assistant. A conversation held with another assistant than its bot and group resolve to now
+  is not continued, so moving a bot or changing a group's assistant starts its conversations over. A bot switched off
+  receives nothing, so its binding admits no channel turn.
+
+### A group chat's own assistant
+
+A bot keeps its assistant as its default, and an administrator may give each group chat the bot is in an assistant of
+its own, as Onyx configures a Slack bot by channel under one default config (`SlackChannelConfig`, `is_default`) and
+OpenClaw binds one group to an agent (MEM-273, [design](../increments/active/mem-273-agent-editor/design-groups.md)).
+Direct messages always answer with the default.
+
+- **The groups** are those the bot has answered in (`channel_groups`, the channel's): `ChannelInboundService` records
+  a group when it accepts a group's addressed question that is not external, with the name the provider gives
+  (`ChannelAdapter.chat`: Lark's from the `im/v1/chat get` the external check already makes, cached an hour; Zalo
+  gives none), and moves its last message on each one. No provider is asked to list groups. An administrator may
+  label a group (up to 100 characters, a blank one clears it), shown before the provider's name. A group stays until
+  it is forgotten, which removes its assistant too; removing the bot removes its groups.
+- **The group's assistant** is Chat's (`chat_channel_group_binding`, through `ChatChannelBindings`), for the reason the
+  default is: one row a group, removed with its assistant's row, with the bot and when the group is forgotten. A
+  deleted assistant counts as none, so the group answers with the bot's default.
+- **Setting it** (`bindGroupPersona`) takes `CHANNELS_MANAGE`, a group the bot has answered in (else
+  `CHANNEL_GROUP_NOT_FOUND`), and edit rights on the assistant the group goes to and on the one it leaves while that
+  one exists (`CHANNEL_ASSISTANT_NOT_EDITABLE`); the built-in assistant is everyone's and takes none, and may be a
+  group's own assistant in place of a custom default. `null` returns the group to the default. Labelling
+  (`labelGroup`) takes `CHANNELS_MANAGE`; forgetting (`forgetGroup`) takes it and, as it removes the group's
+  assistant, the edit rights leaving it takes. The bot and its groups check the assistant they leave in one place.
 
 ### The administrator's API
 
@@ -93,8 +119,12 @@ each change of a bot an `If-Match` of its quoted revision.
 | `PUT /api/channels/{id}/secret` | Checks the new secret and replaces the old one |
 | `PUT /api/channels/{id}/enabled` | Switches the bot on or off |
 | `PUT /api/channels/{id}/persona` | Binds the bot to an assistant (`personaId`), moving it from another, or to none (`null`); no `If-Match` |
+| `GET /api/channels/{id}/groups` | The bot's group chats, the most recently asked first: `id`, `label`, `name`, `firstMessageAt`, `lastMessageAt`, `assistant` |
+| `PUT /api/channels/{id}/groups/{groupId}/persona` | Gives a group chat its own assistant (`personaId`) or returns it to the bot's default (`null`) |
+| `PUT /api/channels/{id}/groups/{groupId}/label` | Labels a group chat (`label`); blank or null clears it |
+| `DELETE /api/channels/{id}/groups/{groupId}` | Forgets a group chat and its assistant; `204` |
 | `DELETE /api/channels/{id}` | Removes the bot and retires its account; `204` |
-| `GET /api/chat/personas/{id}/channels` | The bots of an assistant (`id`, `provider`, `name`, `botName`, `enabled`), for anyone who may use it |
+| `GET /api/chat/personas/{id}/channels` | Where an assistant answers (`id`, `provider`, `name`, `botName`, `enabled`, `byDefault`, `groups`), for anyone who may use it |
 
 A bot's `status` is `OFF` when switched off; `NOT_RUNNING` when its supervisor has not written for three passes
 (90 seconds), so no process holds it; else `CONNECTED` while its connection is open, `FAILED` after a failure to open
@@ -288,8 +318,9 @@ acknowledged it to the provider:
    while its last message is younger than `memoryos.channel.group-conversation-idle` (4 hours). `/new` forgets the
    direct or the group conversation and says so. A group's conversation runs as the bot's account, so it holds only
    what everyone in the group may read, and each question in it carries its asker's name. A session is continued only by the account that
-   owns it and is held with the assistant the bot answers with now, so a sender who gained or lost an account starts
-   over, and so does every conversation of a bot moved to another assistant.
+   owns it and is held with the assistant the bot answers with now in that chat, so a sender who gained or lost an
+   account starts over, and so does every conversation of a bot moved to another assistant and every conversation of
+   a group given another one. A group the bot answers in is recorded in `channel_groups` before the turn.
 7. The question becomes a Chat turn through the API the web uses: a session created with
    `ChatSessionService.createInChannel` and the assistant the bot is bound to when the question arrives, a `SEND` at `ChatSessionService.leaf` with a request id derived from
    the provider's message id, the reply's stream read for text, and the saved answer read for its text and

@@ -162,8 +162,8 @@ Field coverage (✓ has it):
     organisation's bots; choosing one bound elsewhere asks "Chuyển bot sang trợ lý này?" and moves it in one step
     (LobeHub only reports a conflict). Binding needs `CHANNELS_MANAGE` and edit rights on the assistant; others see the
     list read-only. Bots are still created on the admin "Kênh chat" page, which shows each bot's assistant.
-18. **Out of this design:** direct messages joining the assistant's web topics, and per-group routing. They follow
-    once binding is live.
+18. **Out of this design:** direct messages joining the assistant's web topics. Per-group routing, one bot with an
+    assistant per group, is designed in [design-groups.md](design-groups.md) (plan step 5).
 
 ## API
 

@@ -18039,7 +18039,8 @@ paths:
     get:
       tags:
       - Channels
-      summary: List the bots that answer with an assistant
+      summary: "List the bots that answer with an assistant, by default or in their\
+        \ group chats"
       operationId: listAssistantChannels
       parameters:
       - name: personaId
@@ -22926,6 +22927,155 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/channels/{channelId}/groups/{groupId}/persona:
+    put:
+      tags:
+      - Channels
+      summary: "Give a group chat an assistant in place of its bot's default, or return\
+        \ it to the default; needs edit rights on the assistant"
+      operationId: bindChannelGroupAssistant
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: groupId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BindChannelGroupAssistantRequest"
+        required: true
+      responses:
+        "400":
+          description: "Invalid bot, or an app the platform rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Bot unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Bot changed, or its app already serves a bot"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "The platform did not answer, or bots are not configured"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Updated group chat
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelGroupResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/channels/{channelId}/groups/{groupId}/label:
+    put:
+      tags:
+      - Channels
+      summary: "Name a group chat for the bot's page, or clear the name"
+      operationId: labelChannelGroup
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: groupId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LabelChannelGroupRequest"
+        required: true
+      responses:
+        "400":
+          description: "Invalid bot, or an app the platform rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Bot unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Bot changed, or its app already serves a bot"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "The platform did not answer, or bots are not configured"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Updated group chat
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelGroupResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/channels/{channelId}/enabled:
     put:
       tags:
@@ -23177,6 +23327,64 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/channels/{channelId}/groups:
+    get:
+      tags:
+      - Channels
+      summary: "List the group chats a bot has answered in, each with the assistant\
+        \ it is given"
+      operationId: listChannelGroups
+      parameters:
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: "Invalid bot, or an app the platform rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Bot unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Bot changed, or its app already serves a bot"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "The platform did not answer, or bots are not configured"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Group chats
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChannelGroupResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/channels/{channelId}:
     delete:
       tags:
@@ -23238,6 +23446,71 @@ paths:
                 $ref: "#/components/schemas/ApiProblem"
         "204":
           description: Bot removed
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/channels/{channelId}/groups/{groupId}:
+    delete:
+      tags:
+      - Channels
+      summary: Forget a group chat and the assistant it was given; it returns when
+        the bot next answers there
+      operationId: forgetChannelGroup
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: groupId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "400":
+          description: "Invalid bot, or an app the platform rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Bot unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Bot changed, or its app already serves a bot"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "The platform did not answer, or bots are not configured"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Group chat forgotten
       security:
       - bearerAuth: []
       - browserSession: []
@@ -33141,6 +33414,22 @@ components:
       - pricing
       - providerId
       - providerName
+    AssistantChannelGroupResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          description: The platform's id of the group chat
+        label:
+          type: string
+          description: The administrator's own name for the group
+        name:
+          type: string
+          description: The group's name on the platform; absent when the platform
+            gives none
+      required:
+      - id
     AssistantChannelResponse:
       type: object
       additionalProperties: false
@@ -33160,8 +33449,19 @@ components:
           description: The bot the platform named at the last check
         enabled:
           type: boolean
+        byDefault:
+          type: boolean
+          description: "Whether the assistant is the bot's default, used where no\
+            \ group chat has its own"
+        groups:
+          type: array
+          description: The bot's group chats given the assistant as their own
+          items:
+            $ref: "#/components/schemas/AssistantChannelGroupResponse"
       required:
+      - byDefault
       - enabled
+      - groups
       - id
       - name
       - provider
@@ -34328,6 +34628,59 @@ components:
           format: uuid
           description: "The assistant; null answers with the built-in one, and a bot\
             \ bound elsewhere moves"
+    BindChannelGroupAssistantRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        personaId:
+          type:
+          - string
+          - "null"
+          format: uuid
+          description: "The assistant, the built-in one included; null answers with\
+            \ the bot's default"
+    ChannelGroupResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          description: The platform's id of the group chat
+        label:
+          type: string
+          description: "The administrator's own name for the group, shown before the\
+            \ platform's"
+        name:
+          type: string
+          description: The group's name on the platform; absent when the platform
+            gives none (Zalo)
+        firstMessageAt:
+          type: string
+          format: date-time
+          description: When the bot first answered there
+        lastMessageAt:
+          type: string
+          format: date-time
+          description: When the bot last answered there
+        assistant:
+          $ref: "#/components/schemas/ChannelAssistantResponse"
+          description: The assistant the group answers with; absent when it answers
+            with the bot's default
+      required:
+      - firstMessageAt
+      - id
+      - lastMessageAt
+    LabelChannelGroupRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        label:
+          type:
+          - string
+          - "null"
+          description: The name; blank or null clears it
+          maxLength: 100
+          minLength: 0
     ChannelResponse:
       type: object
       additionalProperties: false

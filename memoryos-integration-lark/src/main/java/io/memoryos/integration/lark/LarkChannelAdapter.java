@@ -12,6 +12,7 @@ import com.lark.oapi.service.im.v1.model.Emoji;
 import com.lark.oapi.service.im.v1.model.GetChatReq;
 import com.lark.oapi.service.im.v1.model.P2MessageReceiveV1;
 import io.memoryos.channel.ChannelAdapter;
+import io.memoryos.channel.ChannelChat;
 import io.memoryos.channel.ChannelConnection;
 import io.memoryos.channel.ChannelCredentials;
 import io.memoryos.channel.ChannelException;
@@ -61,7 +62,7 @@ public final class LarkChannelAdapter implements ChannelAdapter, AutoCloseable {
     private final LarkTransport transport;
     private final @Nullable RestLarkGateway gateway;
     private final Map<UUID, LarkChannel> channels = new ConcurrentHashMap<>();
-    private final Map<String, Known> external = new ConcurrentHashMap<>();
+    private final Map<String, Known> chats = new ConcurrentHashMap<>();
     private final Clock clock;
 
     public LarkChannelAdapter(LarkProviderProperties properties, @Nullable RestLarkGateway gateway) {
@@ -243,23 +244,25 @@ public final class LarkChannelAdapter implements ChannelAdapter, AutoCloseable {
     }
 
     /**
-     * Whether people outside the organisation read the chat, remembered for an hour. A chat whose answer cannot be
-     * read counts as external: the bot answers no group it cannot vouch for.
+     * Whether people outside the organisation read the chat, and its name, remembered for an hour. A chat whose answer
+     * cannot be read counts as external: the bot answers no group it cannot vouch for.
      */
     @Override
-    public boolean externalChat(ChannelConnection connection, String chatId) {
+    public ChannelChat chat(ChannelConnection connection, String chatId) {
         Instant now = clock.instant();
-        var known = external.get(chatId);
-        if (known != null && known.until().isAfter(now)) return known.external();
-        boolean result;
+        var known = chats.get(chatId);
+        if (known != null && known.until().isAfter(now)) return known.chat();
+        ChannelChat result;
         try {
             var answer = channel(connection).getRawClient().im().v1().chat().get(GetChatReq.newBuilder().chatId(chatId).build());
-            result = answer == null || !answer.success() || answer.getData() == null
-                    || !Boolean.FALSE.equals(answer.getData().getExternal());
+            boolean readable = answer != null && answer.success() && answer.getData() != null;
+            String name = readable ? answer.getData().getName() : null;
+            result = new ChannelChat(!readable || !Boolean.FALSE.equals(answer.getData().getExternal()),
+                    name == null || name.isBlank() ? null : name.strip());
         } catch (Exception unreadable) {
-            result = true;
+            result = new ChannelChat(true, null);
         }
-        external.put(chatId, new Known(result, now.plus(CHAT_TTL)));
+        chats.put(chatId, new Known(result, now.plus(CHAT_TTL)));
         return result;
     }
 
@@ -293,5 +296,5 @@ public final class LarkChannelAdapter implements ChannelAdapter, AutoCloseable {
         };
     }
 
-    private record Known(boolean external, Instant until) {}
+    private record Known(ChannelChat chat, Instant until) {}
 }

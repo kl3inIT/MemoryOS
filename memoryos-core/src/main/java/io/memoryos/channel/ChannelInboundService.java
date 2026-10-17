@@ -3,6 +3,7 @@ package io.memoryos.channel;
 import io.memoryos.BusinessException;
 import io.memoryos.FailureCategory;
 import io.memoryos.channel.persistence.JdbcChannelConnectionRepository;
+import io.memoryos.channel.persistence.JdbcChannelGroupRepository;
 import io.memoryos.channel.persistence.JdbcChannelInboundRepository;
 import io.memoryos.chat.ChatChannel;
 import io.memoryos.chat.ChatMessage;
@@ -52,6 +53,7 @@ public class ChannelInboundService {
 
     private final JdbcChannelConnectionRepository connections;
     private final JdbcChannelInboundRepository inbound;
+    private final JdbcChannelGroupRepository groups;
     private final ChannelAdapters adapters;
     private final MemberLookup members;
     private final ChannelLinkService links;
@@ -61,10 +63,12 @@ public class ChannelInboundService {
     private final Clock clock = Clock.systemUTC();
 
     ChannelInboundService(JdbcChannelConnectionRepository connections, JdbcChannelInboundRepository inbound,
-                          ChannelAdapters adapters, MemberLookup members, ChannelLinkService links, ChannelTurns turns,
-                          ChannelProperties properties, ObservationRegistry observations) {
+                          JdbcChannelGroupRepository groups, ChannelAdapters adapters, MemberLookup members,
+                          ChannelLinkService links, ChannelTurns turns, ChannelProperties properties,
+                          ObservationRegistry observations) {
         this.connections = connections;
         this.inbound = inbound;
+        this.groups = groups;
         this.adapters = adapters;
         this.members = members;
         this.links = links;
@@ -174,7 +178,7 @@ public class ChannelInboundService {
         if (message.type() != ChannelMessage.Type.TEXT || message.text().isBlank()) {
             return new Refusal("NOT_TEXT", ChannelNotice.TEXT_ONLY);
         }
-        if (message.kind() == ChannelMessage.Kind.GROUP && adapter.externalChat(connection, message.chatId())) {
+        if (message.kind() == ChannelMessage.Kind.GROUP && adapter.chat(connection, message.chatId()).external()) {
             return new Refusal("EXTERNAL_GROUP", ChannelNotice.EXTERNAL_GROUP);
         }
         return null;
@@ -282,6 +286,9 @@ public class ChannelInboundService {
         }
         // A direct message is the sender's own; a group's answer is read by everyone in it, so it is the bot's.
         ActorId actor = direct && sender != null ? sender : connection.serviceAccount();
+        // A group the bot answers in is one an administrator may give an assistant of its own (MEM-273).
+        String group = direct ? null : message.chatId();
+        if (group != null) groups.seen(tenant, connection.id(), group, adapter.chat(connection, group).name(), now);
         UUID session = step("conversation", () -> conversation(connection, message, actor, now));
         // The reply is opened once the question is accepted, so it is written while the turn is prepared and is not
         // shown while the question waits for a turn its conversation is running.
@@ -291,7 +298,8 @@ public class ChannelInboundService {
         ChannelTurns.Answer answer;
         try {
             answer = step("turn", () -> turns.ask(actor, session, title(message.text()), request(connection, message),
-                    question, new ChatChannel(connection.provider().platform(), !direct), connection.id(), properties.orderWait(),
+                    question, new ChatChannel(connection.provider().platform(), !direct), connection.id(), group,
+                    properties.orderWait(),
                     () -> adapter.acknowledge(connection, message), () -> {
                         var reply = step("reply", () -> adapter.reply(connection, message,
                                 ChannelNotice.WRITING.in(connection.noticeLanguage())));
@@ -403,8 +411,9 @@ public class ChannelInboundService {
         }
         // A conversation is continued only by whoever it belongs to: a sender who gained or lost an account since
         // starts over, a reply to another person's direct conversation never opens it, and a bot moved to another
-        // assistant starts its conversations over with it.
-        return session != null && turns.continues(actor, session, connection.id()) ? session : null;
+        // assistant, or a group given another, starts its conversations over with it.
+        String group = message.kind() == ChannelMessage.Kind.GROUP ? message.chatId() : null;
+        return session != null && turns.continues(actor, session, connection.id(), group) ? session : null;
     }
 
     private void refuse(ChannelConnection connection, ChannelAdapter adapter, ChannelMessage message, Refusal refusal) {

@@ -20,17 +20,19 @@ public interface ChatSessionService {
     ChatSession createInChannel(ActorId actor, String title);
 
     /**
-     * A conversation held in a channel, asked through the bot {@code connection}, with the assistant the bot answers
-     * with ({@link #channelPersona}). While the bot stays bound to that assistant, questions asked through it may use
-     * the assistant even if the owner may not elsewhere; the documents a turn reads are still the owner's own (MEM-273).
+     * A conversation held in a channel, asked through the bot {@code connection} in the group chat {@code groupChat}
+     * (null for a direct message), with the assistant they answer with ({@link #channelPersona}). While the bot and the
+     * group still resolve to that assistant, questions asked through the bot may use it even if the owner may not
+     * elsewhere; the documents a turn reads are still the owner's own (MEM-273).
      */
-    ChatSession createInChannel(ActorId actor, String title, UUID connection);
+    ChatSession createInChannel(ActorId actor, String title, UUID connection, @Nullable String groupChat);
 
     /**
-     * The assistant the bot {@code connection} answers with: the live custom assistant it is bound to, else the
-     * Tenant's built-in assistant ({@link ChatChannelBindings}).
+     * The assistant the bot {@code connection} answers with in the group chat {@code groupChat} (null for a direct
+     * message): the group's own live assistant, else the live custom assistant the bot is bound to, else the Tenant's
+     * built-in assistant ({@link ChatChannelBindings}).
      */
-    UUID channelPersona(ActorId actor, UUID connection);
+    UUID channelPersona(ActorId actor, UUID connection, @Nullable String groupChat);
     /** {@code archived} lists the conversations the owner archived instead of the ones on the sidebar. */
     default List<ChatSession> list(ActorId actor, boolean archived, int offset, int limit) {
         return list(actor, archived, null, offset, limit);

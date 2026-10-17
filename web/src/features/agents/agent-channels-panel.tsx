@@ -57,7 +57,8 @@ export function AgentChannelsPanel({ agent }: { agent: Persona }) {
   });
   const choose = (channelId: string, personaId: string | null) =>
     bind.mutateAsync({ path: { channelId }, body: { personaId } });
-  const rows = bound.data ?? [];
+  // A bot that answers with the assistant only in some of its group chats is set on the bot's page (MEM-273).
+  const rows = (bound.data ?? []).filter((row) => row.byDefault);
   const others = (all.data ?? []).filter((channel) => !rows.some((row) => row.id === channel.id));
 
   const add = binds && (
