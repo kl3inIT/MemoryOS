@@ -41,8 +41,15 @@ final class McpServerRules {
     private static final Set<String> RESERVED_PARAMETERS = Set.of("response_type", "client_id", "redirect_uri", "state",
             "code_challenge", "code_challenge_method", "scope", "resource", "nonce", "iss");
 
+    /**
+     * A listed tool as stored. {@code appResourceUri} is its MCP Apps view, kept only as a bounded {@code ui://} URI; a
+     * tool hidden from both the model and its view is treated as visible to both, as the specification's default.
+     */
     record ToolSnapshot(String name, @Nullable String title, String description, String inputSchema, String annotations,
-                        boolean readOnly) {}
+                        boolean readOnly, @Nullable String appResourceUri, boolean modelVisible, boolean appVisible) {}
+
+    /** The longest view URI kept; a longer one, or one outside {@code ui://}, leaves the tool without a view. */
+    static final int MAX_APP_RESOURCE_URI = 1024;
 
     private McpServerRules() {}
 
@@ -177,8 +184,11 @@ final class McpServerRules {
             if (tool.destructiveHint() != null) annotations.put("destructiveHint", tool.destructiveHint());
             if (tool.idempotentHint() != null) annotations.put("idempotentHint", tool.idempotentHint());
             if (tool.openWorldHint() != null) annotations.put("openWorldHint", tool.openWorldHint());
+            String app = tool.appResourceUri();
+            if (app != null && (!app.startsWith("ui://") || app.length() > MAX_APP_RESOURCE_URI)) app = null;
+            boolean either = tool.modelVisible() || tool.appVisible();
             snapshots.add(new ToolSnapshot(tool.name(), title, tool.description(), schema, json(annotations),
-                    Boolean.TRUE.equals(tool.readOnlyHint())));
+                    Boolean.TRUE.equals(tool.readOnlyHint()), app, !either || tool.modelVisible(), !either || tool.appVisible()));
         }
         return List.copyOf(snapshots);
     }

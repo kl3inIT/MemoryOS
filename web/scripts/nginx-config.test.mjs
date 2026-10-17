@@ -135,6 +135,13 @@ describe("nginx security headers", () => {
     expect(server).toMatch(new RegExp(`add_header\\s+${header}\\s+.+\\s+always\\s*;`));
   });
 
+  // MEM-275: an MCP Apps view runs in assistant-ui's sandbox frame, each on its own origin of that domain; no other
+  // page may be framed, and nothing may frame MemoryOS.
+  it("frames only MCP Apps views and is framed by nothing", () => {
+    expect(server).toMatch(/frame-src https:\/\/\*\.scf\.auiusercontent\.com;/);
+    expect(server).toMatch(/frame-ancestors 'none';/);
+  });
+
   it("lets every location inherit them", () => {
     const overriding = locations(config)
       .filter((block) => /(^|\s)add_header\s/.test(block.body))

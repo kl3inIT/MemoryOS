@@ -27,6 +27,11 @@ Client ID Metadata Documents are the exception to outbound-only traffic: the aut
 cannot use that route and should register clients by hand or through Dynamic Client Registration instead. The
 document is served only when the redirect origin is HTTPS.
 
+MCP Apps views (Canva's design picker, for example) run in the reader's browser on origins under
+`scf.auiusercontent.com`, assistant-ui's sandbox domain, and then reach the domains each view declares. A browser that
+cannot reach that domain shows the answer without the view; the tool's text result is unchanged (MEM-275). After a
+server starts offering views, refresh its tools so MemoryOS records which tools have one.
+
 ## One OAuth application per organization
 
 A Google `Internal` application authorizes only its own Workspace, so each organization keeps its own OAuth

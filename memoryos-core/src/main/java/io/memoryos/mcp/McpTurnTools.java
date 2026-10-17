@@ -6,8 +6,10 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
@@ -18,20 +20,26 @@ import org.jspecify.annotations.Nullable;
  */
 public final class McpTurnTools implements AutoCloseable {
     /**
-     * A tool offered to the model for this turn. {@code slug} is the bounded metric label; {@code serverName} is
-     * administrator text for people to read, as is {@code title}, the tool's own display name when it gives one.
+     * An enabled tool of this turn. {@code slug} is the bounded metric label; {@code serverName} is administrator text
+     * for people to read, as is {@code title}, the tool's own display name when it gives one. {@code appResourceUri} is
+     * its MCP Apps view (MEM-275); a tool not {@code modelVisible} is never offered to the model, and one not
+     * {@code appVisible} cannot be called from a view.
      */
     public record Binding(UUID serverId, String slug, String serverName, String toolName, String modelName,
                           String description, String inputSchema, boolean readOnly, boolean approvalRequired,
-                          @Nullable String title) {}
+                          @Nullable String title, @Nullable String appResourceUri, boolean modelVisible,
+                          boolean appVisible) {}
 
     /** A server the User selected but cannot use yet, so the turn offers a connect action instead of tools. */
     public record Unavailable(UUID serverId, String serverName, Reason reason) {
         public enum Reason { NOT_CONNECTED, REAUTH_REQUIRED, NO_TOOLS }
     }
 
-    /** What a tool call produced. {@code error} is the server's own {@code isError}. */
-    public record Outcome(String text, boolean error) {
+    /**
+     * What a tool call produced. {@code error} is the server's own {@code isError}; {@code result} is the whole result
+     * as JSON, for the tool's view.
+     */
+    public record Outcome(String text, boolean error, String result) {
         @Override public @NonNull String toString() { return "McpOutcome[redacted]"; }
     }
 
@@ -114,12 +122,33 @@ public final class McpTurnTools implements AutoCloseable {
         var session = session(binding.serverId(), remaining);
         try {
             var result = session.call(binding.toolName(), arguments);
-            return new Outcome(result.text(), result.error());
+            return new Outcome(result.text(), result.error(), result.result());
         } catch (McpException failure) {
             // The session is not reused after a transport failure; the next call opens a fresh one.
             if (failure.code().equals("MCP_TIMEOUT") || failure.code().equals("MCP_UNAVAILABLE")) discard(binding.serverId());
             throw new CallFailure(reason(failure));
         }
+    }
+
+    /** A tool of this turn by the server's own name for it, for a request of an MCP Apps view. */
+    Optional<Binding> binding(UUID serverId, String toolName) {
+        return bindings.stream().filter(b -> b.serverId().equals(serverId) && b.toolName().equals(toolName)).findFirst();
+    }
+
+    /**
+     * Runs a request of an MCP Apps view on {@code serverId}'s session. Unlike {@link #call}, failures stay
+     * {@link McpException}s, which the view host reports by code.
+     */
+    synchronized <T> T forView(UUID serverId, Duration deadline, Function<McpSession, T> request) {
+        if (closed) throw McpException.unavailable(new IllegalStateException("closed"));
+        var target = targets.get(serverId);
+        if (target == null) throw McpException.notFound();
+        var session = sessions.get(serverId);
+        if (session == null) {
+            session = clients.open(target.url(), target.headers(), deadline);
+            sessions.put(serverId, session);
+        }
+        return request.apply(session);
     }
 
     private McpSession session(UUID serverId, Duration remaining) {

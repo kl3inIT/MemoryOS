@@ -136,7 +136,7 @@ public class McpTurnService {
                 if (modelName.isEmpty()) continue;
                 bindings.add(new McpTurnTools.Binding(serverId, server.slug(), server.name(), tool.name(), modelName.get(),
                         tool.description(), tool.inputSchema(), tool.readOnly(), tool.policy() == McpToolPolicy.ASK,
-                        tool.title()));
+                        tool.title(), tool.appResourceUri(), tool.modelVisible(), tool.appVisible()));
                 if (manages && tool.policy() == McpToolPolicy.ASK
                         && McpServerRules.allowed(McpServerRules.risk(tool.readOnly(), tool.annotations()), McpToolPolicy.ALWAYS))
                     alwaysAllowable.add(modelName.get());

@@ -6,6 +6,7 @@ import io.modelcontextprotocol.spec.McpSchema;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -26,6 +27,10 @@ public final class McpClients {
             "host", "content-length", "content-type", "accept", "connection", "transfer-encoding", "upgrade",
             "expect", "mcp-session-id", "mcp-protocol-version", "last-event-id");
     private static final McpSchema.Implementation CLIENT_INFO = McpSchema.Implementation.builder("MemoryOS", "1").build();
+    /** MemoryOS renders MCP Apps views (MEM-275), so a server may offer them; SEP-1865 asks the client to say so. */
+    private static final McpSchema.ClientCapabilities CAPABILITIES = McpSchema.ClientCapabilities.builder()
+            .extensions(Map.of("io.modelcontextprotocol/ui", Map.of("mimeTypes", List.of(McpAppResource.MIME_TYPE))))
+            .build();
 
     private final Duration connectTimeout;
     private final Duration requestTimeout;
@@ -82,6 +87,7 @@ public final class McpClients {
                 .build();
         var client = McpClient.sync(transport)
                 .clientInfo(CLIENT_INFO)
+                .capabilities(CAPABILITIES)
                 .requestTimeout(timeout)
                 .initializationTimeout(timeout)
                 .build();

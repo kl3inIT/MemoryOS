@@ -20,6 +20,7 @@ public final class ChatToolActivity implements ToolCallInspector {
     private volatile ChatToolEvent.@Nullable Call current;
     private volatile boolean failed;
     private volatile ChatToolEvent.@Nullable Failure failure;
+    private volatile @Nullable ChatToolApp app;
     private volatile Set<String> quiet = Set.of();
 
     public ChatToolActivity(Consumer<? super ChatToolEvent> events) {
@@ -51,6 +52,7 @@ public final class ChatToolActivity implements ToolCallInspector {
         current = call;
         failed = false;
         failure = null;
+        app = null;
         events.accept(ChatToolEvent.started(call));
         return call;
     }
@@ -58,7 +60,7 @@ public final class ChatToolActivity implements ToolCallInspector {
     /** Closes a step opened by {@link #begin}. */
     public void end(ChatToolEvent.Call call, boolean error, long durationMs) {
         current = null;
-        events.accept(ChatToolEvent.finished(call, failed || error, durationMs, failure));
+        events.accept(ChatToolEvent.finished(call, failed || error, durationMs, failure, view(call)));
     }
 
     @Override public void afterToolCall(AfterToolCallContext context) {
@@ -69,12 +71,32 @@ public final class ChatToolActivity implements ToolCallInspector {
         current = null;
         if (transcript != null)
             transcript.record(call.id(), call.name(), context.getToolCall().getArguments(), context.getResultAsString());
-        events.accept(ChatToolEvent.finished(call, failed || context.getResult() instanceof Tool.Result.Error, context.getDurationMs(), failure));
+        boolean error = failed || context.getResult() instanceof Tool.Result.Error;
+        events.accept(ChatToolEvent.finished(call, error, context.getDurationMs(), failure, error ? null : view(call)));
+    }
+
+    /** The view the call in progress produced, kept with the answer when it belongs to {@code call}. */
+    private @Nullable ChatToolApp view(ChatToolEvent.Call call) {
+        var shown = app;
+        app = null;
+        if (shown == null || !shown.callId().equals(call.id())) return null;
+        if (transcript != null) transcript.app(shown);
+        return shown;
     }
 
     /** The call in progress, so tool evidence and progress share its identity. */
     public ChatToolEvent.@Nullable Call current() {
         return current;
+    }
+
+    /**
+     * The MCP Apps view of the call in progress (MEM-275), shown in the answer when the step completes. A view whose
+     * input or result is larger than {@link ChatToolApp#FIELD_BYTES} is not shown.
+     */
+    public void app(UUID serverId, String resourceUri, String input, String output) {
+        var call = current;
+        if (call == null || !ChatToolApp.fits(input) || !ChatToolApp.fits(output)) return;
+        app = new ChatToolApp(call.id(), serverId, resourceUri, input, output);
     }
 
     /** A tool that reports its own failure as a model-visible message still records the step as failed. */

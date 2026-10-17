@@ -35,7 +35,7 @@ typesafe = "0.4.0"
 # The Spring AI BOM does not manage it, and Spring AI 2.0.1 still resolves 2.0.0. MEM-114 needs 2.0.1: a stateless
 # server answers an unregistered method (ChatGPT calls resources/list) with a JSON-RPC error instead of 500, and HTTP
 # reads are bounded.
-mcp-sdk = "2.0.1"
+mcp-sdk = "2.1.0"
 # MEM-114 rate limit of the MCP endpoint.
 bucket4j = "8.20.0"
 

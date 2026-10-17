@@ -6,6 +6,7 @@ import { ApplicationSessionContext } from "@/features/identity/application-sessi
 import {
   ActionBarPrimitive,
   AuiIf,
+  getMcpAppFromToolPart,
   MessagePrimitive,
   useAuiState,
   type PartState,
@@ -44,8 +45,11 @@ import { ChatUserMessageQuote, ChatUserText } from "./chat-quote";
  */
 function activityGroups(part: PartState): readonly "group-activity"[] | null {
   if (part.type === "reasoning") return ["group-activity"];
+  // MEM-275: a call's MCP Apps view stands in the answer, outside the collapsed activity, as Claude shows it.
   if (part.type === "tool-call")
-    return "approval" in part && part.approval ? null : ["group-activity"];
+    return ("approval" in part && part.approval) || getMcpAppFromToolPart(part)
+      ? null
+      : ["group-activity"];
   return null;
 }
 const answerPlugins = [remarkCitations, remarkSandboxLinks];
@@ -170,6 +174,8 @@ export function AssistantMessage({ readOnly }: { readOnly: boolean }) {
               case "reasoning":
                 return <ChatReasoningStep running={part.status.type === "running"} />;
               case "tool-call":
+                // The registered MCP Apps renderer draws a view's part.
+                if (getMcpAppFromToolPart(part)) return null;
                 return part.approval ? (
                   <ChatMcpApproval part={part} />
                 ) : (

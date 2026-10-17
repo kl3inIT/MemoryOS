@@ -19,4 +19,6 @@ public record ToolEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId
                         @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable String parentToolCallId,
                         @Schema(requiredMode = REQUIRED, types = {"integer", "null"}, format = "int32") @Nullable Integer tabIndex,
                         @Schema(requiredMode = REQUIRED, types = {"string", "null"}, allowableValues = {"AUTHORIZATION_REQUIRED", "TIMEOUT", "UNAVAILABLE"},
-                                description = "Why a FAILED step failed when the person can act on it; a category only.") ChatToolEvent.@Nullable Failure failure) {}
+                                description = "Why a FAILED step failed when the person can act on it; a category only.") ChatToolEvent.@Nullable Failure failure,
+                        @Schema(requiredMode = REQUIRED, types = {"object", "null"},
+                                description = "The MCP Apps view of a COMPLETED MCP call whose tool has one") @Nullable ToolApp app) {}

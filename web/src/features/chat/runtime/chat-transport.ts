@@ -439,7 +439,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     let sources: ChatSource[] = [];
     let artifacts: ChatArtifact[] = [];
     let hasArtifacts = false;
-    const activity = new ActivityChunks(runId);
+    const activity = new ActivityChunks(runId, sessionId);
     const research = new ResearchChunks(runId);
     let committedResearch: ResearchState | undefined;
     let committedActivity: ChatActivity | undefined;

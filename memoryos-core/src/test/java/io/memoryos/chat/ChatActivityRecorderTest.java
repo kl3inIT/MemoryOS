@@ -28,7 +28,7 @@ class ChatActivityRecorderTest {
         assertEquals(ChatToolEvent.Failure.AUTHORIZATION_REQUIRED, step.failure());
         assertEquals(null, ChatToolEvent.finished(mcp, false, 7L, ChatToolEvent.Failure.TIMEOUT).failure());
         assertThrows(IllegalArgumentException.class, () -> new ChatToolEvent(mcp.id(), mcp.name(), ChatToolEvent.Stage.COMPLETED,
-                null, null, List.of(), 7L, null, null, ChatToolEvent.Failure.TIMEOUT));
+                null, null, List.of(), 7L, null, null, ChatToolEvent.Failure.TIMEOUT, null));
     }
 
     @Test
@@ -130,7 +130,7 @@ class ChatActivityRecorderTest {
     @Test
     void terminalDurationsBelongOnlyToTerminalStages() {
         assertThrows(IllegalArgumentException.class, () ->
-                new ChatToolEvent("call_1", "search_knowledge", ChatToolEvent.Stage.STARTED, null, null, List.of(), 5L, null, null, null));
+                new ChatToolEvent("call_1", "search_knowledge", ChatToolEvent.Stage.STARTED, null, null, List.of(), 5L, null, null, null, null));
         assertThrows(IllegalArgumentException.class, () -> new ChatToolEvent.Call("call_1", "bad name"));
         assertThrows(IllegalArgumentException.class, () -> new ChatReasoningDelta(""));
     }

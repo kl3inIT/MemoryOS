@@ -398,14 +398,42 @@ class ChatPersistenceIntegrationTest {
         turns.finish(session.id(), first.assistantMessageId(), ChatMessage.Status.COMPLETED, "Cleaned.");
         var calls = List.of(new ChatToolTranscript.Call("call_1", "bash", "{\"command\":\"python3 clean.py\"}", "saved"),
                 new ChatToolTranscript.Call("call_2", "search_knowledge", "{}", null));
-        turns.recordToolCalls(first.assistantMessageId(), calls);
+        turns.recordToolCalls(first.assistantMessageId(), calls, List.of());
         // Finishing again records nothing twice.
-        turns.recordToolCalls(first.assistantMessageId(), calls);
+        turns.recordToolCalls(first.assistantMessageId(), calls, List.of());
         var second = reserve(session, first.assistantMessageId(), UUID.randomUUID(), "Add a chart");
         assertEquals(calls, turns.loadContext(owner, session.id(), second).toolCalls().get(first.assistantMessageId()));
         assertEquals(2, jdbc.sql("SELECT count(*) FROM chat_message_tool_calls").query(Long.class).single());
         jdbc.sql("DELETE FROM chat_session WHERE id = :id").param("id", session.id()).update();
         assertEquals(0, jdbc.sql("SELECT count(*) FROM chat_message_tool_calls").query(Long.class).single());
+    }
+
+    @Test
+    void anAnswersViewsAreReadBackInTheirConversationAndGoWithTheirMessageOrServer() {
+        var session = sessions.create(owner, "Views");
+        var first = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Make a poster");
+        turns.finish(session.id(), first.assistantMessageId(), ChatMessage.Status.COMPLETED, "Here it is.");
+        var server = UUID.randomUUID();
+        jdbc.sql("""
+                INSERT INTO mcp_server (id, tenant_id, slug, name, url, auth_type, auth_performer, status, created_at, updated_at)
+                VALUES (:id, :tenant, 'canva', 'Canva', 'https://canva.example/mcp', 'NONE', 'ADMIN', 'CONNECTED', now(), now())
+                """).param("id", server).param("tenant", tenant).update();
+        var view = new ChatToolApp("call_1", server, "ui://canva/create-design", "{\"query\":\"poster\"}",
+                "{\"structuredContent\":{\"candidates\":[]}}");
+        turns.recordToolCalls(first.assistantMessageId(), List.of(), List.of(view));
+        // Finishing again records nothing twice.
+        turns.recordToolCalls(first.assistantMessageId(), List.of(), List.of(view));
+
+        var chats = new JdbcChatRepository(jdbc);
+        assertEquals(Map.of(first.assistantMessageId(), List.of(view)),
+                chats.toolApps(session.id(), List.of(first.assistantMessageId())));
+        assertEquals(view, chats.toolApp(session.id(), first.assistantMessageId(), "call_1").orElseThrow());
+        var elsewhere = sessions.create(owner, "Elsewhere");
+        assertTrue(chats.toolApp(elsewhere.id(), first.assistantMessageId(), "call_1").isEmpty());
+        assertTrue(chats.toolApps(elsewhere.id(), List.of(first.assistantMessageId())).isEmpty());
+
+        jdbc.sql("DELETE FROM mcp_server WHERE id = :id").param("id", server).update();
+        assertTrue(chats.toolApp(session.id(), first.assistantMessageId(), "call_1").isEmpty());
     }
 
     @Test

@@ -2499,6 +2499,17 @@ export type BranchChatSessionRequest = {
     title?: string;
 };
 
+export type ChatToolAppRequest = {
+    method: 'mcp-apps/read-resource' | 'tools/call' | 'resources/read' | 'resources/list';
+    params?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * The person approved this call of a tool that asks first
+     */
+    approved?: boolean | null;
+};
+
 export type ChatToolDecision = {
     approved: boolean;
     /**
@@ -3435,6 +3446,10 @@ export type ChatMessage = {
     activity: ChatActivity;
     images: Array<ImageRef>;
     generatedFiles: Array<GeneratedFileRef>;
+    /**
+     * The MCP Apps views of the answer's tool calls
+     */
+    apps: Array<ChatToolApp>;
     research: ChatMessageResearch;
     /**
      * Why a FAILED reply ended, for example CHAT_MODEL_OUTPUT_LIMIT; null otherwise
@@ -3491,6 +3506,13 @@ export type ChatSource = {
     mediaType?: string;
     sourceTypes: Array<'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT' | 'LARK'>;
     providerUrl?: string;
+};
+
+export type ChatToolApp = {
+    toolCallId: string;
+    resourceUri: string;
+    input: string;
+    output: string;
 };
 
 export type FileLocation = {
@@ -3609,6 +3631,10 @@ export type ToolEvent = {
      * Why a FAILED step failed when the person can act on it; a category only.
      */
     failure: 'AUTHORIZATION_REQUIRED' | 'TIMEOUT' | 'UNAVAILABLE';
+    /**
+     * The MCP Apps view of a COMPLETED MCP call whose tool has one
+     */
+    app: ChatToolApp | null;
 };
 
 export type ReasoningEvent = {
@@ -12987,6 +13013,53 @@ export type BranchChatSessionResponses = {
 };
 
 export type BranchChatSessionResponse = BranchChatSessionResponses[keyof BranchChatSessionResponses];
+
+export type HostChatToolAppData = {
+    body: ChatToolAppRequest;
+    path: {
+        sessionId: string;
+        messageId: string;
+        callId: string;
+    };
+    query?: never;
+    url: '/api/chat/sessions/{sessionId}/messages/{messageId}/apps/{callId}';
+};
+
+export type HostChatToolAppErrors = {
+    /**
+     * Invalid view request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership, CSRF requirement or tool policy not met
+     */
+    403: ApiProblem;
+    /**
+     * View not accessible
+     */
+    404: ApiProblem;
+    /**
+     * The tool asks first, or the server must be connected again
+     */
+    409: ApiProblem;
+};
+
+export type HostChatToolAppError = HostChatToolAppErrors[keyof HostChatToolAppErrors];
+
+export type HostChatToolAppResponses = {
+    /**
+     * The MCP result, or the view's document for mcp-apps/read-resource
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type HostChatToolAppResponse = HostChatToolAppResponses[keyof HostChatToolAppResponses];
 
 export type DecideChatToolCallData = {
     body: ChatToolDecision;

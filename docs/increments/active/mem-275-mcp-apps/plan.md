@@ -4,55 +4,50 @@ Design: [design.md](design.md).
 
 ## 1. Tool metadata
 
-- [ ] Migration (next version after `main`): `mcp_server_tool.app_resource_uri`, `app_only`.
-- [ ] Sync reads `_meta.ui.resourceUri`, then `ui/resourceUri`, then `openai/outputTemplate` (only `ui://`), and
-  `ui.visibility`. `McpToolDescriptor` carries both.
-- [ ] `McpTurnTools` never offers an `app_only` tool to the model.
+- [x] V186: `mcp_server_tool.app_resource_uri`, `model_visible`, `app_visible`.
+- [x] Sync reads `_meta.ui.resourceUri`, then `ui/resourceUri`, then `openai/outputTemplate` (only `ui://`, at most 1,024
+  characters), and `ui.visibility`. `McpToolDescriptor` and `McpTurnTools.Binding` carry them.
+- [x] `McpTools` never offers a tool hidden from the model.
+- [x] MCP Java SDK 2.1.0; the client declares `io.modelcontextprotocol/ui` with `text/html;profile=mcp-app`.
 
 ## 2. Result and step
 
-- [ ] `McpToolResult` carries `structuredContent` and `_meta`. The model's text is unchanged.
-- [ ] Migration: `chat_message_tool_apps` with 64 KB checks, cascading from `chat_message`.
-- [ ] `ChatToolEvent` finished carries `app` for a tool with a view when the payload fits. The answer stores it. The
-  message read returns it.
+- [x] `McpToolResult` carries the whole `CallToolResult` as JSON. The model's text is unchanged.
+- [x] V186: `chat_message_tool_apps` with 64 KB checks, cascading from `chat_message` and `mcp_server`.
+- [x] `ChatToolEvent` finished carries `app` (`ChatToolApp`) for a completed call of a tool with a view when it fits. The
+  answer stores it with its tool calls (at most 1 MB per answer). The history returns it as `apps`.
 
 ## 3. Host route
 
-- [ ] `POST /api/chat/sessions/{sessionId}/messages/{messageId}/apps/{callId}` with the owner, row, server-access and
-  credential checks.
-- [ ] Methods: `mcp-apps/read-resource` (MIME check, 2 MB bound, CSP injection), `tools/call` (app visibility, policy,
-  `approved`), `resources/read`, `resources/list`. Anything else answers `-32601`.
-- [ ] Logging `mcp.app.<method>.<outcome>`. Refresh `openapi.yml` and the Hey API client.
+- [x] `POST /api/chat/sessions/{sessionId}/messages/{messageId}/apps/{callId}` (`ChatToolAppService`, `McpAppHost`)
+  with the owner, row, server-access and credential checks.
+- [x] Methods: `mcp-apps/read-resource` (MIME check, 2 MB bound, `_meta.ui` from the content or its listing),
+  `tools/call` (app visibility, policy, `approved`), `resources/read`, `resources/list`. Anything else answers `400`.
+- [x] Logging `mcp.app.<request>.failed`. Refresh `openapi.yml` and the Hey API client.
 
 ## 4. Web
 
-- [ ] `chat-activity.ts` maps `app` to `mcp.app` with input and result.
-- [ ] Register `McpAppRenderer` with `McpAppsRemoteHost` on the route, plus `hostInfo`, a theme-driven `hostContext`,
-  the `openLink` https check, the `ASK` confirmation dialog and the 640 px cap.
-- [ ] `nginx.conf` `frame-src https://*.scf.auiusercontent.com`. Deployment test for the header.
-- [ ] i18n en and vi for the confirmation dialog.
+- [x] `@assistant-ui/react` 0.15.29 (enforces the view's CSP), `@assistant-ui/ai-sdk` 0.0.13 with the history patch
+  carried over, `@assistant-ui/react-streamdown` 0.3.20.
+- [x] `chat-activity.ts` follows a completed step with its view's part (`<callId>:app`, `mcp.app` through
+  `callProviderMetadata`), live and from history; the view stands outside the activity group.
+- [x] `ChatMcpApps` registers `McpAppRenderer` with `McpAppsRemoteHost` and a `fetch` to the route, `hostInfo`, a
+  theme- and locale-driven `hostContext`, inline only, no `sendMessage`, the `ASK` confirmation and the 640 px cap.
+- [x] `nginx.conf` `frame-src https://*.scf.auiusercontent.com`, with its test.
 
 ## 5. Verification
 
-- [ ] Core tests:
-  - Sync keeps the URI and visibility; a non-`ui://` URI is dropped.
-  - An `app_only` tool is not offered to the model.
-  - An oversized payload carries no `app`.
-- [ ] API tests for the route:
-  - Another person's session gives 404.
-  - Another server's tool is refused.
-  - `ASK` without `approved` is refused.
-  - `OFF` is refused.
-  - A non-HTML resource is refused.
-  - The CSP is built from `_meta.ui.csp`.
-- [ ] Web tests:
-  - The step renders the frame when it has `mcp.app`.
-  - `ASK` shows the dialog.
-  - `openLink` refuses `javascript:`.
+- [x] Core: `McpClientsIntegrationTest` (views, visibility, metadata, whole result), `McpServerRulesTest`,
+  `McpToolsTest`, `McpAppHostTest`, `ChatPersistenceIntegrationTest`; `ModulithArchitectureTest`,
+  `CoreDependencyRulesTest`.
+- [ ] API: `ChatSessionApiIntegrationTest.mcpAppsShowAViewInTheAnswerAndServeItsRequestsToTheOwnerOnly`,
+  `OpenApiContractTest`.
+- [ ] Web: `chat-mcp-apps.test.tsx`, `nginx-config.test.mjs`, `pnpm --dir web check`.
 - [ ] Staging with Canva:
   - `create-design` shows the candidates and picking one works.
   - `get-design-thumbnails` shows images.
   - A reload renders the view again.
-  - Disconnecting Canva leaves the plain step.
+  - Disconnecting Canva leaves no view.
   - Light and dark themes both render.
-- [ ] Spec `chat` and `mcp`, test matrices, ARCHITECTURE (CSP), runbook `mcp-servers`, roadmap.
+- [x] Spec `chat`, test matrix `chat`, runbook `mcp-servers`.
+- [ ] Roadmap once merged.

@@ -618,7 +618,7 @@ class ChatTurnServiceTest {
     }
 
     private static final McpTurnTools.Binding SEND = new McpTurnTools.Binding(UUID.randomUUID(), "gmail", "Gmail",
-            "send_email", "mcp_gmail_send_email", "Send an email.", "{}", false, true, null);
+            "send_email", "mcp_gmail_send_email", "Send an email.", "{}", false, true, null, null, true, true);
 
     /** A model that calls one tool requiring approval and records the person's decision. */
     private AtomicReference<McpTurnTools.Decision> modelAskingApproval(CountDownLatch asking) {
