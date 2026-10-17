@@ -6,8 +6,18 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.memoryos.TestDatabase;
+import io.memoryos.objectstorage.ObjectContent;
+import io.memoryos.objectstorage.ObjectKey;
+import io.memoryos.objectstorage.ObjectMetadata;
+import io.memoryos.objectstorage.ObjectRangeContent;
+import io.memoryos.objectstorage.ObjectStorage;
+import io.memoryos.objectstorage.ObjectStorageException;
+import io.memoryos.objectstorage.ObjectStorageFailureCode;
+import io.memoryos.objectstorage.UploadAuthorization;
+import io.memoryos.objectstorage.UploadConstraints;
 import io.memoryos.sandbox.persistence.JdbcSandboxRepository;
 import io.memoryos.shared.ActorId;
+import io.memoryos.shared.Sha256;
 import io.memoryos.shared.TenantId;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -36,11 +46,12 @@ import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-/** MEM-270: a conversation's sandbox is found, renewed, replaced and bounded through its row (V179). */
+/** MEM-270: a conversation's sandbox found, renewed, replaced and bounded through its row (V179); its workspace archived (V184). */
 @Testcontainers
 class PostgresSandboxServiceTest {
     private final MutableClock clock = new MutableClock(Instant.parse("2026-10-15T08:00:00Z"));
     private final FakeRuntime runtime = new FakeRuntime(clock);
+    private final FakeStorage storage = new FakeStorage();
     private JdbcClient jdbc;
     private JdbcSandboxRepository workspaces;
     private DataSourceTransactionManager transactions;
@@ -197,8 +208,8 @@ class PostgresSandboxServiceTest {
         var unconfigured = service(new SandboxProperties("", Duration.ofMinutes(30), Duration.ofHours(4), 3, "1", "1Gi", null));
         assertEquals("SANDBOX_NOT_CONFIGURED",
                 assertThrows(SandboxException.class, () -> unconfigured.acquire(tenant, owner, conversation())).code());
-        var noRuntime = new SandboxService(new StaticListableBeanFactory().getBeanProvider(SandboxRuntime.class), workspaces,
-                properties(3), transactions, clock);
+        var noRuntime = new SandboxService(new StaticListableBeanFactory().getBeanProvider(SandboxRuntime.class), storages(),
+                workspaces, properties(3), transactions, clock);
         assertEquals("SANDBOX_NOT_CONFIGURED",
                 assertThrows(SandboxException.class, () -> noRuntime.acquire(tenant, owner, conversation())).code());
     }
@@ -213,9 +224,9 @@ class PostgresSandboxServiceTest {
         runtime.alive.remove(gone.runtimeId());
         String orphan = runtime.create(spec());
         String young = runtime.create(spec());
-        runtime.createdAt.put(orphan, clock.instant().minus(Duration.ofMinutes(5)));
+        runtime.createdAt.put(orphan, clock.instant().minus(SandboxReconciliation.GRACE.plusMinutes(1)));
 
-        new SandboxReconciliation(provider(), workspaces, properties(3), clock).sweep();
+        reconciliation().sweep();
 
         assertTrue(runtime.killed.contains(orphan));
         assertTrue(!runtime.killed.contains(young), "a sandbox younger than the grace may await its row");
@@ -236,8 +247,80 @@ class PostgresSandboxServiceTest {
         assertEquals(0, workspaces.recorded(FakeRuntime.NAME).size());
     }
 
+    @Test
+    void aTurnsWorkspaceIsArchivedAndTheNextSandboxStartsFromIt() {
+        var service = service(properties(3));
+        UUID conversation = conversation();
+        service.save(tenant, conversation);
+        assertTrue(storage.objects.isEmpty(), "without a sandbox there is nothing to archive");
+
+        var first = service.acquire(tenant, owner, conversation);
+        service.save(tenant, conversation);
+        assertEquals(1, storage.objects.size());
+        String key = storage.objects.keySet().iterator().next();
+        assertTrue(key.startsWith("raw/" + tenant.value() + "/"), key);
+        assertEquals(key, archiveKey(conversation));
+
+        runtime.alive.remove(first.runtimeId());
+        var second = service.acquire(tenant, owner, conversation);
+        assertEquals(List.of(WorkspaceArchives.INCOMING), runtime.writes.get(second.runtimeId()));
+        assertTrue(runtime.commands(second.runtimeId()).contains(WorkspaceArchives.EXTRACT));
+        assertTrue(!runtime.writes.containsKey(first.runtimeId()), "the first sandbox started empty");
+    }
+
+    @Test
+    void aWorkspacePastTheBoundKeepsTheLastArchive() {
+        var service = service(properties(3));
+        UUID conversation = conversation();
+        service.acquire(tenant, owner, conversation);
+        service.save(tenant, conversation);
+        String kept = archiveKey(conversation);
+        runtime.archiveExit = 3;
+        service.save(tenant, conversation);
+        assertEquals(kept, archiveKey(conversation));
+        assertEquals(1, storage.objects.size());
+    }
+
+    @Test
+    void theReconciliationDeletesArchivesNoConversationStartsFrom() {
+        var service = service(properties(3));
+        UUID conversation = conversation();
+        service.acquire(tenant, owner, conversation);
+        service.save(tenant, conversation);
+        service.save(tenant, conversation);
+        assertEquals(2, storage.objects.size());
+
+        reconciliation().sweep();
+        assertEquals(2, storage.objects.size(), "an archive younger than the grace may still be recorded");
+
+        clock.advance(WorkspaceArchives.SWEEP_GRACE.plusMinutes(1));
+        reconciliation().sweep();
+        assertEquals(Set.of(archiveKey(conversation)), storage.objects.keySet());
+
+        new TransactionTemplate(transactions).executeWithoutResult(_ -> {
+            jdbc.sql("DELETE FROM chat_message WHERE session_id = :id").param("id", conversation).update();
+            jdbc.sql("DELETE FROM chat_session WHERE id = :id").param("id", conversation).update();
+        });
+        reconciliation().sweep();
+        assertTrue(storage.objects.isEmpty(), "a deleted conversation's archive goes");
+        assertEquals(0, jdbc.sql("SELECT count(*) FROM sandbox_workspace_archives").query(Integer.class).single());
+    }
+
+    private String archiveKey(UUID conversation) {
+        return jdbc.sql("SELECT archive_key FROM sandbox_workspaces WHERE conversation_id = :id")
+                .param("id", conversation).query(String.class).single();
+    }
+
+    private SandboxReconciliation reconciliation() {
+        return new SandboxReconciliation(provider(), storages(), workspaces, properties(3), transactions, clock);
+    }
+
     private SandboxService service(SandboxProperties properties) {
-        return new SandboxService(provider(), workspaces, properties, transactions, clock);
+        return new SandboxService(provider(), storages(), workspaces, properties, transactions, clock);
+    }
+
+    private ObjectProvider<ObjectStorage> storages() {
+        return new StaticListableBeanFactory(Map.of("storage", storage)).getBeanProvider(ObjectStorage.class);
     }
 
     private ObjectProvider<SandboxRuntime> provider() {
@@ -309,6 +392,13 @@ class PostgresSandboxServiceTest {
         final Clock clock;
         int renewals;
         String dieOnNextRun;
+        volatile int archiveExit;
+        final Map<String, List<String>> writes = new ConcurrentHashMap<>();
+        final Map<String, List<String>> commands = new ConcurrentHashMap<>();
+
+        List<String> commands(String id) {
+            return commands.getOrDefault(id, List.of());
+        }
 
         FakeRuntime(Clock clock) {
             this.clock = clock;
@@ -350,11 +440,18 @@ class PostgresSandboxServiceTest {
                 alive.remove(id);
                 throw new SandboxGoneException(id, new IllegalStateException("gone"));
             }
+            commands.computeIfAbsent(id, _ -> Collections.synchronizedList(new ArrayList<>())).add(command.command());
+            if (command.command().equals(WorkspaceArchives.TAKE))
+                return new SandboxCommandResult(archiveExit,
+                        archiveExit == 0 ? "12 " + Sha256.hex(new byte[12]) + "\n" : "600000000\n", "", false,
+                        Duration.ofMillis(5));
             return new SandboxCommandResult(0, "ok", "", false, Duration.ofMillis(5));
         }
 
         @Override
-        public void write(String id, String path, byte[] content) {}
+        public void write(String id, String path, byte[] content) {
+            writes.computeIfAbsent(id, _ -> Collections.synchronizedList(new ArrayList<>())).add(path);
+        }
 
         @Override
         public byte[] read(String id, String path, long maxBytes) {
@@ -363,7 +460,7 @@ class PostgresSandboxServiceTest {
 
         @Override
         public InputStream open(String id, String path) {
-            return new ByteArrayInputStream(new byte[0]);
+            return new ByteArrayInputStream(path.equals(WorkspaceArchives.ARCHIVE) ? new byte[12] : new byte[0]);
         }
 
         @Override
@@ -382,6 +479,58 @@ class PostgresSandboxServiceTest {
             Map<String, Instant> running = new HashMap<>();
             for (String id : alive) running.put(id, createdAt.get(id));
             return running;
+        }
+    }
+
+    /** Object Storage as a map; a key is written once, as the S3 store's if-none-match write. */
+    private static final class FakeStorage implements ObjectStorage {
+        final Map<String, byte[]> objects = new ConcurrentHashMap<>();
+
+        @Override
+        public void write(ObjectKey key, byte[] content, String mediaType) {
+            if (objects.putIfAbsent(key.value(), content) != null)
+                throw new ObjectStorageException(ObjectStorageFailureCode.PRECONDITION_FAILED, false, null);
+        }
+
+        @Override
+        public UploadAuthorization authorizeUpload(ObjectKey key, UploadConstraints constraints) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public ObjectMetadata inspect(ObjectKey key) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public ObjectContent open(ObjectKey key) {
+            byte[] content = objects.get(key.value());
+            if (content == null) throw new ObjectStorageException(ObjectStorageFailureCode.NOT_FOUND, false, null);
+            return new ObjectContent() {
+                @Override
+                public ObjectMetadata metadata() {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public InputStream inputStream() {
+                    return new ByteArrayInputStream(content);
+                }
+
+                @Override
+                public void close() {}
+            };
+        }
+
+        @Override
+        public ObjectRangeContent openRange(ObjectKey key, long first, long last) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void delete(ObjectKey key) {
+            if (objects.remove(key.value()) == null)
+                throw new ObjectStorageException(ObjectStorageFailureCode.NOT_FOUND, false, null);
         }
     }
 }

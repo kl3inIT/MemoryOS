@@ -506,7 +506,12 @@ test("edits an agent in place, saving only changes and guarding unsaved edits", 
   // Switching tabs keeps the unsaved changes and does not ask; leaving the page does.
   await page.getByRole("tab", { name: "Chia sẻ" }).click();
   await expect(page).toHaveURL(/\/edit\?tab=share$/);
+  // Chia sẻ saves on change: the header keeps the form's state but not its Hủy and Lưu.
+  await expect(page.getByRole("status").filter({ hasText: "Có thay đổi chưa lưu" })).toBeVisible();
+  await expect(save).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Hủy" })).toHaveCount(0);
   await page.getByRole("tab", { name: "Cấu hình" }).click();
+  await expect(save).toBeEnabled();
   await expect(page.getByLabel("Chức danh")).toHaveValue("Chuyên viên nhân sự");
   await page
     .getByRole("navigation", { name: "Đường dẫn phân cấp" })
@@ -882,6 +887,8 @@ async function mockBots(page: Page) {
           name,
           botName,
           enabled,
+          byDefault: true,
+          groups: [],
         })),
     });
   });

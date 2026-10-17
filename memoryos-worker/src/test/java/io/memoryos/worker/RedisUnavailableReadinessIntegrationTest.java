@@ -20,7 +20,6 @@ import org.springframework.test.context.DynamicPropertySource;
                 "memoryos.worker.enabled=false",
                 "db-scheduler.enabled=false",
                 "management.endpoint.health.group.readiness.include=readinessState,db,redis",
-                "arconia.dev.services.redis.enabled=false",
                 "memoryos.redis.topology-interval=1h",
                 "spring.data.redis.host=127.0.0.1",
                 "spring.data.redis.port=1",

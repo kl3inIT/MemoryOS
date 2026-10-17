@@ -45,27 +45,37 @@ Tool sync already reads `tools/list`. It now also keeps three fields from each t
   `openai/outputTemplate`. Canva declares both forms.
 - `ui.visibility`. The default is `["model", "app"]`.
 
-A new migration (the next version after `main`'s newest, checked before merge) adds two columns to `mcp_server_tool`:
+Migration V186 adds three columns to `mcp_server_tool`:
 
 - `app_resource_uri VARCHAR(1024) NULL`, accepting only `ui://` URIs. Anything else is dropped at sync.
-- `app_only BOOLEAN NOT NULL DEFAULT false`, true when the visibility lists `app` but not `model`.
+- `model_visible` and `app_visible`, both `BOOLEAN NOT NULL DEFAULT true`, from the visibility. A visibility that names
+  neither side is read as the default, both.
 
-`McpToolDescriptor` gains both fields. A tool with `app_only` is never offered to the model (`McpTurnTools`), because
-SEP-1865 requires the host to hide it. It stays in the admin tool list, where the policy still governs it.
+`McpToolDescriptor` and `McpTurnTools.Binding` carry the three fields. A tool not `model_visible` is never offered to
+the model (`McpTools`), because SEP-1865 requires the host to hide it. A tool not `app_visible` cannot be called from a
+view. Both stay in the admin tool list, where the policy still governs them.
+
+The client also says it renders views: SEP-1865 asks it to declare `capabilities.extensions["io.modelcontextprotocol/ui"]`
+with the MIME types it accepts, and a server may offer views only to a client that does. The MCP Java SDK takes client
+extensions from 2.1.0, so the SDK moves from 2.0.1 to 2.1.0.
 
 ### 2. Carry the view on the tool step
 
-When an MCP call finishes, `McpSession.callTool` returns the result's `structuredContent` and `_meta` beside the text.
-The model sees exactly what it sees today.
+When an MCP call finishes, `McpSession.call` returns the whole `CallToolResult` as JSON beside the text. The model
+sees exactly what it sees today.
 
-If the called tool has an `app_resource_uri`, the finished `ChatToolEvent` carries an `app` object on the step:
+If the called tool has an `app_resource_uri` and the call did not fail, the finished `ChatToolEvent` carries an `app`
+object (`ChatToolApp`):
 
 - `serverId` and `resourceUri`.
 - `input`: the call's arguments.
-- `output`: `{content, structuredContent, _meta}`, at most 64 KB. Over that, the step carries no `app` and shows as
-  today.
+- `output`: the whole result, at most 64 KB. Over that, the step carries no `app` and shows as today.
 
-The web maps it to `ToolCallMessagePart.mcp.app` with `input` and `result`, which is what `McpAppRenderer` reads.
+The web keeps the step where it is, in the collapsed activity, and adds a second tool part right after it, with the
+call ID plus `:app`. That part carries the view's input and output as its arguments and result, and
+`callProviderMetadata.mcp.app`, which the AI SDK converter turns into `ToolCallMessagePart.mcp.app` for
+`McpAppRenderer`. It is left out of the activity group, so the view stands in the answer as Claude shows it. The step's
+own input stays the progress the step line reads.
 
 **Persistence.** The same object goes into a new table, `chat_message_tool_apps (message_id, call_id, server_id,
 resource_uri, input, output)`. It has the 64 KB check per field and cascades from `chat_message`. A reloaded answer
@@ -73,12 +83,15 @@ renders the view again, as Claude and ChatGPT do.
 
 This is not the MEM-287 transcript. That table replays results to the model and deliberately drops MCP output. This
 table is only read back to the session owner's own screen, and every render passes the access check in section 3. A
-disconnected server, a revoked credential or a removed tool therefore shows the plain step, not the stored view.
+disconnected server, a revoked credential or a removed tool therefore shows an empty frame in place of the view. A
+deleted server deletes its rows (`server_id` cascades from `mcp_server`). One answer keeps at most 1 MB of views.
 
 ### 3. One host route, owner-scoped
 
 The route is `POST /api/chat/sessions/{sessionId}/messages/{messageId}/apps/{callId}`. It takes assistant-ui's
-`McpAppsRemoteHost` body `{method, params}`.
+`McpAppsRemoteHost` body `{method, params}`, plus `approved` (section 5). assistant-ui gives the host only the part's
+`serverId`, so the web sets it to the session, message, call and step tool, and a custom `fetch` posts to the route they
+name.
 
 Each request first checks four things:
 
@@ -91,13 +104,13 @@ A failure answers `404` or the existing `MCP_*` problem, and the frame shows its
 
 | Method | Behaviour |
 | --- | --- |
-| `mcp-apps/read-resource` | Reads the row's `resourceUri`, or another `ui://` URI of the same server. It accepts only `text/html;profile=mcp-app` (or `text/html+skybridge` for an Apps SDK template). It returns `{uri, mimeType, html, meta}`, with the CSP from section 4 injected into `html`. The resource is at most 2 MB. |
-| `tools/call` | Runs a tool of the row's server only. The tool must be visible to the app (`visibility` contains `app`). Policy `ALWAYS` runs it. `ASK` runs it only with `approved: true` from the web's confirmation (section 5). `OFF`, unknown and model-only tools are refused. The call is logged and counted like a model call. |
+| `mcp-apps/read-resource` | Reads a `ui://` view of the row's server. It accepts only `text/html;profile=mcp-app` (or `text/html+skybridge` for an Apps SDK template). It returns `{uri, mimeType, html, meta}`, where `meta` is the content's `_meta.ui`, else that of the resource's `resources/list` entry. The resource is at most 2 MB. |
+| `tools/call` | Runs a tool of the row's server only. The tool must be visible to the app. Policy `ALWAYS` runs it. `ASK` answers `409 MCP_APP_APPROVAL_REQUIRED` unless `approved` is true (section 5). `OFF`, unknown and model-only tools answer `403 MCP_APP_TOOL_NOT_ALLOWED`. A failure is logged as `mcp.app.<request>.failed`. |
 | `resources/read` | Reads a resource of the row's server. |
 | `resources/list` | Lists the resources of the row's server. |
 
-Every other method answers `-32601`. `serverId` from the frame is ignored: the row decides the server. A view therefore
-cannot reach another server even when it lies about `serverId`.
+Every other method answers `400`. The row decides the server: the route never takes a server from the browser, so a
+view cannot reach another server.
 
 ### 4. Sandbox and CSP
 
@@ -111,18 +124,15 @@ this increment. An air-gapped deployment simply sees the plain step, because the
 
 **Web CSP.** `web/nginx.conf` adds `frame-src https://*.scf.auiusercontent.com`. `frame-ancestors 'none'` stays.
 
-**View CSP.** assistant-ui does not apply `_meta.ui.csp`, and SEP-1865 makes the host responsible for it. The route
-therefore prepends a `<meta http-equiv="Content-Security-Policy">` to the HTML:
+**View CSP.** SEP-1865 makes the host enforce `_meta.ui.csp`. `@assistant-ui/react` 0.15.29 does it: before any view
+code runs, it writes a `Content-Security-Policy` meta built from `connectDomains`, `resourceDomains`, `frameDomains` and
+`baseUriDomains`, with `connect-src 'none'` and `frame-src 'none'` where a declaration is missing. The route therefore
+passes `meta` through unchanged. The design first had the route inject this policy, because 0.15.22 did not; the
+upgrade made that unnecessary.
 
-- `default-src 'none'`
-- `script-src 'self' 'unsafe-inline'` plus `resourceDomains`
-- `style-src 'self' 'unsafe-inline'` plus `resourceDomains`
-- `img-src`, `font-src` and `media-src`: `'self' data: blob:` plus `resourceDomains`
-- `connect-src` plus `connectDomains`
-- `frame-src` plus `frameDomains`, or `'none'`
-- `base-uri` plus `baseUriDomains`, or `'none'`
-
-A domain that is not `https://` is dropped. This matches what `basic-host` applies as the frame's CSP header.
+**Dependencies.** `@assistant-ui/react` moves from 0.15.22 to 0.15.29, with `@assistant-ui/ai-sdk` 0.0.13 and
+`@assistant-ui/react-streamdown` 0.3.20 that go with it. 0.0.13 still rebuilds the history-restore callback each render,
+so the existing patch is carried to 0.0.13.
 
 ### 5. What the view can ask of the host
 
@@ -130,14 +140,14 @@ A domain that is not `https://` is dropped. This matches what `basic-host` appli
 | --- | --- |
 | `ui/initialize` | `hostInfo` `{name: "MemoryOS", version}`. `hostContext` carries the theme (light or dark from the app theme), `locale`, `displayMode: "inline"` and `availableDisplayModes: ["inline"]`. Context changes are sent when the theme changes. |
 | Tool input and result | Sent from the stored `input` and `output`. |
-| `tools/call` | Goes through the route. For an `ASK` tool, the web first shows the same `AlertDialog` as tool approval ("Canva muốn chạy create-design", buttons Cho phép and Từ chối). A refusal answers the view with an error. This follows Claude's prompts for view tool calls. |
+| `tools/call` | Goes through the route. When it answers `MCP_APP_APPROVAL_REQUIRED`, the web shows a confirmation with the approval card's title ("Cho phép {{tool}} trên {{server}}?") and the call's arguments, then sends the call again with `approved`. Cancelling answers the view with an error. This follows Claude's prompts for view tool calls. |
 | `resources/read`, `resources/list` | Go through the route. |
-| `openLink` | Only `https:` links, opened with `window.open(url, "_blank", "noopener,noreferrer")`. Any other scheme is refused. |
+| `openLink` | assistant-ui's default: `http(s)` links only, opened with `window.open(url, "_blank", "noopener,noreferrer")`. |
 | `requestDisplayMode` | Always answers `inline`. |
-| `sendMessage`, `updateModelContext` | Not handled. The library answers `-32601`, as in Goose today. |
+| `sendMessage`, `updateModelContext` | Not offered, as in Goose today. The library would append a view's message to the thread by default, so `sendMessage` answers an error; `updateModelContext` has no handler and answers `-32601`. |
 | Size | Auto height, capped at 640 px. |
 
-The view replaces the step's raw JSON result. The step header (server mark, tool title, status) stays above it.
+The step line (server mark, tool title, status) stays in the activity; the view follows it in the answer.
 
 ### 6. Other surfaces
 

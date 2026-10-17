@@ -106,7 +106,6 @@ import io.memoryos.library.LibraryTrashProperties;
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.NONE,
         properties = {
-                "arconia.dev.services.redis.enabled=false",
                 "management.otlp.metrics.export.enabled=true",
                 "management.otlp.metrics.export.step=1s",
                 "management.otlp.metrics.export.aggregation-temporality=cumulative",

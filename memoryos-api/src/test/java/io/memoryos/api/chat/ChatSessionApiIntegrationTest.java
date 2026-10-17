@@ -242,7 +242,6 @@ import reactor.core.scheduler.Schedulers;
         "spring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://127.0.0.1:1/jwks",
         "memoryos.identity.audience=memoryos-api",
         "spring.security.oauth2.client.registration.memoryos.client-secret=client-secret",
-        "arconia.multitenancy.resolution.fixed.tenant-identifier=10000000-0000-0000-0000-000000000024",
         "memoryos.initial-tenant.id=10000000-0000-0000-0000-000000000024",
         "memoryos.initial-tenant.owner-subject=chat-owner",
         "memoryos.initial-tenant.slug=chat",
@@ -297,6 +296,7 @@ class ChatSessionApiIntegrationTest {
     @DynamicPropertySource
     static void browserProperties(DynamicPropertyRegistry registry) {
         ApiPostgresDatabase.configure(registry);
+        ChatTestRedis.configure(registry);
         registry.add("spring.security.oauth2.client.provider.memoryos.issuer-uri", () -> BROWSER_ISSUER);
         registry.add("spring.security.oauth2.resourceserver.jwt.issuer-uri", () -> BROWSER_ISSUER);
         registry.add("spring.security.oauth2.resourceserver.jwt.jwk-set-uri", () -> BROWSER_ISSUER + "/jwks");
@@ -5861,6 +5861,85 @@ class ChatSessionApiIntegrationTest {
         if (secret == null) body.putObject("clientSecret").put("action", "KEEP");
         else body.putObject("clientSecret").put("action", "REPLACE").put("value", secret);
         return body;
+    }
+
+    @Test
+    void mcpAppsShowAViewInTheAnswerAndServeItsRequestsToTheOwnerOnly() throws Exception {
+        grantCapability("MCP_MANAGE");
+        grantModelManagement();
+        McpFixtureServer.resetCalls();
+        var required = Map.of("Authorization", "Bearer fixture-mcp-key", "X-Fixture", "static-header-secret");
+        try (var fixture = McpFixtureServer.startWithViews(required)) {
+            String slug = "apps" + (System.nanoTime() % 100000);
+            var created = Json.mapper().readTree(mockMvc.perform(post("/api/mcp/servers").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content(mcpServerBody(slug, fixture.url()).toString()))
+                    .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+            UUID serverId = UUID.fromString(created.path("id").asText());
+            mockMvc.perform(post("/api/mcp/servers/" + serverId + "/tools/refresh").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk());
+
+            String toolName = "mcp_" + slug + "_pick_design";
+            var prompts = new CopyOnWriteArrayList<String>();
+            when(model.stream(any(Prompt.class))).thenAnswer(call -> {
+                Prompt prompt = call.getArgument(0);
+                prompts.add(prompt.toString());
+                if (prompt.getInstructions().stream().anyMatch(m -> m instanceof ToolResponseMessage))
+                    return Flux.just(response("Pick one of these.", "stop", 12));
+                return Flux.just(new ChatResponse(List.of(new Generation(AssistantMessage.builder().content("")
+                        .toolCalls(List.of(new AssistantMessage.ToolCall("mcp-view", "function", toolName,
+                                "{\"query\":\"poster\"}"))).build(),
+                        ChatGenerationMetadata.builder().finishReason("tool_calls").build())),
+                        ChatResponseMetadata.builder().usage(new DefaultUsage(12, 12)).build()));
+            });
+            var session = create();
+            var body = Json.mapper().createObjectNode().put("parentMessageId", session.path("rootMessageId").asText())
+                    .put("clientRequestId", UUID.randomUUID().toString()).put("text", "Make a poster.");
+            body.putArray("mcpServerIds").add(serverId.toString());
+            var reply = Json.mapper().readTree(mockMvc.perform(post("/api/chat/sessions/" + session.path("id").asText() + "/messages")
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                    .andExpect(status().isAccepted()).andReturn().getResponse().getContentAsString());
+            String assistant = reply.path("assistantMessageId").asText();
+            awaitOutcome(assistant, "COMPLETED");
+            // A tool only its view may call is never offered to the model.
+            assertFalse(String.join("", prompts).contains("select_design"));
+
+            var app = history(session).get(1).path("apps").get(0);
+            assertEquals("mcp-view", app.path("toolCallId").asText());
+            assertEquals(McpFixtureServer.VIEW, app.path("resourceUri").asText());
+            assertEquals("poster", app.path("input").path("query").asText());
+            assertTrue(app.path("output").path("content").toString().contains("fixture result for"));
+
+            String route = "/api/chat/sessions/" + session.path("id").asText() + "/messages/" + assistant + "/apps/mcp-view";
+            var read = mockMvc.perform(post(route).with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"method\":\"mcp-apps/read-resource\",\"params\":{\"uri\":\"" + McpFixtureServer.VIEW + "\"}}"))
+                    .andReturn().getResponse();
+            assertEquals(200, read.getStatus(), read.getContentAsString());
+            var view = Json.mapper().readTree(read.getContentAsString());
+            assertEquals("text/html;profile=mcp-app", view.path("mimeType").asText());
+            assertTrue(view.path("html").asText().contains("picker"));
+            assertEquals("https://api.fixture.example", view.path("meta").path("csp").path("connectDomains").get(0).asText());
+
+            McpFixtureServer.resetCalls();
+            mockMvc.perform(post(route).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"method\":\"tools/call\",\"params\":{\"name\":\"select_design\",\"arguments\":{\"query\":\"d1\"}}}"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.content[0].text").value("fixture result for {query=d1}"));
+            assertEquals(List.of("select_design({query=d1})"), McpFixtureServer.calls());
+            // A tool that is off for everyone cannot be reached through a view.
+            mockMvc.perform(post(route).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"method\":\"tools/call\",\"params\":{\"name\":\"" + McpFixtureServer.LONG_TOOL_NAME + "\"}}"))
+                    .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("MCP_APP_TOOL_NOT_ALLOWED"));
+            // Nobody else reaches the view, even with the conversation's address.
+            mockMvc.perform(post(route).with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"method\":\"mcp-apps/read-resource\",\"params\":{\"uri\":\"" + McpFixtureServer.VIEW + "\"}}"))
+                    .andExpect(status().isNotFound());
+            assertEquals(List.of("select_design({query=d1})"), McpFixtureServer.calls());
+        }
     }
 
     private ObjectNode mcpServerBody(String slug, String url) {

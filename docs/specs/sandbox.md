@@ -13,9 +13,20 @@ work in it.
   idle timeout and answers it. Otherwise it starts one in three steps: a short transaction takes a place in the running
   bound and marks the row as starting with a token; the runtime creates the sandbox outside any transaction; a second
   short transaction records it if the token still holds the row. A failed start gives its place back; a start older
-  than five minutes no longer counts. Another call of the same conversation waits for a start in progress instead of
+  than ten minutes no longer counts. Another call of the same conversation waits for a start in progress instead of
   making a second sandbox. A sandbox the runtime no longer has, or older than the total life (killed), is replaced.
   The caller has already established that the actor may work in the conversation.
+- **Workspace.** A conversation's `/workspace` outlives its sandbox, as Onyx Craft tars a session's files to its file
+  store and extracts them into the next sandbox (`sandbox_daemon/snapshot.py`). A turn that used a Sandbox tool ends,
+  after its reply and before the run gives its place back, with `SandboxService.save`: tar, run in the sandbox as user
+  1000, writes `/workspace` without `attachments` (copied in again every turn), `.memoryos` (run files),
+  `node_modules`, `.next`, `__pycache__` and `.venv`; the archive, with the size and SHA-256 tar's command prints, is streamed to Object Storage under a new key
+  `raw/{tenant}/{uuid}` (the API writes and reads `raw/`, the Worker deletes there), recorded in `sandbox_workspace_archives` (V184) before its upload,
+  and becomes `sandbox_workspaces.archive_key` once written. Onyx's bounds apply: a workspace over 500 MiB of files or an
+  archive over 100 MiB is not saved, and the previous archive stays. A new sandbox of the conversation is not recorded
+  until the archive is extracted into it (as user 1000, within three minutes); a restore that fails leaves an empty
+  workspace and the turn goes on. Packages installed with `uv pip install` live in the image's venv, outside
+  `/workspace`, and are not kept.
 - **Operations.** `run`, `write`, `read`, `open` and `list` acquire first and, when the sandbox went away between the
   renewal and the call, acquire once more and repeat the call.
 - **Commands.** A command runs with `bash -c` as the computer image's user 1000 in `/workspace`, stopped at its
@@ -39,7 +50,9 @@ work in it.
   acquiring a new one fails with `SANDBOX_BUSY`. Taking a place is serialised across conversations by a transaction-scoped advisory lock, so two conversations cannot both take the last place; the lock is never held while the runtime creates a sandbox. A deployment without a computer image or a runtime answers
   `SANDBOX_NOT_CONFIGURED`; a runtime failure is `SANDBOX_UNAVAILABLE`.
 - **Reconciliation.** Every five minutes the Worker clears rows whose sandbox the runtime no longer holds and kills
-  sandboxes labelled `memoryos.io/managed` that no row records and that are older than two minutes.
+  sandboxes labelled `memoryos.io/managed` that no row records and that are older than ten minutes (a start with its
+  restore). It also deletes, 100 a run, the archives older than an hour that no row starts from: replaced by a later
+  one, never finished, or left by a deleted conversation.
 
 ## Configuration
 
@@ -53,7 +66,7 @@ work in it.
 | `memoryos.sandbox.allowed-domains` | `MEMORYOS_SANDBOX_ALLOWED_DOMAINS` | `pypi.org,files.pythonhosted.org`; empty denies all egress |
 | `memoryos.sandbox.opensandbox.endpoint` | `MEMORYOS_SANDBOX_ENDPOINT` | empty: no OpenSandbox runtime |
 | `memoryos.sandbox.opensandbox.api-key` | `MEMORYOS_SANDBOX_API_KEY_FILE` through the launcher | |
-| `memoryos.sandbox.opensandbox.ready-timeout` | | 60 s, at most 90 s (under the reconciliation's two-minute grace) |
+| `memoryos.sandbox.opensandbox.ready-timeout` | | 60 s, at most 90 s (under the reconciliation's ten-minute grace) |
 
 The runtime is `memoryos-integration-opensandbox`; operating notes are in the
 [CI/CD runbook](../runbooks/ci-cd.md#sandbox-runtime).

@@ -58,6 +58,20 @@ owner checks the editor on staging after the third.
 - [x] Tests: a bound bot answers with its assistant; deleting the assistant falls back; binding without
   `CHANNELS_MANAGE` is refused.
 
+## 5. One bot, one assistant per group
+
+Design: [design-groups.md](design-groups.md). Three pull requests.
+
+- [ ] 5a. Save and Cancel only on the Cấu hình tab; Kênh and Chia sẻ keep the unsaved-changes state (decision 9).
+- [x] 5b. Backend: one migration (V185) with `channel_groups`, `chat_channel_group_binding` and
+  `chat_session.channel_chat_id`; groups recorded on an accepted group message, Lark's name from the chat read the
+  external check makes; resolution group → bot → built-in in `channelPersona` and `CHANNEL_OR_USES`; the group API and
+  `GET /api/chat/personas/{id}/channels` with groups; permissions and audit as decision 6. Tests: each resolution
+  branch; changing, removing and forgetting end access and start the group's conversation over; a direct message
+  ignores group overrides; permission refusals; an external Lark group is not recorded.
+- [ ] 5c. Web: the bot page's "Trợ lý mặc định" picker and "Theo nhóm" list; the Kênh tab read-only with links to the
+  bot pages. Unit and e2e tests; staging screenshots; channel and chat specs, test matrices.
+
 ## Verification
 
 - [ ] On zm, throttled: the persona, chat and channel tests, `ModulithArchitectureTest`, `CoreDependencyRulesTest`,

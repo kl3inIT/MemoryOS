@@ -92,7 +92,7 @@ public enum AuditAction {
 
     // The Tenant's chat bots (MEM-246).
     CHANNEL_CREATE("channel.create", AuditEventClass.API_ACTIVITY, "provider", "app"),
-    CHANNEL_UPDATE("channel.update", AuditEventClass.API_ACTIVITY, "change"),
+    CHANNEL_UPDATE("channel.update", AuditEventClass.API_ACTIVITY, "change", "group"),
     CHANNEL_DELETE("channel.delete", AuditEventClass.API_ACTIVITY, "provider"),
     /** A member linked their account on a bot's platform (MEM-263); the record names the member and the bot only. */
     CHANNEL_ACCOUNT_LINK("channel.account_link", AuditEventClass.ACCOUNT_CHANGE),

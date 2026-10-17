@@ -91,10 +91,6 @@ class BearerAuthenticationIntegrationTest {
         registry.add("spring.security.oauth2.client.provider.memoryos.user-info-uri",
                 () -> ISSUER + "/userinfo");
         registry.add("spring.security.oauth2.client.provider.memoryos.user-name-attribute", () -> "sub");
-        registry.add(
-                "arconia.multitenancy.resolution.fixed.tenant-identifier",
-                () -> "10000000-0000-0000-0000-000000000024"
-        );
         registry.add("memoryos.initial-tenant.id", () -> "10000000-0000-0000-0000-000000000024");
         registry.add("memoryos.initial-tenant.owner-subject", () -> "startup-owner");
         registry.add("memoryos.initial-tenant.slug", () -> "test");

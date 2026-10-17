@@ -11,6 +11,7 @@ import io.memoryos.api.chat.contract.ResearchCitation;
 import io.memoryos.api.chat.contract.ResearchPlanEvent;
 import io.memoryos.api.chat.contract.ResetEvent;
 import io.memoryos.api.chat.contract.TextEvent;
+import io.memoryos.api.chat.contract.ToolApp;
 import io.memoryos.api.chat.contract.ToolEvent;
 import io.memoryos.api.chat.contract.TopLevelBranchingEvent;
 import io.memoryos.api.chat.contract.ToolApprovalEvent;
@@ -92,7 +93,8 @@ final class ChatEventStream {
                 var tool = progress.tool();
                 yield new ToolEvent(assistant, sequence, tool.toolCallId(), tool.toolName(), tool.stage(),
                         tool.source() == null ? null : ChatSourceResponse.from(tool.source()), tool.search(), tool.documents(),
-                        tool.durationMs(), tool.parentToolCallId(), tool.tabIndex(), tool.failure());
+                        tool.durationMs(), tool.parentToolCallId(), tool.tabIndex(), tool.failure(),
+                        tool.app() == null ? null : ToolApp.from(tool.app()));
             }
             case ImageProgress progress -> {
                 var image = progress.image();

@@ -27,7 +27,6 @@ import org.springframework.test.context.DynamicPropertySource;
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
-                "arconia.dev.services.redis.enabled=false",
                 "spring.data.redis.host=127.0.0.1",
                 "spring.data.redis.port=1",
                 "spring.data.redis.connect-timeout=100ms",

@@ -34,6 +34,10 @@ public class McpServerToolEntity implements Persistable<UUID> {
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 8) private McpToolPolicy policy = McpToolPolicy.OFF;
     /** An administrator chose the policy, so a refresh keeps it instead of applying the default. */
     @Column(name = "policy_customized", nullable = false) private boolean policyCustomized;
+    /** The tool's MCP Apps view (MEM-275). */
+    @Column(name = "app_resource_uri", length = 1024) private @Nullable String appResourceUri;
+    @Column(name = "model_visible", nullable = false) private boolean modelVisible = true;
+    @Column(name = "app_visible", nullable = false) private boolean appVisible = true;
     @Column(name = "snapshot_at", nullable = false) private Instant snapshotAt;
     @Version private long revision = 1;
     @Transient private boolean fresh = true;
@@ -48,6 +52,11 @@ public class McpServerToolEntity implements Persistable<UUID> {
                          boolean readOnly, Instant at) {
         this.title = title; this.description = description; this.inputSchema = inputSchema;
         this.annotations = annotations; this.readOnly = readOnly; snapshotAt = at;
+    }
+
+    /** The tool's view and who may call it, from the same listing as {@link #snapshot}. */
+    public void app(@Nullable String resourceUri, boolean modelVisible, boolean appVisible) {
+        appResourceUri = resourceUri; this.modelVisible = modelVisible; this.appVisible = appVisible;
     }
 
     public void policy(McpToolPolicy policy, boolean customized) {
@@ -68,6 +77,9 @@ public class McpServerToolEntity implements Persistable<UUID> {
     public boolean readOnly() { return readOnly; }
     public McpToolPolicy policy() { return policy; }
     public boolean policyCustomized() { return policyCustomized; }
+    public @Nullable String appResourceUri() { return appResourceUri; }
+    public boolean modelVisible() { return modelVisible; }
+    public boolean appVisible() { return appVisible; }
     public Instant snapshotAt() { return snapshotAt; }
     public long revision() { return revision; }
 }

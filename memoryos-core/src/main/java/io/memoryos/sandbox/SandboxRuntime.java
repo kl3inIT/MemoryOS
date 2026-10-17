@@ -1,6 +1,8 @@
 package io.memoryos.sandbox;
 
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -24,6 +26,15 @@ public interface SandboxRuntime {
     SandboxCommandResult run(String id, SandboxCommand command);
 
     void write(String id, String path, byte[] content);
+
+    /** Writes the file from {@code content}, which the caller closes, streaming where the runtime can. */
+    default void write(String id, String path, InputStream content) {
+        try {
+            write(id, path, content.readAllBytes());
+        } catch (IOException failed) {
+            throw new UncheckedIOException(failed);
+        }
+    }
 
     /** At most {@code maxBytes}; a longer file is a {@link IllegalArgumentException}. */
     byte[] read(String id, String path, long maxBytes);

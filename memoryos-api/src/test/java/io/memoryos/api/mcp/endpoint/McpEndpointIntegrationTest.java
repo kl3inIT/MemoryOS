@@ -114,7 +114,6 @@ class McpEndpointIntegrationTest {
         registry.add("spring.security.oauth2.client.provider.memoryos.jwk-set-uri", () -> ISSUER + "/jwks");
         registry.add("spring.security.oauth2.client.provider.memoryos.user-info-uri", () -> ISSUER + "/userinfo");
         registry.add("spring.security.oauth2.client.provider.memoryos.user-name-attribute", () -> "sub");
-        registry.add("arconia.multitenancy.resolution.fixed.tenant-identifier", () -> TENANT);
         registry.add("memoryos.initial-tenant.id", () -> TENANT);
         registry.add("memoryos.initial-tenant.owner-subject", () -> OWNER);
         registry.add("memoryos.initial-tenant.slug", () -> "test");

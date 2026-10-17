@@ -164,6 +164,8 @@ describe("AgentEditorPage", () => {
             name: "HR questions",
             botName: "HR bot",
             enabled: false,
+            byDefault: true,
+            groups: [],
           },
         ],
       }),
@@ -184,6 +186,21 @@ describe("AgentEditorPage", () => {
       "true",
     );
     expect(screen.queryByRole("tab", { name: "Channels" })).not.toBeInTheDocument();
+  });
+
+  it("shows Cancel and Save only on the Configure tab, keeping the unsaved state on the others", async () => {
+    const user = await renderEditor();
+    await user.type(await screen.findByRole("textbox", { name: "Title" }), " lead");
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+
+    await user.click(screen.getByRole("tab", { name: "Share" }));
+    expect(screen.getByText("Unsaved changes")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Cancel" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Configure" }));
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+    expect(screen.getByRole("link", { name: "Cancel" })).toBeVisible();
   });
 
   it("saves in place, then starts again from what the server kept", async () => {

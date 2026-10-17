@@ -20,6 +20,7 @@ import io.memoryos.library.UserFile;
 import io.memoryos.chat.ChatContextUse;
 import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatSource;
+import io.memoryos.chat.ChatToolApp;
 import io.memoryos.chat.ChatToolTranscript;
 import io.memoryos.chat.ChatTurnOptions;
 import io.memoryos.ai.ModelBinding;
@@ -463,10 +464,14 @@ public class ChatTurnPersistence {
         }
     }
 
-    /** MEM-287: keeps a finished answer's tool calls for later turns of its branch. */
+    /**
+     * MEM-287: keeps a finished answer's tool calls for later turns of its branch, and (MEM-275) the views of its MCP
+     * calls for its owner's screen.
+     */
     @Transactional
-    public void recordToolCalls(UUID assistant, List<ChatToolTranscript.Call> calls) {
+    public void recordToolCalls(UUID assistant, List<ChatToolTranscript.Call> calls, List<ChatToolApp> apps) {
         if (!calls.isEmpty()) chats.saveToolCalls(assistant, calls);
+        if (!apps.isEmpty()) chats.saveToolApps(assistant, apps);
     }
 
     /** Renews rows still RUNNING and returns their IDs; a missing ID means the run no longer owns its row. */

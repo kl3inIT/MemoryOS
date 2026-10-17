@@ -90,6 +90,7 @@ function AgentEditor({ agent, tab, onTabChange }: { agent: Persona } & TabProps)
   const revision = useAgentRevision(agent);
   const choices = useAgentChoices(agent);
   const { form, dirty, saved, editable, blocker } = useAgentForm(agent, revision);
+  const shown = agent.builtin && tab === "channels" ? "config" : tab;
   const status = !editable
     ? ui("Chỉ xem")
     : dirty
@@ -113,10 +114,13 @@ function AgentEditor({ agent, tab, onTabChange }: { agent: Persona } & TabProps)
             <span role="status" className="hidden font-secondary-body text-content-muted sm:inline">
               {status}
             </span>
-            <Button asChild size="sm" prominence="secondary">
-              <Link to="/agents">{editable ? ui("Hủy") : ui("Đóng")}</Link>
-            </Button>
-            {editable && (
+            {/* Kênh and Chia sẻ save on change; Hủy and Lưu belong to the configuration form alone. */}
+            {shown === "config" && (
+              <Button asChild size="sm" prominence="secondary">
+                <Link to="/agents">{editable ? ui("Hủy") : ui("Đóng")}</Link>
+              </Button>
+            )}
+            {editable && shown === "config" && (
               <form.Subscribe selector={(state) => state.values.name.trim() !== ""}>
                 {(named) => {
                   const reason = !named
@@ -158,7 +162,7 @@ function AgentEditor({ agent, tab, onTabChange }: { agent: Persona } & TabProps)
       />
       <div className="flex h-full min-h-0 flex-col">
         <Tabs
-          value={agent.builtin && tab === "channels" ? "config" : tab}
+          value={shown}
           onValueChange={(value) => onTabChange(value as AgentEditorTab)}
           className="min-h-0 flex-1"
         >

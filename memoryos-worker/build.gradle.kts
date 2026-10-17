@@ -10,7 +10,6 @@ extra["opentelemetry.version"] = libs.versions.opentelemetry.get()
 
 dependencies {
     implementation(project(":memoryos-core"))
-    implementation(platform(libs.arconia.bom))
     implementation(platform(libs.otel.instrumentation.bom))
     implementation(libs.spring.boot.starter)
     implementation(libs.spring.boot.starter.opentelemetry)
@@ -29,8 +28,6 @@ dependencies {
     runtimeOnly(project(":memoryos-extraction"))
     runtimeOnly(libs.postgresql)
     runtimeOnly(libs.commons.pool2)
-    testAndDevelopmentOnly(platform(libs.arconia.bom))
-    testAndDevelopmentOnly(libs.arconia.spring.boot)
     testImplementation(platform(libs.aws.sdk.bom))
     testImplementation(libs.aws.sdk.s3)
     testImplementation(libs.aws.sdk.auth)
@@ -44,4 +41,9 @@ dependencies {
     testImplementation(libs.flyway.core)
     testRuntimeOnly(libs.flyway.database.postgresql)
     testRuntimeOnly(libs.junit.platform.launcher)
+}
+
+// A local run is a development run; staging and production images select their own profiles.
+tasks.bootRun {
+    systemProperty("spring.profiles.active", "development")
 }

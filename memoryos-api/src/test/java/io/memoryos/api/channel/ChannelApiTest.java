@@ -3,6 +3,7 @@ package io.memoryos.api.channel;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -19,11 +20,14 @@ import io.memoryos.api.ApiPostgresDatabase;
 import io.memoryos.api.security.ActorAuthenticationToken;
 import io.memoryos.channel.ChannelConnection;
 import io.memoryos.channel.ChannelConnectionService;
+import io.memoryos.channel.ChannelConnectionService.Answering;
+import io.memoryos.channel.ChannelConnectionService.Group;
 import io.memoryos.channel.ChannelConnectionService.Listed;
 import io.memoryos.channel.ChannelConnectionState;
 import io.memoryos.channel.ChannelCredentials;
 import io.memoryos.channel.ChannelDelivery;
 import io.memoryos.channel.ChannelException;
+import io.memoryos.channel.ChannelGroup;
 import io.memoryos.channel.ChannelLink;
 import io.memoryos.channel.ChannelLinkCode;
 import io.memoryos.channel.ChannelLinkService;
@@ -63,7 +67,6 @@ import org.testcontainers.junit.jupiter.Testcontainers;
         "memoryos.google-drive.credential-encryption-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
         "memoryos.google-drive.credential-key-version=test-v1",
         "spring.security.oauth2.client.registration.memoryos.client-secret=client-secret",
-        "arconia.multitenancy.resolution.fixed.tenant-identifier=10000000-0000-0000-0000-000000000246",
         "memoryos.initial-tenant.id=10000000-0000-0000-0000-000000000246",
         "memoryos.initial-tenant.owner-subject=channels-owner",
         "memoryos.initial-tenant.slug=channels",
@@ -255,14 +258,65 @@ class ChannelApiTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("CHANNEL_ASSISTANT_NOT_EDITABLE"));
 
-        when(channels.boundTo(any(), eq(hr))).thenReturn(List.of(bot));
+        var group = new ChannelGroup("oc_hr", "Phòng Nhân sự", null, Instant.now(), Instant.now());
+        when(channels.boundTo(any(), eq(hr))).thenReturn(List.of(new Answering(bot, false, List.of(group))));
         mockMvc.perform(get("/api/chat/personas/{id}/channels", hr).with(authentication(member)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(id.toString()))
                 .andExpect(jsonPath("$[0].provider").value("LARK"))
                 .andExpect(jsonPath("$[0].botName").value("MemoryOS Bot"))
+                .andExpect(jsonPath("$[0].byDefault").value(false))
+                .andExpect(jsonPath("$[0].groups[0].id").value("oc_hr"))
+                .andExpect(jsonPath("$[0].groups[0].name").value("Phòng Nhân sự"))
                 .andExpect(jsonPath("$[0].appId").doesNotExist())
                 .andExpect(jsonPath("$[0].serviceAccountId").doesNotExist());
+    }
+
+    /** MEM-273: a group chat the bot answered in is listed, given its own assistant, named and forgotten. */
+    @Test
+    void aBotsGroupChatsAreListedGivenAnAssistantNamedAndForgotten() throws Exception {
+        var id = UUID.randomUUID();
+        var hr = UUID.randomUUID();
+        var seen = Instant.parse("2026-10-17T02:00:00Z");
+        var group = new ChannelGroup("oc_hr", "Phòng Nhân sự", "Nhân sự HN", seen, seen.plusSeconds(60));
+        when(channels.groups(any(), eq(id))).thenReturn(List.of(new Group(group, hr, "Nhân sự")));
+        mockMvc.perform(get("/api/channels/{id}/groups", id).with(authentication(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value("oc_hr"))
+                .andExpect(jsonPath("$[0].label").value("Nhân sự HN"))
+                .andExpect(jsonPath("$[0].name").value("Phòng Nhân sự"))
+                .andExpect(jsonPath("$[0].lastMessageAt").value("2026-10-17T02:01:00Z"))
+                .andExpect(jsonPath("$[0].assistant.id").value(hr.toString()))
+                .andExpect(jsonPath("$[0].assistant.name").value("Nhân sự"));
+
+        mockMvc.perform(put("/api/channels/{id}/groups/{group}/persona", id, "oc_hr").with(authentication(owner))
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"personaId\":\"%s\"}".formatted(hr)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.assistant.name").value("Nhân sự"));
+        verify(channels).bindGroupPersona(any(), eq(id), eq("oc_hr"), eq(hr));
+
+        doThrow(ChannelException.groupNotFound()).when(channels)
+                .bindGroupPersona(any(), eq(id), eq("oc_gone"), any());
+        mockMvc.perform(put("/api/channels/{id}/groups/{group}/persona", id, "oc_gone").with(authentication(owner))
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("{\"personaId\":null}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("CHANNEL_GROUP_NOT_FOUND"));
+
+        mockMvc.perform(put("/api/channels/{id}/groups/{group}/label", id, "oc_hr").with(authentication(owner))
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"label\":\"Nhân sự HN\"}"))
+                .andExpect(status().isOk());
+        verify(channels).labelGroup(any(), eq(id), eq("oc_hr"), eq("Nhân sự HN"));
+        mockMvc.perform(put("/api/channels/{id}/groups/{group}/label", id, "oc_hr").with(authentication(owner))
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"label\":\"%s\"}".formatted("x".repeat(101))))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(delete("/api/channels/{id}/groups/{group}", id, "oc_hr").with(authentication(owner))
+                        .header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isNoContent());
+        verify(channels).forgetGroup(any(), eq(id), eq("oc_hr"));
     }
 
     @Test

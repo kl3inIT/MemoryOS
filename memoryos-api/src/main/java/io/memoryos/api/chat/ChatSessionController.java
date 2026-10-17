@@ -7,9 +7,11 @@ import io.memoryos.api.chat.contract.CreateChatSessionRequest;
 import io.memoryos.api.chat.contract.ChatMessageResponse;
 import io.memoryos.api.chat.contract.ChatSessionResponse;
 import io.memoryos.api.chat.contract.ChatSessionSearchResponse;
+import io.memoryos.api.chat.contract.ToolApp;
 import io.memoryos.chat.ChatBranchService;
 import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatSessionService;
+import io.memoryos.chat.ChatToolAppService;
 import io.memoryos.chat.ChatTurnService;
 import io.memoryos.chat.ChatWorkspaceService;
 import io.memoryos.chat.image.ImageArtifactService;
@@ -53,12 +55,13 @@ class ChatSessionController {
     private final InterpreterService interpreter;
     private final ChatTurnService turns;
     private final ChatBranchService branches;
+    private final ChatToolAppService apps;
 
     ChatSessionController(ChatSessionService sessions, ChatWorkspaceService workspace, ImageArtifactService images,
             InterpreterService interpreter, ChatTurnService turns,
-            ChatBranchService branches) {
+            ChatBranchService branches, ChatToolAppService apps) {
         this.sessions = sessions; this.workspace = workspace; this.images = images; this.interpreter = interpreter;
-        this.turns = turns; this.branches = branches;
+        this.turns = turns; this.branches = branches; this.apps = apps;
     }
 
     @DeleteMapping
@@ -159,13 +162,15 @@ class ChatSessionController {
                 .filter(message -> message.role() == ChatMessage.Role.ASSISTANT).map(ChatMessage::id).toList();
         var byMessage = images.forMessages(identity.actorId(), assistantIds);
         var filesByMessage = interpreter.forMessages(identity.actorId(), assistantIds);
+        var appsByMessage = apps.forMessages(identity.actorId(), sessionId, assistantIds);
         return messages.stream().map(message -> ChatMessageResponse.from(message,
                 byMessage.getOrDefault(message.id(), List.of()).stream()
                         .map(artifact -> new ChatMessageResponse.ImageRef(artifact.id(), artifact.mediaType(),
                                 artifact.revisedPrompt(), artifact.deleted())).toList(),
                 filesByMessage.getOrDefault(message.id(), List.of()).stream()
                         .map(file -> new ChatMessageResponse.GeneratedFileRef(file.id(), file.filename(), file.mediaType(),
-                                file.sizeBytes(), file.chart(), file.deleted())).toList())).toList();
+                                file.sizeBytes(), file.chart(), file.deleted())).toList(),
+                appsByMessage.getOrDefault(message.id(), List.of()).stream().map(ToolApp::from).toList())).toList();
     }
 
 }

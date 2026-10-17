@@ -279,7 +279,7 @@ class ChannelLinkServiceTest {
 
         @Override public ChannelSender sender(ChannelConnection connection, String senderId) { return new ChannelSender(null); }
 
-        @Override public boolean externalChat(ChannelConnection connection, String chatId) { return false; }
+        @Override public ChannelChat chat(ChannelConnection connection, String chatId) { return ChannelChat.UNNAMED; }
 
         @Override public Map<String, String> settings(Map<String, String> requested) { return requested; }
     }

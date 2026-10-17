@@ -34,9 +34,7 @@ dependencies {
     implementation(libs.mcp)
     implementation(libs.bucket4j.core)
     implementation(libs.caffeine)
-    implementation(platform(libs.arconia.bom))
     implementation(platform(libs.otel.instrumentation.bom))
-    implementation(libs.arconia.multitenancy.web)
     implementation(libs.spring.boot.starter.opentelemetry)
     implementation(libs.otel.logback.appender)
     runtimeOnly(libs.micrometer.registry.otlp)
@@ -54,9 +52,6 @@ dependencies {
     implementation(libs.spring.boot.starter.websocket)
     runtimeOnly(libs.flyway.database.postgresql)
     runtimeOnly(libs.postgresql)
-    testAndDevelopmentOnly(platform(libs.arconia.bom))
-    testAndDevelopmentOnly(libs.arconia.dev.services.postgresql)
-    testAndDevelopmentOnly(libs.arconia.dev.services.redis)
 
     testImplementation(libs.spring.boot.starter.actuator.test)
     testImplementation(libs.testcontainers.junit.jupiter)
@@ -70,7 +65,6 @@ dependencies {
 }
 
 tasks.named<Test>("test") {
-    systemProperty("arconia.dev.services.postgresql.enabled", "false")
     // Cached integration contexts own token vocabularies, HTTP servers and pools.
     systemProperty("spring.test.context.cache.maxSize", "2")
     // Two cached full application contexts no longer fit Gradle's 512 MiB test default.
@@ -93,4 +87,9 @@ tasks.named<Test>("test") {
 
 springBoot {
     mainClass = "io.memoryos.api.MemoryOsApiApplication"
+}
+
+// A local run is a development run; staging and production images select their own profiles.
+tasks.bootRun {
+    systemProperty("spring.profiles.active", "development")
 }

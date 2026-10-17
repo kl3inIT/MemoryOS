@@ -42,6 +42,7 @@ const message = (id: string, role: ChatMessage["role"], status: ChatMessage["sta
     activity: { steps: [], reasoning: [] },
     images: [],
     generatedFiles: [],
+    apps: [],
     research: { clarification: false, plan: null, agents: [] },
     failureCode: null,
     refusalReason: null,

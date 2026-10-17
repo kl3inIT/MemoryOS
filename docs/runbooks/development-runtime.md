@@ -12,9 +12,9 @@
 
 ## Environment boundaries
 
-Infisical `dev` is the developer-local environment. Its shared keys are the runnable baseline; each engineer uses Infisical personal-secret overrides for credentials or endpoints that differ on their machine. Arconia reads `META-INF/arconia-bootstrap.properties` and activates only `development` in its development bootstrap mode, for both Gradle `bootRun` and the checked-in direct IntelliJ configurations. The persistent local Compose runtime owns PostgreSQL on fixed loopback port `55432` and Redis on fixed loopback port `56379`; API and worker connect to both. Object storage is intentionally not synthesized by Arconia: both processes use the same explicitly configured development S3/MinIO service, bucket, and sentinel, with a browser-reachable upload endpoint. The profile selects application-focused DEBUG logging while keeping Spring Security at INFO so authorization headers, tokens, claims, and presigned query strings are not expanded into logs.
+Infisical `dev` is the developer-local environment. Its shared keys are the runnable baseline; each engineer uses Infisical personal-secret overrides for credentials or endpoints that differ on their machine. Gradle `bootRun` and the checked-in direct IntelliJ configurations activate only the `development` profile. The persistent local Compose runtime owns PostgreSQL on fixed loopback port `55432` and Redis on fixed loopback port `56379`; API and worker connect to both. Object storage is not synthesized: both processes use the same explicitly configured development S3/MinIO service, bucket, and sentinel, with a browser-reachable upload endpoint. The profile selects application-focused DEBUG logging while keeping Spring Security at INFO so authorization headers, tokens, claims, and presigned query strings are not expanded into logs.
 
-Terminal launches must explicitly set `ARCONIA_BOOTSTRAP_MODE=dev`, as the checked-in IntelliJ configurations do. `infisical --env=dev` selects the secret environment, not the Spring profile, and `bootRun` alone does not select Arconia development mode. Without that mode, the API can fall back to Spring's `default` profile and fail datasource initialization with `'url' must start with "jdbc"`. Correct the launch mode rather than inventing a JDBC URL or pointing the local application at staging.
+`bootRun` sets the `development` profile itself; `infisical --env=dev` selects the secret environment, not the Spring profile. A launch without that profile falls back to Spring's `default` profile and fails datasource initialization with `'url' must start with "jdbc"`. Correct the launch rather than inventing a JDBC URL or pointing the local application at staging.
 
 The user-authorized remote OCR cutover stores its endpoint, optional API key and observed engine revision in **shared dev**, rather than developer-personal overrides. Developers using this baseline need the trusted VPN for PDF/DOCX/PPTX extraction. See the [Docling runtime runbook](docling-extraction.md#local-or-authenticated-remote-runtime); this does not change staging or the local database/queue isolation policy.
 
@@ -23,7 +23,6 @@ Start the persistent dependencies, then a local API without exporting secret val
 ```powershell
 docker compose -f infrastructure/deployment/compose.development.yaml up -d --wait
 
-$env:ARCONIA_BOOTSTRAP_MODE = "dev"
 $env:SERVER_PORT = "18080"
 infisical run --env=dev --projectId=<memoryos-project-id> -- .\gradlew.bat :memoryos-api:bootRun --no-daemon
 ```
@@ -85,7 +84,7 @@ The image entrypoint fetches nothing over the network: its launcher turns every 
 | `MEMORYOS_WORKER_MEMORY_LIMIT` | No | Memory limit of each Worker container, default `4g`. The Worker's heap is half of it; the rest holds the Tika child JVMs and the tmpfs. |
 | `MEMORYOS_WORKER_AOT_VOLUME` | No | Docker volume holding the Worker's two newest JDK AOT caches (about 200 MB each), default `memoryos-worker-aot`. `deploy.sh` has each release's image make its cache before it stops the running Worker; the volume holds no data and may be deleted. |
 | `MEMORYOS_EXTRACTION_TIKA_MAX_PROCESSES` | No | Tika child JVMs one Worker runs at once, default `2`; each may use 512 MB of heap inside the Worker's memory limit. Reads beyond it wait. |
-| `SPRING_PROFILES_ACTIVE` | No | Local Gradle and IntelliJ launches use Arconia development bootstrap mode, whose checked-in bootstrap properties activate `development`. Staging Compose forces API `staging` and worker `production,staging`; production Compose forces `production`. |
+| `SPRING_PROFILES_ACTIVE` | No | Gradle `bootRun` and the IntelliJ configurations activate `development`. Staging Compose forces API `staging` and worker `production,staging`; production Compose forces `production`. |
 
 `MEMORYOS_INVITATION_TTL`, `MEMORYOS_SESSION_TIMEOUT` (8 hours unused; a session also ends 7 days after the password, with Keycloak's SSO session), object-upload lifetime/lease/batch tuning, the two worker workload batch keys, and Redis timeout/pool tuning keys are optional. Keep them out of managed secret storage until an environment has an approved reason to override checked-in defaults; production object-storage endpoints/identity, Redis identity/authentication/TLS, and scheduler-name values are required.
 
@@ -130,7 +129,6 @@ OMP JavaScript debugging requires Microsoft `vscode-js-debug`; install the pinne
 For Spring Boot attach debugging, load the normal managed runtime environment first, then start the checked-in wrapper in suspended JDWP mode:
 
 ```powershell
-$env:ARCONIA_BOOTSTRAP_MODE = "dev"
 .\gradlew.bat :memoryos-api:bootRun --debug-jvm --no-daemon
 ```
 
@@ -245,7 +243,7 @@ infisical login
 
 The checked-in Windows configuration uses the stable built-in interpreter `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`; it does not depend on IntelliJ resolving the Microsoft Store `pwsh.exe` alias.
 
-IntelliJ imports the shared `MemoryOS API Dev`, `MemoryOS Worker Dev`, and `Sync Infisical Dev Env` configurations from `.run/`. Both application configurations run the sync task before compilation, require `file:$PROJECT_DIR$/.memoryos-dev.yaml` through Spring Config Data, and force Arconia's existing `dev` bootstrap mode; `META-INF/arconia-bootstrap.properties` selects the existing `development` Spring profile. The sync task atomically refreshes the ignored root cache from project `90ae5a61-2159-47c2-a463-5a71beee234d`, environment `dev`. A failed or empty export leaves the last valid cache intact and prevents application launch. Concurrent refreshes use collision-safe same-directory exports and atomically promote only a complete cache, but that does not relax the requirement to start the named local dependencies first. Never commit or share the cache; delete it when access is removed and run `infisical login` again when the CLI session expires.
+IntelliJ imports the shared `MemoryOS API Dev`, `MemoryOS Worker Dev`, and `Sync Infisical Dev Env` configurations from `.run/`. Both application configurations run the sync task before compilation, require `file:$PROJECT_DIR$/.memoryos-dev.yaml` through Spring Config Data, and set `SPRING_PROFILES_ACTIVE=development`. The sync task atomically refreshes the ignored root cache from project `90ae5a61-2159-47c2-a463-5a71beee234d`, environment `dev`. A failed or empty export leaves the last valid cache intact and prevents application launch. Concurrent refreshes use collision-safe same-directory exports and atomically promote only a complete cache, but that does not relax the requirement to start the named local dependencies first. Never commit or share the cache; delete it when access is removed and run `infisical login` again when the CLI session expires.
 
 Launch the direct configurations in this order:
 
@@ -256,10 +254,9 @@ Launch the direct configurations in this order:
 
 For full runtime verification, launch both direct IntelliJ configurations, observe the single `development` profile, and confirm API health plus worker readiness. XML parsing and Gradle checks do not prove this end-to-end launch; record explicitly when missing development prerequisites or host resource limits prevent it.
 
-For a terminal-only managed API launch, do not open a staging tunnel. Set `ARCONIA_BOOTSTRAP_MODE=dev` and `SERVER_PORT=18080`, then let Infisical inject the same `dev` values:
+For a terminal-only managed API launch, do not open a staging tunnel. Set `SERVER_PORT=18080`, then let Infisical inject the same `dev` values:
 
 ```powershell
-$env:ARCONIA_BOOTSTRAP_MODE = "dev"
 $env:SERVER_PORT = "18080"
 infisical run --env=dev --projectId=90ae5a61-2159-47c2-a463-5a71beee234d -- .\gradlew.bat :memoryos-api:bootRun --no-daemon
 ```
@@ -303,7 +300,6 @@ $env:MEMORYOS_INITIAL_TENANT_CHANGE_REFERENCE = "<approved development/change re
 
 $env:MEMORYOS_SESSION_COOKIE_SECURE = "false" # localhost HTTP verification only
 
-$env:ARCONIA_BOOTSTRAP_MODE = "dev"
 .\gradlew.bat :memoryos-api:bootRun --no-daemon
 ```
 
@@ -539,11 +535,10 @@ Open `/oauth2/authorization/memoryos` to start browser login. Confirm the Keyclo
 Start the API first and wait for its health endpoint so Flyway completes. Then run `MemoryOS Worker Dev` as described above or, in a second terminal, launch the persistent worker with the same managed development values:
 
 ```powershell
-$env:ARCONIA_BOOTSTRAP_MODE = "dev"
 infisical run --env=dev --projectId=90ae5a61-2159-47c2-a463-5a71beee234d -- .\gradlew.bat :memoryos-worker:bootRun --no-daemon
 ```
 
-Do not supply a staging database or Redis endpoint to this command. In development, the worker connects to the named persistent PostgreSQL service on `55432` and Redis service on `56379`; its classpath deliberately contains no Arconia Dev Service provider, so it cannot create a competing container. The worker serves readiness on port `8081` by default and remains resident: db-scheduler persistently owns topology, bounded inactive-Tenant index cancellation, and separate ingestion and cleanup relay tasks, while fixed consumer-group loops process both workloads. Relays publish identifier-only deliveries from PostgreSQL authority into workload-specific Redis Streams; consumers claim the authoritative operation by identifier, renew long indexing leases, finalize durably, then acknowledge and delete the transport record. Redis pending reclaim also requires an expired or absent PostgreSQL processing lease, and bounded rediscovery repairs nonterminal work after stream loss.
+Do not supply a staging database or Redis endpoint to this command. In development, the worker connects to the named persistent PostgreSQL service on `55432` and Redis service on `56379`; it never creates a container of its own. The worker serves readiness on port `8081` by default and remains resident: db-scheduler persistently owns topology, bounded inactive-Tenant index cancellation, and separate ingestion and cleanup relay tasks, while fixed consumer-group loops process both workloads. Relays publish identifier-only deliveries from PostgreSQL authority into workload-specific Redis Streams; consumers claim the authoritative operation by identifier, renew long indexing leases, finalize durably, then acknowledge and delete the transport record. Redis pending reclaim also requires an expired or absent PostgreSQL processing lease, and bounded rediscovery repairs nonterminal work after stream loss.
 
 The same development object-storage service, bucket, credentials, and sentinel used by the API must be reachable for worker readiness and FILE processing. PDF, DOCX, and PPTX processing additionally requires the configured Docling Serve endpoint; TXT and Markdown use the bounded Tika child JVM on the worker runtime classpath. The direct IntelliJ configuration uses Java `@argFiles` so `java.class.path` contains the actual `:memoryos-worker` and runtime `:sources` entries inherited by that child; packaged images instead set `MEMORYOS_EXTRACTION_CLASSPATH` explicitly. Production requires explicit Redis endpoint, ACL, TLS, timeout/pool, and scheduler-name values.
 

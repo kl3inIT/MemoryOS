@@ -121,10 +121,6 @@ class SessionSecurityIntegrationTest {
         registry.add("spring.security.oauth2.client.registration.memoryos.scope", () -> "openid");
         registry.add("spring.security.oauth2.client.registration.memoryos.provider", () -> "memoryos");
         registry.add("spring.security.oauth2.client.provider.memoryos.issuer-uri", () -> ISSUER);
-        registry.add(
-                "arconia.multitenancy.resolution.fixed.tenant-identifier",
-                () -> "10000000-0000-0000-0000-000000000024"
-        );
         registry.add("memoryos.initial-tenant.id", () -> "10000000-0000-0000-0000-000000000024");
         registry.add("memoryos.initial-tenant.owner-subject", () -> "initial-owner");
         registry.add("memoryos.initial-tenant.slug", () -> "tasco");

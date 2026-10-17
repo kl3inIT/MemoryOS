@@ -10,7 +10,6 @@ tika = "4.1.0"
 jsoup = "1.23.2"
 pdfbox = "3.0.8"
 imageio = "3.15.3"
-arconia = "0.31.0"
 db-scheduler = "16.12.0"
 aws-sdk = "2.56.0"
 docling-java = "0.7.0"
@@ -35,7 +34,7 @@ typesafe = "0.4.0"
 # The Spring AI BOM does not manage it, and Spring AI 2.0.1 still resolves 2.0.0. MEM-114 needs 2.0.1: a stateless
 # server answers an unregistered method (ChatGPT calls resources/list) with a JSON-RPC error instead of 500, and HTTP
 # reads are bounded.
-mcp-sdk = "2.0.1"
+mcp-sdk = "2.1.0"
 # MEM-114 rate limit of the MCP endpoint.
 bucket4j = "8.21.0"
 
@@ -82,11 +81,6 @@ aws-sdk-bom = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk" }
 aws-sdk-s3 = { module = "software.amazon.awssdk:s3" }
 aws-sdk-auth = { module = "software.amazon.awssdk:auth" }
 aws-sdk-url-connection-client = { module = "software.amazon.awssdk:url-connection-client" }
-arconia-bom = { module = "io.arconia:arconia-bom", version.ref = "arconia" }
-arconia-spring-boot = { module = "io.arconia:arconia-spring-boot" }
-arconia-multitenancy-web = { module = "io.arconia:arconia-multitenancy-web-spring-boot-starter" }
-arconia-dev-services-redis = { module = "io.arconia:arconia-dev-services-redis" }
-arconia-dev-services-postgresql = { module = "io.arconia:arconia-dev-services-postgresql" }
 db-scheduler-spring-boot4 = { module = "com.github.kagkarlsson:db-scheduler-spring-boot-4-starter", version.ref = "db-scheduler" }
 spring-modulith-bom = { module = "org.springframework.modulith:spring-modulith-bom", version.ref = "spring-modulith" }
 spring-modulith-api = { module = "org.springframework.modulith:spring-modulith-api" }

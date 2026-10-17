@@ -32,6 +32,8 @@ public final class ChatToolTranscript {
     public static final int FIELD_BYTES = 65_536;
     /** All calls of one answer together; past it the remaining results are not kept. */
     public static final int MESSAGE_BYTES = 262_144;
+    /** All views of one answer together. */
+    public static final int APP_MESSAGE_BYTES = 1_048_576;
     private static final String CUT = "\n[cut: the rest of this result is not kept]";
     private static final String ARGUMENTS_NOT_KEPT = "{\"note\":\"The arguments of this call were too large to keep.\"}";
     private static final String ARGUMENTS_WITHHELD = "{\"note\":\"The arguments of this call are not kept.\"}";
@@ -45,7 +47,9 @@ public final class ChatToolTranscript {
     }
 
     private final List<Call> calls = new ArrayList<>();
+    private final List<ChatToolApp> apps = new ArrayList<>();
     private long bytes;
+    private long appBytes;
     private boolean organizationContent;
 
     /** Keeps one finished call, applying the kept-result list and the byte bounds. */
@@ -67,6 +71,21 @@ public final class ChatToolTranscript {
 
     public synchronized List<Call> calls() {
         return List.copyOf(calls);
+    }
+
+    /**
+     * Keeps the MCP Apps view of one call (MEM-275), apart from the replayed calls: it is shown to the conversation's
+     * owner, never to the model. Past {@link #APP_MESSAGE_BYTES} for the answer, further views are not kept.
+     */
+    public synchronized void app(ChatToolApp app) {
+        long size = utf8(app.input()) + utf8(app.output());
+        if (appBytes + size > APP_MESSAGE_BYTES || apps.size() >= ChatActivity.MAX_ITEMS) return;
+        appBytes += size;
+        apps.add(app);
+    }
+
+    public synchronized List<ChatToolApp> apps() {
+        return List.copyOf(apps);
     }
 
     /** {@code text} within {@link #FIELD_BYTES} UTF-8 bytes, ending with {@code marker} when cut. */

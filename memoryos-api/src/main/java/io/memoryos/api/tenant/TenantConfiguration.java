@@ -1,15 +1,9 @@
 package io.memoryos.api.tenant;
 
-import io.arconia.multitenancy.core.exceptions.TenantVerificationException;
-import io.arconia.multitenancy.core.tenantdetails.TenantVerifier;
-
 import io.memoryos.iam.ExternalIdentity;
 import io.memoryos.iam.InitialTenantBootstrapRequest;
 import io.memoryos.iam.InitialTenantBootstrapper;
-import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
-
-import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;
@@ -18,26 +12,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Wires the fixed-Tenant runtime: the Arconia tenant verifier and the idempotent initial-Tenant bootstrap.
+ * Wires the idempotent initial-Tenant bootstrap.
  */
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(InitialTenantProperties.class)
 class TenantConfiguration {
-
-    @Bean
-    TenantVerifier tenantVerifier(TenantAccessResolver accessResolver) {
-        return tenantIdentifier -> {
-            TenantId tenantId;
-            try {
-                tenantId = new TenantId(UUID.fromString(tenantIdentifier));
-            } catch (IllegalArgumentException exception) {
-                throw new TenantVerificationException("tenant identifier must be a UUID", exception);
-            }
-            if (!accessResolver.isActiveTenant(tenantId)) {
-                throw new TenantVerificationException("tenant is not active");
-            }
-        };
-    }
 
     @Bean
     ApplicationRunner initialTenantBootstrapRunner(
