@@ -105,7 +105,7 @@ export function ChatThreadComposer({
       <ChatVoiceFailure />
       <ChatSpeakingIndicator />
       <ChatAutoPlayback />
-      <ComposerPrimitive.Unstable_TriggerPopoverRoot>
+      <ComposerPrimitive.TriggerPopoverRoot>
         <ComposerPrimitive.AttachmentDropzone className="rounded-2xl data-[dragging]:ring-2">
           <ChatComposerRoot className="flex w-full flex-col gap-2 rounded-2xl border border-border-default bg-surface-raised p-2.5 shadow-sm transition-colors focus-within:border-border-strong">
             <ChatComposerDraft />
@@ -168,7 +168,7 @@ export function ChatThreadComposer({
             </div>
           </ChatComposerRoot>
         </ComposerPrimitive.AttachmentDropzone>
-      </ComposerPrimitive.Unstable_TriggerPopoverRoot>
+      </ComposerPrimitive.TriggerPopoverRoot>
     </ThreadPrimitive.ViewportFooter>
   );
 }

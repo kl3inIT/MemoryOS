@@ -3,8 +3,8 @@ import { useMemo, useState, type ReactNode } from "react";
 import {
   ComposerPrimitive,
   useAui,
-  type Unstable_TriggerItem,
-  type Unstable_TriggerMatcher,
+  type TriggerItem,
+  type TriggerMatcher,
 } from "@assistant-ui/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
@@ -57,7 +57,7 @@ function CreateShortcutLink() {
 }
 
 // As in Onyx, the whole draft is the query once it starts with "/", so names may contain spaces.
-const draftStartsWithSlash: Unstable_TriggerMatcher = (text, _char, cursor) => {
+const draftStartsWithSlash: TriggerMatcher = (text, _char, cursor) => {
   if (!text.startsWith("/") || cursor < 1) return null;
   const query = text.slice(1, cursor);
   return query.includes("\n") ? null : { query, offset: 0, endOffset: cursor };
@@ -75,7 +75,7 @@ export function ChatPromptShortcutPopover() {
     () => ({
       categories: () => [],
       categoryItems: () => [],
-      search: (query: string): Unstable_TriggerItem[] =>
+      search: (query: string): TriggerItem[] =>
         matchingShortcuts(items, query).map((shortcut) => ({
           id: shortcut.id,
           type: "command",
@@ -87,13 +87,13 @@ export function ChatPromptShortcutPopover() {
   );
   if (!enabled || items.length === 0) return null;
   return (
-    <ComposerPrimitive.Unstable_TriggerPopover
+    <ComposerPrimitive.TriggerPopover
       char="/"
       matcher={draftStartsWithSlash}
       adapter={adapter}
       className="z-50 max-h-80 w-[min(32rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-border-subtle bg-surface-overlay p-1.5 shadow-md"
     >
-      <ComposerPrimitive.Unstable_TriggerPopover.Action
+      <ComposerPrimitive.TriggerPopover.Action
         removeOnExecute
         onExecute={(item) => {
           const shortcut = byId.get(item.id);
@@ -101,23 +101,23 @@ export function ChatPromptShortcutPopover() {
           if (shortcut) setTimeout(() => aui.composer().setText(shortcut.content), 0);
         }}
       />
-      <ComposerPrimitive.Unstable_TriggerPopoverItems>
+      <ComposerPrimitive.TriggerPopoverItems>
         {(found) =>
           found.map((item, index) => (
-            <ComposerPrimitive.Unstable_TriggerPopoverItem
+            <ComposerPrimitive.TriggerPopoverItem
               key={item.id}
               item={item}
               index={index}
               className="flex w-full rounded-lg px-3 py-2 text-left data-[highlighted]:bg-surface-sunken"
             >
               <ShortcutMenuRow name={item.label} content={item.description ?? ""} />
-            </ComposerPrimitive.Unstable_TriggerPopoverItem>
+            </ComposerPrimitive.TriggerPopoverItem>
           ))
         }
-      </ComposerPrimitive.Unstable_TriggerPopoverItems>
+      </ComposerPrimitive.TriggerPopoverItems>
       <Separator className="my-1" />
       <CreateShortcutLink />
-    </ComposerPrimitive.Unstable_TriggerPopover>
+    </ComposerPrimitive.TriggerPopover>
   );
 }
 

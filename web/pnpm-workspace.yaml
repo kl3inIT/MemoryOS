@@ -1,9 +1,9 @@
 allowBuilds:
   msw: false
 # rehype-katex (through @streamdown/math) asks for katex ^0.16, but the stylesheet comes from the direct
-# katex 0.18 dependency, whose class names changed; one version keeps markup and styles in step.
+# katex dependency, whose class names changed since 0.16; one version keeps markup and styles in step.
 overrides:
-  katex: 0.18.9
+  katex: 0.19.0
   # Patched releases for advisories reached only through the shadcn CLI (GHSA-rpw4-54j3-4h4q, GHSA-2vr4-cq9g-pvrc,
   # GHSA-j6r3-76f7-8jcv, GHSA-h3mg-xc3c-68pw, GHSA-hrr3-gc8f-f4qj); both stay inside the ranges their dependents ask for.
   ip-address: 10.7.3
