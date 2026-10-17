@@ -21,7 +21,7 @@ work in it.
   after its reply and before the run gives its place back, with `SandboxService.save`: tar, run in the sandbox as user
   1000, writes `/workspace` without `attachments` (copied in again every turn), `.memoryos` (run files),
   `node_modules`, `.next`, `__pycache__` and `.venv`; the archive, with the size and SHA-256 tar's command prints, is streamed to Object Storage under a new key
-  `sandbox/{tenant}/{conversation}/{uuid}.tar.gz`, recorded in `sandbox_workspace_archives` (V184) before its upload,
+  `raw/{tenant}/{uuid}` (the API writes and reads `raw/`, the Worker deletes there), recorded in `sandbox_workspace_archives` (V184) before its upload,
   and becomes `sandbox_workspaces.archive_key` once written. Onyx's bounds apply: a workspace over 500 MiB of files or an
   archive over 100 MiB is not saved, and the previous archive stays. A new sandbox of the conversation is not recorded
   until the archive is extracted into it (as user 1000, within three minutes); a restore that fails leaves an empty
