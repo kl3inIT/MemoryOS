@@ -68,7 +68,9 @@ export function AgentChannelsPanel({ agent }: { agent: Persona }) {
               <span className="truncate font-main-ui-action text-content-primary">
                 {place.title}
               </span>
-              <span className="line-clamp-2 font-secondary-body text-content-muted">{place.line}</span>
+              <span className="line-clamp-2 font-secondary-body text-content-muted">
+                {place.line}
+              </span>
             </span>
           </>
         );
