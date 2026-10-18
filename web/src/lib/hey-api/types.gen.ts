@@ -4406,13 +4406,13 @@ export type ChannelGroupResponse = {
      */
     name?: string;
     /**
-     * When the bot first answered there
+     * When the group became known: the bot's first answer there, or on Lark the bot joining it
      */
     firstMessageAt: string;
     /**
-     * When the bot last answered there
+     * When the bot last answered there; absent for a Lark group nobody has asked in yet
      */
-    lastMessageAt: string;
+    lastMessageAt?: string;
     /**
      * The assistant the group answers with; absent when it answers with the bot's default
      */

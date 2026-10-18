@@ -90,9 +90,15 @@ Direct messages always answer with the default.
 - **The groups** are those the bot has answered in (`channel_groups`, the channel's): `ChannelInboundService` records
   a group when it accepts a group's addressed question that is not external, with the name the provider gives
   (`ChannelAdapter.chat`: Lark's from the `im/v1/chat get` the external check already makes, cached an hour; Zalo
-  gives none), and moves its last message on each one. No provider is asked to list groups. An administrator may
-  label a group (up to 100 characters, a blank one clears it), shown before the provider's name. A group stays until
-  it is forgotten, which removes its assistant too; removing the bot removes its groups.
+  gives none), and moves its last message on each one. A Lark bot's groups are also known before anyone asks there
+  (`ChannelGroupRoster`, MEM-273 5d): the adapter passes the `im.chat.member.bot.added_v1` event as
+  `ChannelReceiver.joined`, recorded with no last message, and `ChannelAdapter.groups` reads Lark's whole list of the
+  bot's groups (`im/v1/chats`, without outsiders' or disbanded groups) when the bot connects and every 10 minutes
+  (`ChannelSupervisor.LISTING`) on a thread of its own; a group missing from it is removed with its own assistant. A
+  list read in part changes nothing; Zalo lists none. An administrator may label a group (up to 100 characters, a
+  blank one clears it), shown before the provider's name. A Zalo group stays until it is forgotten, which removes its
+  assistant too; the page offers no forgetting of a Lark group, which leaves with the bot. Removing the bot removes
+  its groups.
 - **The group's assistant** is Chat's (`chat_channel_group_binding`, through `ChatChannelBindings`), for the reason the
   default is: one row a group, removed with its assistant's row, with the bot and when the group is forgotten. A
   deleted assistant counts as none, so the group answers with the bot's default.
@@ -119,7 +125,7 @@ each change of a bot an `If-Match` of its quoted revision.
 | `PUT /api/channels/{id}/secret` | Checks the new secret and replaces the old one |
 | `PUT /api/channels/{id}/enabled` | Switches the bot on or off |
 | `PUT /api/channels/{id}/persona` | Binds the bot to an assistant (`personaId`), moving it from another, or to none (`null`); no `If-Match` |
-| `GET /api/channels/{id}/groups` | The bot's group chats, the most recently asked first: `id`, `label`, `name`, `firstMessageAt`, `lastMessageAt`, `assistant` |
+| `GET /api/channels/{id}/groups` | The bot's group chats, the most recently asked first and those nobody has asked in last: `id`, `label`, `name`, `firstMessageAt`, `lastMessageAt` (absent before a question), `assistant` |
 | `PUT /api/channels/{id}/groups/{groupId}/persona` | Gives a group chat its own assistant (`personaId`) or returns it to the bot's default (`null`) |
 | `PUT /api/channels/{id}/groups/{groupId}/label` | Labels a group chat (`label`); blank or null clears it |
 | `DELETE /api/channels/{id}/groups/{groupId}` | Forgets a group chat and its assistant; `204` |

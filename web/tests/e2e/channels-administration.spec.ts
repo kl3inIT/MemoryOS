@@ -76,7 +76,7 @@ const channels: ChannelResponse[] = [
 
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
-/** The group chats the finance bot has answered in; the Zalo-less Lark names come from the platform. */
+/** The finance bot's group chats, named by Lark; nobody has asked in the last one yet. */
 const financeGroups = (): ChannelGroupResponse[] => [
   {
     id: "oc_a1b2c3d4e5f60718293a4b5c6d7e8f90",
@@ -96,7 +96,6 @@ const financeGroups = (): ChannelGroupResponse[] => [
     id: "oc_5f1e2d3c4b5a69788796a5b4c3d2e1f0",
     name: "Ban Giám đốc",
     firstMessageAt: "2026-10-12T02:00:00Z",
-    lastMessageAt: minutesAgo(3 * 24 * 60),
   },
 ];
 
@@ -185,6 +184,7 @@ test("each group chat takes an assistant of its own on the bot's page", async ({
   });
   await expect(page.getByRole("combobox", { name: "Trợ lý mặc định" })).toHaveText("MemoryOS");
   await expect(page.getByText("Nhóm Lark · hỏi 10 phút trước")).toBeVisible();
+  await expect(page.getByText("Nhóm Lark · chưa có ai hỏi")).toBeVisible();
   const board = page.getByRole("combobox", { name: "Trợ lý của Ban Giám đốc" });
   await expect(board).toHaveText("Theo mặc định");
 
@@ -195,8 +195,8 @@ test("each group chat takes an assistant of its own on the bot's page", async ({
     .toEqual([{ groupId: "oc_5f1e2d3c4b5a69788796a5b4c3d2e1f0", personaId: TAX }]);
 
   await page.getByRole("button", { name: "Thao tác với Phòng Nhân sự" }).click();
-  await page.getByRole("menuitem", { name: "Quên nhóm" }).click();
-  await expect(page.getByRole("alertdialog", { name: "Quên nhóm Phòng Nhân sự?" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Đổi tên" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Quên nhóm" })).toHaveCount(0);
 });
 
 test("adding a bot opens the dialog beside the console steps and waits for the App Secret", async ({

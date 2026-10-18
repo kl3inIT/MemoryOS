@@ -34657,11 +34657,13 @@ components:
         firstMessageAt:
           type: string
           format: date-time
-          description: When the bot first answered there
+          description: "When the group became known: the bot's first answer there,\
+            \ or on Lark the bot joining it"
         lastMessageAt:
           type: string
           format: date-time
-          description: When the bot last answered there
+          description: When the bot last answered there; absent for a Lark group nobody
+            has asked in yet
         assistant:
           $ref: "#/components/schemas/ChannelAssistantResponse"
           description: The assistant the group answers with; absent when it answers
@@ -34669,7 +34671,6 @@ components:
       required:
       - firstMessageAt
       - id
-      - lastMessageAt
     LabelChannelGroupRequest:
       type: object
       additionalProperties: false

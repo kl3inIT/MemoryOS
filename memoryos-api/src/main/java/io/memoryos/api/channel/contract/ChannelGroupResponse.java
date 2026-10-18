@@ -5,7 +5,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import org.jspecify.annotations.Nullable;
 
-/** A group chat a bot has answered in, with the assistant it is given (MEM-273). */
+/** A group chat a bot is known in, with the assistant it is given (MEM-273). */
 @Schema(name = "ChannelGroupResponse", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
 public record ChannelGroupResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The platform's id of the group chat")
@@ -13,10 +13,10 @@ public record ChannelGroupResponse(
         @Schema(description = "The administrator's own name for the group, shown before the platform's") @Nullable String label,
         @Schema(description = "The group's name on the platform; absent when the platform gives none (Zalo)")
         @Nullable String name,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "When the bot first answered there")
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "When the group became known: the bot's first answer there, or on Lark the bot joining it")
         Instant firstMessageAt,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "When the bot last answered there")
-        Instant lastMessageAt,
+        @Schema(description = "When the bot last answered there; absent for a Lark group nobody has asked in yet")
+        @Nullable Instant lastMessageAt,
         @Schema(description = "The assistant the group answers with; absent when it answers with the bot's default")
         @Nullable ChannelAssistantResponse assistant) {
 

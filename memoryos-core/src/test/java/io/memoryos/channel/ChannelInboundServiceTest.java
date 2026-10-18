@@ -752,7 +752,7 @@ class ChannelInboundServiceTest {
         @Override public ChannelFeatures features() { return features; }
 
         @Override
-        public ChannelTransport open(ChannelConnection connection, String secret, Consumer<ChannelMessage> receiver) {
+        public ChannelTransport open(ChannelConnection connection, String secret, ChannelReceiver receiver) {
             throw new UnsupportedOperationException();
         }
 

@@ -71,6 +71,12 @@ Design: [design-groups.md](design-groups.md). Three pull requests.
   ignores group overrides; permission refusals; an external Lark group is not recorded.
 - [x] 5c. Web: the bot page's "Trợ lý mặc định" picker and "Theo nhóm chat" list; the Kênh tab read-only with links to the
   bot pages. Unit and e2e tests; staging screenshots; channel and chat specs, test matrices.
+- [ ] 5d. Lark groups known on joining ([design-groups decision 9](design-groups.md#step-5d-lark-groups-known-on-joining)):
+  `ChannelReceiver.joined`, `ChannelAdapter.groups`, `ChannelGroupRoster` with the supervisor's 10-minute listing,
+  V187 (`channel_groups.last_message_at` nullable), the Lark adapter's `botAdded` and paged `im/v1/chats`; the page's
+  "chưa có ai hỏi" and no "Quên nhóm" on Lark; the dialog and runbook name `im.chat.member.bot.added_v1`. Tests:
+  roster (join, list adds, renames, removes with the override), supervisor (listed on connect, not again before 10
+  minutes, joined passed on), Lark paging and filters, unit and e2e.
 
 ## Verification
 

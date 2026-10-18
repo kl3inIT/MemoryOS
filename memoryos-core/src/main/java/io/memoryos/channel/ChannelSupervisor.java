@@ -30,7 +30,9 @@ import org.springframework.context.SmartLifecycle;
  * {@link #PASS} it opens a bot switched on since, closes one switched off or removed, reopens one whose
  * connection changed or dropped, and writes what it saw to {@code channel_connection_state}. A failed open is
  * recorded with its typed code and tried again at the next pass. Each message an adapter hands over is answered on
- * a virtual thread of its own, so the adapter's acknowledgement to the provider never waits for an answer.
+ * a virtual thread of its own, so the adapter's acknowledgement to the provider never waits for an answer. The group
+ * chats a bot is in are read from a provider that lists them when the bot connects and every {@link #LISTING} after
+ * (MEM-273), on a virtual thread, so a slow list never holds a pass.
  *
  * <p>It is no component: only the process that receives imports it, so no other process opens a connection.
  */
@@ -38,6 +40,8 @@ public class ChannelSupervisor implements SmartLifecycle {
     static final Duration PASS = Duration.ofSeconds(30);
     /** How old an unsettled claim of an earlier process is before it is taken for abandoned. */
     static final Duration ABANDONED = Duration.ofMinutes(10);
+    /** How often an open bot's group chats are read again from a provider that lists them. */
+    static final Duration LISTING = Duration.ofMinutes(10);
     private static final Logger LOG = LoggerFactory.getLogger(ChannelSupervisor.class);
     private static final String SECRET_PURPOSE = "app-secret";
 
@@ -45,6 +49,7 @@ public class ChannelSupervisor implements SmartLifecycle {
     private final ChannelCredentialConfiguration credentials;
     private final ChannelAdapters adapters;
     private final ChannelInboundService inbound;
+    private final ChannelGroupRoster roster;
     private final Clock clock;
     /**
      * Failures that opening again cannot mend until an administrator changes the bot: the provider could not reach the
@@ -63,16 +68,17 @@ public class ChannelSupervisor implements SmartLifecycle {
 
     @Autowired
     public ChannelSupervisor(JdbcChannelConnectionRepository connections, ChannelCredentialConfiguration credentials,
-                             ChannelAdapters adapters, ChannelInboundService inbound) {
-        this(connections, credentials, adapters, inbound, Clock.systemUTC());
+                             ChannelAdapters adapters, ChannelInboundService inbound, ChannelGroupRoster roster) {
+        this(connections, credentials, adapters, inbound, roster, Clock.systemUTC());
     }
 
     ChannelSupervisor(JdbcChannelConnectionRepository connections, ChannelCredentialConfiguration credentials,
-                      ChannelAdapters adapters, ChannelInboundService inbound, Clock clock) {
+                      ChannelAdapters adapters, ChannelInboundService inbound, ChannelGroupRoster roster, Clock clock) {
         this.connections = connections;
         this.credentials = credentials;
         this.adapters = adapters;
         this.inbound = inbound;
+        this.roster = roster;
         this.clock = clock;
     }
 
@@ -122,11 +128,13 @@ public class ChannelSupervisor implements SmartLifecycle {
                         && (awaitsChange || current.transport != null && current.transport.connected())) {
                     connections.recordState(connection.id(), current.openedAt, current.failureCode, current.failedAt,
                             current.lastMessageAt, now);
+                    if (current.transport != null) list(enabled, current, now);
                     continue;
                 }
                 if (current != null) current.close();
                 var next = open(enabled, current, now);
                 held.put(connection.id(), next);
+                if (next.transport != null) list(enabled, next, now);
                 connections.recordState(connection.id(), next.openedAt, next.failureCode, next.failedAt, next.lastMessageAt, now);
             }
             for (var gone = held.entrySet().iterator(); gone.hasNext(); ) {
@@ -171,8 +179,19 @@ public class ChannelSupervisor implements SmartLifecycle {
         try {
             var envelope = connections.secret(enabled.tenant(), connection.id()).orElseThrow(ChannelException::notFound);
             secret = credentials.cipher(connection.provider()).decrypt(enabled.tenant(), connection.id(), SECRET_PURPOSE, envelope);
+            var tenant = enabled.tenant();
             held.transport = adapters.of(connection.provider()).open(connection, new String(secret, StandardCharsets.UTF_8),
-                    message -> receive(held, message));
+                    new ChannelReceiver() {
+                        @Override
+                        public void accept(ChannelMessage message) {
+                            receive(held, message);
+                        }
+
+                        @Override
+                        public void joined(String chatId, @Nullable String name) {
+                            answer(() -> roster.joined(tenant, connection.id(), chatId, name));
+                        }
+                    });
             var webhook = held.transport.webhook().orElse(null);
             if (webhook != null) {
                 // Served before the provider is given its address, so the provider's check reaches this transport.
@@ -201,6 +220,28 @@ public class ChannelSupervisor implements SmartLifecycle {
      * provider that keeps nothing once it has handed a message over, as a poll, loses nothing that was handed over but
      * not yet recorded. It is answered afterwards on a thread of its own.
      */
+    /**
+     * Reads an open bot's group chats from a provider that lists them, when it connected or {@link #LISTING} after the
+     * last read, on a thread of its own. A list the provider could not give whole changes nothing.
+     */
+    private void list(JdbcChannelConnectionRepository.Enabled enabled, Held held, Instant now) {
+        if (held.listedAt != null && held.listedAt.plus(LISTING).isAfter(now)) return;
+        held.listedAt = now;
+        var connection = enabled.connection();
+        var adapter = adapters.of(connection.provider());
+        answer(() -> {
+            try {
+                Instant readAt = clock.instant();
+                adapter.groups(connection)
+                        .ifPresent(present -> roster.listed(enabled.tenant(), connection.id(), present, readAt));
+            } catch (RuntimeException failure) {
+                // Read again at the next listing; the groups already known stay.
+                LOG.atWarn().addKeyValue("event", "channel.group.list_failed").addKeyValue("provider", connection.provider())
+                        .addKeyValue("error_type", failure.getClass().getName()).log("Channel group chats could not be listed");
+            }
+        });
+    }
+
     private void receive(Held held, ChannelMessage message) {
         held.lastMessageAt = clock.instant();
         inbound.claim(message).ifPresent(this::answer);
@@ -256,6 +297,8 @@ public class ChannelSupervisor implements SmartLifecycle {
         @Nullable Instant openedAt;
         @Nullable String failureCode;
         @Nullable Instant failedAt;
+        /** When the bot's group chats were last read from its provider. */
+        @Nullable Instant listedAt;
 
         Held(long revision, @Nullable Instant lastMessageAt) {
             this.revision = revision;

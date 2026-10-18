@@ -148,13 +148,15 @@ export function ChannelAssistantsSection({ channel }: { channel: ChannelResponse
                     <span className="truncate font-secondary-body text-content-muted">
                       {[
                         channel.provider === "ZALO_BOT" ? ui("Nhóm Zalo") : ui("Nhóm Lark"),
-                        ui("hỏi {{v1}}", {
-                          // Mid-sentence, so "Hôm qua" reads "hôm qua".
-                          v1: (
-                            formatUiRelative(group.lastMessageAt) ??
-                            formatUiDay(group.lastMessageAt)
-                          ).toLocaleLowerCase(uiLocale()),
-                        }),
+                        group.lastMessageAt
+                          ? ui("hỏi {{v1}}", {
+                              // Mid-sentence, so "Hôm qua" reads "hôm qua".
+                              v1: (
+                                formatUiRelative(group.lastMessageAt) ??
+                                formatUiDay(group.lastMessageAt)
+                              ).toLocaleLowerCase(uiLocale()),
+                            })
+                          : ui("chưa có ai hỏi"),
                       ].join(" · ")}
                     </span>
                   </span>
@@ -201,10 +203,18 @@ export function ChannelAssistantsSection({ channel }: { channel: ChannelResponse
                       >
                         <Pencil /> {ui("Đổi tên")}
                       </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem variant="destructive" onSelect={() => setForgetting(group)}>
-                        <Trash2 /> {ui("Quên nhóm")}
-                      </DropdownMenuItem>
+                      {/* A Lark bot's groups are Lark's own list: a group leaves it when the bot leaves the group. */}
+                      {channel.provider !== "LARK" && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onSelect={() => setForgetting(group)}
+                          >
+                            <Trash2 /> {ui("Quên nhóm")}
+                          </DropdownMenuItem>
+                        </>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </span>
