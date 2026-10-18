@@ -122,7 +122,7 @@ is the same isolation Claude gets from `claudemcpcontent.com` and ChatGPT from `
 Self-hosting the shim (`unsafeShimDomain`) needs a domain MemoryOS registers on the Public Suffix List. That is out of
 this increment. An air-gapped deployment simply sees the plain step, because the frame fails to load.
 
-**Web CSP.** `web/nginx.conf` adds `frame-src https://*.scf.auiusercontent.com`. `frame-ancestors 'none'` stays.
+**Web CSP.** `web/nginx.conf` adds `frame-src https://*.scf.auiusercontent.com blob:`: the sandbox domain's shim opens the view with `location.replace` on a `blob:` URL of its own origin, a navigation the page's `frame-src` governs (staging acceptance, 2026-10-18). `frame-ancestors 'none'` stays.
 
 **View CSP.** SEP-1865 makes the host enforce `_meta.ui.csp`. `@assistant-ui/react` 0.15.29 does it: before any view
 code runs, it writes a `Content-Security-Policy` meta built from `connectDomains`, `resourceDomains`, `frameDomains` and

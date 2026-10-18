@@ -135,10 +135,10 @@ describe("nginx security headers", () => {
     expect(server).toMatch(new RegExp(`add_header\\s+${header}\\s+.+\\s+always\\s*;`));
   });
 
-  // MEM-275: an MCP Apps view runs in assistant-ui's sandbox frame, each on its own origin of that domain; no other
-  // page may be framed, and nothing may frame MemoryOS.
+  // MEM-275: an MCP Apps view runs in assistant-ui's sandbox frame, each on its own origin of that domain, whose shim
+  // then opens the view as a blob: document of that origin; no other page may be framed, and nothing may frame MemoryOS.
   it("frames only MCP Apps views and is framed by nothing", () => {
-    expect(server).toMatch(/frame-src https:\/\/\*\.scf\.auiusercontent\.com;/);
+    expect(server).toMatch(/frame-src https:\/\/\*\.scf\.auiusercontent\.com blob:;/);
     expect(server).toMatch(/frame-ancestors 'none';/);
   });
 
