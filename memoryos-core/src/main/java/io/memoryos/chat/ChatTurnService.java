@@ -698,6 +698,11 @@ public final class ChatTurnService implements AutoCloseable {
             model.execute(run.setup, run::check, run.cancellation.asMono(),
                     text -> show(run, run.gate == null ? text : run.gate.accept(text)),
                     accounting -> run.accounting = accounting, event -> {
+                        // A step follows all the text written before it, and the model's next text starts a paragraph.
+                        if (event instanceof ChatToolEvent tool && tool.parentToolCallId() == null) {
+                            if (run.gate != null) show(run, run.gate.flush());
+                            run.stepped = true;
+                        }
                         run.activity(event);
                         switch (event) {
                             case ChatToolEvent tool -> streams.tool(run.setup.assistantMessageId(), shown(run, tool));
@@ -731,8 +736,9 @@ public final class ChatTurnService implements AutoCloseable {
 
     private void show(Active run, String text) {
         if (text.isEmpty()) return;
-        run.append(text, limits.maxAnswerCharacters());
-        streams.append(run.setup.assistantMessageId(), text);
+        String shown = run.paragraph(text);
+        run.append(shown, limits.maxAnswerCharacters());
+        streams.append(run.setup.assistantMessageId(), shown);
         firstText(run);
     }
 
@@ -1084,6 +1090,8 @@ public final class ChatTurnService implements AutoCloseable {
         final @Nullable String uiLanguage;
         /** MEM-195: set before the answer model runs, when the turn is grounded or blocks phrases. */
         volatile @Nullable CitationGate gate;
+        /** Whether a step came after the last text: the model's rounds are joined into one answer, a paragraph each. */
+        volatile boolean stepped;
         volatile @Nullable String refusal;
         final StringBuilder content = new StringBuilder();
         final List<ChatSource> sources = new ArrayList<>();
@@ -1140,6 +1148,13 @@ public final class ChatTurnService implements AutoCloseable {
             cancellation.tryEmitValue(true);
             // A call waiting for the person is declined, so Stop does not wait out the approval period.
             approvals.values().forEach(pending -> pending.complete(McpTurnTools.Decision.DECLINED));
+        }
+        synchronized String paragraph(String text) {
+            if (!stepped) return text;
+            stepped = false;
+            boolean spaced = content.isEmpty() || Character.isWhitespace(content.charAt(content.length() - 1))
+                    || Character.isWhitespace(text.charAt(0));
+            return spaced ? text : "\n\n" + text;
         }
         synchronized void append(String text, int limit) {
             check();
