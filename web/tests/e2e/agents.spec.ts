@@ -863,7 +863,7 @@ test("shows where an assistant answers and links each place to its bot's page", 
   const panel = page.getByRole("tabpanel", { name: "Kênh" });
   const byDefault = panel.getByRole("region", { name: "Mặc định của bot" });
   const groups = panel.getByRole("region", { name: "Nhóm chat" });
-  await expect(byDefault.getByText("Bot Zalo · chat riêng và nhóm chưa chọn trợ lý")).toBeVisible();
+  await expect(byDefault.getByText("Bot Zalo · mặc định")).toBeVisible();
   await expect(groups.getByText("Nhóm Lark · qua bot “Trợ lý Tasco”")).toBeVisible();
   await expect(byDefault.getByText("Phòng Nhân sự")).toHaveCount(0);
   await expect(panel.getByRole("link", { name: /Phòng Nhân sự/ })).toHaveAttribute(
