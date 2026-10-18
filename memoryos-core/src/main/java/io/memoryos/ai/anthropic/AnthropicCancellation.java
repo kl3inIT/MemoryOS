@@ -295,11 +295,13 @@ final class AnthropicCancellation implements AutoCloseable {
             var headers = builder.build();
             var closing = new AtomicBoolean();
             // A read that fails because this response was closed ends the stream: the close is a stop, not a failure.
+            // okio reports a read that races the close as IllegalStateException ("Unbalanced enter/exit" from its
+            // timeout), not as an IOException, so both end the stream once the response is closing.
             var body = new FilterInputStream(Objects.requireNonNull(received.body()).byteStream()) {
                 @Override public int read() throws IOException {
                     try {
                         return super.read();
-                    } catch (IOException failure) {
+                    } catch (IOException | RuntimeException failure) {
                         if (closing.get()) return -1;
                         throw failure;
                     }
@@ -307,7 +309,7 @@ final class AnthropicCancellation implements AutoCloseable {
                 @Override public int read(byte[] buffer, int offset, int length) throws IOException {
                     try {
                         return super.read(buffer, offset, length);
-                    } catch (IOException failure) {
+                    } catch (IOException | RuntimeException failure) {
                         if (closing.get()) return -1;
                         throw failure;
                     }
