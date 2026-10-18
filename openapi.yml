@@ -6264,15 +6264,16 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
-  /api/chat/interpreter:
+  /api/chat/sandbox:
     get:
       tags:
-      - Chat Interpreter
-      summary: Read whether Code Interpreter is configured and enabled for the Tenant
-      operationId: getChatInterpreterSettings
+      - Chat Sandbox
+      summary: "Read whether the Sandbox is configured and enabled for the Tenant,\
+        \ and its allowed domains"
+      operationId: getChatSandboxSettings
       responses:
         "400":
-          description: Invalid Code Interpreter setting
+          description: Invalid Sandbox setting
           content:
             application/problem+json:
               schema:
@@ -6292,31 +6293,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiProblem"
         "409":
-          description: Code Interpreter setting changed
+          description: Sandbox setting changed
           content:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/ApiProblem"
         "503":
-          description: Code Interpreter is not configured
+          description: Sandbox is not configured
           content:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/ApiProblem"
         "200":
-          description: Code Interpreter setting
+          description: Sandbox setting
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InterpreterSettingsResponse"
+                $ref: "#/components/schemas/SandboxSettingsResponse"
       security:
       - bearerAuth: []
       - browserSession: []
     put:
       tags:
-      - Chat Interpreter
-      summary: Enable or disable Code Interpreter for the Tenant
-      operationId: updateChatInterpreterSettings
+      - Chat Sandbox
+      summary: Enable or disable the Sandbox for the Tenant
+      operationId: updateChatSandboxSettings
       parameters:
       - name: X-MemoryOS-CSRF
         in: header
@@ -6330,11 +6331,11 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/InterpreterSettingsRequest"
+              $ref: "#/components/schemas/SandboxSettingsRequest"
         required: true
       responses:
         "400":
-          description: Invalid Code Interpreter setting
+          description: Invalid Sandbox setting
           content:
             application/problem+json:
               schema:
@@ -6354,23 +6355,23 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiProblem"
         "409":
-          description: Code Interpreter setting changed
+          description: Sandbox setting changed
           content:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/ApiProblem"
         "503":
-          description: Code Interpreter is not configured
+          description: Sandbox is not configured
           content:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/ApiProblem"
         "200":
-          description: Saved Code Interpreter setting
+          description: Saved Sandbox setting
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InterpreterSettingsResponse"
+                $ref: "#/components/schemas/SandboxSettingsResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -19191,15 +19192,15 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
-  /api/chat/interpreter/health:
+  /api/chat/sandbox/health:
     get:
       tags:
-      - Chat Interpreter
-      summary: Check the Code Interpreter service without the cache
-      operationId: getChatInterpreterHealth
+      - Chat Sandbox
+      summary: Check the sandbox runtime
+      operationId: getChatSandboxHealth
       responses:
         "400":
-          description: Invalid Code Interpreter setting
+          description: Invalid Sandbox setting
           content:
             application/problem+json:
               schema:
@@ -19219,23 +19220,23 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiProblem"
         "409":
-          description: Code Interpreter setting changed
+          description: Sandbox setting changed
           content:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/ApiProblem"
         "503":
-          description: Code Interpreter is not configured
+          description: Sandbox is not configured
           content:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/ApiProblem"
         "200":
-          description: Live Code Interpreter service health
+          description: Live sandbox runtime health
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InterpreterHealthResponse"
+                $ref: "#/components/schemas/SandboxHealthResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -20345,7 +20346,7 @@ paths:
       tags:
       - Chat
       summary: "Read a PDF rendering of an owner-private generated presentation, converted\
-        \ in the interpreter on first request"
+        \ in a short-lived sandbox on first request"
       operationId: getChatFileArtifactPdfPreview
       parameters:
       - name: artifactId
@@ -20363,7 +20364,7 @@ paths:
                 type: string
                 format: binary
         "429":
-          description: The interpreter is busy
+          description: Every short-lived sandbox is in use
           content:
             application/problem+json:
               schema:
@@ -27324,7 +27325,7 @@ components:
       required:
       - modelConfigurationId
       - revision
-    InterpreterSettingsRequest:
+    SandboxSettingsRequest:
       type: object
       properties:
         enabled:
@@ -27336,7 +27337,7 @@ components:
       required:
       - enabled
       - revision
-    InterpreterSettingsResponse:
+    SandboxSettingsResponse:
       type: object
       properties:
         configured:
@@ -33987,7 +33988,7 @@ components:
       - id
       - name
       - type
-    InterpreterHealthResponse:
+    SandboxHealthResponse:
       type: object
       properties:
         connected:
