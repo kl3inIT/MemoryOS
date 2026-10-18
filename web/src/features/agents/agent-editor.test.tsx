@@ -180,10 +180,17 @@ describe("AgentEditorPage", () => {
     );
     await renderEditor("channels");
     const panel = await screen.findByRole("tabpanel", { name: "Channels" });
-    expect(await within(panel).findByText("HR questions")).toBeVisible();
-    expect(within(panel).getByText("Zalo · The bot's default assistant · Off")).toBeVisible();
-    expect(within(panel).getByText("HR team")).toBeVisible();
-    expect(within(panel).getByText("Lark group · Tasco helpdesk")).toBeVisible();
+    const bots = await within(panel).findByRole("region", { name: "Bot default" });
+    const groups = within(panel).getByRole("region", { name: "Group chats" });
+    expect(within(bots).getByText("HR questions")).toBeVisible();
+    expect(
+      within(bots).getByText(
+        "Zalo bot · direct chats and groups without their own assistant · Off",
+      ),
+    ).toBeVisible();
+    expect(within(groups).getByText("HR team")).toBeVisible();
+    expect(within(groups).getByText("Lark group · through the bot “Tasco helpdesk”")).toBeVisible();
+    expect(within(bots).queryByText("HR team")).not.toBeInTheDocument();
     expect(within(panel).queryByRole("link")).not.toBeInTheDocument();
     expect(within(panel).queryByRole("button")).not.toBeInTheDocument();
   });

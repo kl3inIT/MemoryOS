@@ -861,8 +861,11 @@ test("shows where an assistant answers and links each place to its bot's page", 
   await mockAssistantChannels(page);
   await page.goto(`/agents/${hr}/edit?tab=channels`);
   const panel = page.getByRole("tabpanel", { name: "Kênh" });
-  await expect(panel.getByText("Zalo · Trợ lý mặc định của bot")).toBeVisible();
-  await expect(panel.getByText("Nhóm Lark · Trợ lý Tasco")).toBeVisible();
+  const byDefault = panel.getByRole("region", { name: "Mặc định của bot" });
+  const groups = panel.getByRole("region", { name: "Nhóm chat" });
+  await expect(byDefault.getByText("Bot Zalo · chat riêng và nhóm chưa chọn trợ lý")).toBeVisible();
+  await expect(groups.getByText("Nhóm Lark · qua bot “Trợ lý Tasco”")).toBeVisible();
+  await expect(byDefault.getByText("Phòng Nhân sự")).toHaveCount(0);
   await expect(panel.getByRole("link", { name: /Phòng Nhân sự/ })).toHaveAttribute(
     "href",
     "/admin/channels/80000000-0000-4000-8000-000000000003",
