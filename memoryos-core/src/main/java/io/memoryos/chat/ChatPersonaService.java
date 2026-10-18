@@ -12,6 +12,7 @@ import io.memoryos.chat.persona.persistence.JpaPersonaRepository;
 import io.memoryos.chat.persona.persistence.PersonaEntity;
 import io.memoryos.chat.persona.persistence.PersonaRevisions;
 import io.memoryos.connector.SourceSearchService;
+import io.memoryos.iam.ActorLanguageService;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
 import io.memoryos.shared.ActorId;
@@ -62,15 +63,16 @@ public class ChatPersonaService {
     private final JdbcDocumentSetRepository documentSetRows;
     private final UserFileService files;
     private final UserFileContentService content;
+    private final ActorLanguageService languages;
 
     public ChatPersonaService(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
             JpaPersonaRepository settings, JdbcAgentRepository agents, PersonaRevisions revisions,
             ChatModelAccess models, SourceSearchService sources, DocumentSetService documentSets, JdbcDocumentSetRepository documentSetRows,
-            UserFileService files, UserFileContentService content) {
+            UserFileService files, UserFileContentService content, ActorLanguageService languages) {
         this.tenants = tenants; this.authorization = authorization; this.chats = chats; this.settings = settings;
         this.agents = agents; this.revisions = revisions; this.models = models;
         this.sources = sources; this.documentSets = documentSets; this.documentSetRows = documentSetRows;
-        this.files = files; this.content = content;
+        this.files = files; this.content = content; this.languages = languages;
     }
 
     /**
@@ -93,7 +95,10 @@ public class ChatPersonaService {
 
     public record AgentSourceRef(UUID id, String name) {}
     public record DocumentSetRef(UUID id, String name) {}
-    public record PersonaView(UUID id, boolean builtin, PersonaPermissions permissions, long revision, String name,
+    /** The MemoryOS template a system-owned assistant carries (MEM-281) and the Khám phá category it is listed under. */
+    public record TemplateRef(String key, String category) {}
+    /** {@code template} is set on a MemoryOS template, whose text is in the reader's account language. */
+    public record PersonaView(UUID id, boolean builtin, @Nullable TemplateRef template, PersonaPermissions permissions, long revision, String name,
                               @Nullable String title, String description, String instructions, @Nullable String greeting,
                               List<String> starterPrompts,
                               List<UUID> sourceIds, List<AgentSourceRef> sources, List<UUID> documentSetIds, List<DocumentSetRef> documentSets,
@@ -136,8 +141,26 @@ public class ChatPersonaService {
         boolean manage = manages(actor);
         var entity = settings.findByTenantIdAndId(tenant.value(), id).orElseThrow(ChatException::unavailable);
         var access = access(tenant, actor, manage, id);
-        if (!access.uses() || entity.deleted() && !manage) throw ChatException.unavailable();
+        // An administrator still opens a template they hid, to show it again (MEM-281).
+        if (!(access.uses() || manage && entity.template()) || entity.deleted() && !manage) throw ChatException.unavailable();
         return views(tenant, actor, manage, List.of(id)).getFirst();
+    }
+
+    /**
+     * "Tạo bản riêng" (MEM-281): the caller's own private assistant from a MemoryOS template, in their account
+     * language, with the template's instructions, tools and {@code grounded} and a face of its own. Nothing records
+     * which template it came from.
+     */
+    @Transactional
+    public PersonaView copy(ActorId actor, UUID id) {
+        var tenant = write(actor);
+        var entity = settings.findByTenantIdAndId(tenant.value(), id).orElseThrow(ChatException::unavailable);
+        if (entity.deleted() || !access(tenant, actor, manages(actor), id).uses()) throw ChatException.unavailable();
+        var template = AssistantTemplates.find(entity.templateKey()).orElseThrow(ChatException::notATemplate);
+        var text = template.text(languages.read(actor));
+        return create(actor, new PersonaInput(text.name(), text.title(), text.description(), template.instructions(),
+                text.greeting(), text.starters(), List.of(), List.of(), template.tools(), List.of(), null, null,
+                List.of(), null, null, null, null, template.grounded()));
     }
 
     @Transactional
@@ -277,6 +300,10 @@ public class ChatPersonaService {
         var entity = locked(tenant, id);
         if (entity.builtin() || entity.deleted()) throw ChatException.unavailable();
         if (entity.revision() != revision) throw ChatException.conflict();
+        // An administrator only shows or hides a MemoryOS template (MEM-281).
+        if (entity.template() && (input.featured() != entity.featured()
+                || !Objects.equals(input.displayPriority(), entity.displayPriority())))
+            throw ChatException.invalid("A template can only be shown or hidden.");
         if (input.displayPriority() != null && (input.displayPriority() < 0 || input.displayPriority() > 100000))
             throw ChatException.invalid("Display priority must be between 0 and 100000.");
         entity.listing(input.listed(), input.featured(), input.displayPriority());
@@ -300,7 +327,7 @@ public class ChatPersonaService {
         var rows = settings.lockedAll(tenant.value(), ordered);
         if (rows.size() != ordered.size()) throw ChatException.unavailable();
         for (var entity : rows) {
-            if (entity.builtin() || entity.deleted()) throw ChatException.unavailable();
+            if (entity.builtin() || entity.template() || entity.deleted()) throw ChatException.unavailable();
             entities.put(entity.id(), entity);
         }
         for (int index = 0; index < ordered.size(); index++) {
@@ -401,13 +428,17 @@ public class ChatPersonaService {
         var topics = chats.latestTopics(tenant, actor, ids).stream()
                 .collect(Collectors.toMap(JdbcChatRepository.LatestTopic::personaId, Function.identity()));
         var empty = new AgentOwner(null, null);
+        String language = languages.read(actor);
         var result = new ArrayList<ChatAssistant>();
         for (UUID id : ids) {
             var entity = entities.get(id);
             if (entity == null) continue;
             boolean uses = usable.contains(id);
             var topic = topics.get(id);
-            result.add(new ChatAssistant(id, entity.name(), uses ? entity.title() : null, uses ? entity.description() : "",
+            var text = AssistantTemplates.find(entity.templateKey()).map(template -> template.text(language)).orElse(null);
+            result.add(new ChatAssistant(id, text == null ? entity.name() : text.name(),
+                    !uses ? null : text == null ? entity.title() : text.title(),
+                    !uses ? "" : text == null ? entity.description() : text.description(),
                     entity.avatarSeed(), uses && entity.avatarFileId() != null, entity.builtin(), uses ? owners.getOrDefault(id, empty) : empty,
                     uses, topic == null ? null : new ChatAssistantTopic(topic.sessionId(), topic.title(),
                             topic.messageAt() == null ? topic.updatedAt() : topic.messageAt(), preview(topic.content()),
@@ -593,6 +624,7 @@ public class ChatPersonaService {
         var attachedSets = documentSetRows.personaSets(tenant.value(), ids);
         var setIds = attachedSets.values().stream().flatMap(Collection::stream).collect(Collectors.toCollection(LinkedHashSet::new));
         var setNames = documentSetRows.names(tenant.value(), setIds);
+        String language = languages.read(actor);
         var result = new ArrayList<PersonaView>();
         for (UUID id : ids) {
             var entity = entities.get(id);
@@ -606,8 +638,14 @@ public class ChatPersonaService {
                     !entity.builtin() && (personallyOwned || granted.owns() && !manage || manage && granted.vacant()),
                     leave, manage);
             var documentSetIds = attachedSets.getOrDefault(id, List.of());
-            result.add(new PersonaView(id, entity.builtin(), permissions, entity.revision(), entity.name(), entity.title(),
-                    entity.description(), entity.instructions(), entity.greeting(), entity.starterPrompts(), entity.sourceIds(),
+            var template = AssistantTemplates.find(entity.templateKey()).orElse(null);
+            var text = template == null ? null : template.text(language);
+            result.add(new PersonaView(id, entity.builtin(),
+                    template == null ? null : new TemplateRef(template.key(), template.category()),
+                    permissions, entity.revision(), text == null ? entity.name() : text.name(),
+                    text == null ? entity.title() : text.title(), text == null ? entity.description() : text.description(),
+                    entity.instructions(), text == null ? entity.greeting() : text.greeting(),
+                    text == null ? entity.starterPrompts() : text.starters(), entity.sourceIds(),
                     entity.sourceIds().stream().map(source -> new AgentSourceRef(source, names.getOrDefault(source, ""))).toList(),
                     documentSetIds, documentSetIds.stream().map(set -> new DocumentSetRef(set, setNames.getOrDefault(set, ""))).toList(),
                     details.tools().getOrDefault(id, Set.of()), details.mcpServers().getOrDefault(id, List.of()),

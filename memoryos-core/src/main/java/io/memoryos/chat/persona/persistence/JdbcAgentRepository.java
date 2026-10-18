@@ -50,7 +50,11 @@ public class JdbcAgentRepository {
         return result;
     }
 
-    /** Usable, non-deleted agents; non-owners only see listed agents, as Onyx. */
+    /**
+     * Usable, non-deleted agents; non-owners only see listed agents, as Onyx. MemoryOS templates follow the built-in
+     * agent in {@code ALL}, so the first page carries them (MEM-281); nobody shares them, so {@code SHARED} leaves
+     * them out.
+     */
     public List<UUID> list(UUID tenant, UUID actor, boolean agentsManage, AgentListFilter view, @Nullable UUID label, @Nullable String query,
                            int offset, int limit) {
         String mine = "(p.builtin_key IS NULL AND (COALESCE(p.owner_actor_id = :actor, FALSE) OR EXISTS (SELECT 1 FROM iam_group_memberships m "
@@ -58,7 +62,7 @@ public class JdbcAgentRepository {
         String scope = switch (view) {
             case ALL -> AgentAccessSql.USES + " AND (p.is_listed OR " + mine + ")";
             case MINE -> mine;
-            case SHARED -> AgentAccessSql.USES + " AND p.is_listed AND p.builtin_key IS NULL AND NOT " + mine;
+            case SHARED -> AgentAccessSql.USES + " AND p.is_listed AND p.builtin_key IS NULL AND p.template_key IS NULL AND NOT " + mine;
         };
         return jdbc.sql("""
                         SELECT p.id FROM persona p
@@ -66,7 +70,8 @@ public class JdbcAgentRepository {
                           AND (CAST(:label AS uuid) IS NULL OR EXISTS (SELECT 1 FROM persona_label_assignment a
                                WHERE a.tenant_id = p.tenant_id AND a.persona_id = p.id AND a.label_id = :label))
                           AND (CAST(:query AS text) IS NULL OR p.name ILIKE :pattern OR p.description ILIKE :pattern)
-                        ORDER BY p.builtin_key NULLS LAST, p.is_featured DESC, p.display_priority NULLS LAST, lower(p.name), p.id
+                        ORDER BY p.builtin_key NULLS LAST, p.template_key IS NULL, p.is_featured DESC,
+                                 p.display_priority NULLS LAST, lower(p.name), p.id
                         OFFSET :offset LIMIT :limit
                         """.formatted(scope))
                 .param("tenant", tenant).param("actor", actor).param("agentsManage", agentsManage)

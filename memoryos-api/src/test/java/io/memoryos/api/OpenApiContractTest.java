@@ -189,6 +189,7 @@ class OpenApiContractTest {
             "/api/chat/personas/sources",
             "/api/chat/personas/administration",
             "/api/chat/personas/{personaId}/restore",
+            "/api/chat/personas/{personaId}/copy",
             "/api/chat/personas/{personaId}/sharing",
             "/api/chat/personas/{personaId}/sharing/me",
             "/api/chat/personas/{personaId}/owner",

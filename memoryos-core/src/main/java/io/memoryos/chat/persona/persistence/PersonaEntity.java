@@ -29,6 +29,8 @@ public class PersonaEntity {
     @Column(name = "owner_actor_id") private @Nullable UUID ownerId;
     @Column(name = "owner_group_id") private @Nullable UUID ownerGroupId;
     @Column(name = "builtin_key", length = 32, updatable = false) private @Nullable String builtinKey;
+    /** MEM-281: the MemoryOS template this system-owned row carries; nobody in the Tenant edits it. */
+    @Column(name = "template_key", length = 64, updatable = false) private @Nullable String templateKey;
     @Column(nullable = false, length = 200) private String name;
     /** The role line under the name (MEM-273). */
     @Column(length = 80) private @Nullable String title;
@@ -67,6 +69,12 @@ public class PersonaEntity {
     public PersonaEntity(UUID id, UUID tenantId, @Nullable UUID ownerId) {
         this.id = id; this.tenantId = tenantId; this.ownerId = ownerId;
     }
+    /** A Tenant's row of a MemoryOS template: no owner, listed, written only from the catalogue. */
+    public static PersonaEntity template(UUID id, UUID tenantId, String templateKey) {
+        var entity = new PersonaEntity(id, tenantId, null);
+        entity.templateKey = templateKey;
+        return entity;
+    }
     public record Settings(String name, @Nullable String title, String description, String instructions,
                            @Nullable String greeting, List<String> starters, List<UUID> sources, @Nullable UUID modelId,
                            @Nullable ReasoningEffort reasoningEffort, @Nullable String avatarSeed,
@@ -94,6 +102,8 @@ public class PersonaEntity {
     public UUID tenantId() { return tenantId; }
     public @Nullable UUID ownerId() { return ownerId; }
     public boolean builtin() { return builtinKey != null; }
+    public @Nullable String templateKey() { return templateKey; }
+    public boolean template() { return templateKey != null; }
     public String name() { return name; }
     public @Nullable String title() { return title; }
     public String description() { return description; }
