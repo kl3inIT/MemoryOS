@@ -107,10 +107,14 @@ class McpServerRulesTest {
         assertEquals(McpToolRisk.DESTRUCTIVE, McpServerRules.risk(false, "{\"readOnlyHint\":false,\"destructiveHint\":true}"));
         // The specification's implicit destructive default is not applied: an unannotated tool writes.
         assertEquals(McpToolRisk.WRITE, McpServerRules.risk(false, "{}"));
-        assertEquals(McpToolPolicy.ALWAYS, McpServerRules.defaultPolicy(McpToolRisk.READ, true));
-        assertEquals(McpToolPolicy.ASK, McpServerRules.defaultPolicy(McpToolRisk.WRITE, true));
-        assertEquals(McpToolPolicy.ASK, McpServerRules.defaultPolicy(McpToolRisk.DESTRUCTIVE, true));
-        assertEquals(McpToolPolicy.OFF, McpServerRules.defaultPolicy(McpToolRisk.READ, false));
+        assertEquals(McpToolPolicy.ALWAYS, McpServerRules.defaultPolicy(McpToolRisk.READ, true, true));
+        assertEquals(McpToolPolicy.ASK, McpServerRules.defaultPolicy(McpToolRisk.WRITE, true, true));
+        assertEquals(McpToolPolicy.ASK, McpServerRules.defaultPolicy(McpToolRisk.DESTRUCTIVE, true, true));
+        assertEquals(McpToolPolicy.OFF, McpServerRules.defaultPolicy(McpToolRisk.READ, false, true));
+        // A tool only its view calls (MEM-275), such as Canva's view telemetry, runs unless it is destructive.
+        assertEquals(McpToolPolicy.ALWAYS, McpServerRules.defaultPolicy(McpToolRisk.WRITE, true, false));
+        assertEquals(McpToolPolicy.ASK, McpServerRules.defaultPolicy(McpToolRisk.DESTRUCTIVE, true, false));
+        assertEquals(McpToolPolicy.OFF, McpServerRules.defaultPolicy(McpToolRisk.WRITE, false, false));
         assertFalse(McpServerRules.allowed(McpToolRisk.DESTRUCTIVE, McpToolPolicy.ALWAYS));
         assertTrue(McpServerRules.allowed(McpToolRisk.DESTRUCTIVE, McpToolPolicy.ASK));
         assertTrue(McpServerRules.allowed(McpToolRisk.WRITE, McpToolPolicy.ALWAYS));

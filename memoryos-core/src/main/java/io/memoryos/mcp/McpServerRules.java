@@ -203,10 +203,15 @@ final class McpServerRules {
         return risk(readOnly, hint(annotations, "destructiveHint"));
     }
 
-    /** Read-only tools run; the rest ask; a tool whose model-facing name cannot be built is never offered. */
-    static McpToolPolicy defaultPolicy(McpToolRisk risk, boolean exposable) {
+    /**
+     * Read-only tools run; the rest ask; a tool whose model-facing name cannot be built is never offered. A tool only
+     * its own view calls (MEM-275), such as a view's telemetry or the thumbnails it shows, runs unless it may
+     * overwrite or delete: the person is working in that view, and ChatGPT asks first only for destructive tools.
+     */
+    static McpToolPolicy defaultPolicy(McpToolRisk risk, boolean exposable, boolean modelVisible) {
         if (!exposable) return McpToolPolicy.OFF;
-        return risk == McpToolRisk.READ ? McpToolPolicy.ALWAYS : McpToolPolicy.ASK;
+        if (risk == McpToolRisk.READ || risk == McpToolRisk.WRITE && !modelVisible) return McpToolPolicy.ALWAYS;
+        return McpToolPolicy.ASK;
     }
 
     /** A tool that may overwrite or delete never runs without the person's approval. */

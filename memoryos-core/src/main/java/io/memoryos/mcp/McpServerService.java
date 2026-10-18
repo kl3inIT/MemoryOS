@@ -239,7 +239,7 @@ public class McpServerService {
         var server = server(tenant, serverId);
         var changed = new ArrayList<String>();
         for (var tool : tools.findByTenantIdAndServerIdOrderByNameAsc(tenant, serverId)) {
-            var policy = defaultPolicy(server, tool.name(), risk(tool));
+            var policy = defaultPolicy(server, tool, risk(tool));
             if (tool.policy() != policy) changed.add(tool.name());
             tool.policy(policy, false);
         }
@@ -355,7 +355,7 @@ public class McpServerService {
             entity.snapshot(tool.title(), tool.description(), tool.inputSchema(), tool.annotations(), tool.readOnly(), now);
             entity.app(tool.appResourceUri(), tool.modelVisible(), tool.appVisible());
             var risk = risk(entity);
-            var policy = defaultPolicy(server, tool.name(), risk);
+            var policy = defaultPolicy(server, entity, risk);
             if (entity.policyCustomized() && policy != McpToolPolicy.OFF)
                 policy = McpServerRules.allowed(risk, entity.policy()) ? entity.policy() : McpToolPolicy.ASK;
             entity.policy(policy, entity.policyCustomized());
@@ -370,8 +370,9 @@ public class McpServerService {
         return McpServerRules.risk(tool.readOnly(), tool.annotations());
     }
 
-    private static McpToolPolicy defaultPolicy(McpServerEntity server, String toolName, McpToolRisk risk) {
-        return McpServerRules.defaultPolicy(risk, McpServerRules.modelToolName(server.slug(), toolName).isPresent());
+    private static McpToolPolicy defaultPolicy(McpServerEntity server, McpServerToolEntity tool, McpToolRisk risk) {
+        return McpServerRules.defaultPolicy(risk, McpServerRules.modelToolName(server.slug(), tool.name()).isPresent(),
+                tool.modelVisible());
     }
 
     private ServerView save(UUID tenant, McpServerEntity server, ServerInput input, boolean created, Instant now) {
