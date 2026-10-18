@@ -1419,7 +1419,8 @@ export const zInterpreterSettingsRequest = z.object({
 export const zInterpreterSettingsResponse = z.object({
     configured: z.boolean(),
     enabled: z.boolean(),
-    revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+    revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    allowedDomains: z.array(z.string())
 });
 
 export const zImageSelectionRequest = z.object({

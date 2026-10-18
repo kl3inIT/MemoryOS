@@ -30,13 +30,13 @@ import { Route as AuthenticatedAdminAuditRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAdminChannelsRouteImport } from './routes/_authenticated.admin.channels'
 import { Route as AuthenticatedAdminChatRouteImport } from './routes/_authenticated.admin.chat'
 import { Route as AuthenticatedAdminChatHistoryRouteImport } from './routes/_authenticated.admin.chat-history'
-import { Route as AuthenticatedAdminCodeInterpreterRouteImport } from './routes/_authenticated.admin.code-interpreter'
 import { Route as AuthenticatedAdminGroupsRouteImport } from './routes/_authenticated.admin.groups'
 import { Route as AuthenticatedAdminIdentityProvidersRouteImport } from './routes/_authenticated.admin.identity-providers'
 import { Route as AuthenticatedAdminImageGenerationRouteImport } from './routes/_authenticated.admin.image-generation'
 import { Route as AuthenticatedAdminMcpRouteImport } from './routes/_authenticated.admin.mcp'
 import { Route as AuthenticatedAdminMcpEndpointRouteImport } from './routes/_authenticated.admin.mcp-endpoint'
 import { Route as AuthenticatedAdminModelsRouteImport } from './routes/_authenticated.admin.models'
+import { Route as AuthenticatedAdminSandboxRouteImport } from './routes/_authenticated.admin.sandbox'
 import { Route as AuthenticatedAdminSearchSettingsRouteImport } from './routes/_authenticated.admin.search-settings'
 import { Route as AuthenticatedAdminSystemOneRouteImport } from './routes/_authenticated.admin.system-one'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated.admin.users'
@@ -186,12 +186,6 @@ const AuthenticatedAdminChatHistoryRoute =
     path: '/chat-history',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
-const AuthenticatedAdminCodeInterpreterRoute =
-  AuthenticatedAdminCodeInterpreterRouteImport.update({
-    id: '/code-interpreter',
-    path: '/code-interpreter',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
 const AuthenticatedAdminGroupsRoute =
   AuthenticatedAdminGroupsRouteImport.update({
     id: '/groups',
@@ -225,6 +219,12 @@ const AuthenticatedAdminModelsRoute =
   AuthenticatedAdminModelsRouteImport.update({
     id: '/models',
     path: '/models',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminSandboxRoute =
+  AuthenticatedAdminSandboxRouteImport.update({
+    id: '/sandbox',
+    path: '/sandbox',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
 const AuthenticatedAdminSearchSettingsRoute =
@@ -485,13 +485,13 @@ export interface FileRoutesByFullPath {
   '/admin/channels': typeof AuthenticatedAdminChannelsRouteWithChildren
   '/admin/chat': typeof AuthenticatedAdminChatRoute
   '/admin/chat-history': typeof AuthenticatedAdminChatHistoryRoute
-  '/admin/code-interpreter': typeof AuthenticatedAdminCodeInterpreterRoute
   '/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
   '/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
   '/admin/image-generation': typeof AuthenticatedAdminImageGenerationRoute
   '/admin/mcp': typeof AuthenticatedAdminMcpRouteWithChildren
   '/admin/mcp-endpoint': typeof AuthenticatedAdminMcpEndpointRoute
   '/admin/models': typeof AuthenticatedAdminModelsRoute
+  '/admin/sandbox': typeof AuthenticatedAdminSandboxRoute
   '/admin/search-settings': typeof AuthenticatedAdminSearchSettingsRoute
   '/admin/system-one': typeof AuthenticatedAdminSystemOneRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
@@ -550,11 +550,11 @@ export interface FileRoutesByTo {
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/admin/chat': typeof AuthenticatedAdminChatRoute
   '/admin/chat-history': typeof AuthenticatedAdminChatHistoryRoute
-  '/admin/code-interpreter': typeof AuthenticatedAdminCodeInterpreterRoute
   '/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
   '/admin/image-generation': typeof AuthenticatedAdminImageGenerationRoute
   '/admin/mcp-endpoint': typeof AuthenticatedAdminMcpEndpointRoute
   '/admin/models': typeof AuthenticatedAdminModelsRoute
+  '/admin/sandbox': typeof AuthenticatedAdminSandboxRoute
   '/admin/search-settings': typeof AuthenticatedAdminSearchSettingsRoute
   '/admin/system-one': typeof AuthenticatedAdminSystemOneRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
@@ -617,13 +617,13 @@ export interface FileRoutesById {
   '/_authenticated/admin/channels': typeof AuthenticatedAdminChannelsRouteWithChildren
   '/_authenticated/admin/chat': typeof AuthenticatedAdminChatRoute
   '/_authenticated/admin/chat-history': typeof AuthenticatedAdminChatHistoryRoute
-  '/_authenticated/admin/code-interpreter': typeof AuthenticatedAdminCodeInterpreterRoute
   '/_authenticated/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
   '/_authenticated/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
   '/_authenticated/admin/image-generation': typeof AuthenticatedAdminImageGenerationRoute
   '/_authenticated/admin/mcp': typeof AuthenticatedAdminMcpRouteWithChildren
   '/_authenticated/admin/mcp-endpoint': typeof AuthenticatedAdminMcpEndpointRoute
   '/_authenticated/admin/models': typeof AuthenticatedAdminModelsRoute
+  '/_authenticated/admin/sandbox': typeof AuthenticatedAdminSandboxRoute
   '/_authenticated/admin/search-settings': typeof AuthenticatedAdminSearchSettingsRoute
   '/_authenticated/admin/system-one': typeof AuthenticatedAdminSystemOneRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
@@ -688,13 +688,13 @@ export interface FileRouteTypes {
     | '/admin/channels'
     | '/admin/chat'
     | '/admin/chat-history'
-    | '/admin/code-interpreter'
     | '/admin/groups'
     | '/admin/identity-providers'
     | '/admin/image-generation'
     | '/admin/mcp'
     | '/admin/mcp-endpoint'
     | '/admin/models'
+    | '/admin/sandbox'
     | '/admin/search-settings'
     | '/admin/system-one'
     | '/admin/users'
@@ -753,11 +753,11 @@ export interface FileRouteTypes {
     | '/admin/audit'
     | '/admin/chat'
     | '/admin/chat-history'
-    | '/admin/code-interpreter'
     | '/admin/identity-providers'
     | '/admin/image-generation'
     | '/admin/mcp-endpoint'
     | '/admin/models'
+    | '/admin/sandbox'
     | '/admin/search-settings'
     | '/admin/system-one'
     | '/admin/users'
@@ -819,13 +819,13 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/channels'
     | '/_authenticated/admin/chat'
     | '/_authenticated/admin/chat-history'
-    | '/_authenticated/admin/code-interpreter'
     | '/_authenticated/admin/groups'
     | '/_authenticated/admin/identity-providers'
     | '/_authenticated/admin/image-generation'
     | '/_authenticated/admin/mcp'
     | '/_authenticated/admin/mcp-endpoint'
     | '/_authenticated/admin/models'
+    | '/_authenticated/admin/sandbox'
     | '/_authenticated/admin/search-settings'
     | '/_authenticated/admin/system-one'
     | '/_authenticated/admin/users'
@@ -1026,13 +1026,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminChatHistoryRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
-    '/_authenticated/admin/code-interpreter': {
-      id: '/_authenticated/admin/code-interpreter'
-      path: '/code-interpreter'
-      fullPath: '/admin/code-interpreter'
-      preLoaderRoute: typeof AuthenticatedAdminCodeInterpreterRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
     '/_authenticated/admin/groups': {
       id: '/_authenticated/admin/groups'
       path: '/groups'
@@ -1073,6 +1066,13 @@ declare module '@tanstack/react-router' {
       path: '/models'
       fullPath: '/admin/models'
       preLoaderRoute: typeof AuthenticatedAdminModelsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/sandbox': {
+      id: '/_authenticated/admin/sandbox'
+      path: '/sandbox'
+      fullPath: '/admin/sandbox'
+      preLoaderRoute: typeof AuthenticatedAdminSandboxRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/admin/search-settings': {
@@ -1465,13 +1465,13 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminChannelsRoute: typeof AuthenticatedAdminChannelsRouteWithChildren
   AuthenticatedAdminChatRoute: typeof AuthenticatedAdminChatRoute
   AuthenticatedAdminChatHistoryRoute: typeof AuthenticatedAdminChatHistoryRoute
-  AuthenticatedAdminCodeInterpreterRoute: typeof AuthenticatedAdminCodeInterpreterRoute
   AuthenticatedAdminGroupsRoute: typeof AuthenticatedAdminGroupsRouteWithChildren
   AuthenticatedAdminIdentityProvidersRoute: typeof AuthenticatedAdminIdentityProvidersRoute
   AuthenticatedAdminImageGenerationRoute: typeof AuthenticatedAdminImageGenerationRoute
   AuthenticatedAdminMcpRoute: typeof AuthenticatedAdminMcpRouteWithChildren
   AuthenticatedAdminMcpEndpointRoute: typeof AuthenticatedAdminMcpEndpointRoute
   AuthenticatedAdminModelsRoute: typeof AuthenticatedAdminModelsRoute
+  AuthenticatedAdminSandboxRoute: typeof AuthenticatedAdminSandboxRoute
   AuthenticatedAdminSearchSettingsRoute: typeof AuthenticatedAdminSearchSettingsRoute
   AuthenticatedAdminSystemOneRoute: typeof AuthenticatedAdminSystemOneRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
@@ -1493,8 +1493,6 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminChannelsRoute: AuthenticatedAdminChannelsRouteWithChildren,
   AuthenticatedAdminChatRoute: AuthenticatedAdminChatRoute,
   AuthenticatedAdminChatHistoryRoute: AuthenticatedAdminChatHistoryRoute,
-  AuthenticatedAdminCodeInterpreterRoute:
-    AuthenticatedAdminCodeInterpreterRoute,
   AuthenticatedAdminGroupsRoute: AuthenticatedAdminGroupsRouteWithChildren,
   AuthenticatedAdminIdentityProvidersRoute:
     AuthenticatedAdminIdentityProvidersRoute,
@@ -1503,6 +1501,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminMcpRoute: AuthenticatedAdminMcpRouteWithChildren,
   AuthenticatedAdminMcpEndpointRoute: AuthenticatedAdminMcpEndpointRoute,
   AuthenticatedAdminModelsRoute: AuthenticatedAdminModelsRoute,
+  AuthenticatedAdminSandboxRoute: AuthenticatedAdminSandboxRoute,
   AuthenticatedAdminSearchSettingsRoute: AuthenticatedAdminSearchSettingsRoute,
   AuthenticatedAdminSystemOneRoute: AuthenticatedAdminSystemOneRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,

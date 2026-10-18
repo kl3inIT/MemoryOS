@@ -960,18 +960,16 @@ export const vietnameseUi: Record<string, string> = {
   "Tắt Web": "Web off",
   "Bắt buộc tìm trên Web": "Require Web search",
   "Tìm kiếm Web": "Web search",
-  "Code Interpreter": "Code Interpreter",
-  "Cho phép trợ lý chạy Python trong sandbox để phân tích dữ liệu và tạo tệp.":
-    "Let the assistant run Python in a sandbox to analyze data and create files.",
-  "Không tải được cài đặt Code Interpreter.": "Couldn't load Code Interpreter settings.",
-  "Máy chủ này chưa cấu hình dịch vụ Code Interpreter.":
-    "This deployment has no Code Interpreter service configured.",
-  "Bật Code Interpreter": "Enable Code Interpreter",
-  "Mô hình hỗ trợ công cụ sẽ có công cụ run_python khi dịch vụ hoạt động.":
-    "Models that support tools get the run_python tool while the service is healthy.",
-  "Đang kiểm tra dịch vụ…": "Checking the service…",
-  "Dịch vụ hoạt động (phiên bản {{version}})": "Service healthy (version {{version}})",
-  "Dịch vụ không hoạt động": "Service unavailable",
+  "Máy tính riêng của mỗi hội thoại để chạy lệnh, chạy Python và tạo tệp.":
+    "Each conversation's own computer for running commands and Python and creating files.",
+  "Không tải được cài đặt Sandbox.": "Couldn't load the Sandbox settings.",
+  "Máy chủ này chưa cấu hình Sandbox.": "This deployment has no Sandbox configured.",
+  "Bật Sandbox": "Enable Sandbox",
+  "Đang kiểm tra Sandbox…": "Checking the Sandbox…",
+  "Sandbox hoạt động ({{version}})": "Sandbox healthy ({{version}})",
+  "Sandbox không hoạt động": "Sandbox unavailable",
+  "Tên miền được phép truy cập": "Allowed domains",
+  "Không có": "None",
   "Kiểm tra lại": "Check again",
   "Đang chạy Python…": "Running Python…",
   "Chạy lệnh, sửa tệp, chạy Python và tạo tệp trong Sandbox riêng của hội thoại khi quản trị viên bật.":

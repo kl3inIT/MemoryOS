@@ -27,7 +27,7 @@ export type AdminPage =
   | "documentSets"
   | "users"
   | "groups"
-  | "interpreter"
+  | "sandbox"
   | "chat"
   | "providers"
   | "aiProviders"
@@ -80,10 +80,10 @@ export const adminPages: readonly AdminPageEntry[] = [
     visible: manageModels,
   },
   {
-    id: "interpreter",
-    to: "/admin/code-interpreter",
-    label: appText("Code Interpreter"),
-    title: appText("Code Interpreter"),
+    id: "sandbox",
+    to: "/admin/sandbox",
+    label: appText("Sandbox"),
+    title: appText("Sandbox"),
     icon: SquareTerminal,
     group: "configuration",
     visible: manageModels,

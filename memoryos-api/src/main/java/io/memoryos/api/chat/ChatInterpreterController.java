@@ -42,7 +42,7 @@ class ChatInterpreterController {
     @ApiResponse(responseCode = "200", description = "Code Interpreter setting", useReturnTypeSchema = true)
     @Operation(operationId = "getChatInterpreterSettings", summary = "Read whether Code Interpreter is configured and enabled for the Tenant")
     InterpreterSettingsResponse get(@CurrentActor IdentityContext identity) {
-        return InterpreterSettingsResponse.from(settings.settings(identity.actorId()));
+        return InterpreterSettingsResponse.from(settings.settings(identity.actorId()), sandboxes.allowedDomains());
     }
 
     @PutMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -50,7 +50,8 @@ class ChatInterpreterController {
     @Operation(operationId = "updateChatInterpreterSettings", summary = "Enable or disable Code Interpreter for the Tenant")
     InterpreterSettingsResponse update(@CurrentActor IdentityContext identity,
                                        @Valid @RequestBody InterpreterSettingsRequest request) {
-        return InterpreterSettingsResponse.from(settings.update(identity.actorId(), request.enabled(), request.revision()));
+        return InterpreterSettingsResponse.from(settings.update(identity.actorId(), request.enabled(), request.revision()),
+                sandboxes.allowedDomains());
     }
 
     @GetMapping("/health")

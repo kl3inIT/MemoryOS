@@ -54,7 +54,10 @@ work in it.
   and killed when the work returns. It is not counted in the bound: at most two run at once per process, and a third
   is `SANDBOX_BUSY`.
 - **Health.** `SandboxService.healthy()` is whether the deployment has a sandbox and a listing of MemoryOS's sandboxes
-  succeeds; the Code Interpreter page shows it.
+  succeeds.
+- **Sandbox page.** `/admin/sandbox`, labelled "Sandbox" in every language, is for model managers (`MODELS_MANAGE`): the
+  Tenant switch (`chat_interpreter_setting`), the health above with a check again, and the deployment's allowed domains
+  read-only, or "none" when egress is denied. It replaced `/admin/code-interpreter` after MEM-271, without a redirect.
 - **Reconciliation.** Every five minutes the Worker clears rows whose sandbox the runtime no longer holds and kills
   sandboxes labelled `memoryos.io/managed` that no row records and that are older than ten minutes (a start with its
   restore). It also deletes, 100 a run, the archives older than an hour that no row starts from: replaced by a later

@@ -85,6 +85,11 @@ public class SandboxService {
         return properties.configured() && runtimes.getIfAvailable() != null;
     }
 
+    /** The only domains a sandbox may reach, the deployment's; empty when egress is denied. */
+    public List<String> allowedDomains() {
+        return properties.allowedDomains();
+    }
+
     /**
      * The conversation's live sandbox, started when it has none. A start takes its place in the running bound in a
      * short transaction, creates the sandbox outside any transaction and records it in another, so a slow or hung
