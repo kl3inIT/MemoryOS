@@ -721,7 +721,7 @@ calling and the deployment has a sandbox (`SandboxService.available()`); a turn 
 
 ## Code Interpreter
 
-`run_python` follows the Onyx 40eb240df Code Interpreter. Since [MEM-271](../increments/active/mem-271-run-python-sandbox/design.md) it runs model-written Python as `python3` in the conversation's sandbox ([sandbox](sandbox.md)), beside the Sandbox tools, so the files it reads and writes stay in `/workspace` for later calls, `bash` and later turns; before, it called the `memoryos-interpreter` service ([MEM-110](../increments/completed/mem-110-memoryos-interpreter/design.md)), whose disposable executor forgot every file.
+`run_python` follows the Onyx 40eb240df Code Interpreter. Since [MEM-271](../increments/completed/mem-271-run-python-sandbox/design.md) it runs model-written Python as `python3` in the conversation's sandbox ([sandbox](sandbox.md)), beside the Sandbox tools, so the files it reads and writes stay in `/workspace` for later calls, `bash` and later turns; before, it called the `memoryos-interpreter` service ([MEM-110](../increments/completed/mem-110-memoryos-interpreter/design.md)), whose disposable executor forgot every file.
 
 - **Availability.** The tool is registered only when all of these hold:
   - the selected model supports tool calling;

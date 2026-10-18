@@ -290,7 +290,7 @@ Do not run a second deployment outside this workflow/reservation protocol. Retai
 
 ## Interpreter removal
 
-`memoryos-interpreter` ([MEM-110](../increments/completed/mem-110-memoryos-interpreter/design.md)) ran `run_python` until [MEM-271](../increments/active/mem-271-run-python-sandbox/design.md) moved it into the conversation's sandbox. Its source is kept under `memoryos-interpreter/`; no release builds, pushes or names it.
+`memoryos-interpreter` ([MEM-110](../increments/completed/mem-110-memoryos-interpreter/design.md)) ran `run_python` until [MEM-271](../increments/completed/mem-271-run-python-sandbox/design.md) moved it into the conversation's sandbox. Its source is kept under `memoryos-interpreter/`; no release builds, pushes or names it.
 
 - **First release without it.** The runtime it replaces still runs `memoryos-interpreter`, so that release captures it, and its rollout removes the container once the sandbox server is healthy; the new Compose files no longer name the service, so it is found by its Compose labels.
 - **Rollback.** A rollback to a runtime that ran the interpreter starts it again from that runtime's own Compose files and record. Keep `/apps/memoryos/secrets/interpreter/api-key.txt` and the executor image until no retained `current.env` or `previous.env` names `MEMORYOS_INTERPRETER_IMAGE`; `prune-release-images.sh` removes the images after that, and the key directory is then removed by hand.

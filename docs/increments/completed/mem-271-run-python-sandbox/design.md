@@ -2,7 +2,7 @@
 
 [MEM-271](https://linear.app/memory-os/issue/MEM-271) moves `run_python` from `memoryos-interpreter` to the
 conversation's OpenSandbox sandbox (MEM-270) and retires the interpreter. The decision and its reasons are in the
-MEM-270 design, ["`run_python` and the interpreter"](../mem-270-chat-sandbox/design.md#run_python-and-the-interpreter):
+MEM-270 design, ["`run_python` and the interpreter"](../../active/mem-270-chat-sandbox/design.md#run_python-and-the-interpreter):
 Claude and ChatGPT run Python, bash and files in one container per conversation, no reference falls back from one
 runtime to another, and `run_python` runs only in the sandbox, with no switch back (owner, 2026-10-18). This page
 settles how.
