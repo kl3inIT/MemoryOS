@@ -75,6 +75,12 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
             self.assertNotRegex(line, r"\|\s*grep\s+-[a-zA-Z]*q", f"deploy.sh:{number}")
         self.assertIn('services=$(compose config --services)\n  grep -qx channels <<< "$services"', SCRIPT)
 
+    def test_an_environment_without_the_bots_does_not_check_their_image(self):
+        deploy = SCRIPT.split('if [[ "$mode" == deploy ]]', 1)[1].split('elif [[ "$mode" == rollback ]]', 1)[0]
+        self.assertIn("if has_channels; then compose pull channels; fi", deploy)
+        check = deploy.split("if has_channels; then compose pull channels; fi", 1)[1].split("database_size=", 1)[0]
+        self.assertLess(check.index('[[ "$component" == channels ]] && ! has_channels'), check.index("docker image inspect"))
+
     def test_a_failure_reports_its_line_and_command(self):
         # The trap is set before the first assertion so no refusal is silent.
         self.assertIn("set -Eeuo pipefail\n"
