@@ -26,6 +26,11 @@ public final class ChatException extends BusinessException {
         return new ChatException("CHAT_CONFLICT", FailureCategory.CONFLICT, "Chat changed or has an active reply.");
     }
 
+    /** "Tạo bản riêng" copies only a MemoryOS template (MEM-281). */
+    public static ChatException notATemplate() {
+        return new ChatException("AGENT_NOT_A_TEMPLATE", FailureCategory.CONFLICT, "Only a template can be copied.");
+    }
+
     /** No call of the reply waits for approval: it was answered, it timed out, or the turn ended (MEM-253). */
     public static ChatException approvalNotPending() {
         return new ChatException("CHAT_TOOL_APPROVAL_NOT_PENDING", FailureCategory.CONFLICT,

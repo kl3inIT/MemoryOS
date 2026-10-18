@@ -15,6 +15,9 @@ public interface JpaPersonaRepository extends JpaRepository<PersonaEntity, UUID>
 
     List<PersonaEntity> findByTenantIdAndIdIn(UUID tenantId, Collection<UUID> ids);
 
+    /** The Tenant's rows of MemoryOS templates, deleted ones included (MEM-281). */
+    List<PersonaEntity> findByTenantIdAndTemplateKeyIsNotNull(UUID tenantId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from PersonaEntity p where p.tenantId=:tenant and p.id=:id")
     Optional<PersonaEntity> locked(UUID tenant, UUID id);

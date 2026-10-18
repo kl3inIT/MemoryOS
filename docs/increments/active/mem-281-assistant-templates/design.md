@@ -26,7 +26,7 @@ updates, grouped by category; anyone can chat with one at once. This is
 
 | Product | Ready-made assistants | Used how | Who changes them | Verified |
 | --- | --- | --- | --- | --- |
-| WorkBuddy | Expert Center: experts grouped by category; Skills Market | "Summon" uses an expert as it is | The vendor | Owner's research, workbuddy.ai docs (Expert Center, Skills Market) |
+| WorkBuddy | Expert Center: experts grouped by category; Skills Market | "Summon" uses an expert as it is | The vendor | Docs: workbuddy.ai Expert Center and Skills Market pages, read 2026-10-18 |
 | ChatGPT | GPT Store | A GPT is used as it is; nobody but its builder edits it | Its builder | Docs |
 | Onyx | One built-in assistant. Onyx deleted its other built-ins in September 2025 (`alembic/versions/505c488f6662_merge_default_assistants_into_unified.py`) | — | Administrators feature their own agents (`AgentRowActions.tsx`) | Code |
 | LobeHub | Agent market (`lobe-chat-agents`, 505 agents, MIT) | Added as a copy that keeps its `marketIdentifier` (`src/services/agent.ts`) | The user, on the copy | Code |
@@ -90,9 +90,10 @@ shape of each prompt (role, steps, output format). The repository's third-party 
      community repository. A test loads every file and checks both languages and the assistant limits.
    - **Rows.** `persona.template_key` (nullable, 64, unique per Tenant among live rows) marks a template's row.
      `AssistantTemplateProvisioner` writes them in the Tenant bootstrap transaction next to the built-in assistant,
-     and again at startup for every Tenant. It inserts a missing template, rewrites a row whose content differs from
-     the catalogue (`IS DISTINCT FROM`, so an unchanged row is not touched), and soft-deletes the row of a template the
-     catalogue no longer has. A rewrite is safe because nobody else edits the row.
+     and again at startup for every Tenant. It inserts a missing template, rewrites a row whose content or tools differ
+     from the catalogue (compared field by field in the provisioner, so an unchanged row is not written), restores a
+     template that returns and soft-deletes the row of a template the catalogue no longer has. A rewrite is safe because
+     nobody else edits the row.
    - **Why rows and not a catalogue alone.** Conversations, pins, the recent list, the turn's persona read and every
      access check reference `persona.id`. A row lets a template conversation run through the existing turn path,
      history, pins and recents unchanged. A catalogue-only template would need a second kind of assistant id in each
@@ -101,8 +102,8 @@ shape of each prompt (role, steps, output format). The repository's third-party 
      change an agent administrator may make to a template row.
    - **Access.** `AgentAccessSql.USES` admits a template row only while it is listed: `template_key IS NOT NULL AND
      is_listed`. `EDITS` and `OWNS` exclude template rows. A hidden template leaves Khám phá, pins and recents; its
-     conversations stay in history and cannot be continued, as with an assistant someone may no longer use. Showing it
-     again restores both.
+     conversations stay in history and cannot be continued, as with an assistant someone may no longer use. An agent
+     administrator still opens a hidden template, to show it again. Showing it again restores both.
    - **Language.** The row stores the Vietnamese text. The persona views, Khám phá and the empty conversation show a
      template's name, title, description, greeting and starters in the reader's account language from the catalogue,
      by `template_key`. The instructions are one text written in English, and the reply language follows the account
@@ -139,8 +140,8 @@ shape of each prompt (role, steps, output format). The repository's third-party 
 | --- | --- |
 | Persona views (`GET /api/chat/personas`, `/{id}`) | Gain `template` (`key`, `category`) on template rows; text in the reader's language |
 | `POST /api/chat/personas/{id}/copy` | New. `201` with the caller's new assistant; `409 AGENT_NOT_A_TEMPLATE` for any other assistant |
-| Persona update, delete, sharing, transfer on a template row | `403` with the existing edit code |
-| Listing switches on a template row | `is_listed` only, by agent administrators |
+| Persona update, delete, sharing, transfer and reorder on a template row | `404 CHAT_UNAVAILABLE`, as for any assistant the caller may not change |
+| Listing switches on a template row | `is_listed` only, by agent administrators; *Nổi bật* or a priority is `CHAT_INVALID_REQUEST` |
 | Listing and persona updates | Lose `displayPriority` |
 
 ## Staging cleanup

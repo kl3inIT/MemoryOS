@@ -2532,7 +2532,7 @@ class ChatSessionApiIntegrationTest {
             assertEquals(25, first.path("items").size());
             assertEquals(first.path("items").get(24).path("id").asText(), first.path("nextCursor").asText());
             var expected = jdbc.sql("SELECT id::text FROM persona WHERE tenant_id=:tenant AND deleted_at IS NULL "
-                            + "AND (builtin_key IS NOT NULL OR owner_actor_id=:actor) ORDER BY id")
+                            + "AND (builtin_key IS NOT NULL OR template_key IS NOT NULL OR owner_actor_id=:actor) ORDER BY id")
                     .param("tenant", TENANT).param("actor", actor.getPrincipal().actorId().value()).query(String.class).list();
             var seen = new ArrayList<String>();
             String cursor = null;
@@ -2595,7 +2595,11 @@ class ChatSessionApiIntegrationTest {
                     .param("tenant", TENANT).query(UUID.class).single();
             var visible = new HashSet<UUID>();
             for (var item : page.path("items")) visible.add(UUID.fromString(item.path("id").asText()));
-            assertEquals(Set.of(own, builtin), visible);
+            // MemoryOS's templates are usable by everyone while listed (MEM-281).
+            var expected = new HashSet<>(jdbc.sql("SELECT id FROM persona WHERE tenant_id=:tenant AND template_key IS NOT NULL AND deleted_at IS NULL")
+                    .param("tenant", TENANT).query(UUID.class).list());
+            expected.addAll(List.of(own, builtin));
+            assertEquals(expected, visible);
             for (UUID inaccessible : List.of(foreign, deletedOwn, deletedForeign)) {
                 var before = jdbc.sql("SELECT model_configuration_id,model_revision,revision FROM persona WHERE id=:id")
                         .param("id", inaccessible).query().singleRow();
