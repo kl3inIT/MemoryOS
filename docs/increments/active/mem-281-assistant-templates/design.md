@@ -1,128 +1,146 @@
-# MEM-281 Assistant templates
+# MEM-281 Assistant templates in Khám phá
 
-A new Tenant has one assistant, the built-in MemoryOS assistant. Someone who opens Trợ lý for the first time sees
-"Tạo trợ lý" and an empty form, and has to write instructions before the assistant is worth anything. This increment
-gives MemoryOS a small set of reviewed assistant templates for office work. Anyone who may create an assistant can
-start from one and gets a normal assistant they can edit. It is [MEM-281](https://linear.app/memory-os/issue/MEM-281).
-The owner started it on 2026-10-18, after [MEM-273](../mem-273-agent-editor/design.md) shipped the editor.
+A new Tenant has one assistant, the built-in MemoryOS assistant. Someone who opens Trợ lý for the first time finds
+nothing ready for a job and has to write instructions before an assistant is worth anything. This increment makes
+Khám phá the company's assistant marketplace. It opens with eight assistants that MemoryOS writes, reviews and
+updates, grouped by category; anyone can chat with one at once. This is
+[MEM-281](https://linear.app/memory-os/issue/MEM-281). The owner decided the direction on 2026-10-18, after
+[MEM-273](../mem-273-agent-editor/design.md) shipped the editor.
 
 ## Today
 
 - `persona.builtin_key` marks the built-in assistant. `ChatTenantProvisioner` inserts it when a Tenant is bootstrapped,
-  insert-only, with every tool (`JdbcChatRepository.provisionPersona`). There are no other seeded rows.
-- An assistant is created from a short dialog with name, title and description (MEM-273 decision 14). It starts with
-  search and web search (`ChatPersonaService.DEFAULT_TOOLS`).
-- "Khám phá" is the `is_listed` switch and "Nổi bật" is `is_featured`, both set by agent administrators on the Chia sẻ
-  tab. The agents page lists listed assistants under "Tất cả", featured ones first
-  (`JdbcAgentRepository.list`). There is no separate explore page; the sidebar's compass opens `/agents`.
-- There is no way to copy an assistant. MEM-273 decision 14 said "Templates come through Fork (step 3)", but step 3
-  shipped the test chat and Fork was never built.
+  insert-only, with every tool (`JdbcChatRepository.provisionPersona`). `AgentAccessSql` lets everyone use it and
+  agent administrators edit it; it cannot be deleted or shared.
+- Khám phá is the agents page (`/agents`, the sidebar's compass). "Tất cả" lists every assistant the person may use
+  that is listed, and their own. The listing switches "Hiện ở Khám phá" (`is_listed`) and "Nổi bật" (`is_featured`)
+  are set by agent administrators on the Chia sẻ tab. Featured assistants come first (`JdbcAgentRepository.list`).
+- A conversation, a pin, the recent list and a bot binding all reference a `persona` row. A turn reads the persona
+  row (instructions, tools, Sources, files, model) for each question (`JdbcChatRepository.persona`).
+- An assistant cannot be copied. MEM-273 decision 14 said "Templates come through Fork (step 3)"; Fork was never
+  built.
 - `persona.display_priority` orders the list, but no screen sets it. The web only passes the stored value back when it
   saves the listing switches (`agent-share-panel.tsx`).
 
 ## How the references do it
 
-| Product | What a new workspace has | Templates | What using one does | Verified |
+| Product | Ready-made assistants | Used how | Who changes them | Verified |
 | --- | --- | --- | --- | --- |
-| Onyx | One built-in assistant (`DEFAULT_PERSONA_ID = 0`). In September 2025 Onyx deleted its other built-in assistants (Search, General, Paraphrase, Art) and merged them into it (`alembic/versions/505c488f6662_merge_default_assistants_into_unified.py`). | None. Administrators create agents and mark them featured (`AgentRowActions.tsx`, `is_featured`). | — | Code |
-| LobeHub | An inbox agent | Discover / agent market: community agents (`lobe-chat-agents`, 505 agents, MIT) | Adds a copy as the user's own agent. The copy keeps its `marketIdentifier`, and `agentService.checkByMarketIdentifier` tells whether one already exists (`src/services/agent.ts`). | Code |
-| Dify | Nothing | "Create from template" in the create-app dialog (`create-app-dialog/app-list`) | Imports the template's DSL as a new app in the workspace (`useImportDSL`) | Code |
-| Coze Studio, FastGPT | Nothing | "Template or blank" when creating ([MEM-273 design](../mem-273-agent-editor/design.md#how-the-references-do-it)) | A new app from the template | Code (MEM-273 research) |
-| Copilot Studio | Nothing | Prebuilt agents under "Explore agents" on the Create page | Opens the agent's configuration with name, description, instructions and knowledge filled in; Create makes the maker's own agent. Microsoft leaves the safety and legal review of a template to the maker. ([template fundamentals](https://learn.microsoft.com/microsoft-copilot-studio/template-fundamentals)) | Docs |
-| Glean | Agent Library | Templates in the library ([agent library](https://www.glean.com/ai-agents/agent-library)). Administrators cannot publish company templates yet ([community request](https://community.glean.com/discussion/605/feature-request-admin-created-agent-templates)). | A copy; a duplicate keeps the original's open sharing | Marketing page and community posts only |
-| ChatGPT Enterprise | Workspace GPTs | No template copying documented ([GPT access in workspaces](https://help.openai.com/en/articles/8555535)) | — | Docs (partial) |
+| WorkBuddy | Expert Center: experts grouped by category; Skills Market | "Summon" uses an expert as it is | The vendor | Owner's research, workbuddy.ai docs (Expert Center, Skills Market) |
+| ChatGPT | GPT Store | A GPT is used as it is; nobody but its builder edits it | Its builder | Docs |
+| Onyx | One built-in assistant. Onyx deleted its other built-ins in September 2025 (`alembic/versions/505c488f6662_merge_default_assistants_into_unified.py`) | — | Administrators feature their own agents (`AgentRowActions.tsx`) | Code |
+| LobeHub | Agent market (`lobe-chat-agents`, 505 agents, MIT) | Added as a copy that keeps its `marketIdentifier` (`src/services/agent.ts`) | The user, on the copy | Code |
+| Dify, Coze Studio, FastGPT | Templates when creating an app | A new app from the template (`useImportDSL`) | The user, on the new app | Code |
+| Copilot Studio | Prebuilt agents under "Explore agents" | Create makes the maker's own agent ([template fundamentals](https://learn.microsoft.com/microsoft-copilot-studio/template-fundamentals)) | The maker, on the copy | Docs |
 
-Every product that ships templates copies a template when someone uses it. None seeds template rows into each
-workspace. Onyx, the one that used to seed several built-in assistants, removed them for a single one.
+Two models exist:
+
+- **Use as it is.** WorkBuddy and the GPT Store offer a vendor's assistant that people use without setting anything
+  up, and nobody else edits it.
+- **Copy to change.** LobeHub, Dify, Coze, FastGPT and Copilot Studio copy a template into the user's own assistant.
+
+MemoryOS offers both: chat with a template at once, and "Tạo bản riêng" for someone who wants to change it.
 
 ## lobe-chat-agents as a source
 
-- MIT licence, maintained (last commit 2026-10-15). There are 505 agents: 209 written in English and 296 written in
-  Chinese. Each has `locales/<id>/index.vi-VN.json`.
-- Fields: `meta.title`, `meta.description`, `meta.tags`, `meta.avatar` (an emoji), `config.systemRole`,
-  `config.openingMessage`, `config.openingQuestions`. They map to MemoryOS's name, description, labels, avatar,
-  instructions, greeting and starters. The model, `params`, `historyCount`, `inputTemplate`, `displayMode`, `author`
-  and `homepage` have no MemoryOS field and are dropped.
-- The `vi-VN` text is machine-translated, and the agents were written for other markets. Samples read on 2026-10-18:
-  - `business-email`: Chinese–English emails and GitHub open-source etiquette.
-  - `business-contract`: construction contracts, with Chinese headings left in the prompt ("Role (角色)").
+- MIT licence, maintained (last commit 2026-10-15). There are 505 agents, each with `locales/<id>/index.vi-VN.json`.
+  `systemRole`, `openingMessage`, `openingQuestions`, `title`, `description` and `tags` map to MemoryOS fields. The
+  model, `params`, `historyCount`, `inputTemplate` and `displayMode` have none.
+- The `vi-VN` text is machine-translated and written for other markets. Samples read on 2026-10-18:
+  - `business-email`: Chinese–English email and GitHub etiquette.
+  - `business-contract`: construction contracts only, with "Role (角色)" left in the prompt.
   - `translation-specialist`: Spanish–English.
-  - `minimalist-translation`: Chinese–English, and refuses to explain its own rules.
-  - `meeting`: construction-site progress and safety training.
-  - `interviewer-assistant`: only new-graduate product manager hiring.
-  - Several openings and questions sound translated ("Tôi là trợ lý họp v1.0").
-- None of the agents knows about company documents. In MemoryOS, internal search is what makes an assistant useful.
+  - `meeting`: construction progress and safety training.
+  - Several openings read as translated ("Tôi là trợ lý họp v1.0").
+- No agent knows about company documents, which is what makes a MemoryOS assistant useful.
 
-So the templates are MemoryOS's own text. lobe-chat-agents gives the shortlist of jobs and the shape of each prompt
-(role, steps, output format). Where a prompt follows a lobe agent closely, its template names the lobe identifier and
-the repository's third-party notice carries the MIT notice.
+So MemoryOS writes its own Vietnamese and English text. lobe-chat-agents supplies only how the jobs are split and the
+shape of each prompt (role, steps, output format). The repository's third-party notice carries its MIT notice.
 
 ## Decisions
 
-1. **A catalogue copied on use, not seeded rows.** Templates are not assistants in the database. Using one creates a
-   normal assistant, the way LobeHub, Dify, Coze, FastGPT and Copilot Studio work. This means:
-   - seeded rows would go stale, and a template update could never reach a Tenant without overwriting an
-     administrator's edits;
-   - a Tenant that never wants "Rà soát hợp đồng" never sees it in its assistant list;
-   - the built-in assistant stays the only provisioned row, as in Onyx.
-2. **Templates ship with the release.** Each template is one JSON file under
-   `memoryos-core/src/main/resources/chat/assistant-templates/`. The file holds the key, the Vietnamese and English
-   text, tools, `grounded`, the avatar seed and, where it applies, `basedOn` with the lobe identifier. The files are
-   reviewed in pull requests like code. Nothing syncs from a community repository, because community prompts are
-   untrusted text (prompt injection, uneven quality); this follows the issue's own rule. A loader validates every file
-   at startup against the same limits as an assistant: name 200 characters, title 80, description 2,000, greeting 500,
-   at most four starters of 1,000 characters, and known tools. A bad file fails the build's tests, not a request.
-3. **Using a template copies it.** `POST /api/chat/personas/templates/{key}` creates an assistant from the template in
-   the caller's account language: Vietnamese for `vi`, English otherwise, as for replies. It takes the name, title,
-   description, instructions, greeting, starters, tools, `grounded` and the template's avatar seed, and opens the
-   editor. It needs `AGENTS_CREATE`, like "Tạo trợ lý". The copy belongs to its creator and is private, as in every
-   reference; the Chia sẻ tab shares it, and an agent administrator can list it in Khám phá or feature it there. No
-   Sources or Document Sets are attached, so with the documents switch on, the assistant searches everything the
-   person may read (MEM-273 decision 6).
-4. **The copy remembers its template.** `persona.template_key` (nullable, 64 characters) is set on copy and never
-   changes; LobeHub's `marketIdentifier` does the same. The catalogue marks a template the caller already holds a copy
-   of as "Đã dùng", with "Mở" beside "Dùng lại". A later release never changes a copy: a copy is the person's own
-   assistant from the moment it exists.
-5. **Where people find templates: the create dialog.** "Tạo trợ lý" opens on two choices, as Dify, Coze, FastGPT and
-   Copilot Studio offer "Template or blank":
-   - "Trống", today's short form;
-   - the template grid: avatar, name and one line each, with a preview of the greeting and starters before "Dùng mẫu".
+1. **Khám phá is the company's assistant marketplace.** "Tất cả" opens with "Mẫu của MemoryOS": the visible templates
+   grouped by category, each a card with avatar, name and one line. Below it come the company's assistants, as today.
+   Clicking a template opens a new conversation with it, with no setup (WorkBuddy's "Summon", the GPT Store). Its
+   viewer offers "Trò chuyện" and "Tạo bản riêng".
+2. **Eight templates, five categories.**
 
-   The agents page's empty "Của tôi" view links to the grid. There is no separate templates page and no sidebar entry,
-   since eight templates fit in the dialog.
-6. **Eight templates.** The shortlist below covers the jobs the owner's own staging test assistants tried (HR policy,
-   contracts, finance reports, OKR/KPI) and the everyday writing that lobe-chat-agents' office agents cover. Templates
-   that read company documents keep search on; only the policy assistant is grounded.
-7. **No general copy of an assistant in this increment.** Onyx has none. Copilot Studio and Glean duplicate agents,
-   and Glean's community calls its duplicate clumsy because the copy keeps open sharing. A general "Nhân bản" is a
-   separate decision. This replaces MEM-273 decision 14's "Templates come through Fork".
-8. **The built-in assistant stays as it is.** It is the default for chat and bots, as Onyx's unified assistant is.
+   | Category | Templates |
+   | --- | --- |
+   | Viết | Soạn email công việc, Dịch Việt – Anh |
+   | Họp & báo cáo | Biên bản họp, Báo cáo tuần |
+   | Tài liệu & chính sách | Tóm tắt tài liệu, Hỏi đáp chính sách nội bộ |
+   | Pháp chế | Rà soát hợp đồng |
+   | Nhân sự | Viết đánh giá OKR/KPI |
+
+3. **A template works with the person's own documents.** It attaches no Sources, Document Sets or files and has
+   document search on, so it searches everything the person may read (MEM-273 decision 6). "Hỏi đáp chính sách nội
+   bộ" therefore answers from the company's policies on day one; it is the one template with "Chỉ trả lời có căn cứ"
+   on. Every template except Dịch Việt – Anh has search on; none has web search, image generation or Code
+   Interpreter, which a person adds on their own copy.
+4. **MemoryOS owns the content.** Nobody in a Tenant edits, shares, deletes or transfers a template, and no bot can be
+   bound to one, because binding needs edit rights on the assistant. This follows WorkBuddy and the GPT Store, where a
+   vendor's assistant is not edited by its users. An agent administrator may only hide or show a template for the
+   Tenant. A company version is made with "Tạo bản riêng", edited and shared with the organization, and then appears
+   in Khám phá as any shared assistant does.
+5. **Storage: one system-owned `persona` row per template and Tenant, written from a catalogue in code.**
+   - **Catalogue.** Each template is one JSON file under `memoryos-core/src/main/resources/chat/assistant-templates/`:
+     key, category, Vietnamese and English text (name, title, description, greeting, at most four starters),
+     instructions, tools, `grounded` and avatar seed. Files are reviewed in pull requests; nothing syncs from a
+     community repository. A test loads every file and checks both languages and the assistant limits.
+   - **Rows.** `persona.template_key` (nullable, 64, unique per Tenant among live rows) marks a template's row.
+     `AssistantTemplateProvisioner` writes them in the Tenant bootstrap transaction next to the built-in assistant,
+     and again at startup for every Tenant. It inserts a missing template, rewrites a row whose content differs from
+     the catalogue (`IS DISTINCT FROM`, so an unchanged row is not touched), and soft-deletes the row of a template the
+     catalogue no longer has. A rewrite is safe because nobody else edits the row.
+   - **Why rows and not a catalogue alone.** Conversations, pins, the recent list, the turn's persona read and every
+     access check reference `persona.id`. A row lets a template conversation run through the existing turn path,
+     history, pins and recents unchanged. A catalogue-only template would need a second kind of assistant id in each
+     of them.
+   - **Hiding** is the template row's `is_listed`. The existing Chia sẻ listing switch writes it, and it is the only
+     change an agent administrator may make to a template row.
+   - **Access.** `AgentAccessSql.USES` admits a template row only while it is listed: `template_key IS NOT NULL AND
+     is_listed`. `EDITS` and `OWNS` exclude template rows. A hidden template leaves Khám phá, pins and recents; its
+     conversations stay in history and cannot be continued, as with an assistant someone may no longer use. Showing it
+     again restores both.
+   - **Language.** The row stores the Vietnamese text. The persona views, Khám phá and the empty conversation show a
+     template's name, title, description, greeting and starters in the reader's account language from the catalogue,
+     by `template_key`. The instructions are one text written in English, and the reply language follows the account
+     language hint as for every assistant (`docs/specs/chat.md`, "Account reply language").
+   - **Updates.** A wording or prompt change reaches every Tenant at the next deployment and applies from the next
+     question, as an edit to any assistant does.
+6. **"Tạo bản riêng" copies a template into the person's own assistant.** `POST /api/chat/personas/{id}/copy` accepts
+   only a template row and needs `AGENTS_CREATE`. The copy takes the text in the caller's language, the instructions,
+   tools, `grounded` and a new avatar seed, and opens the editor. It belongs to its creator and is private, as in
+   LobeHub, Dify and Copilot Studio; the Chia sẻ tab shares it. The copy does not record its template: a template is
+   used as it is, so nothing tracks who copied what.
+7. **No general copy of an assistant in this increment.** A "Nhân bản" for any assistant is a separate decision; this
+   replaces MEM-273 decision 14's "Templates come through Fork".
+8. **The built-in assistant stays as it is,** the default for chat and bots, as Onyx's unified assistant is.
 9. **`display_priority` goes.** No screen sets it, and Onyx orders featured agents without one. A migration drops the
-   column, the API drops the field, and ordering becomes builtin, featured, name.
+   column, the API drops the field, and ordering becomes built-in, featured, then name.
 
-## Shortlist
+## Templates
 
-| Key | Name (vi) | What it does | Tools | Based on |
+| Key | Name (vi) | Job | Search | Based on |
 | --- | --- | --- | --- | --- |
-| `email` | Soạn email công việc | Writes and replies to work emails in Vietnamese or English, in the tone the person asks for | search | `business-email` (shape only) |
-| `meeting-minutes` | Biên bản họp | Turns notes or a transcript into minutes: decisions, tasks with owner and deadline, open questions | search | `meeting` |
-| `weekly-report` | Báo cáo tuần | Turns a list of work into a weekly report: done, in progress, blockers, next week | search | `write-report-assistant-development` |
-| `document-summary` | Tóm tắt tài liệu | Summarises a file or a document found by search, with the key figures and citations | search | `summary-assistant` |
-| `policy-qa` | Hỏi đáp chính sách nội bộ | Answers questions on internal rules, HR and process only from company documents, and says when it finds nothing | search, grounded | — (MemoryOS's own) |
-| `contract-review` | Rà soát hợp đồng | Reads a contract and lists its key terms, risks and missing clauses, saying it is not legal advice | search | `business-contract`, `tech-lawyer` (shape only) |
-| `okr-kpi` | Viết đánh giá OKR/KPI | Drafts a monthly or year-end OKR/KPI review from results and evidence | search | `kpi-hero` |
-| `translate-vi-en` | Dịch Việt – Anh | Translates between Vietnamese and English and keeps terms, format and tone | — | `translation-specialist` (shape only) |
-
-Alternates if the owner swaps one: Công thức Excel (`excel-formula-master`, with Code Interpreter), Phỏng vấn tuyển
-dụng (`interviewer-assistant`), Tối ưu slide (`ppt`).
+| `email` | Soạn email công việc | Writes and replies to work email in Vietnamese or English, in the tone asked | yes | `business-email` (shape) |
+| `translate-vi-en` | Dịch Việt – Anh | Translates both ways, keeping terms, format and tone | no | `translation-specialist` (shape) |
+| `meeting-minutes` | Biên bản họp | Turns notes or a transcript into minutes: decisions, tasks with owner and deadline, open questions | yes | `meeting` |
+| `weekly-report` | Báo cáo tuần | Turns a list of work into done, in progress, blockers and next week | yes | `write-report-assistant-development` |
+| `document-summary` | Tóm tắt tài liệu | Summarises a file or found documents, with key figures and citations | yes | `summary-assistant` |
+| `policy-qa` | Hỏi đáp chính sách nội bộ | Answers on rules, HR and process only from company documents, and says when it finds nothing | yes, grounded | MemoryOS's own |
+| `contract-review` | Rà soát hợp đồng | Lists key terms, risks and missing clauses, and says it is not legal advice | yes | `business-contract`, `tech-lawyer` (shape) |
+| `okr-kpi` | Viết đánh giá OKR/KPI | Drafts a monthly or year-end OKR/KPI review from results and evidence | yes | `kpi-hero` |
 
 ## API
 
-| Operation | What it does |
+| Operation | Change |
 | --- | --- |
-| `GET /api/chat/personas/templates` | The templates in the caller's language: key, name, title, description, greeting, starters, tools, avatar seed, and `usedBy` (the id of the caller's newest copy, if any) |
-| `POST /api/chat/personas/templates/{key}` | Creates the caller's assistant from the template; `201` with the assistant. `404 AGENT_TEMPLATE_NOT_FOUND` for an unknown key |
-| `GET /api/chat/personas/{id}` | Gains `templateKey` |
+| Persona views (`GET /api/chat/personas`, `/{id}`) | Gain `template` (`key`, `category`) on template rows; text in the reader's language |
+| `POST /api/chat/personas/{id}/copy` | New. `201` with the caller's new assistant; `409 AGENT_NOT_A_TEMPLATE` for any other assistant |
+| Persona update, delete, sharing, transfer on a template row | `403` with the existing edit code |
+| Listing switches on a template row | `is_listed` only, by agent administrators |
 | Listing and persona updates | Lose `displayPriority` |
 
 ## Staging cleanup
@@ -133,17 +151,16 @@ When the templates are on staging, delete through the app the test assistants "C
 
 ## Not in scope
 
-- A general "Nhân bản" of any assistant (decision 7).
-- Templates an administrator writes for their own Tenant (Glean's open request). This can come once people use the
-  catalogue.
+- Templates an administrator writes for their own Tenant beyond "Tạo bản riêng" and sharing.
+- A general "Nhân bản" (decision 7).
 - botdirectory.ai's scheduled bots, which wait for schedules (MEM-289) and the Agent Builder (MEM-280).
-- Filling the create dialog with AI ("Điền giúp", MEM-276).
 
 ## Risks
 
-- **Template text ages.** A wording fix reaches only new copies. This is intended (decision 4); release notes name
-  changed templates.
-- **A template copied by many people makes many near-identical assistants.** Copies are private, and Khám phá shows
-  only what an administrator lists, so the shared list stays clean.
-- **English copies read worse than Vietnamese ones.** Both languages are written and reviewed in the same pull
-  request; a test fails a template missing either language.
+- **A template changes under its users.** A release that rewrites a prompt changes the next answer in every Tenant.
+  Template changes go through review with the same evaluation as the built-in assistant's prompt, and release notes
+  name them.
+- **Startup writes touch every Tenant.** The provisioner writes only rows that differ, in one statement per template,
+  so a release without template changes writes nothing.
+- **English text reads worse than Vietnamese.** Both are written and reviewed in the same pull request, and a test
+  fails a template missing either.
