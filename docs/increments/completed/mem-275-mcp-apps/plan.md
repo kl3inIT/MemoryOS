@@ -40,14 +40,15 @@ Design: [design.md](design.md).
 - [x] Core: `McpClientsIntegrationTest` (views, visibility, metadata, whole result), `McpServerRulesTest`,
   `McpToolsTest`, `McpAppHostTest`, `ChatPersistenceIntegrationTest`; `ModulithArchitectureTest`,
   `CoreDependencyRulesTest`.
-- [ ] API: `ChatSessionApiIntegrationTest.mcpAppsShowAViewInTheAnswerAndServeItsRequestsToTheOwnerOnly`,
-  `OpenApiContractTest`.
-- [ ] Web: `chat-mcp-apps.test.tsx`, `nginx-config.test.mjs`, `pnpm --dir web check`.
-- [ ] Staging with Canva:
-  - `create-design` shows the candidates and picking one works.
-  - `get-design-thumbnails` shows images.
-  - A reload renders the view again.
-  - Disconnecting Canva leaves no view.
-  - Light and dark themes both render.
+- [x] API: `ChatSessionApiIntegrationTest.mcpAppsShowAViewInTheAnswerAndServeItsRequestsToTheOwnerOnly`,
+  `OpenApiContractTest` (CI of #750, #762).
+- [x] Web: `chat-mcp-apps.test.tsx`, `nginx-config.test.mjs`, `pnpm --dir web check` (CI of #733, #760).
+- [x] Staging with Canva, release `c5645be6` on 2026-10-18:
+  - `create-design` shows its view as the step completes ("Generating design…"), then "Design ready" with the
+    poster and "Edit in Canva". This run made one design directly, so no candidate was offered to pick.
+  - `get-create-design-async-job`, `get-design-thumbnails` and `track-event-lifecycle` from the view answer 200, with no
+    approval; the only approval was the model's `generate-design`.
+  - A reload renders the view again, in the light and the dark theme.
+  - Disconnecting Canva was not run: reconnecting needs the owner's Canva sign-in.
 - [x] Spec `chat`, test matrix `chat`, runbook `mcp-servers`.
-- [ ] Roadmap once merged.
+- [x] Roadmap.
