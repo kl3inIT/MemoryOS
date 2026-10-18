@@ -629,7 +629,8 @@ function ZaloBotGuide() {
   );
 }
 
-const EVENT = "im.message.receive_v1";
+/** A message to the bot, and the bot added to a group, which puts the group on the bot's page at once. */
+const EVENTS = ["im.message.receive_v1", "im.chat.member.bot.added_v1"];
 
 const SCOPES = [
   "im:message.p2p_msg:readonly",
@@ -658,8 +659,14 @@ function ChannelAppGuide() {
         </ul>
       </li>
       <li>
-        {ui("Trong Events & callbacks, chọn nhận sự kiện qua long connection và thêm sự kiện")}{" "}
-        <code className="font-mono text-xs text-content-primary">{EVENT}</code>.
+        {ui("Trong Events & callbacks, chọn nhận sự kiện qua long connection và thêm các sự kiện:")}
+        <ul className="mt-1 flex flex-col gap-0.5">
+          {EVENTS.map((event) => (
+            <li key={event}>
+              <code className="font-mono text-xs break-all text-content-primary">{event}</code>
+            </li>
+          ))}
+        </ul>
       </li>
       <li>{ui("Tạo phiên bản và phát hành app, rồi sao chép App ID và App Secret.")}</li>
     </ol>

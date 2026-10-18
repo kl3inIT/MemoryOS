@@ -47,7 +47,9 @@ apps in the organisation. The "Kênh chat" add dialog shows the same steps:
    - `cardkit:card:write`: the streamed answer card;
    - `contact:user.email:readonly`: the sender's e-mail, by which a direct message runs as its sender;
    - `im:chat:readonly`: whether a group has people from outside the organisation.
-3. In **Events & callbacks**, receive events through the **long connection** and add `im.message.receive_v1`.
+3. In **Events & callbacks**, receive events through the **long connection** and add `im.message.receive_v1` and
+   `im.chat.member.bot.added_v1`; the second puts a group on the bot's page as soon as the bot is added. Without it
+   the group still appears within ten minutes, when MemoryOS reads the bot's groups (`im:chat:readonly`).
 4. Create a version and publish it; an organisation administrator may have to approve it. Copy the App ID and the
    App Secret.
 

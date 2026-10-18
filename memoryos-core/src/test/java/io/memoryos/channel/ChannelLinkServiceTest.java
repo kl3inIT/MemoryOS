@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.function.Consumer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -262,7 +261,7 @@ class ChannelLinkServiceTest {
         @Override public ChannelProvider provider() { return ChannelProvider.LARK; }
 
         @Override
-        public ChannelTransport open(ChannelConnection connection, String secret, Consumer<ChannelMessage> receiver) {
+        public ChannelTransport open(ChannelConnection connection, String secret, ChannelReceiver receiver) {
             throw new UnsupportedOperationException();
         }
 

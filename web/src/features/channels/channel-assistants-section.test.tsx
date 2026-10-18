@@ -81,6 +81,15 @@ describe("ChannelAssistantsSection", () => {
     expect(screen.getAllByText("Nhóm Lark · hỏi 10 phút trước")).toHaveLength(2);
   });
 
+  it("shows a Lark group nobody has asked in yet, which only leaving the group removes", async () => {
+    renderSection("LARK", [group({ name: "Phòng Nhân sự", lastMessageAt: undefined })]);
+    expect(await screen.findByText("Nhóm Lark · chưa có ai hỏi")).toBeVisible();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Thao tác với Phòng Nhân sự" }));
+    expect(screen.getByRole("menuitem", { name: "Đổi tên" })).toBeVisible();
+    expect(screen.queryByRole("menuitem", { name: "Quên nhóm" })).toBeNull();
+  });
+
   it("names a Zalo group without a label by its platform and the end of its id", async () => {
     renderSection("ZALO_BOT", [group({ id: "2468013579" })]);
     expect(await screen.findByText("Nhóm Zalo 3579")).toBeVisible();
@@ -113,8 +122,8 @@ describe("ChannelAssistantsSection", () => {
         ),
       ),
     );
-    renderSection("LARK", [
-      group({ name: "Phòng Kế toán", assistant: { id: TAX, name: "Kế toán thuế" } }),
+    renderSection("ZALO_BOT", [
+      group({ label: "Phòng Kế toán", assistant: { id: TAX, name: "Kế toán thuế" } }),
     ]);
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: "Thao tác với Phòng Kế toán" }));

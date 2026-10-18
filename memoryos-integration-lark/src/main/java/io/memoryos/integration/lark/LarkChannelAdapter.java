@@ -2,6 +2,7 @@ package io.memoryos.integration.lark;
 
 import com.lark.oapi.channel.LarkChannel;
 import com.lark.oapi.channel.config.LarkChannelOptions;
+import com.lark.oapi.channel.model.BotAddedEvent;
 import com.lark.oapi.channel.model.NormalizedMessage;
 import com.lark.oapi.channel.model.SendInput;
 import com.lark.oapi.channel.model.SendOptions;
@@ -10,6 +11,9 @@ import com.lark.oapi.service.im.v1.model.CreateMessageReactionReq;
 import com.lark.oapi.service.im.v1.model.CreateMessageReactionReqBody;
 import com.lark.oapi.service.im.v1.model.Emoji;
 import com.lark.oapi.service.im.v1.model.GetChatReq;
+import com.lark.oapi.service.im.v1.model.ListChatReq;
+import com.lark.oapi.service.im.v1.model.ListChatResp;
+import com.lark.oapi.service.im.v1.model.P2ChatMemberBotAddedV1;
 import com.lark.oapi.service.im.v1.model.P2MessageReceiveV1;
 import io.memoryos.channel.ChannelAdapter;
 import io.memoryos.channel.ChannelChat;
@@ -17,8 +21,10 @@ import io.memoryos.channel.ChannelConnection;
 import io.memoryos.channel.ChannelCredentials;
 import io.memoryos.channel.ChannelException;
 import io.memoryos.channel.ChannelFeatures;
+import io.memoryos.channel.ChannelGroupPresence;
 import io.memoryos.channel.ChannelMessage;
 import io.memoryos.channel.ChannelProvider;
+import io.memoryos.channel.ChannelReceiver;
 import io.memoryos.channel.ChannelRegion;
 import io.memoryos.channel.ChannelReply;
 import io.memoryos.channel.ChannelSender;
@@ -30,12 +36,14 @@ import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,6 +66,9 @@ public final class LarkChannelAdapter implements ChannelAdapter, AutoCloseable {
     private static final Pattern APP_ID = Pattern.compile("^cli_[0-9a-z]{8,40}$");
     /** A card's text may be far longer than an answer; the card is rewritten as the answer is written. */
     private static final ChannelFeatures FEATURES = new ChannelFeatures(true, true, 150_000);
+    /** Lark's largest page of a bot's chats, and how many pages are read before the list is taken as unreadable. */
+    private static final int CHAT_PAGE = 100;
+    private static final int CHAT_PAGES = 50;
 
     private final LarkTransport transport;
     private final @Nullable RestLarkGateway gateway;
@@ -120,7 +131,7 @@ public final class LarkChannelAdapter implements ChannelAdapter, AutoCloseable {
     }
 
     @Override
-    public ChannelTransport open(ChannelConnection connection, String secret, Consumer<ChannelMessage> receiver) {
+    public ChannelTransport open(ChannelConnection connection, String secret, ChannelReceiver receiver) {
         var policy = new LarkChannelOptions.PolicyConfig();
         policy.setRequireMention(true);
         policy.setRespondToMentionAll(false);
@@ -133,6 +144,11 @@ public final class LarkChannelAdapter implements ChannelAdapter, AutoCloseable {
         channel.on("message", (NormalizedMessage message) -> {
             var converted = convert(connection, message);
             if (converted != null) receiver.accept(converted);
+        });
+        // MEM-273: a group the bot is added to is on its page at once; Lark names the group in the event.
+        channel.on("botAdded", (BotAddedEvent added) -> {
+            String chatId = joinedGroup(added);
+            if (chatId != null) receiver.joined(chatId, blankToNull(added.getChatName()));
         });
         channel.connectSync();
         channels.put(connection.id(), channel);
@@ -148,6 +164,13 @@ public final class LarkChannelAdapter implements ChannelAdapter, AutoCloseable {
                 channel.disconnectSync();
             }
         };
+    }
+
+    /** The group an added event names, or null for one with people from outside the organisation. */
+    static @Nullable String joinedGroup(BotAddedEvent added) {
+        if (!(added.getRaw() instanceof P2ChatMemberBotAddedV1 event) || event.getEvent() == null) return null;
+        if (!Boolean.FALSE.equals(event.getEvent().getExternal())) return null;
+        return added.getChatId();
     }
 
     /** A Lark message as the capability reads it; null for one that carries no sender. */
@@ -264,6 +287,63 @@ public final class LarkChannelAdapter implements ChannelAdapter, AutoCloseable {
         }
         chats.put(chatId, new Known(result, now.plus(CHAT_TTL)));
         return result;
+    }
+
+    /**
+     * The groups the bot is in, page by page from {@code im/v1/chats}, which lists no direct chat; a group with people
+     * from outside the organisation or no longer in use is left out, as the bot answers in neither. A page that cannot
+     * be read, or more than {@link #CHAT_PAGES} of them, gives no list.
+     */
+    @Override
+    public Optional<List<ChannelGroupPresence>> groups(ChannelConnection connection) {
+        var client = channel(connection).getRawClient();
+        return groups(token -> {
+            var request = ListChatReq.newBuilder().pageSize(CHAT_PAGE);
+            if (token != null) request.pageToken(token);
+            return client.im().v1().chat().list(request.build());
+        });
+    }
+
+    /** Reads one page of the bot's chats after {@code token}, null for the first. */
+    @FunctionalInterface
+    interface ChatPages {
+        @Nullable ListChatResp read(@Nullable String token) throws Exception;
+    }
+
+    static Optional<List<ChannelGroupPresence>> groups(ChatPages pages) {
+        var present = new ArrayList<ChannelGroupPresence>();
+        String token = null;
+        for (int page = 0; page < CHAT_PAGES; page++) {
+            ListChatResp answer;
+            try {
+                answer = pages.read(token);
+            } catch (Exception unreadable) {
+                LOG.atWarn().addKeyValue("event", "channel.lark.chats_unreadable")
+                        .addKeyValue("error_type", unreadable.getClass().getName()).log("Lark chats could not be listed");
+                return Optional.empty();
+            }
+            if (answer == null || !answer.success() || answer.getData() == null) {
+                LOG.atWarn().addKeyValue("event", "channel.lark.chats_unreadable")
+                        .addKeyValue("error_code", answer == null ? -1 : answer.getCode()).log("Lark chats could not be listed");
+                return Optional.empty();
+            }
+            var body = answer.getData();
+            if (body.getItems() != null) {
+                for (var chat : body.getItems()) {
+                    if (chat.getChatId() == null || !Boolean.FALSE.equals(chat.getExternal())) continue;
+                    if (chat.getChatStatus() != null && !"normal".equals(chat.getChatStatus())) continue;
+                    present.add(new ChannelGroupPresence(chat.getChatId(), blankToNull(chat.getName())));
+                }
+            }
+            token = body.getPageToken();
+            if (!Boolean.TRUE.equals(body.getHasMore()) || token == null || token.isBlank()) return Optional.of(present);
+        }
+        LOG.atWarn().addKeyValue("event", "channel.lark.chats_too_many").log("Lark chats past the listed pages");
+        return Optional.empty();
+    }
+
+    private static @Nullable String blankToNull(@Nullable String value) {
+        return value == null || value.isBlank() ? null : value.strip();
     }
 
     @Override

@@ -9,6 +9,7 @@ import io.memoryos.channel.ChannelException;
 import io.memoryos.channel.ChannelFeatures;
 import io.memoryos.channel.ChannelMessage;
 import io.memoryos.channel.ChannelProvider;
+import io.memoryos.channel.ChannelReceiver;
 import io.memoryos.channel.ChannelReply;
 import io.memoryos.channel.ChannelSender;
 import io.memoryos.channel.ChannelText;
@@ -139,7 +140,7 @@ public final class ZaloChannelAdapter implements ChannelAdapter, AutoCloseable {
     }
 
     @Override
-    public ChannelTransport open(ChannelConnection connection, String secret, Consumer<ChannelMessage> receiver) {
+    public ChannelTransport open(ChannelConnection connection, String secret, ChannelReceiver receiver) {
         var bot = new ZaloBot(baseUrl, secret);
         var delivery = ChannelDelivery.of(connection.settings()).orElse(ChannelDelivery.POLLING);
         String address = webUrl.get();

@@ -1,7 +1,8 @@
 package io.memoryos.channel;
 
+import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
+import java.util.Optional;
 
 /**
  * One messaging platform, as the capability sees it: the adapter owns the transport, the provider's ids and the
@@ -17,11 +18,12 @@ public interface ChannelAdapter {
     /**
      * Starts receiving for one bot: a transport that keeps a connection of its own, or one the provider pushes to
      * through its {@link ChannelTransport#webhook()}. The adapter acknowledges each message to the provider and passes
-     * it to {@code receiver}, which returns at once; it never calls the receiver for a message it could not read.
+     * it to {@code receiver}, which returns at once; it never calls the receiver for a message it could not read. A
+     * provider that tells the bot it was added to a group passes that on too ({@link ChannelReceiver#joined}).
      *
      * @param secret the app's secret, decrypted for this call only
      */
-    ChannelTransport open(ChannelConnection connection, String secret, Consumer<ChannelMessage> receiver);
+    ChannelTransport open(ChannelConnection connection, String secret, ChannelReceiver receiver);
 
     /**
      * Checks an app with the platform before it is stored: the credentials are well formed, they work and the app has
@@ -62,4 +64,13 @@ public interface ChannelAdapter {
      * provider without organisations) and its name, which the bot's page shows (MEM-273).
      */
     ChannelChat chat(ChannelConnection connection, String chatId);
+
+    /**
+     * The group chats an open bot is in, whose people all belong to its organisation (MEM-273): the whole list or
+     * nothing, so a group missing from it is one the bot has left. Empty for a provider that cannot list them, whose
+     * groups are known once someone names the bot there (Zalo), and when the list could not be read whole.
+     */
+    default Optional<List<ChannelGroupPresence>> groups(ChannelConnection connection) {
+        return Optional.empty();
+    }
 }

@@ -19,6 +19,7 @@ export const vietnameseUi: Record<string, string> = {
   "Theo nhóm chat": "By group chat",
   "Theo mặc định": "Bot default",
   "hỏi {{v1}}": "asked {{v1}}",
+  "chưa có ai hỏi": "not asked yet",
   "Trợ lý của {{v1}}": "Assistant for {{v1}}",
   "Quên nhóm": "Forget group",
   "Quên nhóm {{name}}?": "Forget {{name}}?",
@@ -2206,8 +2207,8 @@ Object.assign(vietnameseUi, {
   "Tạo custom app trong Lark Developer Console và bật tính năng Bot.":
     "Create a custom app in the Lark Developer Console and turn on its Bot feature.",
   "Thêm các quyền:": "Add the scopes:",
-  "Trong Events & callbacks, chọn nhận sự kiện qua long connection và thêm sự kiện":
-    "In Events & callbacks, receive events over a long connection and add the event",
+  "Trong Events & callbacks, chọn nhận sự kiện qua long connection và thêm các sự kiện:":
+    "In Events & callbacks, receive events over a long connection and add the events:",
   "Tạo phiên bản và phát hành app, rồi sao chép App ID và App Secret.":
     "Create a version, publish the app, then copy its App ID and App Secret.",
   "Đã thay App Secret": "App Secret replaced",

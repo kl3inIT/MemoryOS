@@ -58,10 +58,9 @@ a bot-wide default. LobeHub's one-bot-per-agent model is what #731 shipped; it f
    external, and moves `last_message_at` on each one. `name` is the provider's: Lark's comes from the `chat get` the
    external check already makes (the adapter port's `externalChat` becomes `chat(connection, chatId)` returning
    whether it is external and its name, cached as today); Zalo gives none. `label` is the administrator's own name for
-   a group and is shown before `name`; a Zalo group without a label shows "Nhóm Zalo" and when it last asked. Groups
-   are not listed from the provider: Zalo has no listing, and one rule for every provider is simpler than Lark's
-   `im/v1/chats` beside it. A group the bot left stays until the administrator forgets it; forgetting removes its
-   override too.
+   a group and is shown before `name`; a Zalo group without a label shows "Nhóm Zalo" and when it last asked. A Zalo
+   group the bot left stays until the administrator forgets it; forgetting removes its override too. Lark's groups
+   are known before anyone asks there (decision 9).
 4. **Resolution at turn time:** the group's override, else the bot's default, else the built-in assistant.
    `ChatSessionService.channelPersona(actor, connection, groupChatId)` answers it; `createInChannel` takes the group
    and records it on the session (`chat_session.channel_chat_id`, null for a direct message).
@@ -104,12 +103,40 @@ a bot-wide default. LobeHub's one-bot-per-agent model is what #731 shipped; it f
 `groupId` is the provider's chat id, URL-encoded. One migration (the next free version when it is pushed) adds
 `channel_groups`, `chat_channel_group_binding` and `chat_session.channel_chat_id`.
 
+## Step 5d: Lark groups known on joining
+
+Owner's call (2026-10-18): a Lark bot's groups show on its page as soon as the bot is in them; a Zalo group still
+shows after its first @-mention, as Zalo's Bot API has no list of a bot's groups and no event for being added.
+
+9. **Lark tells, Lark lists.** oapi-sdk-java 2.8.5 gives both (verified in `tmp/refs/oapi-sdk-java`): the
+   `im.chat.member.bot.added_v1` event, which `LarkChannel` already subscribes and emits as `botAdded` with the
+   chat's id, its name and the raw event's `external`; and `im().v1().chat().list` (`GET /open-apis/im/v1/chats`),
+   which with a tenant token lists the groups the bot is in, never a direct chat, 100 a page, each with `external`
+   and `chat_status`. The list needs `im:chat:readonly`, which the bot already has for the external check.
+   - The adapter port gains `ChannelReceiver.joined(chatId, name)` beside the message callback and
+     `ChannelAdapter.groups(connection)`, the whole list or nothing (empty for Zalo). A group with outsiders or not
+     `normal` is left out, as the bot answers in neither.
+   - `ChannelGroupRoster` records a joined group at once (`channel_groups.last_message_at` null: nobody has asked
+     yet), and makes the list the bot's groups, read when the bot connects and every 10 minutes: groups missing from
+     it are ones the bot left and are removed with their own assistant, so coming back starts on the bot's default,
+     as a new group does. Lark's `im.chat.member.bot.deleted_v1` and `im.chat.disbanded_v1` would remove a group
+     sooner, but `LarkChannel` builds its own event dispatcher without them, so the listing removes it within ten
+     minutes; until then the bot cannot answer there anyway. A list read in part, past 50 pages or refused changes
+     nothing.
+   - Onyx's Slack bot asks the administrator to type a channel's name (`SlackChannelConfigFormFields.tsx:205`) and
+     lists no channels; MemoryOS lists them because Lark gives the list and a chat id is not something an
+     administrator can type.
+   - The page lists groups asked in, most recent first, then those nobody has asked in ("chưa có ai hỏi"). A Lark
+     group has no "Quên nhóm": the list is Lark's, and a forgotten group would come back at the next read. A Zalo
+     group keeps it.
+   - The add dialog and the runbook name the new event; a bot whose app lacks it still gains its groups at the next
+     listing.
+
 ## Not in scope
 
 - **WhatsApp.** It waits for the owner's choice between the official Cloud API and a WhatsApp Web adapter. The Cloud
   API's groups need an Official Business Account, hold at most eight participants and are joined by invite link
   (third-party summary: https://www.unipile.com/whatsapp-group-api/), which limits what per-group routing gives.
-- Listing a provider's groups before the bot answers in them (Lark `im/v1/chats`); Zalo has no listing.
 - Per-person routing of direct messages; per-group document sets or tools (Onyx's config carries document sets).
 - GoClaw's per-group behaviour on one agent (`internal/config/config_channels.go:115`, `TelegramGroupConfig`: extra
   system prompt, tool and skill lists, enabled, require mention, allow list, quota). Switching the bot off in one

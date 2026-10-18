@@ -8,6 +8,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.after;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
@@ -30,7 +32,6 @@ import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,6 +50,7 @@ class ChannelSupervisorTest {
     private UUID connection;
     private final FakeAdapter adapter = new FakeAdapter();
     private final ChannelInboundService inbound = mock(ChannelInboundService.class);
+    private final ChannelGroupRoster roster = mock(ChannelGroupRoster.class);
     private ChannelSupervisor supervisor;
 
     @BeforeEach
@@ -73,7 +75,7 @@ class ChannelSupervisorTest {
                 """).param("tenant", tenant.value()).param("id", connection).param("secret", envelope.ciphertext())
                 .param("nonce", envelope.nonce()).param("version", envelope.keyVersion()).param("account", bot).update();
         supervisor = new ChannelSupervisor(new JdbcChannelConnectionRepository(jdbc), credentials,
-                new ChannelAdapters(List.of(adapter)), inbound);
+                new ChannelAdapters(List.of(adapter)), inbound, roster);
     }
 
     @AfterEach
@@ -111,6 +113,27 @@ class ChannelSupervisorTest {
         var thread = answeredOn.poll(5, TimeUnit.SECONDS);
         assertNotNull(thread);
         assertNotEquals(Thread.currentThread(), thread);
+    }
+
+    /** MEM-273 5d: a provider that lists a bot's groups is read when the bot connects, and not again before LISTING. */
+    @Test
+    void aConnectedBotsGroupsAreReadOnceAndAJoinedGroupIsRecordedAtOnce() {
+        var present = List.of(new ChannelGroupPresence("oc_accounting", "Phòng Kế toán"));
+        adapter.listing = Optional.of(present);
+        supervisor.pass();
+        verify(roster, timeout(5000)).listed(eq(tenant), eq(connection), eq(present), any());
+        supervisor.pass();
+        verify(roster, after(300).times(1)).listed(any(), any(), any(), any());
+
+        adapter.receivers.getFirst().joined("oc_hr", "Phòng Nhân sự");
+        verify(roster, timeout(5000)).joined(tenant, connection, "oc_hr", "Phòng Nhân sự");
+    }
+
+    /** A provider that cannot list its groups (Zalo) or gave no whole list changes nothing. */
+    @Test
+    void noListChangesNoGroup() {
+        supervisor.pass();
+        verify(roster, after(300).never()).listed(any(), any(), any(), any());
     }
 
     @Test
@@ -223,15 +246,16 @@ class ChannelSupervisorTest {
     private static final class FakeAdapter implements ChannelAdapter {
         final List<String> secrets = new ArrayList<>();
         final List<FakeTransport> opened = new ArrayList<>();
-        final List<Consumer<ChannelMessage>> receivers = new CopyOnWriteArrayList<>();
+        final List<ChannelReceiver> receivers = new CopyOnWriteArrayList<>();
         volatile boolean failing;
         volatile boolean pushes;
         volatile Runnable onRegister = () -> { };
+        volatile Optional<List<ChannelGroupPresence>> listing = Optional.empty();
 
         @Override public ChannelProvider provider() { return ChannelProvider.LARK; }
 
         @Override
-        public ChannelTransport open(ChannelConnection connection, String secret, Consumer<ChannelMessage> receiver) {
+        public ChannelTransport open(ChannelConnection connection, String secret, ChannelReceiver receiver) {
             if (failing) throw new IllegalStateException("provider refused");
             secrets.add(secret);
             receivers.add(receiver);
@@ -251,6 +275,8 @@ class ChannelSupervisorTest {
         @Override public ChannelSender sender(ChannelConnection connection, String senderId) { return ChannelSender.UNKNOWN; }
 
         @Override public ChannelChat chat(ChannelConnection connection, String chatId) { return ChannelChat.UNNAMED; }
+
+        @Override public Optional<List<ChannelGroupPresence>> groups(ChannelConnection connection) { return listing; }
 
         @Override public ChannelVerification verify(ChannelCredentials credentials) { throw new UnsupportedOperationException(); }
 

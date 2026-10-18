@@ -43,7 +43,9 @@ import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
@@ -54,7 +56,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -406,6 +407,49 @@ class PostgresChannelConnectionTest {
                 "channel.update", "channel.update"), actions());
     }
 
+    /**
+     * MEM-273 5d: a Lark group is known as soon as the bot is in it, nobody having asked there, after those asked in;
+     * Lark's whole list removes the groups the bot left, and with them their own assistants.
+     */
+    @Test
+    void aGroupTheBotIsInIsKnownBeforeAQuestionAndOneItLeftGoesWithItsAssistant() {
+        var bot = channels.create(owner, draft("cli_a1b2c3d4e5f6"));
+        UUID hr = assistant("Nhân sự", false, true);
+        Instant asked = Instant.parse("2026-10-17T02:00:00Z");
+        var roster = new ChannelGroupRoster(channelGroups, bindings,
+                Clock.fixed(Instant.parse("2026-10-18T02:00:00Z"), ZoneOffset.UTC));
+        channelGroups.seen(TENANT, bot.id(), "oc_board", "Ban Giám đốc", asked);
+        channelGroups.seen(TENANT, bot.id(), "oc_hr", "Phòng Nhân sự", asked);
+        channels.bindGroupPersona(owner, bot.id(), "oc_hr", hr);
+
+        roster.joined(TENANT, bot.id(), "oc_accounting", "Phòng Kế toán");
+        roster.joined(TENANT, bot.id(), "oc_board", null);
+        var listed = channels.groups(owner, bot.id());
+        assertEquals(List.of("oc_board", "oc_hr", "oc_accounting"), listed.stream().map(group -> group.group().chatId()).toList(),
+                "those asked in first, then those nobody has asked in");
+        var accounting = listed.getLast().group();
+        assertNull(accounting.lastMessageAt());
+        assertEquals("Phòng Kế toán", accounting.name());
+        assertEquals(asked, listed.getFirst().group().lastMessageAt(), "joining again keeps the last question");
+        assertEquals("Ban Giám đốc", listed.getFirst().group().name());
+        channels.bindGroupPersona(owner, bot.id(), "oc_accounting", hr);
+
+        Instant read = Instant.parse("2026-10-18T03:00:00Z");
+        // A list read before a group was joined keeps that group: the list may predate it.
+        channelGroups.present(TENANT, bot.id(), "oc_legal", "Pháp chế", read.plusSeconds(5));
+        roster.listed(TENANT, bot.id(), List.of(new ChannelGroupPresence("oc_board", "Ban Giám đốc (mới)"),
+                new ChannelGroupPresence("oc_accounting", "Phòng Kế toán")), read);
+        assertEquals(List.of("oc_board", "oc_legal", "oc_accounting"),
+                channels.groups(owner, bot.id()).stream().map(group -> group.group().chatId()).toList());
+        assertEquals("Ban Giám đốc (mới)", channelGroups.find(TENANT, bot.id(), "oc_board").orElseThrow().name());
+        assertEquals(Optional.empty(), bindings.groupBound(TENANT, bot.id(), "oc_hr"), "a group the bot left loses its assistant");
+        assertEquals(Optional.of(hr), bindings.groupBound(TENANT, bot.id(), "oc_accounting"));
+
+        roster.listed(TENANT, bot.id(), List.of(), read.plusSeconds(60));
+        assertEquals(List.of(), channels.groups(owner, bot.id()));
+        assertEquals(Optional.empty(), bindings.groupBound(TENANT, bot.id(), "oc_accounting"));
+    }
+
     @Test
     void forgettingAGroupAlsoTakesEditRightsOnTheAssistantItWasGiven() {
         var bot = channels.create(owner, draft("cli_a1b2c3d4e5f6"));
@@ -497,7 +541,7 @@ class PostgresChannelConnectionTest {
         }
 
         @Override
-        public ChannelTransport open(ChannelConnection connection, String secret, Consumer<ChannelMessage> receiver) {
+        public ChannelTransport open(ChannelConnection connection, String secret, ChannelReceiver receiver) {
             throw new UnsupportedOperationException();
         }
 
