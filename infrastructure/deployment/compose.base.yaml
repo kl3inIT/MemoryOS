@@ -295,8 +295,6 @@ services:
       MEMORYOS_TENANT_DISPLAY_NAME: ${MEMORYOS_TENANT_DISPLAY_NAME:?Set MEMORYOS_TENANT_DISPLAY_NAME}
       MEMORYOS_INITIAL_TENANT_CHANGE_REFERENCE: ${MEMORYOS_INITIAL_TENANT_CHANGE_REFERENCE:?Set MEMORYOS_INITIAL_TENANT_CHANGE_REFERENCE}
       MEMORYOS_RELEASE: ${MEMORYOS_RELEASE:?Set MEMORYOS_RELEASE}
-      MEMORYOS_INTERPRETER_BASE_URL: http://memoryos-interpreter:8000
-      MEMORYOS_INTERPRETER_API_KEY_FILE: /run/secrets/interpreter_api_key
       # MEM-270: the Chat sandbox server, its key and the image a conversation's sandbox starts from.
       MEMORYOS_SANDBOX_ENDPOINT: http://memoryos-sandbox:8090
       MEMORYOS_SANDBOX_API_KEY_FILE: /run/secrets/sandbox_api_key
@@ -357,7 +355,6 @@ services:
       MEMORYOS_EMBEDDING_ENDPOINT: ${MEMORYOS_EMBEDDING_ENDPOINT:-}
     secrets:
       - minio_api_secret_key
-      - interpreter_api_key
       - sandbox_api_key
       - redis_tls_ca
       - redis_api_password
@@ -669,49 +666,6 @@ services:
         reservations:
           memory: 128m
 
-  # MEM-110: runs Python for the Chat run_python tool. It starts one executor container per run
-  # on the host daemon through the socket, which grants host-level Docker control: keep it on the
-  # internal network without a host port. See the interpreter section of docs/runbooks/ci-cd.md.
-  interpreter:
-    <<: *service-defaults
-    image: ${MEMORYOS_INTERPRETER_IMAGE:?Set MEMORYOS_INTERPRETER_IMAGE}
-    container_name: memoryos-interpreter
-    user: root
-    # Compose file secrets keep their host owner and mode (0600, owned by the operator), so root in this
-    # capability-dropped container needs DAC_OVERRIDE to read the API key, as the api service does.
-    cap_add:
-      - DAC_OVERRIDE
-    environment:
-      EXECUTOR_BACKEND: docker
-      PYTHON_EXECUTOR_DOCKER_IMAGE: ${MEMORYOS_INTERPRETER_EXECUTOR_IMAGE:?Set MEMORYOS_INTERPRETER_EXECUTOR_IMAGE}
-      PYTHON_EXECUTOR_DOCKER_NETWORK: none
-      LOG_FORMAT: json
-      # Each executor may use 1 GiB; this bounds executor memory on the host to about 4 GiB.
-      MAX_CONCURRENT_EXECUTIONS: ${MEMORYOS_INTERPRETER_MAX_CONCURRENT_EXECUTIONS:-4}
-      # deploy.sh pulls the executor with job-scoped registry credentials; the service has none.
-      PYTHON_EXECUTOR_DOCKER_IMAGE_WATCHDOG_INTERVAL_SEC: "0"
-      API_KEY_FILE: /run/secrets/interpreter_api_key
-      # A turn reuses its uploads for at most 2 minutes; expired files free the /tmp tmpfs.
-      FILE_TTL_SEC: "900"
-    secrets:
-      - interpreter_api_key
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    networks:
-      memoryos-internal:
-        aliases:
-          - memoryos-interpreter
-    read_only: true
-    tmpfs:
-      - /tmp:size=512m,mode=1777
-    healthcheck:
-      test:
-        - CMD-SHELL
-        - curl -fsS http://127.0.0.1:8000/health | grep -q '"status":"ok"'
-      interval: 15s
-      timeout: 5s
-      retries: 8
-
   # MEM-270: the OpenSandbox lifecycle server for the Chat sandbox. It starts one sandbox container per conversation
   # from memoryos-sandbox-computer on the host daemon through the socket, which grants host-level Docker control: it is
   # reached only on the internal network, with an API key, and has no host port. Sandboxes publish their ports on the
@@ -723,7 +677,7 @@ services:
     container_name: memoryos-sandbox
     user: root
     # Compose file secrets keep their host owner and mode, so root in this capability-dropped container needs
-    # DAC_OVERRIDE to read the API key, as the interpreter does.
+    # DAC_OVERRIDE to read the API key, as the api service does.
     cap_add:
       - DAC_OVERRIDE
     environment:
@@ -798,8 +752,6 @@ secrets:
     file: ${MEMORYOS_MINIO_API_SECRET_KEY_FILE:-/apps/memoryos/secrets/minio/api-secret-key.txt}
   minio_worker_secret_key:
     file: ${MEMORYOS_MINIO_WORKER_SECRET_KEY_FILE:-/apps/memoryos/secrets/minio/worker-secret-key.txt}
-  interpreter_api_key:
-    file: ${MEMORYOS_INTERPRETER_API_KEY_SECRET_FILE:-/apps/memoryos/secrets/interpreter/api-key.txt}
   sandbox_api_key:
     file: ${MEMORYOS_SANDBOX_API_KEY_SECRET_FILE:-/apps/memoryos/secrets/sandbox/api-key.txt}
   redis_admin_password:

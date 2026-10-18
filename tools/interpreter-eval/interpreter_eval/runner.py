@@ -129,10 +129,10 @@ class Sandbox:
 
 
 def executor_python() -> Path:
-    venv = REPOSITORY / "interpreter" / "executor" / ".venv"
+    venv = REPOSITORY / "memoryos-sandbox" / "computer" / ".venv"
     python = venv / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
     if not python.exists():
-        raise SystemExit(f"{python} is missing: run `uv sync --directory interpreter/executor --frozen --no-dev`")
+        raise SystemExit(f"{python} is missing: run `uv sync --directory memoryos-sandbox/computer --frozen --no-dev`")
     return python
 
 

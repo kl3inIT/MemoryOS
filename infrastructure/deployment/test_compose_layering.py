@@ -122,7 +122,7 @@ class WorkerAotCacheTest(unittest.TestCase):
 
 class ComposeLayeringTest(unittest.TestCase):
     def test_the_runtime_both_environments_share_is_defined_once(self):
-        for service in ("redis", "interpreter", "api", "worker", "web", "postgres", "minio"):
+        for service in ("redis", "sandbox", "api", "worker", "web", "postgres", "minio"):
             self.assertTrue(defines(BASE, service), service)
             self.assertFalse(defines(STAGING, service), service)
             self.assertFalse(defines(PRODUCTION, service), service)

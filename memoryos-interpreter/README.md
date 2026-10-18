@@ -1,5 +1,7 @@
 # MemoryOS interpreter
 
+Retired by [MEM-271](../docs/increments/active/mem-271-run-python-sandbox/design.md): `run_python` runs in the conversation's sandbox (`memoryos-sandbox/`). This directory is kept as source; CI neither builds nor tests it, no release or deployment names it, and Dependabot does not watch it.
+
 Runs model-written Python for Chat in disposable executor containers or pods. It started as a snapshot of the Onyx Code Interpreter service; see [NOTICE.md](NOTICE.md) for the source and the changes. [HOW_IT_WORKS.md](HOW_IT_WORKS.md) describes the executor architecture. The increment is [MEM-110](../docs/increments/completed/mem-110-memoryos-interpreter/design.md).
 
 | Path | Content |
@@ -13,9 +15,9 @@ Runs model-written Python for Chat in disposable executor containers or pods. It
 Requires Docker and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-docker build -t ghcr.io/kl3init/memoryos-interpreter-executor:latest interpreter/executor
+docker build -t ghcr.io/kl3init/memoryos-interpreter-executor:latest memoryos-interpreter/executor
 
-cd interpreter/service
+cd memoryos-interpreter/service
 uv sync --frozen
 uv run ruff check . && uv run ruff format --check . && uv run mypy .
 uv run pytest tests/integration_tests
@@ -24,7 +26,7 @@ uv run pytest tests/integration_tests
 Run the service against the local Docker daemon (Docker-out-of-Docker):
 
 ```bash
-docker build -t memoryos-interpreter:local interpreter/service
+docker build -t memoryos-interpreter:local memoryos-interpreter/service
 docker run --rm -p 127.0.0.1:8000:8000 --user root \
   -v /var/run/docker.sock:/var/run/docker.sock \
   memoryos-interpreter:local

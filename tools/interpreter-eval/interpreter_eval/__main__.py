@@ -27,8 +27,8 @@ def main() -> None:
     parser.add_argument("--image", help="image for --sandbox docker, for both arms unless one is given its own")
     parser.add_argument("--baseline-image", help="the baseline's image for --sandbox docker")
     parser.add_argument("--candidate-image", help="the candidate's image for --sandbox docker")
-    parser.add_argument("--baseline-runtime", choices=sorted(sources.RUNTIMES), default="interpreter")
-    parser.add_argument("--candidate-runtime", choices=sorted(sources.RUNTIMES), default="interpreter")
+    parser.add_argument("--baseline-runtime", choices=sorted(sources.RUNTIMES), default="sandbox")
+    parser.add_argument("--candidate-runtime", choices=sorted(sources.RUNTIMES), default="sandbox")
     parser.add_argument("--task", action="append", choices=sorted(tasks.TASKS), help="run only these tasks")
     parser.add_argument("--out", type=Path, default=Path("results.json"))
     args = parser.parse_args()
@@ -36,8 +36,8 @@ def main() -> None:
     runtimes = {"baseline": args.baseline_runtime, "candidate": args.candidate_runtime}
     if args.sandbox == "docker" and not all(images.values()):
         parser.error("--sandbox docker needs --image, or --baseline-image and --candidate-image")
-    if args.sandbox == "local" and "sandbox" in runtimes.values():
-        parser.error("the sandbox runtime runs only with --sandbox docker")
+    if args.sandbox == "local" and "interpreter" in runtimes.values():
+        parser.error("the interpreter runtime runs only with --sandbox docker, in its executor image")
 
     model = runner.Model(
         base_url=os.environ.get("INTERPRETER_EVAL_BASE_URL") or parser.error("INTERPRETER_EVAL_BASE_URL is not set"),

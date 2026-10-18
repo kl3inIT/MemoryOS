@@ -6,13 +6,13 @@ The repository ships one GitHub Actions path: [CI](../../.github/workflows/ci.ym
 
 ## Required verification and release identity
 
-`CI Gate` requires successful backend/infrastructure checks, frontend checks/browser fixtures, all three production image builds, the landing page checks and image smoke, and a redacted Gitleaks history scan. Main pushes build and publish every area. A main push whose tree a same-repository pull request run already verified skips that area's test-only jobs and the interpreter's test steps, and still builds, smoke-tests and pushes its images ([ADR 0021](../decisions/0021-main-reuses-verified-pull-request-trees.md)): such a run uploads `ci-verified-<tree>` after `CI Gate` passes, kept 14 days, and `changes` trusts it only from a successful `ci.yml` pull request run of this repository that tested the head of a pull request the main commit came from; any failed lookup runs every test. On a pull request the `changes` job maps the merge commit's changed paths to areas: backend (`infrastructure`, `backend`, `backend-images`: `memoryos-core`, the `memoryos-integration-*` modules, `memoryos-extraction`, `memoryos-api`, `memoryos-worker`, `build-logic`, Gradle files, `Dockerfile`, `infrastructure`), web (`frontend-check`, `frontend`, `frontend-image`: `web`), landing (`landing`); `openapi.yml` selects backend and web, docs and Markdown select nothing, and any other path or an empty diff selects every area. The gate requires `changes` and `secrets` to succeed, every job of a selected area to succeed (except test-only jobs of an area found verified, which must be skipped) and every job of an unselected area to be skipped; any other failed, canceled or skipped job fails it. Obsolete PR runs are canceled; main runs are not. PR runs push no image and have no staging authority: image jobs hold `packages: write` only for their main-push step, and a fork pull request's token is read-only.
+`CI Gate` requires successful backend/infrastructure checks, frontend checks/browser fixtures, all three production image builds, the landing page checks and image smoke, and a redacted Gitleaks history scan. Main pushes build and publish every area. A main push whose tree a same-repository pull request run already verified skips that area's test-only jobs and the sandbox's test steps, and still builds, smoke-tests and pushes its images ([ADR 0021](../decisions/0021-main-reuses-verified-pull-request-trees.md)): such a run uploads `ci-verified-<tree>` after `CI Gate` passes, kept 14 days, and `changes` trusts it only from a successful `ci.yml` pull request run of this repository that tested the head of a pull request the main commit came from; any failed lookup runs every test. On a pull request the `changes` job maps the merge commit's changed paths to areas: backend (`infrastructure`, `backend`, `backend-images`: `memoryos-core`, the `memoryos-integration-*` modules, `memoryos-extraction`, `memoryos-api`, `memoryos-worker`, `build-logic`, Gradle files, `Dockerfile`, `infrastructure`), web (`frontend-check`, `frontend`, `frontend-image`: `web`), landing (`landing`); `openapi.yml` selects backend and web, docs and Markdown select nothing, and any other path or an empty diff selects every area. The gate requires `changes` and `secrets` to succeed, every job of a selected area to succeed (except test-only jobs of an area found verified, which must be skipped) and every job of an unselected area to be skipped; any other failed, canceled or skipped job fails it. Obsolete PR runs are canceled; main runs are not. PR runs push no image and have no staging authority: image jobs hold `packages: write` only for their main-push step, and a fork pull request's token is read-only.
 
 Backend verification is split across runners so no module waits for another's tests: `infrastructure` validates workflows, shell scripts, Compose and Prometheus configuration and runs the infrastructure Python tests without a JVM, and `backend` runs `clean` plus the module `check` tasks in three matrix legs (`core`, `api`, `integrations-worker`, which also checks `memoryos-channels`), which together cover the repository-wide `clean check`; every leg must succeed for `backend` to pass, and each leg keeps its own `backend-tests-<leg>` report. `frontend-check` runs the frontend static/unit/build gate on a plain runner, and fails on a dependency advisory of high severity or more (`pnpm audit --audit-level=high`). A patched release reached through a dependency is forced with `overrides` in `web/pnpm-workspace.yaml`; an advisory with no patched release, reached only through a development tool, is ignored there by its GHSA ID (`auditConfig.ignoreGhsas`) with the reason and the condition for removing it beside it. Browser tests run as six Playwright shards (following Playwright's CI guidance: one worker per runner, scale with shards; `fullyParallel` splits by test) with matrix fail-fast disabled; all shards must succeed for `frontend` to pass. A failing shard annotates the run and prints its own assertion; no browser report is kept, because merging blob reports into an HTML nobody opened was most of what filled the artifact store. Reports that are kept — backend test XML, the frontend unit report, landing — live three days and never fail the job that produced them. API and worker images stay on one runner to reuse their shared build layers. Image jobs build with BuildKit and registry layer caches kept beside each image in GHCR (`ghcr.io/kl3init/memoryos-<component>:buildcache`, `mode=max`), outside the 10 GB Actions cache whose evictions had made every backend build slower; every run reads them after logging in with its job token, only a main push writes them, and a failed cache export never fails the build. `buildcache` is a layer cache, not a runnable image, and no release names it. The landing image keeps its `type=gha` cache; the backend Dockerfile resolves Gradle dependencies in their own layer before copying sources. Core tests run in parallel JVMs, each cloning PostgreSQL fixtures from a template migrated once per JVM: two by default, three on CI through `MEMORYOS_CORE_TEST_FORKS`, where the core leg has its runner to itself. MinIO fixtures and the deployment default use the official Quay mirror with the existing immutable digest, avoiding the unavailable Docker Hub repository without upgrading the service.
 
 On a main push each image job checks its images' revision/source labels and pushes the bytes it verified to GHCR as `sha-<source SHA>-<run>-<attempt>` ([ADR 0023](../decisions/0023-image-jobs-push-before-the-gate.md)); the shared [push action](../../.github/actions/push-release-images/action.yml) reports their digests. After CI Gate, publication only records those digests, after confirming each resolves in GHCR; it neither rebuilds nor moves image bytes. The release artifact is named `release-<source SHA>-<CI attempt>` and contains:
 
-- `images.env`: five digest references (API, worker, web, interpreter, interpreter executor) and the full source SHA;
+- `images.env`: one digest reference per image (API, worker, web, Keycloak, channels, sandbox server, sandbox computer) and the full source SHA;
 - `configuration.tar`: tracked infrastructure and Flyway migrations from that revision;
 - `SHA256SUMS`: configuration and image-reference checksums;
 - `manifest.json`: repository, source SHA, CI run ID and attempt.
@@ -59,7 +59,7 @@ Do not add the deployment user to the `docker` group. Membership is root without
 | `/apps/memoryos/secrets` | `0700` | secret files mounted into containers |
 | `/apps/memoryos/.env.<environment>` | `0600` | values Compose cannot default; the script refuses a symlink or any other mode |
 
-Secrets live in files rather than environment variables because an environment variable is visible in `docker inspect`, in a crash log and in `/proc/<pid>/environ`. Their subdirectories follow the environment file: `minio/`, `redis/`, `opensearch/`, `interpreter/`.
+Secrets live in files rather than environment variables because an environment variable is visible in `docker inspect`, in a crash log and in `/proc/<pid>/environ`. Their subdirectories follow the environment file: `minio/`, `redis/`, `opensearch/`, `sandbox/`.
 
 The database bootstrap runs once, at the first start of an empty data directory. Changing the
 connection limit or the memory settings in the repository therefore reaches a new host only.
@@ -106,7 +106,7 @@ The first deployment on a host is recognised by the absence of a running `memory
 missing `current.env`: a runtime built over SSH before this script existed also has no
 `current.env`, and it does have something to roll back to. On a first deployment there is nothing
 to capture, so `rollback` refuses rather than restoring nothing, and the reservation stays until
-an operator has looked. Recovery is to stop the candidate api, worker, web and interpreter and
+an operator has looked. Recovery is to stop the candidate api, worker, web and sandbox and
 remove `deployments/pending`. Do **not** take the stack down with its volumes: PostgreSQL holds the
 Keycloak realm as well, and the migrations the failed attempt applied are carried by the next
 release too, so the next deployment's migration check passes against them.
@@ -139,12 +139,13 @@ counts what came back, and checks that the encryption keys are present. Put the 
 `/dev/shm` for the drill and shred it afterwards. Configuration lives in
 `/etc/memoryos-backup.conf`; see `infrastructure/backup/backup.conf.example`.
 
-**Never run `docker image prune -a` on a deployment host.** The interpreter executor image is
-started only for a Python execution, so no container holds it between runs and prune deletes it;
-the interpreter then answers 503 and the next deployment refuses to replace a runtime it cannot
-call healthy. That happened on staging. Superseded release images are removed instead by
+**Never run `docker image prune -a` on a deployment host.** The sandbox computer image is
+started only while a conversation has a sandbox, so no container may hold it and prune deletes it;
+sandboxes then fail to start until the next deployment pulls it. The interpreter executor was lost
+this way on staging: the interpreter answered 503 and the next deployment refused to replace a
+runtime it could not call healthy. Superseded release images are removed instead by
 `infrastructure/deployment/prune-release-images.sh`, which keeps every image named by the running
-release and by the one accepted before it — the rollback target — including the executor, and
+release and by the one accepted before it — the rollback target — including the computer, and
 never considers an image outside `ghcr.io/kl3init/memoryos-*`. It does nothing while a deployment
 holds the lock or a reservation is pending. `deploy.sh finish` runs the release's own copy right after
 it records the accepted runtime, because a day of merges filled staging's disk before the daily run
@@ -271,7 +272,7 @@ Before SSH or changing containers, the workflow validates the release bundle and
 
 GitHub concurrency preserves a running deployment. A server `flock` excludes simultaneous mutations; `/apps/memoryos/deployments/pending` reserves the environment until health/revision verification and finalization complete. Failure or cancellation reports the attempted transaction without automatically rolling back. Any existing reservation remains for explicit operator recovery instead of allowing another release to overwrite an uncertain state.
 
-The server validates the existing healthy runtime (API, worker, web, and the interpreter once an accepted release includes it), retains its actual image IDs and Compose paths, validates candidate configuration and image revisions, and rejects candidates missing an applied migration. After pulling images, free disk must exceed twice the database size plus 2 GB. It stops worker and API writers, creates a PostgreSQL custom-format backup, checks its restore catalogue and checksum, then starts API through normal Flyway. API readiness must succeed before worker/web rollout; the interpreter rolls out last. This single-instance topology has a maintenance interruption; it does not provide zero-downtime migration.
+The server validates the existing healthy runtime (API, worker, web, and the interpreter or the sandbox server where the accepted release runs them), retains its actual image IDs and Compose paths, validates candidate configuration and image revisions, and rejects candidates missing an applied migration. After pulling images, free disk must exceed twice the database size plus 2 GB. It stops worker and API writers, creates a PostgreSQL custom-format backup, checks its restore catalogue and checksum, then starts API through normal Flyway. API readiness must succeed before worker/web rollout; the sandbox server rolls out last. This single-instance topology has a maintenance interruption; it does not provide zero-downtime migration.
 
 After rollout, the workflow finalizes the healthy runtime and reports deployment success. The user performs login, upload, indexing, Search and reader acceptance separately. CD creates no synthetic business data and does not claim those flows passed.
 
@@ -287,35 +288,20 @@ docker compose --project-name memoryos --env-file /apps/memoryos/deployments/cur
 
 Do not run a second deployment outside this workflow/reservation protocol. Retain the current and previous image IDs, referenced configuration directories, and backups until a newer release and its recovery path have been accepted. Remove older unreferenced artifacts only after verifying those references; disk pressure fails preflight rather than pruning rollback material automatically.
 
-## Interpreter runtime
+## Interpreter removal
 
-`memoryos-interpreter` ([MEM-110](../increments/completed/mem-110-memoryos-interpreter/design.md)) runs Python for the Chat `run_python` tool. No MemoryOS component calls it until MEM-110 phase 3.
+`memoryos-interpreter` ([MEM-110](../increments/completed/mem-110-memoryos-interpreter/design.md)) ran `run_python` until [MEM-271](../increments/active/mem-271-run-python-sandbox/design.md) moved it into the conversation's sandbox. Its source is kept under `memoryos-interpreter/`; no release builds, pushes or names it.
 
-- **Release.** The CI `interpreter` job builds the service and executor images, tests them, and on a main push pushes both to GHCR for publication to record.
-- **Pull.** The deployment pulls the service through Compose and the executor with `docker pull`, both with the job-scoped token, and checks both revision labels. The executor is not a Compose service: the interpreter starts one executor container per run on the host daemon.
-- **Acceptance.** The interpreter rolls out after worker and web and must be healthy. Its `/health` reports an error when Docker is unreachable or the executor image is missing.
-- **First release and rollback.** The first deployment that includes the interpreter has no previous interpreter to capture. Rolling back to a release without it stops the candidate interpreter container, because the previous Compose files have no interpreter service.
-
-Operating constraints:
-
-- **Socket.** The service runs as root with `/var/run/docker.sock` mounted. A caller of its API runs code in containers it creates, and a compromised service controls the host's Docker daemon. It therefore joins only `memoryos-internal` with no host port, and executors run with `--network none`. Do not add a port, proxy route or network before the service has its own credential, which ships with its Java caller in MEM-110 phase 3.
-- **Capacity.** Each executor is a separate host container limited to 1 GiB memory and 30 s CPU, outside Compose resource settings. The service runs at most `MAX_CONCURRENT_EXECUTIONS` executions at once (4 on staging, overridable with `MEMORYOS_INTERPRETER_MAX_CONCURRENT_EXECUTIONS`) and answers further requests with HTTP 429, so executors use at most about 4 GiB of host memory together.
-- **API key.** The interpreter requires `X-Api-Key` on every `/v1` route, and the api sends the same key. With no key configured the service refuses to start, unless `ALLOW_UNAUTHENTICATED=true` is set, which only local runs and CI do. Both read one host file, `/apps/memoryos/secrets/interpreter/api-key.txt`, mounted as the Compose secret `interpreter_api_key`.
-  - Create the file before the first deployment that mounts it: `install -d -m 0700 /apps/memoryos/secrets/interpreter && (umask 077; openssl rand -hex 32 > /apps/memoryos/secrets/interpreter/api-key.txt)`.
-  - Compose file secrets keep the host owner and mode, so both containers read the 0600 key through `DAC_OVERRIDE` (root with every other capability dropped). The first rollout on 2026-09-16 lacked it on the interpreter, which failed startup with `PermissionError`; the key was widened to 0644 to finish that transaction (its parent directories stay 2700). Restore 0600 once a release with `cap_add: DAC_OVERRIDE` on the interpreter is accepted.
-  - The deployment stops before reserving when any Compose secret file is missing.
-  - To rotate the key, replace the file, then recreate `memoryos-interpreter` and `memoryos-api` with the accepted configuration; both read the key at start.
-- **Uploaded files.** Files uploaded for a run expire after `FILE_TTL_SEC` (900 seconds on staging) and are removed every minute.
-- **Logs.** The service writes JSON logs to stdout. Read them with `docker logs memoryos-interpreter`; they are not exported through OTLP.
-- **Executor image.** The image is about 3.3 GB, including LibreOffice Calc for `recalc-xlsx`. The service's image watchdog is disabled because the service has no registry credentials. `docker image prune -a` or `docker system prune -a` removes the executor image; `/health` then fails, and runs fail until the next deployment pulls it again. The interpreter CI job has no layer cache yet, so each release adds roughly 3.5 GB of new layers on the host; remove only interpreter images that neither `deployments/current.env` nor a retained `previous.env` references.
+- **First release without it.** The runtime it replaces still runs `memoryos-interpreter`, so that release captures it, and its rollout removes the container once the sandbox server is healthy; the new Compose files no longer name the service, so it is found by its Compose labels.
+- **Rollback.** A rollback to a runtime that ran the interpreter starts it again from that runtime's own Compose files and record. Keep `/apps/memoryos/secrets/interpreter/api-key.txt` and the executor image until no retained `current.env` or `previous.env` names `MEMORYOS_INTERPRETER_IMAGE`; `prune-release-images.sh` removes the images after that, and the key directory is then removed by hand.
 
 ## Sandbox runtime
 
-`memoryos-sandbox` ([MEM-270](../increments/active/mem-270-chat-sandbox/design.md), [ADR 0029](../decisions/0029-chat-sandbox-through-opensandbox.md)) is the OpenSandbox lifecycle server: it starts one sandbox container per Chat conversation from `memoryos-sandbox-computer`. No MemoryOS component calls it until MEM-270 step 2.
+`memoryos-sandbox` ([MEM-270](../increments/active/mem-270-chat-sandbox/design.md), [ADR 0029](../decisions/0029-chat-sandbox-through-opensandbox.md)) is the OpenSandbox lifecycle server: it starts one sandbox container per Chat conversation from `memoryos-sandbox-computer`. The api calls it for the Chat sandbox tools and `run_python`.
 
-- **Release.** The CI `sandbox` job builds both images from `memoryos-sandbox/`, checks the computer image's tools and starts the server with a key from a file, and on a main push pushes both to GHCR for publication to record. The server image is `opensandbox/server` pinned by digest with `memoryos-sandbox/server/config.toml` inside it.
+- **Release.** The CI `sandbox` job builds both images from `memoryos-sandbox/`, checks the computer image's tools, runs `memoryos-sandbox/computer/tests` against it, starts the server with a key from a file, and on a main push pushes both to GHCR for publication to record. The server image is `opensandbox/server` pinned by digest with `memoryos-sandbox/server/config.toml` inside it.
 - **Pull.** The deployment pulls the server through Compose and the computer image with `docker pull`, both with the job-scoped token, and checks both revision labels. The computer image is not a Compose service. The server pulls OpenSandbox's own `execd` and `egress` images, pinned by digest in its configuration, from Docker Hub when it first starts a sandbox.
-- **Acceptance.** The server rolls out after the interpreter and must be healthy (`/health`).
+- **Acceptance.** The server rolls out after worker, web and channels and must be healthy (`/health`).
 - **First release and rollback.** The first deployment with the sandbox has no previous server to capture. Rolling back to a release without it stops the candidate server, because the previous Compose files have no `sandbox` service.
 
 Operating constraints:
@@ -325,10 +311,10 @@ Operating constraints:
 - **Network of a sandbox.** Sandboxes run on the default bridge. Every sandbox MemoryOS creates carries a network policy, and the egress sidecar enforces it in `dns+nft` mode: the MEM-270 probe reached direct IPs and the host's SSH, HTTP and HTTPS ports in the default `dns` mode, and nothing but the allowed domains and the host's DNS resolvers in `dns+nft`.
 - **API key.** The server requires `OPEN-SANDBOX-API-KEY` on every route but `/health`; its start script reads `/apps/memoryos/secrets/sandbox/api-key.txt`, mounted as the Compose secret `sandbox_api_key`, and refuses to start when it is missing or empty.
   - Create the file before the first deployment that mounts it: `install -d -m 0700 /apps/memoryos/secrets/sandbox && (umask 077; openssl rand -hex 32 > /apps/memoryos/secrets/sandbox/api-key.txt)`.
-  - The server reads the 0600 key through `DAC_OVERRIDE` (root with every other capability dropped), as the interpreter does.
+  - The server reads the 0600 key through `DAC_OVERRIDE` (root with every other capability dropped), as the api does.
   - To rotate the key, replace the file and recreate `memoryos-sandbox` and its callers with the accepted configuration.
 - **Logs.** `docker logs memoryos-sandbox`. Sandbox containers are named `sandbox-<id>` and their egress sidecars `sandbox-egress-<id>`; both are removed when a sandbox expires or is killed.
-- **Computer image.** About 5.2 GB (the executor is 3.7 GB; LibreOffice Writer, Tesseract, ffmpeg and Node add the rest). `docker image prune -a` removes it and sandboxes then fail to start until the next deployment pulls it; `prune-release-images.sh` keeps it like the interpreter executor.
+- **Computer image.** About 5.2 GB (the executor is 3.7 GB; LibreOffice Writer, Tesseract, ffmpeg and Node add the rest). `docker image prune -a` removes it and sandboxes then fail to start until the next deployment pulls it; `prune-release-images.sh` keeps it while a retained record names it.
 
 ## Keycloak runtime
 
