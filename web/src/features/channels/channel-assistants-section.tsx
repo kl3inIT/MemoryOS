@@ -222,6 +222,10 @@ export function ChannelAssistantsSection({ channel }: { channel: ChannelResponse
             );
           })}
         </ul>
+      ) : groups.data ? (
+        <p role="status" className="font-secondary-body text-content-muted">
+          {ui("Chưa có nhóm chat nào")}
+        </p>
       ) : null}
 
       {renaming ? (

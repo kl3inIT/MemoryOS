@@ -40,7 +40,7 @@ export function AgentChannelsPanel({ agent }: { agent: Persona }) {
       title: bot.name,
       line: [
         zalo(bot) ? ui("Bot Zalo") : ui("Bot Lark"),
-        ui("chat riêng và nhóm chưa chọn trợ lý"),
+        ui("mặc định"),
         bot.enabled ? null : ui("Đang tắt"),
       ]
         .filter(Boolean)

@@ -80,8 +80,8 @@ a bot-wide default. LobeHub's one-bot-per-agent model is what #731 shipped; it f
      is "Theo mặc định" (no override), a rename and "Quên nhóm" in its menu. The heading says "nhóm chat" and each
      row carries the platform's mark and "Nhóm Lark" or "Nhóm Zalo", because MemoryOS's own Groups (people, for
      sharing) often carry the same names, such as "Phòng Kế toán" (owner review, 2026-10-17). The list reuses `AppRow` and the
-     assistant picker of the default. An empty list shows nothing but the section heading; Zalo groups appear once
-     someone names the bot there.
+     assistant picker of the default. An empty list shows one muted line, "Chưa có nhóm chat nào", as other empty
+     lists do (staging review, 2026-10-18); Zalo groups appear once someone names the bot there.
 8. **The assistant's Kênh tab only shows where the assistant answers:** the bots it is the default of and the groups
    that override to it, each linking to its bot page. "Thêm kênh" and "Gỡ" go; this also removes the floating "Gỡ"
    seen on staging. Routing is an administrator's task on a shared bot, and keeping two places that write it would

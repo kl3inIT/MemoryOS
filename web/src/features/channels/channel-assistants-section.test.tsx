@@ -90,6 +90,11 @@ describe("ChannelAssistantsSection", () => {
     expect(screen.queryByRole("menuitem", { name: "Quên nhóm" })).toBeNull();
   });
 
+  it("says so when the bot is in no group chat yet", async () => {
+    renderSection("ZALO_BOT", []);
+    expect(await screen.findByRole("status")).toHaveTextContent("Chưa có nhóm chat nào");
+  });
+
   it("names a Zalo group without a label by its platform and the end of its id", async () => {
     renderSection("ZALO_BOT", [group({ id: "2468013579" })]);
     expect(await screen.findByText("Nhóm Zalo 3579")).toBeVisible();
