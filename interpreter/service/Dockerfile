@@ -1,5 +1,5 @@
 # Dockerfile for the FastAPI application service (distinct from executor image)
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 ARG VCS_REF=unknown
 ARG BUILD_DATE=unknown
