@@ -78,6 +78,20 @@ Design: [design-groups.md](design-groups.md). Three pull requests.
   roster (join, list adds, renames, removes with the override), supervisor (listed on connect, not again before 10
   minutes, joined passed on), Lark paging and filters, unit and e2e.
 
+## 6. An app the person has not connected (Q12)
+
+Design: decisions 19–23. One pull request.
+
+- [x] `McpTurnService.open` takes the assistant's servers; `INACCESSIBLE` joins the reasons; the notice goes in the
+  final reminder even with no MCP tool left; the connectable ones are published as `mcp_unavailable` and kept in the
+  reply's activity. Channel and Deep research turns report nothing.
+- [x] Web: the card under the answer with `ConnectAction`, live and from history; it follows the app's state now.
+- [x] Tests: `McpTurnServiceTest` (each reason, a usable server turned off, a selected server not attached),
+  `McpToolsTest` (each reason's sentence), `ChatWebPromptsTest` (reminder, not system), `ChatTurnServiceTest`
+  (attached servers opened, card event and stored activity), transport and card unit tests, e2e with screenshots.
+- [ ] Staging: the probe of 2026-10-18 again (a member without Linear asks the Linear assistant); the answer names
+  the missing connection and Connect returns to the conversation.
+
 ## Verification
 
 - [ ] On zm, throttled: the persona, chat and channel tests, `ModulithArchitectureTest`, `CoreDependencyRulesTest`,

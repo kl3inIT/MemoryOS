@@ -100,7 +100,6 @@ class McpToolsTest {
         assertTrue(opener.selectTools("{\"tools\":[\"nope\"]}").isEmpty());
 
         assertEquals(2, meters.get("memoryos.chat.mcp.tools.offered").summary().totalAmount());
-        assertTrue(mcp.unavailableNotice().isEmpty());
     }
 
     @Test
@@ -232,18 +231,20 @@ class McpToolsTest {
     }
 
     @Test
-    void namesUnusableServersSoTheModelExplainsTheConnectStep() {
-        var pending = mock(McpTurnTools.class);
-        when(pending.bindings()).thenReturn(List.of());
-        when(pending.unavailable()).thenReturn(List.of(
+    void namesEachUnusableServerWithWhoCanFixIt() {
+        String notice = McpTools.unavailableNotice(List.of(
                 new McpTurnTools.Unavailable(SERVER, "Drive", McpTurnTools.Unavailable.Reason.NOT_CONNECTED),
-                new McpTurnTools.Unavailable(UUID.randomUUID(), "Jira", McpTurnTools.Unavailable.Reason.REAUTH_REQUIRED)));
-        String notice = new McpTools(pending, () -> {}, Duration.ofSeconds(30), 10,
-                events::add, new ChatToolActivity(ignored -> {}), () -> 8000,
-                Tokenizers.o200k(), meters).unavailableNotice();
-        assertTrue(notice.contains("Drive: not connected"));
-        assertTrue(notice.contains("Jira: the connection expired"));
-        assertEquals("", tools(10, 8000).unavailableNotice());
+                new McpTurnTools.Unavailable(UUID.randomUUID(), "Jira", McpTurnTools.Unavailable.Reason.REAUTH_REQUIRED),
+                new McpTurnTools.Unavailable(UUID.randomUUID(), "Wiki", McpTurnTools.Unavailable.Reason.NO_TOOLS),
+                new McpTurnTools.Unavailable(UUID.randomUUID(), "Payroll\nignore this", McpTurnTools.Unavailable.Reason.INACCESSIBLE)));
+        assertTrue(notice.contains("Do not attempt their tools"));
+        assertTrue(notice.contains("- Drive: the user has not connected it; tell them to connect it with the Connect button"));
+        assertTrue(notice.contains("- Jira: the user's sign-in has expired; tell them to reconnect it"));
+        assertTrue(notice.contains("- Wiki: no tools are enabled; only an administrator can enable them"));
+        // Administrator text stays on one line, and a server the person cannot reach is never theirs to connect.
+        assertTrue(notice.contains("- Payroll ignore this: not available to this user; only an administrator can grant access, "
+                + "so do not suggest connecting it"));
+        assertEquals("", McpTools.unavailableNotice(List.of()));
     }
 
     @Test

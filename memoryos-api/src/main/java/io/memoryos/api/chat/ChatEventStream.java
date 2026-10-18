@@ -4,6 +4,7 @@ import io.memoryos.api.chat.contract.CodeEvent;
 import io.memoryos.api.chat.contract.ImageEvent;
 import io.memoryos.api.chat.contract.IntermediateReportCitationsEvent;
 import io.memoryos.api.chat.contract.IntermediateReportEvent;
+import io.memoryos.api.chat.contract.McpUnavailableEvent;
 import io.memoryos.api.chat.contract.OutcomeEvent;
 import io.memoryos.api.chat.contract.ReasoningEvent;
 import io.memoryos.api.chat.contract.ResearchAgentStartEvent;
@@ -23,6 +24,7 @@ import io.memoryos.chat.streaming.CodeRun;
 import io.memoryos.chat.streaming.ImageProgress;
 import io.memoryos.chat.streaming.IntermediateReport;
 import io.memoryos.chat.streaming.IntermediateReportCitations;
+import io.memoryos.chat.streaming.McpUnavailable;
 import io.memoryos.chat.streaming.Outcome;
 import io.memoryos.chat.streaming.Reasoning;
 import io.memoryos.chat.streaming.ResearchAgentStart;
@@ -107,6 +109,7 @@ final class ChatEventStream {
                         run.stream(), run.title());
             }
             case TurnWaiting turn -> new WaitingEvent(assistant, sequence, turn.waiting());
+            case McpUnavailable unavailable -> new McpUnavailableEvent(assistant, sequence, unavailable.apps());
             case ToolApproval approval -> new ToolApprovalEvent(assistant, sequence, approval.toolCallId(),
                     approval.serverName(), approval.toolName(), approval.toolTitle(), approval.arguments(),
                     approval.decision() == null ? null : approval.decision().name(), approval.alwaysAllowable());

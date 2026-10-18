@@ -6,6 +6,7 @@ import {
   activitySchema,
   historyParts,
   toolAppsSchema,
+  type UnavailableApp,
 } from "@/features/chat/activity/chat-activity";
 import { createChatSession, getChatHistory, getChatSession } from "@/lib/hey-api/sdk.gen";
 import {
@@ -51,6 +52,8 @@ export type ChatUiMessage = UIMessage<
     waiting?: boolean;
     /** Files run_python generated, saved on the assistant message. */
     generatedFiles?: GeneratedFile[];
+    /** MEM-273: the reply's apps the person must connect first. */
+    unavailableApps?: UnavailableApp[];
   },
   { research: ResearchState }
 >;
@@ -186,40 +189,45 @@ function researchParts(message: ChatMessage): ChatUiMessage["parts"] {
 }
 
 export function toUiMessages(messages: ChatMessage[]): ChatUiMessage[] {
-  return messages.map((message) => ({
-    id: message.id,
-    role: message.role === "USER" ? "user" : "assistant",
-    parts: [
-      ...researchParts(message),
-      // Attached files come first, above the question, as they are shown while composing.
-      ...(message.files ?? []).map((file) => ({
-        type: "file" as const,
-        filename: file.filename,
-        mediaType: file.mediaType ?? "application/octet-stream",
-        url: fileReference(file.id!),
-      })),
-      // historyParts builds text, reasoning and tool parts only; its data-part type stays the AI SDK default.
-      ...((message.role === "ASSISTANT"
-        ? historyParts(message.content, activitySchema.parse(message.activity), {
-            sessionId: message.sessionId,
-            messageId: message.id,
-            views: toolAppsSchema.parse(message.apps),
-          })
-        : [{ type: "text" as const, text: message.content }]) as ChatUiMessage["parts"]),
-    ],
-    metadata: {
-      serverStatus: message.status,
-      failureCode: message.failureCode ?? undefined,
-      refusalReason: message.refusalReason ?? undefined,
-      ...(message.contextTokens != null &&
-        message.contextLimit != null && {
-          context: { tokens: message.contextTokens, limit: message.contextLimit },
-        }),
-      createdAt: message.createdAt,
-      sources: sourcesSchema.parse(message.sources),
-      artifacts: artifactsSchema.parse(message.artifacts),
-      images: parseGeneratedImages(message.images),
-      generatedFiles: parseGeneratedFiles(message.generatedFiles),
-    },
-  }));
+  return messages.map((message) => {
+    const activity =
+      message.role === "ASSISTANT" ? activitySchema.parse(message.activity) : undefined;
+    return {
+      id: message.id,
+      role: message.role === "USER" ? "user" : "assistant",
+      parts: [
+        ...researchParts(message),
+        // Attached files come first, above the question, as they are shown while composing.
+        ...(message.files ?? []).map((file) => ({
+          type: "file" as const,
+          filename: file.filename,
+          mediaType: file.mediaType ?? "application/octet-stream",
+          url: fileReference(file.id!),
+        })),
+        // historyParts builds text, reasoning and tool parts only; its data-part type stays the AI SDK default.
+        ...((activity
+          ? historyParts(message.content, activity, {
+              sessionId: message.sessionId,
+              messageId: message.id,
+              views: toolAppsSchema.parse(message.apps),
+            })
+          : [{ type: "text" as const, text: message.content }]) as ChatUiMessage["parts"]),
+      ],
+      metadata: {
+        serverStatus: message.status,
+        failureCode: message.failureCode ?? undefined,
+        refusalReason: message.refusalReason ?? undefined,
+        ...(message.contextTokens != null &&
+          message.contextLimit != null && {
+            context: { tokens: message.contextTokens, limit: message.contextLimit },
+          }),
+        createdAt: message.createdAt,
+        sources: sourcesSchema.parse(message.sources),
+        artifacts: artifactsSchema.parse(message.artifacts),
+        images: parseGeneratedImages(message.images),
+        generatedFiles: parseGeneratedFiles(message.generatedFiles),
+        unavailableApps: activity?.unavailableApps ?? [],
+      },
+    };
+  });
 }

@@ -4,12 +4,14 @@ import io.memoryos.ai.ModelRequestPolicy;
 import io.memoryos.ai.TurnFailure;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -25,6 +27,7 @@ import static org.mockito.Mockito.when;
 import io.memoryos.chat.session.ChatTurnPersistence;
 import io.memoryos.chat.execution.ChatCompactions;
 import io.memoryos.chat.execution.ChatModelExecutor;
+import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.ai.ModelBinding;
 import io.memoryos.ai.ModelResolver;
 import io.memoryos.ai.ModelClients;
@@ -37,6 +40,7 @@ import java.util.Set;
 import org.mockito.Mockito;
 import org.springframework.ai.chat.model.ChatModel;
 import io.memoryos.chat.streaming.ChatStreamProperties;
+import io.memoryos.chat.streaming.McpUnavailable;
 import io.memoryos.chat.streaming.TurnWaiting;
 import io.memoryos.chat.streaming.StreamBufferWriter;
 import io.memoryos.shared.ActorId;
@@ -469,7 +473,7 @@ class ChatTurnServiceTest {
 
     /** Blocks {@code mcp.open} until released, as a slow MCP server or OAuth token endpoint would. */
     private void slowMcpOpen(CountDownLatch opening, CountDownLatch release) {
-        when(mcp.open(any(), any())).thenAnswer(_ -> {
+        when(mcp.open(any(), any(), any())).thenAnswer(_ -> {
             opening.countDown();
             assertTrue(release.await(5, TimeUnit.SECONDS));
             return tools;
@@ -544,7 +548,7 @@ class ChatTurnServiceTest {
                 assertEquals(pair.assistantMessageId(), second.assistantMessageId());
                 assertEquals(pair.assistantMessageId(), first.get(5, TimeUnit.SECONDS).assistantMessageId());
                 verify(persistence).reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any());
-                verify(mcp).open(any(), any());
+                verify(mcp).open(any(), any(), any());
                 assertEquals(1, queued.size());
             } finally {
                 release.countDown();
@@ -624,7 +628,7 @@ class ChatTurnServiceTest {
     private AtomicReference<McpTurnTools.Decision> modelAskingApproval(CountDownLatch asking) {
         var gate = new AtomicReference<McpTurnTools.Approvals>();
         doAnswer(call -> { gate.set(call.getArgument(0)); return null; }).when(tools).approvals(any());
-        when(mcp.open(any(), any())).thenReturn(tools);
+        when(mcp.open(any(), any(), any())).thenReturn(tools);
         var decided = new AtomicReference<McpTurnTools.Decision>();
         doAnswer(call -> {
             asking.countDown();
@@ -708,9 +712,42 @@ class ChatTurnServiceTest {
     }
 
     @Test
+    void theAssistantsServersThePersonCannotSelectAreOpenedAndOnlyConnectableOnesGetACard() throws Exception {
+        prepare();
+        UUID linear = UUID.randomUUID();
+        UUID payroll = UUID.randomUUID();
+        when(persistence.agent(any(), any(), anyBoolean())).thenReturn(new ChatTurnPersistence.SessionAgent(new JdbcChatRepository.Persona(
+                "", ChatTurnOptions.DEFAULT, "0", null, List.of(), Set.of("search"), List.of(linear, payroll)), false, false, false));
+        when(tools.unavailable()).thenReturn(List.of(
+                new McpTurnTools.Unavailable(linear, "Linear", McpTurnTools.Unavailable.Reason.NOT_CONNECTED),
+                new McpTurnTools.Unavailable(payroll, "Payroll", McpTurnTools.Unavailable.Reason.INACCESSIBLE)));
+        // The composer sent no server: the assistant's own are still resolved, to tell the model and the person.
+        when(mcp.open(actor, List.of(), List.of(linear, payroll))).thenReturn(tools);
+        var opened = new AtomicReference<McpTurnTools>();
+        doAnswer(call -> {
+            opened.set(call.<ChatTurnSetup>getArgument(0).mcp());
+            call.<Consumer<String>>getArgument(3).accept("Done");
+            return null;
+        }).when(model).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        var card = List.of(new ChatActivity.UnavailableApp(linear, "Linear", ChatActivity.UnavailableApp.Reason.NOT_CONNECTED));
+        try (var tasks = Executors.newVirtualThreadPerTaskExecutor(); var service = withMcp(limits, tasks::execute)) {
+            service.send(actor, session, parent, request, "Question", null);
+            verify(persistence, timeout(5000)).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.COMPLETED),
+                    eq("Done"), any(), any(), any(), any(), any(), any(),
+                    argThat((ChatActivity activity) -> activity.unavailableApps().equals(card)), any(), any(), any());
+            assertSame(tools, opened.get());
+            streams.flush();
+            try (var reader = streams.subscribe(pair.assistantMessageId(), 0, () -> true)) {
+                assertEquals(List.of(card), reader.read().events().stream().filter(McpUnavailable.class::isInstance)
+                        .map(event -> ((McpUnavailable) event).apps()).toList());
+            }
+        }
+    }
+
+    @Test
     void mcpOpenFailureAfterReservationFailsTheReservedTurn() throws Exception {
         prepare();
-        when(mcp.open(any(), any())).thenThrow(new IllegalStateException("authorization server unavailable"));
+        when(mcp.open(any(), any(), any())).thenThrow(new IllegalStateException("authorization server unavailable"));
         try (var service = withMcp(limits, Runnable::run)) {
             assertThrows(IllegalStateException.class, () -> service.command(actor, session, mcpCommand(request)));
             verify(persistence).reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any());

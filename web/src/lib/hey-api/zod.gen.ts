@@ -3489,9 +3489,16 @@ export const zActivityStep = z.object({
     ]).optional()
 });
 
+export const zUnavailableApp = z.object({
+    serverId: z.uuid().optional(),
+    serverName: z.string().optional(),
+    reason: z.enum(['NOT_CONNECTED', 'REAUTH_REQUIRED']).optional()
+});
+
 export const zChatActivity = z.object({
     steps: z.array(zActivityStep).optional(),
-    reasoning: z.array(zReasoningSegment).optional()
+    reasoning: z.array(zReasoningSegment).optional(),
+    unavailableApps: z.array(zUnavailableApp).optional()
 });
 
 export const zChatMessageResearchAgent = z.object({
@@ -3739,6 +3746,12 @@ export const zToolApprovalEvent = z.object({
         'NO_DECISION'
     ]).optional(),
     alwaysAllowable: z.boolean()
+});
+
+export const zMcpUnavailableEvent = z.object({
+    assistantMessageId: z.uuid(),
+    sequence: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    apps: z.array(zUnavailableApp)
 });
 
 export const zChatBranch = z.object({
@@ -7706,7 +7719,8 @@ export const zStreamChatMessageResponse = z.union([
     zIntermediateReportEvent,
     zIntermediateReportCitationsEvent,
     zWaitingEvent,
-    zToolApprovalEvent
+    zToolApprovalEvent,
+    zMcpUnavailableEvent
 ]);
 
 export const zGetChatFeedbackPath = z.object({

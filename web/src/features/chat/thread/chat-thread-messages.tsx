@@ -30,6 +30,7 @@ import {
   ChatToolStep,
 } from "@/features/chat/activity/chat-activity-view";
 import { ChatMcpApproval } from "@/features/chat/mcp/chat-mcp-step";
+import { ChatMcpUnavailable } from "@/features/chat/mcp/chat-mcp-unavailable";
 import { ChatResearchView } from "@/features/chat/research/chat-research-view";
 import type { ResearchState } from "@/features/chat/research/chat-research";
 import { ChatMessageActions, ChatUserMessageContent } from "./chat-message-actions";
@@ -202,6 +203,7 @@ export function AssistantMessage({ readOnly }: { readOnly: boolean }) {
         <ChatArtifactCards />
         <ChatImages />
         <ChatGeneratedFiles />
+        {!readOnly && <ChatMcpUnavailable />}
         {refusalReason && (
           <p className="mt-2 flex items-center gap-1.5 font-secondary-body text-content-muted">
             {refusalReason === "blocked_topic" ? (

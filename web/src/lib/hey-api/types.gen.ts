@@ -3415,6 +3415,7 @@ export type ActivityStep = {
 export type ChatActivity = {
     steps?: Array<ActivityStep>;
     reasoning?: Array<ReasoningSegment>;
+    unavailableApps?: Array<UnavailableApp>;
 };
 
 export type ChatArtifact = {
@@ -3575,6 +3576,12 @@ export type SearchFilters = {
     sources?: Array<'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT' | 'LARK'>;
     created?: Interval;
     updated?: Interval;
+};
+
+export type UnavailableApp = {
+    serverId?: string;
+    serverName?: string;
+    reason?: 'NOT_CONNECTED' | 'REAUTH_REQUIRED';
 };
 
 export type WebLocation = {
@@ -3744,6 +3751,12 @@ export type ToolApprovalEvent = {
      * The reply's owner may answer with always allow
      */
     alwaysAllowable: boolean;
+};
+
+export type McpUnavailableEvent = {
+    assistantMessageId: string;
+    sequence: number;
+    apps: Array<UnavailableApp>;
 };
 
 export type ChatBranch = {
@@ -17049,7 +17062,7 @@ export type StreamChatMessageResponses = {
     /**
      * SSE frames; the schema describes each data payload
      */
-    200: TextEvent | OutcomeEvent | ResetEvent | ToolEvent | ReasoningEvent | ImageEvent | CodeEvent | ResearchPlanEvent | TopLevelBranchingEvent | ResearchAgentStartEvent | IntermediateReportEvent | IntermediateReportCitationsEvent | WaitingEvent | ToolApprovalEvent;
+    200: TextEvent | OutcomeEvent | ResetEvent | ToolEvent | ReasoningEvent | ImageEvent | CodeEvent | ResearchPlanEvent | TopLevelBranchingEvent | ResearchAgentStartEvent | IntermediateReportEvent | IntermediateReportCitationsEvent | WaitingEvent | ToolApprovalEvent | McpUnavailableEvent;
 };
 
 export type StreamChatMessageResponse = StreamChatMessageResponses[keyof StreamChatMessageResponses];

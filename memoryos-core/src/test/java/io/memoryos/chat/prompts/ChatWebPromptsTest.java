@@ -92,6 +92,18 @@ class ChatWebPromptsTest {
         assertTrue(created.getInstructions().getFirst().getText().startsWith("# Answer only from the organization's documents"));
     }
 
+    /** MEM-273: the apps the model cannot use close the request, after the cached prefix, even with no tool left. */
+    @Test void unusableAppsAreToldInTheFinalReminderAndNotInTheSystemMessage() {
+        var none = prompt(Set.of(), null);
+        var guided = ChatPrompts.forInference(none, false, false, true, false, "", "Linear: not connected.");
+        var last = guided.getInstructions().getLast();
+        assertTrue(last instanceof UserMessage);
+        assertTrue(last.getText().startsWith("<system-reminder>\nLinear: not connected.\n"));
+        assertTrue(guided.getInstructions().stream().filter(SystemMessage.class::isInstance)
+                .noneMatch(message -> message.getText().contains("Linear")));
+        assertSame(none, ChatPrompts.forInference(none, false, false, true, false, "", ""));
+    }
+
     @Test void disabledWebAndNoToolsNeverAdvertiseUnavailableTools() {
         String internal = ChatPrompts.forInference(prompt(Set.of("search_knowledge"), null), false, false).toString();
         assertTrue(internal.contains("## search_knowledge"));

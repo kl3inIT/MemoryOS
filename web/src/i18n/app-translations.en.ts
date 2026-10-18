@@ -1193,6 +1193,8 @@ export const vietnameseUi: Record<string, string> = {
   "Dùng kết nối chung": "Uses the shared connection",
   "Chưa kết nối": "Not connected",
   "Chưa bật công cụ nào": "No tools turned on",
+  "{{name}} chưa kết nối": "{{name}} is not connected",
+  "{{name}} đã hết hạn đăng nhập": "Your {{name}} sign-in has expired",
   "Không cần đăng nhập": "No sign-in needed",
   "Đã kết nối máy chủ MCP.": "The MCP server is connected.",
   "Bạn đã hủy việc cấp quyền.": "You cancelled the authorization.",
