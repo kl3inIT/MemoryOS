@@ -4324,7 +4324,7 @@ export const zChannelGroupResponse = z.object({
     label: z.string().optional(),
     name: z.string().optional(),
     firstMessageAt: z.iso.datetime(),
-    lastMessageAt: z.iso.datetime(),
+    lastMessageAt: z.iso.datetime().optional(),
     assistant: zChannelAssistantResponse.optional()
 });
 
