@@ -4,12 +4,34 @@ from __future__ import annotations
 
 import subprocess
 import textwrap
+from dataclasses import dataclass
 from pathlib import Path
 
 REPOSITORY = Path(__file__).resolve().parents[3]
 PROMPTS = "memoryos-core/src/main/java/io/memoryos/chat/prompts/ChatPrompts.java"
-SITECUSTOMIZE = "interpreter/executor/sitecustomize.py"
 WORKTREE = "WORKTREE"
+
+
+@dataclass(frozen=True)
+class Runtime:
+    """Where run_python runs: its sitecustomize in the repository and in its image, and where it finds the files."""
+
+    sitecustomize: str
+    image_sitecustomize: str
+    data: str  # the conversation's files, relative to the working directory
+
+
+RUNTIMES = {
+    "interpreter": Runtime(
+        "interpreter/executor/sitecustomize.py", "/opt/executor-venv/lib/python3.14/site-packages/sitecustomize.py", "."
+    ),
+    # MEM-271: the conversation's sandbox, with the attachments under attachments/.
+    "sandbox": Runtime(
+        "memoryos-sandbox/computer/sitecustomize.py",
+        "/opt/sandbox-venv/lib/python3.14/site-packages/sitecustomize.py",
+        "attachments",
+    ),
+}
 
 
 def read(ref: str, path: str) -> str:
@@ -29,6 +51,6 @@ def guidance(java: str) -> str:
     return textwrap.dedent(block).strip()
 
 
-def arm(ref: str) -> tuple[str, str]:
-    """The run_python guidance and the executor sitecustomize at a ref."""
-    return guidance(read(ref, PROMPTS)), read(ref, SITECUSTOMIZE)
+def arm(ref: str, runtime: str = "interpreter") -> tuple[str, str]:
+    """The run_python guidance and the runtime's sitecustomize at a ref."""
+    return guidance(read(ref, PROMPTS)), read(ref, RUNTIMES[runtime].sitecustomize)

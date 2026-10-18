@@ -1,6 +1,7 @@
 import unittest
 
-from interpreter_eval.sources import PROMPTS, SITECUSTOMIZE, WORKTREE, arm, guidance, read
+from interpreter_eval.runner import harness
+from interpreter_eval.sources import PROMPTS, RUNTIMES, WORKTREE, arm, guidance, read
 
 
 class GuidanceTest(unittest.TestCase):
@@ -20,7 +21,16 @@ class GuidanceTest(unittest.TestCase):
         self.assertTrue(prompt.startswith("## run_python"))
         self.assertIn("MPLCONFIGDIR", site)
         self.assertIn('private static final String RUN_PYTHON_GUIDANCE = """', read(WORKTREE, PROMPTS))
-        self.assertEqual(site, read(WORKTREE, SITECUSTOMIZE))
+        self.assertEqual(site, read(WORKTREE, RUNTIMES["interpreter"].sitecustomize))
+
+    def test_reads_the_sandbox_runtime(self):
+        _, site = arm(WORKTREE, "sandbox")
+        self.assertEqual(site, read(WORKTREE, RUNTIMES["sandbox"].sitecustomize))
+        self.assertIn("capture_open_figures", site)
+
+    def test_tells_the_model_where_each_runtime_keeps_the_files(self):
+        self.assertTrue(harness(RUNTIMES["interpreter"]).endswith("in the current directory."))
+        self.assertTrue(harness(RUNTIMES["sandbox"]).endswith("in `attachments/`."))
 
 
 if __name__ == "__main__":

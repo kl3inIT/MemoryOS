@@ -1,6 +1,6 @@
 # MEM-271 plan
 
-Design: [design.md](design.md). Status 2026-10-18: design written; nothing implemented.
+Design: [design.md](design.md). Status 2026-10-18: design written; step 1 in progress on `dathip04/mem-271-run-python-sandbox` (a run on staging of a sandbox arm in the computer image read `attachments/` from `/workspace`).
 
 | Step | Change | Verification |
 | --- | --- | --- |
