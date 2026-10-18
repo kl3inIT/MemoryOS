@@ -1,6 +1,6 @@
 # MEM-271 plan
 
-Design: [design.md](design.md). Status 2026-10-18: steps 1 and 2 merged (PRs #749, #751) and accepted on staging; step 3 is written and waits to merge until production runs the switch (production last deployed 2026-10-12, before MEM-270). The computer image's stack and office tests moved from the executor's to `memoryos-sandbox/computer/tests/test_image.py`, run by the CI `sandbox` job; the first release without the interpreter removes its container after the sandbox server is healthy, and a rollback to a runtime that ran it starts it again.
+Design: [design.md](design.md). Status 2026-10-18: steps 1 and 2 merged (PRs #749, #751) and accepted on staging; production runs the switch since 2026-10-18 (release `6b4f11f1`, after the channels image fix in #764), and a sandbox from the computer image ran Python there through the server's proxy; step 3 is #761. The computer image's stack and office tests moved from the executor's to `memoryos-sandbox/computer/tests/test_image.py`, run by the CI `sandbox` job; the first release without the interpreter removes its container after the sandbox server is healthy, and a rollback to a runtime that ran it starts it again.
 
 | Step | Change | Verification |
 | --- | --- | --- |

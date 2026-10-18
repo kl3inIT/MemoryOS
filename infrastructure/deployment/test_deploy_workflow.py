@@ -464,6 +464,9 @@ elif args[0] == "compose" and "ps" in args:
     print("memoryos-" + args[-1])
 elif args[0] == "compose":
     pass
+elif args[:3] == ["ps", "--all", "--quiet"]:
+    # No interpreter container is left over here (MEM-271).
+    pass
 elif args[0] == "images":
     images = root / "images.txt"
     print(images.read_text() if images.exists() else "", end="")
