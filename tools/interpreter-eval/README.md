@@ -65,3 +65,4 @@ They cover scoring and reading the arms, and need only the standard library. CI 
 | Date | Baseline → candidate | Model | Correct after one fix | Wrong with no error |
 | --- | --- | --- | --- | --- |
 | 2026-10-03 | main → [#500](https://github.com/kl3inIT/MemoryOS/pull/500) (Python 3.14, pandas 3, numpy 2.5, guards) | `cx/gpt-6-luna` | 35/50 → 50/50 | 15 → 0 |
+| 2026-10-18 | interpreter on main → sandbox on [#751](https://github.com/kl3inIT/MemoryOS/pull/751) (MEM-271: computer image, `attachments/`, files that stay) | `cx/gpt-6-luna` | 48/50 → 49/50 (first run 35 → 38) | 2 → 0 |

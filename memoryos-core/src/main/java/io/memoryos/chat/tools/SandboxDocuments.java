@@ -19,7 +19,7 @@ import java.util.regex.Pattern;
 public final class SandboxDocuments {
     /** Onyx {@code FILE_ASSOCIATED_GUIDANCE}, placed before a hit's excerpt when its file is in the sandbox. */
     static final String FILE_ASSOCIATED_GUIDANCE = "Only a short excerpt from this document is shown below. The complete "
-            + "file is available in the sandbox as \"%s\" — prefer the Python code interpreter to read, parse, or analyze it\n\n"
+            + "file is available in the sandbox as \".memoryos/search/%s\" — prefer the Python code interpreter to read, parse, or analyze it\n\n"
             + "Excerpt: ";
     private static final Pattern UNSAFE = Pattern.compile("[\\x00-\\x1f/\\\\:*?\"<>|]+");
     private static final int NAME_LIMIT = 200;

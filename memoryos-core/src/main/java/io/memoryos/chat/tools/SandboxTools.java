@@ -14,6 +14,7 @@ import io.memoryos.sandbox.SandboxException;
 import io.memoryos.sandbox.SandboxService;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -51,9 +52,9 @@ public final class SandboxTools {
     /** Where the conversation's attachments are copied, as Onyx Craft puts them under the session's files. */
     static final String ATTACHMENTS = SandboxService.WORKSPACE + "/attachments";
     /** Margin for the wrapper's own work around the command's timeout. */
-    private static final Duration WRAPPER_MARGIN = Duration.ofSeconds(20);
+    static final Duration WRAPPER_MARGIN = Duration.ofSeconds(20);
     /** A file the command writes stops at 100 MiB (ulimit -f counts 1 KiB blocks). */
-    private static final int FILE_LIMIT_BLOCKS = 102_400;
+    static final int FILE_LIMIT_BLOCKS = 102_400;
     private static final Pattern BASH_ID = Pattern.compile("[0-9a-f-]{36}");
     private static final Logger LOG = LoggerFactory.getLogger(SandboxTools.class);
 
@@ -397,7 +398,24 @@ public final class SandboxTools {
         return head + "\n... [" + (bytes - 2L * half) + " bytes omitted; all of it is in " + file + "] ...\n" + tail;
     }
 
-    private SandboxCommandResult run(String script, Duration timeout) {
+    /** Marks the turn as one that worked in the sandbox, for run_python, which stages its own files. */
+    void markUsed() {
+        used = true;
+    }
+
+    void write(String path, byte[] content) {
+        sandboxes.write(tenant, actor, conversation, path, content);
+    }
+
+    void writeStream(String path, InputStream content) {
+        sandboxes.writeStream(tenant, actor, conversation, path, content);
+    }
+
+    byte[] read(String path, long maxBytes) {
+        return sandboxes.read(tenant, actor, conversation, path, maxBytes);
+    }
+
+    SandboxCommandResult run(String script, Duration timeout) {
         return sandboxes.run(tenant, actor, conversation,
                 new SandboxCommand(script, SandboxService.WORKSPACE, SandboxService.USER, timeout));
     }

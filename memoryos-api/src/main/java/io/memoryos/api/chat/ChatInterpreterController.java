@@ -4,8 +4,8 @@ import io.memoryos.api.security.CurrentActor;
 import io.memoryos.api.chat.contract.InterpreterHealthResponse;
 import io.memoryos.api.chat.contract.InterpreterSettingsRequest;
 import io.memoryos.api.chat.contract.InterpreterSettingsResponse;
-import io.memoryos.chat.interpreter.InterpreterClient;
 import io.memoryos.chat.interpreter.InterpreterService;
+import io.memoryos.sandbox.SandboxService;
 import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -33,9 +33,9 @@ import org.springframework.web.bind.annotation.RestController;
 @ApiResponse(responseCode = "503", description = "Code Interpreter is not configured")
 class ChatInterpreterController {
     private final InterpreterService settings;
-    private final InterpreterClient client;
-    ChatInterpreterController(InterpreterService settings, InterpreterClient client) {
-        this.settings = settings; this.client = client;
+    private final SandboxService sandboxes;
+    ChatInterpreterController(InterpreterService settings, SandboxService sandboxes) {
+        this.settings = settings; this.sandboxes = sandboxes;
     }
 
     @GetMapping
@@ -58,6 +58,6 @@ class ChatInterpreterController {
     @Operation(operationId = "getChatInterpreterHealth", summary = "Check the Code Interpreter service without the cache")
     InterpreterHealthResponse health(@CurrentActor IdentityContext identity) {
         settings.requireManager(identity.actorId());
-        return InterpreterHealthResponse.from(client.health());
+        return InterpreterHealthResponse.of(sandboxes.available(), sandboxes.healthy());
     }
 }

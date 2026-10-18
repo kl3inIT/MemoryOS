@@ -147,7 +147,7 @@ class SearchToolTest {
             var response = tool.searchKnowledge(List.of("policy"), null);
             String name = "Policy_" + stored.value() + ".xlsx";
             assertTrue(response.contains("[1] Policy\nOnly a short excerpt from this document is shown below. The complete file "
-                    + "is available in the sandbox as \"" + name + "\" — prefer the Python code interpreter to read, parse, or "
+                    + "is available in the sandbox as \".memoryos/search/" + name + "\" — prefer the Python code interpreter to read, parse, or "
                     + "analyze it\n\nExcerpt: Section 2\nSection 3"), response);
             var staged = sandbox.documents();
             assertEquals(1, staged.size());

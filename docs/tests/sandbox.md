@@ -5,6 +5,7 @@
 | A conversation keeps one sandbox, renewed on every use | `PostgresSandboxServiceTest.aConversationKeepsOneSandboxRenewedOnEveryUse` |
 | A sandbox the runtime no longer has is replaced | `PostgresSandboxServiceTest.aSandboxTheRuntimeNoLongerHasIsReplaced` |
 | A sandbox past its total life is killed and replaced | `PostgresSandboxServiceTest.aSandboxPastItsLifetimeIsKilledAndReplaced` |
+| Scratch work runs in a sandbox of no conversation that ends with it, even when the work fails; it takes no place in the bound, and a third at once is busy | `PostgresSandboxServiceTest.scratchWorkRunsInASandboxOfNoConversationThatEndsWithIt` |
 | The running bound refuses another conversation with `SANDBOX_BUSY`; an idle sandbox stops counting | `PostgresSandboxServiceTest.pastTheBoundAnotherConversationIsToldTheSandboxesAreBusy` |
 | Two conversations starting at once cannot both take the last place (fails without the advisory lock: 2 sandboxes under a bound of 1) | `PostgresSandboxServiceTest.twoConversationsStartingAtOnceCannotBothTakeTheLastPlace` |
 | A slow start holds no lock other conversations wait for | `PostgresSandboxServiceTest.aSlowStartHoldsNoLockThatOtherConversationsWaitFor` |

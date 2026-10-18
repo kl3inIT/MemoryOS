@@ -13,7 +13,6 @@ import static org.mockito.Mockito.when;
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.library.work.DefaultUserFileWorkService;
-import io.memoryos.chat.interpreter.InterpreterProperties;
 import io.memoryos.chat.interpreter.InterpreterService;
 import io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository;
 import io.memoryos.library.persistence.JdbcLibraryRepository;
@@ -22,6 +21,7 @@ import io.memoryos.library.work.persistence.JdbcUserFileWorkRepository;
 import io.memoryos.document.DocumentCommandPort;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.group.persistence.IamLockRepository;
+import io.memoryos.sandbox.SandboxService;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
@@ -129,7 +129,7 @@ class LibraryCopyIntegrationTest {
         var libraryRows = new JdbcLibraryRepository(jdbc);
         var quotas = new StorageQuotaService(tenants, new LibraryStorageProperties(0), libraryRows);
         var retention = new LibraryTrashProperties(Duration.ofDays(30));
-        interpreter = new InterpreterService(new JdbcInterpreterRepository(jdbc), new InterpreterProperties(null, null),
+        interpreter = new InterpreterService(new JdbcInterpreterRepository(jdbc), mock(SandboxService.class),
                 mock(IamAuthorization.class), tenants, writes, storage, quotas, retention, jpa.transactionManager(),
                 TestDatabase.noAudit());
         library = new LibraryService(tenants, libraryRows, files, new ChatFileAttachments(new JdbcChatFileAttachmentRepository(jdbc)),

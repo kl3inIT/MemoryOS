@@ -1,6 +1,6 @@
 # MEM-271 plan
 
-Design: [design.md](design.md). Status 2026-10-18: design written; step 1 in progress on `dathip04/mem-271-run-python-sandbox` (a run on staging of a sandbox arm in the computer image read `attachments/` from `/workspace`).
+Design: [design.md](design.md). Status 2026-10-18: step 1 in PR #749; step 2 on `dathip04/mem-271-run-python-switch` (the chat and sandbox tests pass on zm; the evaluation runs before it merges).
 
 | Step | Change | Verification |
 | --- | --- | --- |
@@ -13,5 +13,6 @@ Design: [design.md](design.md). Status 2026-10-18: design written; step 1 in pro
 - [ ] On staging, `run_python` cleans a workbook a member attached, and a follow-up `bash` call finds the file it wrote.
 - [ ] A chart left open by `run_python` appears below the answer as before.
 - [ ] A generated deck opens as a PDF preview.
-- [ ] The evaluation scores the sandbox at least as well as the interpreter.
+- [x] The evaluation scores the sandbox at least as well as the interpreter. 2026-10-18 on staging, `cx/gpt-6-luna`,
+      5 repeats of 10 tasks: interpreter 35 first runs / 48 after one fix / 2 wrong without error; sandbox 38 / 49 / 0.
 - [ ] Staging and production run without `memoryos-interpreter`.

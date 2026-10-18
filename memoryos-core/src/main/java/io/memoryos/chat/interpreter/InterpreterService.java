@@ -25,19 +25,20 @@ import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ObjectContent;
 import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.ObjectWriteService;
+import io.memoryos.sandbox.SandboxService;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
-/** Per-Tenant Code Interpreter switch and the files its runs produce (MEM-110). */
+/** Per-Tenant switch of the Sandbox group, run_python included, and the files its runs produce (MEM-110, MEM-271). */
 @Service
 @NamedInterface("interpreter")
 public class InterpreterService {
     private static final Logger LOGGER = LoggerFactory.getLogger(InterpreterService.class);
     private final JdbcInterpreterRepository repository;
-    private final InterpreterProperties properties;
+    private final SandboxService sandboxes;
     private final IamAuthorization authorization;
     private final TenantAccessResolver tenants;
     private final ObjectWriteService writes;
@@ -48,13 +49,13 @@ public class InterpreterService {
     private final StorageQuotaService quotas;
     private final LibraryTrashProperties trash;
 
-    public InterpreterService(JdbcInterpreterRepository repository, InterpreterProperties properties, IamAuthorization authorization,
+    public InterpreterService(JdbcInterpreterRepository repository, SandboxService sandboxes, IamAuthorization authorization,
                               TenantAccessResolver tenants, ObjectWriteService writes, ObjectStorage storage,
                               StorageQuotaService quotas,
                               LibraryTrashProperties trash,
                               PlatformTransactionManager transactionManager, AuditTrail audit) {
         this.audit = audit;
-        this.repository = repository; this.properties = properties; this.authorization = authorization;
+        this.repository = repository; this.sandboxes = sandboxes; this.authorization = authorization;
         this.tenants = tenants; this.writes = writes; this.storage = storage; this.quotas = quotas;
         this.trash = trash; this.tx = new TransactionTemplate(transactionManager);
     }
@@ -70,7 +71,7 @@ public class InterpreterService {
         quotas.requireRoom(tenant, owner, bytes);
     }
 
-    /** {@code configured} reports whether this deployment has an interpreter; no row means disabled. */
+    /** {@code configured} reports whether this deployment has a sandbox (MEM-271); no row means disabled. */
     public record Settings(boolean configured, boolean enabled, long revision) {}
     public record Served(ObjectContent content, String filename, String mediaType) {}
 
@@ -78,7 +79,7 @@ public class InterpreterService {
     public Settings settings(ActorId actor) {
         var tenant = authorization.require(actor, IamCapability.MODELS_MANAGE, false).tenantId();
         var setting = repository.setting(tenant);
-        return new Settings(properties.configured(), setting.map(JdbcInterpreterRepository.Setting::enabled).orElse(false),
+        return new Settings(sandboxes.available(), setting.map(JdbcInterpreterRepository.Setting::enabled).orElse(false),
                 setting.map(JdbcInterpreterRepository.Setting::revision).orElse(0L));
     }
 
@@ -87,10 +88,10 @@ public class InterpreterService {
         var tenant = authorization.lockAndRequireExclusive(actor, IamCapability.MODELS_MANAGE).tenantId();
         long current = repository.setting(tenant).map(JdbcInterpreterRepository.Setting::revision).orElse(0L);
         if (current != revision) throw ChatException.conflict();
-        if (enabled && !properties.configured()) throw ChatException.providerUnavailable();
+        if (enabled && !sandboxes.available()) throw ChatException.providerUnavailable();
         var saved = repository.save(tenant, enabled);
         audit.record(AuditRecord.of(AuditAction.INTERPRETER_CHANGE, tenant).actor(actor).resource("SETTING", "interpreter", "Code Interpreter").detail("enabled", enabled).build());
-        return new Settings(properties.configured(), saved.enabled(), saved.revision());
+        return new Settings(sandboxes.available(), saved.enabled(), saved.revision());
     }
 
     /** Authorizes a live health check; the network call happens after this transaction returns. */
@@ -101,7 +102,7 @@ public class InterpreterService {
 
     /** Runtime check for tool registration; the caller has already resolved the turn's Tenant. */
     public boolean enabled(TenantId tenant) {
-        return properties.configured() && repository.setting(tenant).map(JdbcInterpreterRepository.Setting::enabled).orElse(false);
+        return sandboxes.available() && repository.setting(tenant).map(JdbcInterpreterRepository.Setting::enabled).orElse(false);
     }
 
     /**

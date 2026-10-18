@@ -78,6 +78,24 @@ class PostgresSandboxServiceTest {
     }
 
     @Test
+    void scratchWorkRunsInASandboxOfNoConversationThatEndsWithIt() {
+        var service = service(properties(1));
+        var command = new SandboxCommand("pptx-to-pdf a b", SandboxService.WORKSPACE, SandboxService.USER, Duration.ofSeconds(5));
+        assertEquals("ok", service.scratch(tenant, sandbox -> sandbox.run(command).stdout()));
+        assertEquals(1, runtime.created.size());
+        assertTrue(runtime.killed.contains(runtime.created.getFirst()));
+        assertThrows(IllegalStateException.class, () -> service.scratch(tenant, sandbox -> {
+            throw new IllegalStateException("boom");
+        }));
+        assertTrue(runtime.killed.containsAll(runtime.created), "a failed work still ends its sandbox");
+        // It takes no place in the running bound, and at most two run at once.
+        service.scratch(tenant, sandbox -> service.acquire(tenant, owner, conversation()));
+        var busy = assertThrows(SandboxException.class, () -> service.scratch(tenant, first ->
+                service.scratch(tenant, second -> service.scratch(tenant, third -> "never"))));
+        assertEquals("SANDBOX_BUSY", busy.code());
+    }
+
+    @Test
     void aConversationKeepsOneSandboxRenewedOnEveryUse() {
         var service = service(properties(3));
         UUID conversation = conversation();

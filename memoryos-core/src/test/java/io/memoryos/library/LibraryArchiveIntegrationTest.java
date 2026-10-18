@@ -12,7 +12,6 @@ import static org.mockito.Mockito.when;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
-import io.memoryos.chat.interpreter.InterpreterProperties;
 import io.memoryos.chat.interpreter.InterpreterService;
 import io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository;
 import io.memoryos.library.persistence.JdbcLibraryArchiveRepository;
@@ -22,6 +21,7 @@ import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.group.persistence.IamLockRepository;
 import io.memoryos.objectstorage.ObjectStorageException;
 import io.memoryos.objectstorage.ObjectStorageFailureCode;
+import io.memoryos.sandbox.SandboxService;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
@@ -110,7 +110,7 @@ class LibraryArchiveIntegrationTest {
                 new ObjectUploadProperties(Duration.ofMinutes(15), Duration.ofSeconds(30), Duration.ofMinutes(5),
                         Duration.ofMinutes(1), 16), jpa.transactionManager());
         repository = new JdbcLibraryArchiveRepository(jdbc);
-        interpreter = new InterpreterService(new JdbcInterpreterRepository(jdbc), new InterpreterProperties(null, null),
+        interpreter = new InterpreterService(new JdbcInterpreterRepository(jdbc), mock(SandboxService.class),
                 mock(IamAuthorization.class), tenants, writes, storage,
                 new StorageQuotaService(tenants,
                 new LibraryStorageProperties(0), new JdbcLibraryRepository(jdbc)),
