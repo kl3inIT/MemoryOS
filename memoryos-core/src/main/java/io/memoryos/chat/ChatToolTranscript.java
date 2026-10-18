@@ -76,12 +76,14 @@ public final class ChatToolTranscript {
     /**
      * Keeps the MCP Apps view of one call (MEM-275), apart from the replayed calls: it is shown to the conversation's
      * owner, never to the model. Past {@link #APP_MESSAGE_BYTES} for the answer, further views are not kept.
+     * Returns whether this one is.
      */
-    public synchronized void app(ChatToolApp app) {
+    public synchronized boolean app(ChatToolApp app) {
         long size = utf8(app.input()) + utf8(app.output());
-        if (appBytes + size > APP_MESSAGE_BYTES || apps.size() >= ChatActivity.MAX_ITEMS) return;
+        if (appBytes + size > APP_MESSAGE_BYTES || apps.size() >= ChatActivity.MAX_ITEMS) return false;
         appBytes += size;
         apps.add(app);
+        return true;
     }
 
     public synchronized List<ChatToolApp> apps() {
