@@ -35,7 +35,7 @@ const actionLabels: Record<string, AppCopy> = {
   "voice_connection.change": "Changed voice",
   "image_connection.change": "Changed image generation",
   "ocr_connection.change": "Changed OCR",
-  "interpreter.change": "Changed Code Interpreter",
+  "interpreter.change": "Changed Sandbox",
   "chat_settings.change": "Changed Chat settings",
   "chat_guardrail.block": "Question blocked",
   "mcp_server.create": "Added an MCP server",

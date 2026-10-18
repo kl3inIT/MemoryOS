@@ -27341,13 +27341,19 @@ components:
       properties:
         configured:
           type: boolean
-          description: Whether this deployment has a Code Interpreter service
+          description: Whether this deployment has a sandbox
         enabled:
           type: boolean
         revision:
           type: integer
           format: int64
+        allowedDomains:
+          type: array
+          description: The only domains a sandbox may reach, set by the deployment; empty denies all egress
+          items:
+            type: string
       required:
+      - allowedDomains
       - configured
       - enabled
       - revision

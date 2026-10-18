@@ -7,7 +7,8 @@ Status 2026-10-16: step 0 done (references read, probe on staging recorded in th
 0029). Step 2 merged in PR #693 (the `sandbox` capability, V179 `sandbox_workspaces`, `memoryos-integration-opensandbox`,
 the Worker's reconciliation). Step 3 in progress on `dathip04/mem-270-sandbox-tools`: `SandboxTools` registered under
 `code_interpreter`, the prompt's Sandbox section, timeline titles, the agent label "Sandbox"; the Sandbox admin page
-follows in its own pull request. Comes before MEM-265 (owner, 2026-10-15).
+follows in its own pull request. 2026-10-18: after MEM-271, `/admin/code-interpreter` became the Sandbox page at
+`/admin/sandbox` (switch, health, the deployment's allowed domains read-only), on `dathip04/mem-270-sandbox-page`. Comes before MEM-265 (owner, 2026-10-15).
 
 | Step | Change | Verification |
 | --- | --- | --- |

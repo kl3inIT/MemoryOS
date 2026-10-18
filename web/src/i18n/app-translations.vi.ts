@@ -2007,7 +2007,7 @@ Object.assign(englishUi, {
   "Changed voice": "Đã đổi Giọng nói",
   "Changed image generation": "Đã đổi Tạo ảnh",
   "Changed OCR": "Đã đổi OCR",
-  "Changed Code Interpreter": "Đã đổi Code Interpreter",
+  "Changed Sandbox": "Đã đổi Sandbox",
   "Changed Chat settings": "Đã đổi cài đặt Chat",
   "Question blocked": "Câu hỏi bị chặn",
   "Blocked by": "Chặn bởi",

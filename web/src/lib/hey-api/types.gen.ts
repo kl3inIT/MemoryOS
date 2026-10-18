@@ -1543,11 +1543,15 @@ export type InterpreterSettingsRequest = {
 
 export type InterpreterSettingsResponse = {
     /**
-     * Whether this deployment has a Code Interpreter service
+     * Whether this deployment has a sandbox
      */
     configured: boolean;
     enabled: boolean;
     revision: number;
+    /**
+     * The only domains a sandbox may reach, set by the deployment; empty denies all egress
+     */
+    allowedDomains: Array<string>;
 };
 
 export type ImageSelectionRequest = {
