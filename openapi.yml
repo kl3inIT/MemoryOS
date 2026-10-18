@@ -13503,6 +13503,64 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/personas/{personaId}/copy:
+    post:
+      tags:
+      - Chat
+      summary: Make the caller's own private assistant from a MemoryOS template; requires
+        AGENTS_CREATE
+      operationId: copyChatPersonaTemplate
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: personaId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "201":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonaView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/persona-labels:
     get:
       tags:
@@ -26938,6 +26996,8 @@ components:
           format: uuid
         builtin:
           type: boolean
+        template:
+          $ref: "#/components/schemas/TemplateRef"
         permissions:
           $ref: "#/components/schemas/PersonaPermissions"
         revision:
@@ -27044,6 +27104,13 @@ components:
         deletedAt:
           type: string
           format: date-time
+    TemplateRef:
+      type: object
+      properties:
+        key:
+          type: string
+        category:
+          type: string
     GroupShareInput:
       type: object
       properties:

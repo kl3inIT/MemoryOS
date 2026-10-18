@@ -1386,6 +1386,7 @@ export type PersonaPermissions = {
 export type PersonaView = {
     id?: string;
     builtin?: boolean;
+    template?: TemplateRef;
     permissions?: PersonaPermissions;
     revision?: number;
     name?: string;
@@ -1418,6 +1419,11 @@ export type PersonaView = {
     grounded?: boolean;
     pinned?: boolean;
     deletedAt?: string;
+};
+
+export type TemplateRef = {
+    key?: string;
+    category?: string;
 };
 
 export type GroupShareInput = {
@@ -14036,6 +14042,49 @@ export type TransferChatPersonaResponses = {
 };
 
 export type TransferChatPersonaResponse = TransferChatPersonaResponses[keyof TransferChatPersonaResponses];
+
+export type CopyChatPersonaTemplateData = {
+    body?: never;
+    path: {
+        personaId: string;
+    };
+    query?: never;
+    url: '/api/chat/personas/{personaId}/copy';
+};
+
+export type CopyChatPersonaTemplateErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type CopyChatPersonaTemplateError = CopyChatPersonaTemplateErrors[keyof CopyChatPersonaTemplateErrors];
+
+export type CopyChatPersonaTemplateResponses = {
+    /**
+     * Successful chat operation
+     */
+    201: PersonaView;
+};
+
+export type CopyChatPersonaTemplateResponse = CopyChatPersonaTemplateResponses[keyof CopyChatPersonaTemplateResponses];
 
 export type ListChatPersonaLabelsData = {
     body?: never;

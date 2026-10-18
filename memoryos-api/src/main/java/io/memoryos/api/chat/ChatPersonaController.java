@@ -81,6 +81,14 @@ class ChatPersonaController {
     PersonaView create(@CurrentActor IdentityContext identity, @Valid @RequestBody ChatPersonaRequest request) {
         return personas.create(identity.actorId(), request.toInput());
     }
+    @PostMapping("/personas/{personaId}/copy")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(operationId = "copyChatPersonaTemplate",
+            summary = "Make the caller's own private assistant from a MemoryOS template; requires AGENTS_CREATE")
+    @ApiResponse(responseCode = "201", description = "Successful chat operation", useReturnTypeSchema = true)
+    PersonaView copy(@CurrentActor IdentityContext identity, @PathVariable UUID personaId) {
+        return personas.copy(identity.actorId(), personaId);
+    }
     @PutMapping("/personas/{personaId}")
     @Operation(operationId = "updateChatPersona", summary = "Update agent settings with an expected revision")
     @ApiResponse(responseCode = "200", description = "Successful chat operation", useReturnTypeSchema = true)

@@ -14,13 +14,21 @@ public final class AgentAccessSql {
                     WHERE owner_member.tenant_id = p.tenant_id AND owner_member.group_id = p.owner_group_id
                       AND owner_member.actor_id = :actor)""";
 
-    /** Owner Actor, a member of the owner Group, or a global agent manager. Never true for the builtin agent. */
+    /**
+     * Owner Actor, a member of the owner Group, or a global agent manager. Never true for the builtin agent or a
+     * MemoryOS template, which nobody in the Tenant owns (MEM-281).
+     */
     public static final String OWNS = """
-            (p.builtin_key IS NULL AND (:agentsManage OR p.owner_actor_id = :actor OR %s))""".formatted(OWNER_GROUP_MEMBER);
+            (p.builtin_key IS NULL AND p.template_key IS NULL
+             AND (:agentsManage OR p.owner_actor_id = :actor OR %s))""".formatted(OWNER_GROUP_MEMBER);
 
-    /** Use: list, snapshot, select, admit a turn. */
+    /**
+     * Use: list, snapshot, select, admit a turn. A MemoryOS template is used by everyone while it is listed and by
+     * nobody once an administrator hides it (MEM-281).
+     */
     public static final String USES = """
-            (p.builtin_key IS NOT NULL OR :agentsManage OR p.owner_actor_id = :actor OR p.is_public OR %s
+            (CASE WHEN p.template_key IS NOT NULL THEN p.is_listed ELSE
+             p.builtin_key IS NOT NULL OR :agentsManage OR p.owner_actor_id = :actor OR p.is_public OR %s
              OR EXISTS (SELECT 1 FROM persona_user_share user_share
                         WHERE user_share.tenant_id = p.tenant_id AND user_share.persona_id = p.id
                           AND user_share.actor_id = :actor)
@@ -28,14 +36,14 @@ public final class AgentAccessSql {
                         JOIN iam_group_memberships share_member
                           ON share_member.tenant_id = group_share.tenant_id AND share_member.group_id = group_share.group_id
                          AND share_member.actor_id = :actor
-                        WHERE group_share.tenant_id = p.tenant_id AND group_share.persona_id = p.id))""".formatted(OWNER_GROUP_MEMBER);
+                        WHERE group_share.tenant_id = p.tenant_id AND group_share.persona_id = p.id) END)""".formatted(OWNER_GROUP_MEMBER);
 
     /**
      * Edit fields, shares and labels. A Group manager edits a private agent only when every share Group is managed
-     * by them, as Onyx curators do.
+     * by them, as Onyx curators do. Nobody edits a MemoryOS template; its content is the catalogue's (MEM-281).
      */
     public static final String EDITS = """
-            (:agentsManage OR (p.builtin_key IS NULL AND (
+            (p.template_key IS NULL AND (:agentsManage OR (p.builtin_key IS NULL AND (
                 p.owner_actor_id = :actor OR %s
                 OR (p.is_public AND p.public_permission = 'EDITOR')
                 OR EXISTS (SELECT 1 FROM persona_user_share user_share
@@ -56,11 +64,14 @@ public final class AgentAccessSql {
                                                       WHERE manager.tenant_id = unmanaged.tenant_id
                                                         AND manager.group_id = unmanaged.group_id
                                                         AND manager.actor_id = :actor AND manager.is_manager)))
-            )))""".formatted(OWNER_GROUP_MEMBER);
+            ))))""".formatted(OWNER_GROUP_MEMBER);
 
-    /** A custom agent without an owner Group whose owner Actor is absent or no longer an active member. */
+    /**
+     * A custom agent without an owner Group whose owner Actor is absent or no longer an active member. A MemoryOS
+     * template has no owner by design and is never vacant.
+     */
     public static final String VACANT = """
-            (p.builtin_key IS NULL AND p.owner_group_id IS NULL
+            (p.builtin_key IS NULL AND p.template_key IS NULL AND p.owner_group_id IS NULL
              AND NOT EXISTS (SELECT 1 FROM tenant_memberships owner_membership
                              WHERE owner_membership.tenant_id = p.tenant_id AND owner_membership.actor_id = p.owner_actor_id
                                AND owner_membership.status = 'ACTIVE'))""";
