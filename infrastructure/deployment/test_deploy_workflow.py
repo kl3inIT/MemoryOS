@@ -172,8 +172,9 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         self.assertIn('--filter "label=com.docker.compose.service=$component"', deploy)
 
     def test_the_interpreter_is_gone_from_a_release_but_not_from_a_rollback(self):
-        # MEM-271: run_python runs in the conversation's sandbox, and the interpreter's source is removed.
+        # MEM-271: run_python runs in the conversation's sandbox; the interpreter's source is kept but not built.
         self.assertNotIn("\n  interpreter:\n", CI_WORKFLOW)
+        self.assertIn("memoryos-interpreter/*)", CI_WORKFLOW)
         compose = (ROOT / "infrastructure/deployment/compose.base.yaml").read_text(encoding="utf-8")
         self.assertNotIn("interpreter", compose)
         # The runtime a rollback restores may still run it, from that runtime's own Compose files.

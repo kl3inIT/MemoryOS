@@ -14,8 +14,8 @@ dates, which caused every wrong answer in the first run.
 Each arm is a git ref; its guidance and `sitecustomize.py` are read from the repository at that ref. For every task
 and repeat the model writes one script, the script runs, and a failing run gets one fix attempt with its traceback, as
 in Chat. Both arms run on the same packages: the computer's locked environment, or its image. An arm's runtime is
-`sandbox` by default; `interpreter`, removed by MEM-271, reads its `sitecustomize.py` from `interpreter/` and so needs a ref that has it
-(`d513a1c9` is the last on main); it runs only in an executor image.
+`sandbox` by default; `interpreter`, retired by MEM-271, reads its `sitecustomize.py` from `memoryos-interpreter/` (or
+`interpreter/` at an older ref) and runs only in an executor image.
 
 ## Setup
 
@@ -39,7 +39,7 @@ From `tools/interpreter-eval`, with the variables of `.env` exported:
 
 # The retired interpreter against the sandbox, as the MEM-271 gate ran: each arm in its own image.
 ../../memoryos-sandbox/computer/.venv/bin/python -m interpreter_eval \
-  --baseline d513a1c9 --candidate WORKTREE --sandbox docker \
+  --baseline origin/main --candidate WORKTREE --sandbox docker \
   --baseline-runtime interpreter --baseline-image ghcr.io/kl3init/memoryos-interpreter-executor:<tag> \
   --candidate-image ghcr.io/kl3init/memoryos-sandbox-computer:<tag>
 

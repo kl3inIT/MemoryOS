@@ -1,0 +1,216 @@
+# Default values for memoryos-interpreter.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/kl3init/memoryos-interpreter
+  pullPolicy: Always
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Automatically mount a ServiceAccount's API credentials?
+  automount: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+  allowPrivilegeEscalation: false
+
+service:
+  type: ClusterIP
+  port: 8000
+  targetPort: 8000
+  annotations: {}
+  # NodePort configuration (when type is NodePort)
+  # nodePort: 30000
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: memoryos-interpreter.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: memoryos-interpreter-tls
+  #    hosts:
+  #      - memoryos-interpreter.local
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Additional volumes on the output Deployment definition.
+volumes: []
+# - name: foo
+#   secret:
+#     secretName: mysecret
+#     optional: false
+
+# Additional volumeMounts on the output Deployment definition.
+volumeMounts: []
+# - name: foo
+#   mountPath: "/etc/foo"
+#   readOnly: true
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Code Interpreter specific configuration
+codeInterpreter:
+  # Execution limits
+  maxExecTimeoutMs: 60000
+  maxOutputBytes: "1000000"
+  cpuTimeLimitSec: 30
+  memoryLimitMb: 1024
+
+  # API server configuration
+  host: "0.0.0.0"
+  port: 8000
+
+  # Kubernetes executor configuration
+  kubernetesExecutor:
+    namespace: ""  # Empty means use the same namespace as the service
+    image: ""  # Empty means used the default in code: `
+    serviceAccount: ""  # Empty means use default service account for pods
+    # When true, executor pods run a privileged init container that uses the
+    # NET_ADMIN capability to apply iptables rules dropping all outbound traffic
+    # before the executor starts — an OS-level lockdown that avoids the race
+    # where a pod can reach the network before the CNI enforces a NetworkPolicy.
+    # Set to false in environments whose CNI applies NetworkPolicies without that
+    # race (or that disallow the NET_ADMIN capability).
+    #
+    # When this is false, the always-applied executor/session NetworkPolicy
+    # (templates/networkpolicy.yaml) becomes the sole network restriction on
+    # executor pods, so it must be enforced by the cluster CNI to have effect.
+    netAdminLockdown: true
+    # When true, executor and session pods carry an ownerReference to this
+    # chart's Deployment. Kubernetes then garbage-collects pods that the service
+    # leaks (for example after an OOM kill), and monitoring can tell these
+    # short-lived pods apart from long-lived workloads.
+    #
+    # This grants the service "get" on apps/deployments. It has no effect when
+    # kubernetesExecutor.namespace names a different namespace than the service,
+    # because Kubernetes does not honour ownerReferences across namespaces.
+    setOwnerReferences: true
+    # Resource limits for execution pods
+    podResources:
+      limits:
+        cpu: "1"
+        memory: "256Mi"
+      requests:
+        cpu: "100m"
+        memory: "64Mi"
+
+# RBAC configuration
+rbac:
+  # Specifies whether RBAC resources should be created
+  create: true
+  # Additional rules for the Role
+  additionalRules: []
+
+# ConfigMap for additional configuration
+configMap:
+  # Create a ConfigMap with additional configuration
+  create: false
+  # Additional environment variables from ConfigMap
+  data: {}
+    # CUSTOM_ENV: "value"
+
+# Secret for sensitive configuration
+secret:
+  # Create a Secret with sensitive configuration
+  create: false
+  # Additional environment variables from Secret
+  data: {}
+    # API_KEY: "base64-encoded-value"
+
+# Health check probes
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# Network Policy for the API-server (deployment) pod, configured by the fields
+# below. Off by default; its defaults (deny-all ingress, DNS-only egress) are a
+# starting point that most installs will need to customize before enabling.
+#
+# NOTE: this flag does NOT govern the executor/session pods. Those pods run user
+# code and are ALWAYS given a deny-all-egress NetworkPolicy
+# (templates/networkpolicy.yaml), independent of this setting.
+networkPolicy:
+  enabled: false
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress:
+    # Allow DNS
+    - ports:
+      - protocol: UDP
+        port: 53
+      - protocol: TCP
+        port: 53
+
+# Extra environment variables
+extraEnvVars: []
+# - name: EXTRA_VAR
+#   value: "extra-value"
+
+# Extra environment variables from ConfigMaps or Secrets
+extraEnvFrom: []
+# - configMapRef:
+#     name: my-configmap
+# - secretRef:
+#     name: my-secret

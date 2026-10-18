@@ -81,9 +81,7 @@ The switch removes the Java client (`InterpreterClient`, `InterpreterApi`, the i
 its tests. `InterpreterService` stays: it owns the Tenant switch and the generated files, which the sandbox tools
 already use. The Compose service, executor image, `images.env`, CI publication, `deploy.sh`,
 `prune-release-images.sh`, the Dependabot entries and their infrastructure tests go in a separate change after the
-switch has run on staging and production. `interpreter/` is then removed rather than renamed `memoryos-interpreter/` and
-kept, as first planned: nothing builds or tests kept source, an automated review on 2026-10-18 found an `eval` of a
-Kubernetes error and a key check that passes when no key is set, and Git history keeps it (last at `d513a1c9`).
+switch has run on staging and production; `interpreter/` is then renamed `memoryos-interpreter/` and marked not built.
 
 ## Not taken
 

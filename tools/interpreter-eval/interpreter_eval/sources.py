@@ -22,9 +22,9 @@ class Runtime:
 
 
 RUNTIMES = {
-    # Removed by MEM-271: an arm runs it only at a ref that still has interpreter/ (d513a1c9 is the last on main).
+    # Retired by MEM-271; its source moved from interpreter/ to memoryos-interpreter/.
     "interpreter": Runtime(
-        ("interpreter/executor/sitecustomize.py",),
+        ("memoryos-interpreter/executor/sitecustomize.py", "interpreter/executor/sitecustomize.py"),
         "/opt/executor-venv/lib/python3.14/site-packages/sitecustomize.py",
         ".",
     ),
