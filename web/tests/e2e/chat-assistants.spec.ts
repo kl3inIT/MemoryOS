@@ -31,7 +31,7 @@ test("opens an assistant at its latest topic in its own sidebar and returns to t
   await page.request.post("/api/chat/test-fixture", { data: { title: "Quy trình mua sắm 2026" } });
   await page.goto("/");
   const sidebar = page.getByRole("complementary");
-  const projects = sidebar.getByRole("button", { name: "Danh sách dự án" });
+  const projects = sidebar.getByRole("button", { name: "Dự án", exact: true });
   const assistants = sidebar.locator("section[aria-labelledby=sidebar-assistants]");
   const recent = sidebar.locator("section[aria-labelledby=sidebar-recent]");
   await expect(recent).toBeVisible();

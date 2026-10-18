@@ -112,7 +112,7 @@ async function show(projects: ProjectView[], path = "/", stored?: ChatSession) {
       </ActionNotifications>
     </QueryClientProvider>,
   );
-  await screen.findByRole("button", { name: "Danh sách dự án" });
+  await screen.findByRole("button", { name: "Dự án" });
   return router;
 }
 
@@ -212,7 +212,7 @@ it("opens and closes the section and remembers it", async () => {
   await show([project(1)]);
   await screen.findByRole("button", { name: "Hội thoại trong Dự án 1" });
 
-  const toggle = screen.getByRole("button", { name: "Danh sách dự án" });
+  const toggle = screen.getByRole("button", { name: "Dự án" });
   expect(toggle.querySelector("svg.lucide-chevron-right")).toBeNull();
   expect(toggle).toHaveAttribute("aria-expanded", "true");
   await user.click(toggle);
@@ -221,10 +221,7 @@ it("opens and closes the section and remembers it", async () => {
 
   cleanup();
   await show([project(1)]);
-  expect(screen.getByRole("button", { name: "Danh sách dự án" })).toHaveAttribute(
-    "aria-expanded",
-    "false",
-  );
+  expect(screen.getByRole("button", { name: "Dự án" })).toHaveAttribute("aria-expanded", "false");
 });
 
 it("fetches a project's five latest conversations only once it is opened", async () => {
