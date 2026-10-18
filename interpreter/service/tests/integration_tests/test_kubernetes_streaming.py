@@ -14,7 +14,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-from kubernetes.client.exceptions import ApiException  # type: ignore[import-untyped]
+from kubernetes.client.exceptions import ApiException
 
 from memoryos_interpreter.services.executor_base import StreamChunk, StreamEvent, StreamResult
 from memoryos_interpreter.services.executor_kubernetes import KubernetesExecutor
@@ -25,24 +25,31 @@ from memoryos_interpreter.services.executor_kubernetes import KubernetesExecutor
 
 
 @pytest.fixture()
-def executor() -> KubernetesExecutor:
+def v1() -> MagicMock:
+    """The mocked CoreV1Api the executor fixture uses."""
+    v1 = MagicMock()
+    pod_mock = MagicMock()
+    pod_mock.status.phase = "Running"
+
+    def _read_namespaced_pod(*args: object, **kwargs: object) -> MagicMock:
+        if v1.delete_namespaced_pod.called:
+            raise ApiException(status=404)
+        return pod_mock
+
+    v1.read_namespaced_pod.side_effect = _read_namespaced_pod
+    return v1
+
+
+@pytest.fixture()
+def executor(v1: MagicMock) -> KubernetesExecutor:
     """Create a KubernetesExecutor bypassing __init__ (no cluster needed)."""
     inst = KubernetesExecutor.__new__(KubernetesExecutor)
-    inst.v1 = MagicMock()
+    inst.v1 = v1
     inst.namespace = "test"
     inst.image = "test:latest"
     inst.service_account = ""
     inst.net_admin_lockdown = True
     inst.owner_reference = None
-    pod_mock = MagicMock()
-    pod_mock.status.phase = "Running"
-
-    def _read_namespaced_pod(*args: object, **kwargs: object) -> MagicMock:
-        if inst.v1.delete_namespaced_pod.called:
-            raise ApiException(status=404)
-        return pod_mock
-
-    inst.v1.read_namespaced_pod.side_effect = _read_namespaced_pod
     return inst
 
 
@@ -330,21 +337,21 @@ def test_streaming_includes_workspace_files(
     assert result.files[0].content == b"file content"
 
 
-def test_streaming_cleans_up_pod(executor: KubernetesExecutor) -> None:
+def test_streaming_cleans_up_pod(executor: KubernetesExecutor, v1: MagicMock) -> None:
     """Pod is deleted via _cleanup_pod regardless of outcome."""
     _run_streaming(executor, FakeExecResp())
 
-    executor.v1.delete_namespaced_pod.assert_called_once()
+    v1.delete_namespaced_pod.assert_called_once()
 
 
 def test_cleanup_retries_delete_failures(
-    executor: KubernetesExecutor, caplog: pytest.LogCaptureFixture
+    executor: KubernetesExecutor, v1: MagicMock, caplog: pytest.LogCaptureFixture
 ) -> None:
-    executor.v1.delete_namespaced_pod.side_effect = [
+    v1.delete_namespaced_pod.side_effect = [
         ApiException(status=500, reason="boom"),
         None,
     ]
-    executor.v1.read_namespaced_pod.side_effect = [
+    v1.read_namespaced_pod.side_effect = [
         MagicMock(),
         ApiException(status=404),
     ]
@@ -352,19 +359,19 @@ def test_cleanup_retries_delete_failures(
     with caplog.at_level(logging.WARNING):
         executor._cleanup_pod("code-exec-test")
 
-    assert executor.v1.delete_namespaced_pod.call_count == 2
+    assert v1.delete_namespaced_pod.call_count == 2
     assert "Failed to delete pod code-exec-test" in caplog.text
 
 
 def test_cleanup_logs_when_delete_never_succeeds(
-    executor: KubernetesExecutor, caplog: pytest.LogCaptureFixture
+    executor: KubernetesExecutor, v1: MagicMock, caplog: pytest.LogCaptureFixture
 ) -> None:
-    executor.v1.delete_namespaced_pod.side_effect = ApiException(status=500, reason="boom")
+    v1.delete_namespaced_pod.side_effect = ApiException(status=500, reason="boom")
 
     with caplog.at_level(logging.WARNING):
         executor._cleanup_pod("code-exec-test")
 
-    assert executor.v1.delete_namespaced_pod.call_count == 3
+    assert v1.delete_namespaced_pod.call_count == 3
     assert "Failed to delete pod code-exec-test" in caplog.text
     assert "Failed to confirm deletion of pod code-exec-test" in caplog.text
 

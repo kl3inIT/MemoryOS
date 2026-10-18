@@ -161,7 +161,6 @@ export function SourceList<T extends SourceListItem>({
           tone={failedCount > 0 ? "danger" : undefined}
           selected={showingFailed}
           onToggle={() => onFilters({ ...filters, status: showingFailed ? "" : "FAILED" })}
-          accessibleLabel={ui("Show failed sources, {{count}}", { count: failedCount })}
         />
         <StatTile
           icon={<FileText />}

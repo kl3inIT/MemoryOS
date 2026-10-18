@@ -33,7 +33,7 @@ test("closes and opens the Dự án section and remembers it", async ({ page }) 
   const id = await createProject(page, "Section toggle project");
   await page.goto("/");
   const sidebar = page.getByRole("complementary");
-  const toggle = sidebar.getByRole("button", { name: "Danh sách dự án" });
+  const toggle = sidebar.getByRole("button", { name: "Dự án", exact: true });
   const project = sidebar.getByRole("button", {
     name: "Hội thoại trong Section toggle project",
   });

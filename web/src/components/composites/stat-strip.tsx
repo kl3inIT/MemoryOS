@@ -97,6 +97,7 @@ function StatBody({
         )}
         <span className="line-clamp-2">{label}</span>
       </span>
+      {/* Keeps the label and figure apart in a name read from the content; a flex column does not render it. */}{" "}
       {loading ? (
         <Skeleton className="mt-1.5 h-6 w-20" />
       ) : (
@@ -135,18 +136,19 @@ export function StatTile(props: StatTileProps) {
   );
 }
 
-/** A tile that filters the view it summarizes, as the Users status counts do. */
+/**
+ * A tile that filters the view it summarizes, as the Users status counts do. Its name is the label and figure it
+ * shows, read from its content (WCAG 2.5.3), and `aria-pressed` says whether the filter is on.
+ */
 export function StatToggleTile({
   selected,
   onToggle,
-  accessibleLabel,
   ...props
-}: StatTileProps & { selected: boolean; onToggle: () => void; accessibleLabel: string }) {
+}: StatTileProps & { selected: boolean; onToggle: () => void }) {
   return (
     <button
       type="button"
       aria-pressed={selected}
-      aria-label={accessibleLabel}
       onClick={onToggle}
       className={cn(
         tileClass,

@@ -660,7 +660,7 @@ test("manages members and one-time invitation recovery from the Users view", asy
   await expect(page.getByRole("button", { name: "Invite member" })).toBeFocused();
   expect(revokeMutationHeader).toBe("1");
 
-  await page.getByRole("button", { name: "Show active users, 2" }).click();
+  await page.getByRole("button", { name: "Active 2" }).click();
   await page.getByRole("button", { name: "Actions for Rowan Brooks" }).click();
   await page.getByRole("menuitem", { name: "Deactivate member" }).click();
   const deactivateDialog = page.getByRole("alertdialog");
@@ -668,7 +668,7 @@ test("manages members and one-time invitation recovery from the Users view", asy
   await deactivateDialog.getByRole("button", { name: "Deactivate member" }).click();
   await expect(page.getByRole("row").filter({ hasText: "Rowan Brooks" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Invite member" })).toBeFocused();
-  await page.getByRole("button", { name: "Show inactive users, 1" }).click();
+  await page.getByRole("button", { name: "Inactive 1" }).click();
   await expect(page.getByRole("row").filter({ hasText: "Rowan Brooks" })).toContainText("Inactive");
 
   await page.getByRole("button", { name: "Actions for Rowan Brooks" }).click();
@@ -807,9 +807,9 @@ test("restores and updates the bounded server-driven Users view from the URL", a
   await expect(page.getByText("member21@example.com")).toBeVisible();
   await expect(page.getByText("Showing 21–24 of 24")).toBeVisible();
   await expect(page.getByRole("button", { name: "Next" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Show inactive users, 1" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Inactive 1" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Show inactive users, 1" }).click();
+  await page.getByRole("button", { name: "Inactive 1" }).click();
   await expect(page).toHaveURL(/status=INACTIVE/);
   await expect(page).toHaveURL(/page=0/);
   await expect(page.getByText("member25@example.com")).toBeVisible();
@@ -834,7 +834,7 @@ test("restores and updates the bounded server-driven Users view from the URL", a
   await page.goForward();
   await expect(page.getByText("member25@example.com")).toBeVisible();
 
-  await page.getByRole("button", { name: "Show active users, 25" }).click();
+  await page.getByRole("button", { name: "Active 25" }).click();
   await page.getByRole("button", { name: "Sort by name" }).click();
   await expect(page).toHaveURL(/sort=NAME_ASC/);
   // The search applies once typing pauses, replacing the history entry, as Groups and Sources do.

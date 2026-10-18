@@ -10,7 +10,8 @@ import time
 from unittest.mock import MagicMock, patch
 
 import pytest
-from kubernetes.client.exceptions import ApiException  # type: ignore[import-untyped]
+from kubernetes.client import V1Pod
+from kubernetes.client.exceptions import ApiException
 
 from memoryos_interpreter.services.executor_base import (
     SESSION_APP_LABEL,
@@ -25,19 +26,32 @@ from memoryos_interpreter.services.executor_kubernetes import (
 
 
 @pytest.fixture()
-def executor() -> KubernetesExecutor:
+def v1() -> MagicMock:
+    """The mocked CoreV1Api the executor fixture uses."""
+    v1 = MagicMock()
+    pod_mock = MagicMock()
+    pod_mock.status.phase = "Running"
+    v1.read_namespaced_pod.return_value = pod_mock
+    return v1
+
+
+@pytest.fixture()
+def executor(v1: MagicMock) -> KubernetesExecutor:
     """Create a KubernetesExecutor bypassing __init__ (no cluster needed)."""
     inst = KubernetesExecutor.__new__(KubernetesExecutor)
-    inst.v1 = MagicMock()
+    inst.v1 = v1
     inst.namespace = "test"
     inst.image = "test:latest"
     inst.service_account = ""
     inst.net_admin_lockdown = True
     inst.owner_reference = None
-    pod_mock = MagicMock()
-    pod_mock.status.phase = "Running"
-    inst.v1.read_namespaced_pod.return_value = pod_mock
     return inst
+
+
+def _created_pod(v1: MagicMock) -> V1Pod:
+    pod = v1.create_namespaced_pod.call_args.kwargs["body"]
+    assert isinstance(pod, V1Pod)
+    return pod
 
 
 def _make_pod(name: str, expires_at: float | None) -> MagicMock:
@@ -62,49 +76,61 @@ def test_create_session_returns_session_info(executor: KubernetesExecutor) -> No
     assert before + 600 <= info.expires_at <= time.time() + 600
 
 
-def test_create_session_pod_carries_session_metadata(executor: KubernetesExecutor) -> None:
+def test_create_session_pod_carries_session_metadata(
+    executor: KubernetesExecutor, v1: MagicMock
+) -> None:
     info = executor.create_session(ttl_seconds=600)
 
-    pod = executor.v1.create_namespaced_pod.call_args.kwargs["body"]
-    assert pod.metadata.name == info.session_id
-    assert pod.metadata.labels["app"] == SESSION_APP_LABEL
-    assert pod.metadata.labels["component"] == SESSION_COMPONENT_LABEL
-    assert pod.metadata.annotations[SESSION_EXPIRES_AT_KEY] == str(info.expires_at)
+    metadata = _created_pod(v1).metadata
+    assert metadata is not None
+    assert metadata.labels is not None
+    assert metadata.annotations is not None
+    assert metadata.name == info.session_id
+    assert metadata.labels["app"] == SESSION_APP_LABEL
+    assert metadata.labels["component"] == SESSION_COMPONENT_LABEL
+    assert metadata.annotations[SESSION_EXPIRES_AT_KEY] == str(info.expires_at)
 
 
-def test_create_session_sets_active_deadline(executor: KubernetesExecutor) -> None:
+def test_create_session_sets_active_deadline(executor: KubernetesExecutor, v1: MagicMock) -> None:
     """active_deadline_seconds is what makes kubelet stop the pod at TTL even if API is down."""
     executor.create_session(ttl_seconds=600)
 
-    pod = executor.v1.create_namespaced_pod.call_args.kwargs["body"]
-    assert pod.spec.active_deadline_seconds == 600
-    assert pod.spec.containers[0].command == ["sleep", "600"]
+    spec = _created_pod(v1).spec
+    assert spec is not None
+    assert spec.active_deadline_seconds == 600
+    assert spec.containers[0].command == ["sleep", "600"]
 
 
 def test_create_session_adds_net_admin_lockdown_init_container(
     executor: KubernetesExecutor,
+    v1: MagicMock,
 ) -> None:
     """With lockdown enabled, a NET_ADMIN init container drops outbound traffic."""
     executor.create_session(ttl_seconds=600)
 
-    pod = executor.v1.create_namespaced_pod.call_args.kwargs["body"]
-    init_containers = pod.spec.init_containers
+    spec = _created_pod(v1).spec
+    assert spec is not None
+    init_containers = spec.init_containers
     assert init_containers is not None
     assert len(init_containers) == 1
     lockdown = init_containers[0]
     assert lockdown.name == "network-lockdown"
-    assert lockdown.security_context["capabilities"]["add"] == ["NET_ADMIN"]
+    assert lockdown.security_context is not None
+    assert lockdown.security_context.capabilities is not None
+    assert lockdown.security_context.capabilities.add == ["NET_ADMIN"]
 
 
 def test_create_session_omits_lockdown_when_disabled(
     executor: KubernetesExecutor,
+    v1: MagicMock,
 ) -> None:
     """With lockdown disabled, no privileged init container is added (rely on NetworkPolicy)."""
     executor.net_admin_lockdown = False
     executor.create_session(ttl_seconds=600)
 
-    pod = executor.v1.create_namespaced_pod.call_args.kwargs["body"]
-    assert pod.spec.init_containers is None
+    spec = _created_pod(v1).spec
+    assert spec is not None
+    assert spec.init_containers is None
 
 
 def test_create_session_stages_files(executor: KubernetesExecutor) -> None:
@@ -144,24 +170,28 @@ def test_create_session_cleans_up_on_staging_failure(executor: KubernetesExecuto
 # ---------------------------------------------------------------------------
 
 
-def test_delete_session_returns_true_on_success(executor: KubernetesExecutor) -> None:
+def test_delete_session_returns_true_on_success(
+    executor: KubernetesExecutor, v1: MagicMock
+) -> None:
     assert executor.delete_session(f"{SESSION_NAME_PREFIX}abc") is True
-    executor.v1.delete_namespaced_pod.assert_called_once()
+    v1.delete_namespaced_pod.assert_called_once()
 
 
-def test_delete_session_returns_false_on_404(executor: KubernetesExecutor) -> None:
-    executor.v1.delete_namespaced_pod.side_effect = ApiException(status=404)
+def test_delete_session_returns_false_on_404(executor: KubernetesExecutor, v1: MagicMock) -> None:
+    v1.delete_namespaced_pod.side_effect = ApiException(status=404)
     assert executor.delete_session(f"{SESSION_NAME_PREFIX}abc") is False
 
 
-def test_delete_session_rejects_non_session_id(executor: KubernetesExecutor) -> None:
+def test_delete_session_rejects_non_session_id(executor: KubernetesExecutor, v1: MagicMock) -> None:
     """Prefix check prevents accidentally deleting unrelated pods."""
     assert executor.delete_session("code-exec-abc") is False
-    executor.v1.delete_namespaced_pod.assert_not_called()
+    v1.delete_namespaced_pod.assert_not_called()
 
 
-def test_delete_session_propagates_other_api_errors(executor: KubernetesExecutor) -> None:
-    executor.v1.delete_namespaced_pod.side_effect = ApiException(status=500)
+def test_delete_session_propagates_other_api_errors(
+    executor: KubernetesExecutor, v1: MagicMock
+) -> None:
+    v1.delete_namespaced_pod.side_effect = ApiException(status=500)
     with pytest.raises(ApiException):
         executor.delete_session(f"{SESSION_NAME_PREFIX}abc")
 
@@ -171,64 +201,68 @@ def test_delete_session_propagates_other_api_errors(executor: KubernetesExecutor
 # ---------------------------------------------------------------------------
 
 
-def test_reap_deletes_expired_pods(executor: KubernetesExecutor) -> None:
+def test_reap_deletes_expired_pods(executor: KubernetesExecutor, v1: MagicMock) -> None:
     now = time.time()
     expired_pod = _make_pod("code-session-old", expires_at=now - 100)
     fresh_pod = _make_pod("code-session-new", expires_at=now + 100)
-    executor.v1.list_namespaced_pod.return_value = MagicMock(items=[expired_pod, fresh_pod])
+    v1.list_namespaced_pod.return_value = MagicMock(items=[expired_pod, fresh_pod])
 
     reaped = executor.reap_expired_sessions()
 
     assert reaped == 1
-    executor.v1.list_namespaced_pod.assert_called_once_with(
+    v1.list_namespaced_pod.assert_called_once_with(
         namespace=executor.namespace,
         label_selector=SESSION_LABEL_SELECTOR,
     )
-    executor.v1.delete_namespaced_pod.assert_called_once()
-    delete_kwargs = executor.v1.delete_namespaced_pod.call_args.kwargs
+    v1.delete_namespaced_pod.assert_called_once()
+    delete_kwargs = v1.delete_namespaced_pod.call_args.kwargs
     assert delete_kwargs["name"] == "code-session-old"
 
 
-def test_reap_skips_pods_without_annotation(executor: KubernetesExecutor) -> None:
+def test_reap_skips_pods_without_annotation(executor: KubernetesExecutor, v1: MagicMock) -> None:
     pod = _make_pod("code-session-bare", expires_at=None)
-    executor.v1.list_namespaced_pod.return_value = MagicMock(items=[pod])
+    v1.list_namespaced_pod.return_value = MagicMock(items=[pod])
 
     assert executor.reap_expired_sessions() == 0
-    executor.v1.delete_namespaced_pod.assert_not_called()
+    v1.delete_namespaced_pod.assert_not_called()
 
 
-def test_reap_skips_pods_with_invalid_annotation(executor: KubernetesExecutor) -> None:
+def test_reap_skips_pods_with_invalid_annotation(
+    executor: KubernetesExecutor, v1: MagicMock
+) -> None:
     pod = MagicMock()
     pod.metadata.name = "code-session-bad"
     pod.metadata.annotations = {SESSION_EXPIRES_AT_KEY: "not-a-number"}
-    executor.v1.list_namespaced_pod.return_value = MagicMock(items=[pod])
+    v1.list_namespaced_pod.return_value = MagicMock(items=[pod])
 
     assert executor.reap_expired_sessions() == 0
-    executor.v1.delete_namespaced_pod.assert_not_called()
+    v1.delete_namespaced_pod.assert_not_called()
 
 
-def test_reap_handles_list_failure(executor: KubernetesExecutor) -> None:
-    executor.v1.list_namespaced_pod.side_effect = ApiException(status=500)
+def test_reap_handles_list_failure(executor: KubernetesExecutor, v1: MagicMock) -> None:
+    v1.list_namespaced_pod.side_effect = ApiException(status=500)
     assert executor.reap_expired_sessions() == 0
 
 
-def test_reap_continues_when_individual_delete_404s(executor: KubernetesExecutor) -> None:
+def test_reap_continues_when_individual_delete_404s(
+    executor: KubernetesExecutor, v1: MagicMock
+) -> None:
     """Race: pod can vanish between list and delete — treat as already-gone."""
     now = time.time()
     expired_a = _make_pod("code-session-a", expires_at=now - 100)
     expired_b = _make_pod("code-session-b", expires_at=now - 100)
-    executor.v1.list_namespaced_pod.return_value = MagicMock(items=[expired_a, expired_b])
-    executor.v1.delete_namespaced_pod.side_effect = [ApiException(status=404), None]
+    v1.list_namespaced_pod.return_value = MagicMock(items=[expired_a, expired_b])
+    v1.delete_namespaced_pod.side_effect = [ApiException(status=404), None]
 
     assert executor.reap_expired_sessions() == 1
 
 
-def test_reap_keeps_going_when_delete_errors(executor: KubernetesExecutor) -> None:
+def test_reap_keeps_going_when_delete_errors(executor: KubernetesExecutor, v1: MagicMock) -> None:
     """A 500 on one delete shouldn't prevent others from being reaped."""
     now = time.time()
     expired_a = _make_pod("code-session-a", expires_at=now - 100)
     expired_b = _make_pod("code-session-b", expires_at=now - 100)
-    executor.v1.list_namespaced_pod.return_value = MagicMock(items=[expired_a, expired_b])
-    executor.v1.delete_namespaced_pod.side_effect = [ApiException(status=500), None]
+    v1.list_namespaced_pod.return_value = MagicMock(items=[expired_a, expired_b])
+    v1.delete_namespaced_pod.side_effect = [ApiException(status=500), None]
 
     assert executor.reap_expired_sessions() == 1

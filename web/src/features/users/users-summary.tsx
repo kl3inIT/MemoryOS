@@ -56,16 +56,6 @@ export function UsersSummary({
             key={item.status}
             selected={selected}
             onToggle={() => onStatusChange(selected ? undefined : item.status)}
-            accessibleLabel={
-              count === undefined
-                ? ui("Show {{v1}} users, count unavailable", {
-                    v1: ui(item.label).toLocaleLowerCase(),
-                  })
-                : ui("Show {{v1}} users, {{v2}}", {
-                    v1: ui(item.label).toLocaleLowerCase(),
-                    v2: count.toLocaleString(uiLocale()),
-                  })
-            }
             icon={item.icon}
             iconClass={item.iconClass}
             loading={loading && count === undefined}

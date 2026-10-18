@@ -143,7 +143,6 @@ export function ChatProjectsSection({ onNavigate }: { onNavigate?: () => void })
         <CollapsibleTrigger asChild>
           <button
             type="button"
-            aria-label={ui("Danh sách dự án")}
             className="flex h-8 min-w-0 flex-1 items-center rounded-lg text-left text-sm font-medium text-content-secondary outline-none hover:text-content-primary"
           >
             {ui("Dự án")}

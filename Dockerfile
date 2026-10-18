@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM eclipse-temurin:25-jdk-noble@sha256:534968c051301957beae735e7ba1db54d99ddecf08746d3b9d4f318cc132dbc3 AS build
+FROM eclipse-temurin:25-jdk-noble@sha256:589ff4cc3f71aab462e7048a47a0d10edf57fbccde3fceea2281e610bf5880b4 AS build
 
 WORKDIR /workspace
 
@@ -48,7 +48,7 @@ RUN ./gradlew --no-daemon --stacktrace :memoryos-api:bootJar :memoryos-worker:bo
     && java -Djarmode=tools -jar /workspace/worker.jar extract --layers --destination /workspace/worker-extracted \
     && java -Djarmode=tools -jar /workspace/channels.jar extract --layers --destination /workspace/channels-extracted
 
-FROM bellsoft/liberica-runtime-container:jre-25-glibc@sha256:f4273aca6e32b3da7440b3776238116b3f1db7b85060c12848cc24048032207c AS runtime
+FROM bellsoft/liberica-runtime-container:jre-25-glibc@sha256:24e8a01187274cc71e19f420a23315d695175f14ba7dead7058caac7d2003781 AS runtime
 
 RUN addgroup -S -g 1654 memoryos \
     && adduser -S -D -H -u 1654 -G memoryos memoryos

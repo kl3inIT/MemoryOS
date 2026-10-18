@@ -91,6 +91,12 @@ updates:
     open-pull-requests-limit: 10
     labels:
       - dependencies
+    # Java stays on the 25 LTS; a new Java major is a decision of its own, not a weekly bump.
+    ignore:
+      - dependency-name: bellsoft/liberica-runtime-container
+        update-types: ["version-update:semver-major"]
+      - dependency-name: eclipse-temurin
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: docker-compose
     directories:

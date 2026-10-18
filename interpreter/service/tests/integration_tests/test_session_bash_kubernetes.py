@@ -5,16 +5,22 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
-from kubernetes.client.exceptions import ApiException  # type: ignore[import-untyped]
+from kubernetes.client.exceptions import ApiException
 
 from memoryos_interpreter.services.executor_base import SESSION_NAME_PREFIX, SessionNotFoundError
 from memoryos_interpreter.services.executor_kubernetes import KubernetesExecutor
 
 
 @pytest.fixture()
-def executor() -> KubernetesExecutor:
+def v1() -> MagicMock:
+    """The mocked CoreV1Api the executor fixture uses."""
+    return MagicMock()
+
+
+@pytest.fixture()
+def executor(v1: MagicMock) -> KubernetesExecutor:
     inst = KubernetesExecutor.__new__(KubernetesExecutor)
-    inst.v1 = MagicMock()
+    inst.v1 = v1
     inst.namespace = "test"
     inst.image = "test:latest"
     inst.service_account = ""
@@ -135,7 +141,7 @@ def test_bash_times_out_and_kills_bash(executor: KubernetesExecutor) -> None:
     kill.assert_called_once_with(f"{SESSION_NAME_PREFIX}abc", "bash")
 
 
-def test_bash_rejects_non_session_id(executor: KubernetesExecutor) -> None:
+def test_bash_rejects_non_session_id(executor: KubernetesExecutor, v1: MagicMock) -> None:
     with pytest.raises(SessionNotFoundError):
         executor.execute_bash_in_session(
             "code-exec-abc",
@@ -143,11 +149,11 @@ def test_bash_rejects_non_session_id(executor: KubernetesExecutor) -> None:
             timeout_ms=5_000,
             max_output_bytes=65_536,
         )
-    executor.v1.read_namespaced_pod.assert_not_called()
+    v1.read_namespaced_pod.assert_not_called()
 
 
-def test_bash_raises_session_not_found_on_404(executor: KubernetesExecutor) -> None:
-    executor.v1.read_namespaced_pod.side_effect = ApiException(status=404)
+def test_bash_raises_session_not_found_on_404(executor: KubernetesExecutor, v1: MagicMock) -> None:
+    v1.read_namespaced_pod.side_effect = ApiException(status=404)
     with pytest.raises(SessionNotFoundError):
         executor.execute_bash_in_session(
             f"{SESSION_NAME_PREFIX}gone",
@@ -157,8 +163,8 @@ def test_bash_raises_session_not_found_on_404(executor: KubernetesExecutor) -> N
         )
 
 
-def test_bash_propagates_other_api_errors(executor: KubernetesExecutor) -> None:
-    executor.v1.read_namespaced_pod.side_effect = ApiException(status=500)
+def test_bash_propagates_other_api_errors(executor: KubernetesExecutor, v1: MagicMock) -> None:
+    v1.read_namespaced_pod.side_effect = ApiException(status=500)
     with pytest.raises(ApiException):
         executor.execute_bash_in_session(
             f"{SESSION_NAME_PREFIX}abc",

@@ -10,18 +10,25 @@ from collections.abc import Generator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
-from kubernetes import client, config, stream  # type: ignore
-from kubernetes.client import (  # type: ignore[import-untyped]
+from kubernetes import client, config, stream
+from kubernetes.client import (
+    V1Capabilities,
     V1Container,
+    V1EmptyDirVolumeSource,
+    V1EnvVar,
     V1ObjectMeta,
     V1OwnerReference,
     V1Pod,
+    V1PodSecurityContext,
     V1PodSpec,
+    V1ResourceRequirements,
+    V1SecurityContext,
+    V1Volume,
+    V1VolumeMount,
 )
-from kubernetes.client.exceptions import ApiException  # type: ignore[import-untyped]
-from kubernetes.stream import ws_client  # type: ignore[import-untyped]
+from kubernetes.client.exceptions import ApiException
+from kubernetes.stream import ws_client
 
 from memoryos_interpreter.app_configs import (
     KUBERNETES_EXECUTOR_IMAGE,
@@ -145,13 +152,23 @@ class KubernetesExecutor(BaseExecutor):
             )
             return None
 
+        metadata = deployment.metadata
+        if metadata is None or not metadata.name or not metadata.uid:
+            logger.warning(
+                "Deployment %s in namespace %s has no name or uid; "
+                "executor pods get no ownerReferences",
+                KUBERNETES_OWNER_DEPLOYMENT_NAME,
+                KUBERNETES_OWN_NAMESPACE,
+            )
+            return None
+
         # blockOwnerDeletion stays false: setting it needs "update" on the
         # owner's finalizers subresource, which this service does not have.
         return V1OwnerReference(
             api_version="apps/v1",
             kind="Deployment",
-            name=deployment.metadata.name,
-            uid=deployment.metadata.uid,
+            name=metadata.name,
+            uid=metadata.uid,
             controller=True,
             block_owner_deletion=False,
         )
@@ -171,8 +188,9 @@ class KubernetesExecutor(BaseExecutor):
                     )
                 )
             )
-            if not review.status.allowed:
-                reason = review.status.reason or "no reason provided"
+            status = review.status
+            if status is None or not status.allowed:
+                reason = (status.reason if status else None) or "no reason provided"
                 logger.warning(
                     f"Health check failed: cannot create pods in namespace={self.namespace} "
                     f"(reason={reason})"
@@ -213,40 +231,41 @@ class KubernetesExecutor(BaseExecutor):
         ``active_deadline_seconds``, when set, instructs kubelet to stop the pod
         at that age — used by sessions to enforce TTL even if the API is down.
         """
-        resources: dict[str, dict[str, Any]] = {"limits": {}, "requests": {}}
+        limits: dict[str, str] = {}
+        requests: dict[str, str] = {}
 
         if memory_limit_mb is not None:
             memory_limit = max(memory_limit_mb, 16)
-            resources["limits"]["memory"] = f"{memory_limit}Mi"
-            resources["requests"]["memory"] = f"{min(memory_limit, 64)}Mi"
+            limits["memory"] = f"{memory_limit}Mi"
+            requests["memory"] = f"{min(memory_limit, 64)}Mi"
 
         if cpu_time_limit_sec is not None:
             cpu_limit = max(cpu_time_limit_sec, 1)
-            resources["limits"]["cpu"] = str(cpu_limit)
-            resources["requests"]["cpu"] = "100m"
+            limits["cpu"] = str(cpu_limit)
+            requests["cpu"] = "100m"
 
         container = V1Container(
             name="executor",
             image=self.image,
             command=list(command),
             working_dir="/workspace",
-            resources=resources if resources["limits"] else None,
-            security_context={
-                "runAsUser": 65532,
-                "runAsGroup": 65532,
-                "allowPrivilegeEscalation": False,
-                "readOnlyRootFilesystem": False,
-                "capabilities": {"drop": ["ALL"]},
-            },
+            resources=V1ResourceRequirements(limits=limits, requests=requests) if limits else None,
+            security_context=V1SecurityContext(
+                run_as_user=65532,
+                run_as_group=65532,
+                allow_privilege_escalation=False,
+                read_only_root_filesystem=False,
+                capabilities=V1Capabilities(drop=["ALL"]),
+            ),
             env=[
-                {"name": "PYTHONUNBUFFERED", "value": "1"},
-                {"name": "PYTHONDONTWRITEBYTECODE", "value": "1"},
-                {"name": "PYTHONIOENCODING", "value": "utf-8"},
-                {"name": "MPLCONFIGDIR", "value": "/tmp/matplotlib"},  # noqa: S108
+                V1EnvVar(name="PYTHONUNBUFFERED", value="1"),
+                V1EnvVar(name="PYTHONDONTWRITEBYTECODE", value="1"),
+                V1EnvVar(name="PYTHONIOENCODING", value="utf-8"),
+                V1EnvVar(name="MPLCONFIGDIR", value="/tmp/matplotlib"),  # noqa: S108
             ],
             volume_mounts=[
-                {"name": "workspace", "mountPath": "/workspace"},
-                {"name": "tmp", "mountPath": "/tmp"},  # noqa: S108
+                V1VolumeMount(name="workspace", mount_path="/workspace"),
+                V1VolumeMount(name="tmp", mount_path="/tmp"),  # noqa: S108
             ],
         )
 
@@ -268,17 +287,17 @@ class KubernetesExecutor(BaseExecutor):
                     name="network-lockdown",
                     image=self.image,
                     command=["sh", "-c", iptables_script],
-                    security_context={
-                        "runAsUser": 0,
-                        "runAsNonRoot": False,
-                        "allowPrivilegeEscalation": False,
-                        "readOnlyRootFilesystem": True,
-                        "capabilities": {"drop": ["ALL"], "add": ["NET_ADMIN"]},
-                    },
-                    resources={
-                        "limits": {"cpu": "100m", "memory": "32Mi"},
-                        "requests": {"cpu": "10m", "memory": "16Mi"},
-                    },
+                    security_context=V1SecurityContext(
+                        run_as_user=0,
+                        run_as_non_root=False,
+                        allow_privilege_escalation=False,
+                        read_only_root_filesystem=True,
+                        capabilities=V1Capabilities(drop=["ALL"], add=["NET_ADMIN"]),
+                    ),
+                    resources=V1ResourceRequirements(
+                        limits={"cpu": "100m", "memory": "32Mi"},
+                        requests={"cpu": "10m", "memory": "16Mi"},
+                    ),
                 )
             )
 
@@ -289,13 +308,10 @@ class KubernetesExecutor(BaseExecutor):
             active_deadline_seconds=active_deadline_seconds,
             service_account_name=self.service_account if self.service_account else None,
             volumes=[
-                {"name": "workspace", "emptyDir": {"sizeLimit": "100Mi"}},
-                {"name": "tmp", "emptyDir": {"sizeLimit": "64Mi"}},
+                V1Volume(name="workspace", empty_dir=V1EmptyDirVolumeSource(size_limit="100Mi")),
+                V1Volume(name="tmp", empty_dir=V1EmptyDirVolumeSource(size_limit="64Mi")),
             ],
-            security_context={
-                "runAsNonRoot": True,
-                "fsGroup": 65532,
-            },
+            security_context=V1PodSecurityContext(run_as_non_root=True, fs_group=65532),
         )
 
         metadata = V1ObjectMeta(
@@ -369,7 +385,7 @@ class KubernetesExecutor(BaseExecutor):
         logger.info(f"Waiting for pod {pod_name} to be ready")
         for _ in range(timeout_sec * 10):
             pod = self.v1.read_namespaced_pod(pod_name, self.namespace)
-            if pod.status.phase == "Running":
+            if pod.status is not None and pod.status.phase == "Running":
                 logger.info(f"Pod {pod_name} is running")
                 return
             time.sleep(0.1)
@@ -388,7 +404,7 @@ class KubernetesExecutor(BaseExecutor):
     ) -> ws_client.WSClient:
         """Run a websocket exec call using an isolated ApiClient instance."""
         stream_api = client.CoreV1Api(api_client=client.ApiClient())
-        return stream.stream(
+        exec_resp: ws_client.WSClient = stream.stream(
             stream_api.connect_get_namespaced_pod_exec,
             pod_name,
             self.namespace,
@@ -399,6 +415,7 @@ class KubernetesExecutor(BaseExecutor):
             tty=tty,
             _preload_content=preload_content,
         )
+        return exec_resp
 
     def _upload_tar_to_pod(self, pod_name: str, tar_archive: bytes) -> None:
         """Upload and extract a tar archive into the pod's workspace."""
@@ -786,6 +803,8 @@ class KubernetesExecutor(BaseExecutor):
         reaped = 0
         for pod in pods.items:
             metadata = pod.metadata
+            if metadata is None or not metadata.name:
+                continue
             annotations = metadata.annotations or {}
             expires_str = annotations.get(SESSION_EXPIRES_AT_KEY)
             if expires_str is None:
