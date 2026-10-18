@@ -33,7 +33,7 @@ Design: [design.md](design.md).
   `callProviderMetadata`), live and from history; the view stands outside the activity group.
 - [x] `ChatMcpApps` registers `McpAppRenderer` with `McpAppsRemoteHost` and a `fetch` to the route, `hostInfo`, a
   theme- and locale-driven `hostContext`, inline only, no `sendMessage`, the `ASK` confirmation and the 640 px cap.
-- [x] `nginx.conf` `frame-src https://*.scf.auiusercontent.com`, with its test.
+- [x] `nginx.conf` `frame-src https://*.scf.auiusercontent.com blob:`, with its test.
 
 ## 5. Verification
 
