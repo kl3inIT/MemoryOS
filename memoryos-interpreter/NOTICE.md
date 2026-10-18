@@ -1,6 +1,6 @@
 # Notice
 
-`interpreter/` started as a snapshot of [onyx-dot-app/python-sandbox](https://github.com/onyx-dot-app/python-sandbox), the service behind the Onyx Code Interpreter, copied on 2026-09-15.
+`memoryos-interpreter/` (first `interpreter/`) started as a snapshot of [onyx-dot-app/python-sandbox](https://github.com/onyx-dot-app/python-sandbox), the service behind the Onyx Code Interpreter, copied on 2026-09-15.
 
 | Item | Value |
 | --- | --- |

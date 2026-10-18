@@ -16,18 +16,21 @@ WORKTREE = "WORKTREE"
 class Runtime:
     """Where run_python runs: its sitecustomize in the repository and in its image, and where it finds the files."""
 
-    sitecustomize: str
+    sitecustomize: tuple[str, ...]  # its paths in the repository, newest first; a ref has one of them
     image_sitecustomize: str
     data: str  # the conversation's files, relative to the working directory
 
 
 RUNTIMES = {
+    # Retired by MEM-271; its source moved from interpreter/ to memoryos-interpreter/.
     "interpreter": Runtime(
-        "interpreter/executor/sitecustomize.py", "/opt/executor-venv/lib/python3.14/site-packages/sitecustomize.py", "."
+        ("memoryos-interpreter/executor/sitecustomize.py", "interpreter/executor/sitecustomize.py"),
+        "/opt/executor-venv/lib/python3.14/site-packages/sitecustomize.py",
+        ".",
     ),
     # MEM-271: the conversation's sandbox, with the attachments under attachments/.
     "sandbox": Runtime(
-        "memoryos-sandbox/computer/sitecustomize.py",
+        ("memoryos-sandbox/computer/sitecustomize.py",),
         "/opt/sandbox-venv/lib/python3.14/site-packages/sitecustomize.py",
         "attachments",
     ),
@@ -42,6 +45,17 @@ def read(ref: str, path: str) -> str:
     ).stdout
 
 
+def sitecustomize(ref: str, runtime: str) -> str:
+    """The runtime's sitecustomize at a ref, from the first of its paths the ref has."""
+    paths = RUNTIMES[runtime].sitecustomize
+    for path in paths[:-1]:
+        try:
+            return read(ref, path)
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            continue
+    return read(ref, paths[-1])
+
+
 def guidance(java: str) -> str:
     """The run_python guidance text block exactly as ChatPrompts sends it."""
     try:
@@ -51,6 +65,6 @@ def guidance(java: str) -> str:
     return textwrap.dedent(block).strip()
 
 
-def arm(ref: str, runtime: str = "interpreter") -> tuple[str, str]:
+def arm(ref: str, runtime: str = "sandbox") -> tuple[str, str]:
     """The run_python guidance and the runtime's sitecustomize at a ref."""
-    return guidance(read(ref, PROMPTS)), read(ref, RUNTIMES[runtime].sitecustomize)
+    return guidance(read(ref, PROMPTS)), sitecustomize(ref, runtime)

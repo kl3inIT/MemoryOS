@@ -51,14 +51,14 @@ class LauncherSecretFileTest(unittest.TestCase):
         result, exported = self.launch(
             MEMORYOS_REDIS_PASSWORD_FILE=self.secret("redis", "redis-secret"),
             MEMORYOS_OBJECT_STORAGE_SECRET_KEY_FILE=self.secret("minio", "minio-secret"),
-            MEMORYOS_INTERPRETER_API_KEY_FILE=self.secret("interpreter", "interpreter-secret"),
+            MEMORYOS_SANDBOX_API_KEY_FILE=self.secret("sandbox", "sandbox-secret"),
             # A secret nobody wrote code for: the point of the change.
             MEMORYOS_DATABASE_PASSWORD_FILE=self.secret("database", "database-secret"),
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(exported.get("MEMORYOS_REDIS_PASSWORD"), "redis-secret")
         self.assertEqual(exported.get("MEMORYOS_OBJECT_STORAGE_SECRET_KEY"), "minio-secret")
-        self.assertEqual(exported.get("MEMORYOS_INTERPRETER_API_KEY"), "interpreter-secret")
+        self.assertEqual(exported.get("MEMORYOS_SANDBOX_API_KEY"), "sandbox-secret")
         self.assertEqual(exported.get("MEMORYOS_DATABASE_PASSWORD"), "database-secret")
 
     def test_the_redis_authority_is_passed_as_a_file_reference(self):

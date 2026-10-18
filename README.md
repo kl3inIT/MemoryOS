@@ -44,7 +44,8 @@ Claude Code reads the same repository guide through [`CLAUDE.md`](CLAUDE.md); pr
 | `memoryos-api` | Spring Boot HTTP, validation, migration and security composition root; Chat runs here on virtual threads |
 | `memoryos-worker` | Source synchronization, extraction, Search projection and cleanup over Redis Streams |
 | `memoryos-channels` | The Tenant's chat bots: holds each bot's connection and answers with a Chat turn in process (MEM-246; staging only) |
-| `interpreter` | The `run_python` service and its disposable executors ([how it works](interpreter/HOW_IT_WORKS.md)) |
+| `memoryos-sandbox` | The OpenSandbox server's configuration and the computer image each Chat conversation's sandbox runs (`run_python`, `bash`) |
+| `memoryos-interpreter` | The retired `run_python` service (MEM-110), kept as source; neither built nor deployed since MEM-271 |
 | `web`, `landing` | The browser application and the public landing page |
 
 [ARCHITECTURE.md](ARCHITECTURE.md) records the enforced dependencies and where each kind of state lives.
@@ -106,7 +107,7 @@ API and worker images build from [`Dockerfile`](Dockerfile) and read their secre
 `MEMORYOS_<NAME>_FILE` becomes `MEMORYOS_<NAME>`) before Spring Boot starts; the browser image builds from [`web/Dockerfile`](web/Dockerfile). A deployment is composed from
 [`compose.base.yaml`](infrastructure/deployment/compose.base.yaml) plus a staging or production overlay: the base owns
 PostgreSQL, private MinIO with its bucket bootstrap, the Keycloak runtime, TLS Redis, Docling, the
-code interpreter, API, worker and web.
+sandbox server, API, worker and web.
 API and worker hold distinct file-mounted MinIO credentials. Staging adds Mailpit, read-only pgweb and Redis
 Insight behind SSO proxies and an owner-only MinIO Console; production adds no inspection surface.
 

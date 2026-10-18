@@ -1,8 +1,8 @@
 [project]
 name = "interpreter-eval"
 version = "0.1.0"
-description = "Evaluates the run_python guidance and the executor's guards with a real model on fixed data tasks"
-# Runs with the executor's own environment (interpreter/executor/.venv); scoring and its tests need only the
+description = "Evaluates the run_python guidance and the sandbox's guards with a real model on fixed data tasks"
+# Runs with the sandbox computer's own environment (memoryos-sandbox/computer/.venv); scoring and its tests need only the
 # standard library.
 requires-python = ">=3.11"
 dependencies = []

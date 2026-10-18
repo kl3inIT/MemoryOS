@@ -1,7 +1,7 @@
 import unittest
 
 from interpreter_eval.runner import harness
-from interpreter_eval.sources import PROMPTS, RUNTIMES, WORKTREE, arm, guidance, read
+from interpreter_eval.sources import PROMPTS, RUNTIMES, WORKTREE, arm, guidance, read, sitecustomize
 
 
 class GuidanceTest(unittest.TestCase):
@@ -19,14 +19,16 @@ class GuidanceTest(unittest.TestCase):
     def test_reads_the_working_tree(self):
         prompt, site = arm(WORKTREE)
         self.assertTrue(prompt.startswith("## run_python"))
-        self.assertIn("MPLCONFIGDIR", site)
         self.assertIn('private static final String RUN_PYTHON_GUIDANCE = """', read(WORKTREE, PROMPTS))
-        self.assertEqual(site, read(WORKTREE, RUNTIMES["interpreter"].sitecustomize))
-
-    def test_reads_the_sandbox_runtime(self):
-        _, site = arm(WORKTREE, "sandbox")
-        self.assertEqual(site, read(WORKTREE, RUNTIMES["sandbox"].sitecustomize))
+        self.assertEqual(site, read(WORKTREE, "memoryos-sandbox/computer/sitecustomize.py"))
         self.assertIn("capture_open_figures", site)
+
+    def test_reads_the_retired_interpreter_where_a_ref_has_it(self):
+        _, site = arm(WORKTREE, "interpreter")
+        self.assertEqual(site, read(WORKTREE, "memoryos-interpreter/executor/sitecustomize.py"))
+        self.assertIn("MPLCONFIGDIR", site)
+        # A ref from before MEM-271 has it under interpreter/; the newest path is tried first.
+        self.assertEqual(site, sitecustomize(WORKTREE, "interpreter"))
 
     def test_tells_the_model_where_each_runtime_keeps_the_files(self):
         self.assertTrue(harness(RUNTIMES["interpreter"]).endswith("in the current directory."))

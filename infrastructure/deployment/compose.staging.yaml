@@ -114,8 +114,6 @@ services:
       MEMORYOS_OBJECT_STORAGE_SECRET_KEY_FILE: /run/secrets/minio_api_secret_key
       MEMORYOS_OBJECT_STORAGE_READINESS_KEY: ${MEMORYOS_OBJECT_STORAGE_READINESS_KEY:-system/readiness}
       MEMORYOS_CHAT_STORAGE_LIBRARY_BYTES: ${MEMORYOS_CHAT_STORAGE_LIBRARY_BYTES:-536870912}
-      MEMORYOS_INTERPRETER_BASE_URL: http://memoryos-interpreter:8000
-      MEMORYOS_INTERPRETER_API_KEY_FILE: /run/secrets/interpreter_api_key
       MEMORYOS_SANDBOX_ENDPOINT: http://memoryos-sandbox:8090
       MEMORYOS_SANDBOX_API_KEY_FILE: /run/secrets/sandbox_api_key
       MEMORYOS_SANDBOX_COMPUTER_IMAGE: ${MEMORYOS_SANDBOX_COMPUTER_IMAGE:?Set MEMORYOS_SANDBOX_COMPUTER_IMAGE}
@@ -148,7 +146,6 @@ services:
       MEMORYOS_CHANNEL_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/channel_credential_encryption_key
     secrets:
       - minio_api_secret_key
-      - interpreter_api_key
       - sandbox_api_key
       - redis_tls_ca
       - redis_api_password
