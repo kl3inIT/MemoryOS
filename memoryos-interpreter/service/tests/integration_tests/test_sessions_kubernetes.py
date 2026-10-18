@@ -101,6 +101,20 @@ def test_create_session_sets_active_deadline(executor: KubernetesExecutor, v1: M
     assert spec.containers[0].command == ["sleep", "600"]
 
 
+def test_create_session_mounts_no_service_account_token(
+    executor: KubernetesExecutor,
+    v1: MagicMock,
+) -> None:
+    """Untrusted code in an executor pod never holds a Kubernetes API credential."""
+    executor.service_account = "executor"
+    executor.create_session(ttl_seconds=600)
+
+    spec = _created_pod(v1).spec
+    assert spec is not None
+    assert spec.service_account_name == "executor"
+    assert spec.automount_service_account_token is False
+
+
 def test_create_session_adds_net_admin_lockdown_init_container(
     executor: KubernetesExecutor,
     v1: MagicMock,

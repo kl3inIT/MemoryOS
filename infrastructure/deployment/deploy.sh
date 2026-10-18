@@ -344,6 +344,9 @@ if [[ "$mode" == deploy ]]; then
   for component in "${images[@]}"; do
     reference=$(image_reference "$component" "$tx/candidate.env")
     [[ -n "$reference" ]] || continue
+    # A release names the chat bots' image everywhere, but only an environment that defines the service pulls it:
+    # production's 2026-10-18 promotion stopped here on an image it never pulled (MEM-246).
+    if [[ "$component" == channels ]] && ! has_channels; then continue; fi
     docker image inspect "$reference" | jq --exit-status --arg sha "${release:0:40}" '
       .[0].Config.Labels["org.opencontainers.image.revision"] == $sha
     ' > /dev/null
