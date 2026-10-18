@@ -156,7 +156,7 @@ with the platform's mark, its label or name (a Zalo group without a label is *Nh
 Lark* or *Nhóm Zalo* and when it last asked, an assistant picker whose first choice is *Theo mặc định*, and a menu to
 rename it (*Đổi tên nhóm chat*, blank clears the label) or forget it after a confirmation. "Nhóm chat" keeps these
 apart from MemoryOS's own Groups of people. Each choice saves on change; a refusal such as
-`CHANNEL_ASSISTANT_NOT_EDITABLE` shows above the section. With no group yet, the list is only its heading. Each row of
+`CHANNEL_ASSISTANT_NOT_EDITABLE` shows above the section. With no group yet, one muted line says *Chưa có nhóm chat nào*. Each row of
 the list ends its line with the bot's assistant. Adding a bot is a dialog that asks the platform first, then shows that platform's form beside its setup
 steps: Lark's App ID and App Secret with the console steps and scopes, or Zalo's token and way of receiving with the
 Zalo Bot Creator steps. A secret or token stays in a ref, never in query state or storage, and is cleared once sent.
