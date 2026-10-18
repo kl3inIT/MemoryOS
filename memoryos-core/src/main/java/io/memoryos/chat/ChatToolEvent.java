@@ -94,6 +94,12 @@ public record ChatToolEvent(String toolCallId, String toolName, Stage stage, @Nu
         return new Call(toolCallId, toolName);
     }
 
+    /** The same event without its view. */
+    public ChatToolEvent withoutApp() {
+        return new ChatToolEvent(toolCallId, toolName, stage, source, search, documents, durationMs, parentToolCallId,
+                tabIndex, failure, null);
+    }
+
     /** The same event as the research agent's own activity records it: without its placement or failure category. */
     public ChatToolEvent unplaced() {
         return new ChatToolEvent(toolCallId, toolName, stage, source, search, documents, durationMs, null, null, null, null);

@@ -474,6 +474,12 @@ public class ChatTurnPersistence {
         if (!apps.isEmpty()) chats.saveToolApps(assistant, apps);
     }
 
+    /** MEM-275: one view of a running answer, kept as its step completes so the view's requests can find it. */
+    @Transactional
+    public void recordToolApp(UUID assistant, ChatToolApp app) {
+        chats.saveToolApps(assistant, List.of(app));
+    }
+
     /** Renews rows still RUNNING and returns their IDs; a missing ID means the run no longer owns its row. */
     @Transactional
     public Set<UUID> renewLeases(Collection<UUID> assistants, Duration lease) {

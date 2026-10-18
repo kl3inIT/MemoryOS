@@ -5881,11 +5881,15 @@ class ChatSessionApiIntegrationTest {
 
             String toolName = "mcp_" + slug + "_pick_design";
             var prompts = new CopyOnWriteArrayList<String>();
+            // The answer is still being written after the step completes, until the view has been served.
+            var written = new CountDownLatch(1);
             when(model.stream(any(Prompt.class))).thenAnswer(call -> {
                 Prompt prompt = call.getArgument(0);
                 prompts.add(prompt.toString());
-                if (prompt.getInstructions().stream().anyMatch(m -> m instanceof ToolResponseMessage))
+                if (prompt.getInstructions().stream().anyMatch(m -> m instanceof ToolResponseMessage)) {
+                    assertTrue(written.await(20, TimeUnit.SECONDS));
                     return Flux.just(response("Pick one of these.", "stop", 12));
+                }
                 return Flux.just(new ChatResponse(List.of(new Generation(AssistantMessage.builder().content("")
                         .toolCalls(List.of(new AssistantMessage.ToolCall("mcp-view", "function", toolName,
                                 "{\"query\":\"poster\"}"))).build(),
@@ -5901,6 +5905,21 @@ class ChatSessionApiIntegrationTest {
                     .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
                     .andExpect(status().isAccepted()).andReturn().getResponse().getContentAsString());
             String assistant = reply.path("assistantMessageId").asText();
+            String route = "/api/chat/sessions/" + session.path("id").asText() + "/messages/" + assistant + "/apps/mcp-view";
+            String readView = "{\"method\":\"mcp-apps/read-resource\",\"params\":{\"uri\":\"" + McpFixtureServer.VIEW + "\"}}";
+            try {
+                // The browser shows the view as its step completes, so its requests are served while the answer runs.
+                int status = 0;
+                for (long until = System.nanoTime() + TimeUnit.SECONDS.toNanos(15); status != 200 && System.nanoTime() < until; ) {
+                    status = mockMvc.perform(post(route).with(authentication(actor)).with(csrf())
+                            .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(readView))
+                            .andReturn().getResponse().getStatus();
+                    if (status != 200) Thread.sleep(100);
+                }
+                assertEquals(200, status);
+            } finally {
+                written.countDown();
+            }
             awaitOutcome(assistant, "COMPLETED");
             // A tool only its view may call is never offered to the model.
             assertFalse(String.join("", prompts).contains("select_design"));
@@ -5911,10 +5930,8 @@ class ChatSessionApiIntegrationTest {
             assertEquals("poster", app.path("input").path("query").asText());
             assertTrue(app.path("output").path("content").toString().contains("fixture result for"));
 
-            String route = "/api/chat/sessions/" + session.path("id").asText() + "/messages/" + assistant + "/apps/mcp-view";
             var read = mockMvc.perform(post(route).with(authentication(actor)).with(csrf())
-                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"method\":\"mcp-apps/read-resource\",\"params\":{\"uri\":\"" + McpFixtureServer.VIEW + "\"}}"))
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(readView))
                     .andReturn().getResponse();
             assertEquals(200, read.getStatus(), read.getContentAsString());
             var view = Json.mapper().readTree(read.getContentAsString());

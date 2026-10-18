@@ -491,10 +491,13 @@ Open: visual review of the research timeline, staging acceptance with the real c
 | A failed MCP step records only an actionable category, on the stream and in bounded history; a direct call opens and closes its own step | `McpToolsTest` (10); `ChatActivityRecorderTest.keepsTheFailureCategoryOfAFailedStepAndRejectsItOnAnyOther` |
 | The timeline names the MCP tool and server, offers Connect for the person's own rejected credential, sends a shared one to an administrator, and restores the category from stream and history | `chat-mcp-step.test.tsx` (8); `mcp-administration.spec.ts` (saved answer) |
 | MCP Apps (MEM-275): the client lists each tool's view (SEP-1865 or the Apps SDK template) and visibility, reads a view with its `_meta.ui` from the content or its listing, refuses another document, and returns the whole result beside the model's text | `McpClientsIntegrationTest.listsToolViewsAndWhoMayCallThem`, `.readsViewsWithTheirMetadataAndRefusesOtherDocuments`, `.callsToolsAndConvertsResultsForTheModel` |
+| A server that declares only `tools` (Canva) is still read for its views; declared capabilities and other results pass unchanged | `McpViewResourcesTransportTest` (2) |
 | A refresh keeps only a bounded `ui://` view and reads a visibility naming neither side as both | `McpServerRulesTest.snapshotsKeepOnlyBoundedViewUrisAndAVisibleSide` |
 | A view-only tool is never offered to the model; a call with a view carries it on the finished step and into the answer's views | `McpToolsTest.showsTheViewOfACallWhoseToolHasOneAndNeverOffersAViewOnlyTool` |
+| A step shows only a view its answer keeps; past the answer's bound it shows none | `ChatToolActivityTest` (2) |
 | A view calls a tool hidden from the model; a tool that asks first runs only with `approved`; model-only, off and unknown tools are refused; only `ui://` views are read, and only with a usable connection | `McpAppHostTest` (5) |
 | An answer's views are read back only in their conversation, once, and go with their message or their server | `ChatPersistenceIntegrationTest.anAnswersViewsAreReadBackInTheirConversationAndGoWithTheirMessageOrServer` |
+| Over HTTP, a view's requests are served while its answer is still being written, and to the conversation's owner only | `ChatSessionApiIntegrationTest.mcpAppsShowAViewInTheAnswerAndServeItsRequestsToTheOwnerOnly` |
 | The browser follows a completed step with its view, live and from history, sends a view's request to its answer's route, and asks before a tool that asks first runs; the CSP frames only views | `chat-mcp-apps.test.tsx` (5); `nginx-config.test.mjs` (frames only MCP Apps views) |
 
 Receipts: [MEM-112 verification](../increments/completed/mem-112-chat-mcp-client/verification.md).

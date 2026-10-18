@@ -700,7 +700,7 @@ public final class ChatTurnService implements AutoCloseable {
                     accounting -> run.accounting = accounting, event -> {
                         run.activity(event);
                         switch (event) {
-                            case ChatToolEvent tool -> streams.tool(run.setup.assistantMessageId(), tool);
+                            case ChatToolEvent tool -> streams.tool(run.setup.assistantMessageId(), shown(run, tool));
                             case ChatReasoningDelta reasoning -> streams.reasoning(run.setup.assistantMessageId(), reasoning.text(), reasoning.parentToolCallId());
                             case ChatResearchEvent researchEvent -> streams.research(run.setup.assistantMessageId(), researchEvent);
                         }
@@ -964,6 +964,24 @@ public final class ChatTurnService implements AutoCloseable {
                     && settleWaiting(run, ChatMessage.Status.FAILED, ChatException.busy().code()))
                 LOG.atWarn().addKeyValue("event", "chat.run.wait_expired").addKeyValue("message_id", run.setup.assistantMessageId())
                         .addKeyValue("error_code", ChatException.busy().code()).log("Chat run waited past its limit");
+        }
+    }
+
+    /**
+     * MEM-275: a view's requests read its row, so the row is written before the browser can show the view. A view
+     * that could not be kept is not shown.
+     */
+    private ChatToolEvent shown(Active run, ChatToolEvent tool) {
+        var app = tool.app();
+        if (app == null || run.deleted) return tool;
+        try {
+            persistence.recordToolApp(run.setup.assistantMessageId(), app);
+            return tool;
+        } catch (RuntimeException failure) {
+            LOG.atWarn().addKeyValue("event", "chat.tool_app.not_recorded")
+                    .addKeyValue("message_id", run.setup.assistantMessageId())
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Chat tool view not recorded");
+            return tool.withoutApp();
         }
     }
 

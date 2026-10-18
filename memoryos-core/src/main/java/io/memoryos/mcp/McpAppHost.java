@@ -85,8 +85,15 @@ public class McpAppHost {
         } catch (McpException failure) {
             LOG.atWarn().addKeyValue("event", "mcp.app." + request + ".failed").addKeyValue("mcp_server_id", serverId)
                     .addKeyValue("error_type", failure.getClass().getName()).addKeyValue("error_code", failure.code())
-                    .log("MCP Apps view request failed");
+                    .addKeyValue("cause_type", rootCause(failure)).log("MCP Apps view request failed");
             throw failure;
         }
+    }
+
+    /** The class of the deepest cause, so an unavailable view names what failed without the server's message. */
+    private static String rootCause(Throwable failure) {
+        Throwable cause = failure;
+        while (cause.getCause() != null && cause.getCause() != cause) cause = cause.getCause();
+        return cause == failure ? "none" : cause.getClass().getName();
     }
 }

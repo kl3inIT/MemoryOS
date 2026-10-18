@@ -75,13 +75,15 @@ public final class ChatToolActivity implements ToolCallInspector {
         events.accept(ChatToolEvent.finished(call, error, context.getDurationMs(), failure, error ? null : view(call)));
     }
 
-    /** The view the call in progress produced, kept with the answer when it belongs to {@code call}. */
+    /**
+     * The view the call in progress produced, when it belongs to {@code call} and the answer keeps it: a view the
+     * answer does not keep is not shown, since its requests could not find it.
+     */
     private @Nullable ChatToolApp view(ChatToolEvent.Call call) {
         var shown = app;
         app = null;
         if (shown == null || !shown.callId().equals(call.id())) return null;
-        if (transcript != null) transcript.app(shown);
-        return shown;
+        return transcript == null || transcript.app(shown) ? shown : null;
     }
 
     /** The call in progress, so tool evidence and progress share its identity. */

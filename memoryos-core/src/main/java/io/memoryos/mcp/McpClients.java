@@ -85,7 +85,7 @@ public final class McpClients {
                 .resumableStreams(false)
                 .httpRequestCustomizer((request, _, _, _, _) -> requestHeaders.forEach(request::setHeader))
                 .build();
-        var client = McpClient.sync(transport)
+        var client = McpClient.sync(new McpViewResourcesTransport(transport))
                 .clientInfo(CLIENT_INFO)
                 .capabilities(CAPABILITIES)
                 .requestTimeout(timeout)
