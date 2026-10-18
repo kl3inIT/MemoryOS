@@ -12,7 +12,7 @@ import org.testcontainers.utility.DockerImageName;
 /** Redis for chat tests, with or without a Spring context; the staging image. */
 final class ChatTestRedis {
     private static final GenericContainer<?> CONTAINER = new GenericContainer<>(DockerImageName.parse(
-            "redis:8.2.1-alpine@sha256:987c376c727652f99625c7d205a1cba3cb2c53b92b0b62aade2bd48ee1593232"))
+            "redis:8.10.2-alpine@sha256:3811787313eba226a2ef38658c6ccb91cd5e110edc89c37767de373120a0e5a0"))
             .withExposedPorts(6379)
             .waitingFor(Wait.forLogMessage(".*Ready to accept connections.*\n", 1))
             .withStartupTimeout(Duration.ofSeconds(30));

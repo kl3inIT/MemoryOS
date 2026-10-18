@@ -95,7 +95,8 @@ do for itself, each of which stopped a first promotion before it was written dow
   container still mounts leaves that container unable to start again. Before removing one, check
   that no container's mounts name it:
   `docker inspect --format '{{.Name}} {{range .Mounts}}{{.Source}} {{end}}' $(docker ps -aq) | grep <release>`.
-  When a later release changes one of their files, recreate that service from the current release.
+  When a later release changes one of their files or images, recreate that service from the current release:
+  a merged image bump alone never reaches the host (Redis ran 8.2.1 for two weeks after the release pinned 8.10.2).
 * **The Search security configuration loaded once**, with
   `--profile ops run --rm search-security-bootstrap`. With
   `plugins.security.allow_default_init_securityindex: false` the node answers 503 until
