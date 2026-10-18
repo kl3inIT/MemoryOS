@@ -22,6 +22,7 @@ final class ChatActivityRecorder {
     private int reasoningCharacters;
     private boolean truncated;
     private @Nullable Segment open;
+    private List<ChatActivity.UnavailableApp> unavailableApps = List.of();
 
     private static final class Step {
         final int position;
@@ -109,6 +110,11 @@ final class ChatActivityRecorder {
         reasoningCharacters += text.length();
     }
 
+    /** The turn's apps the person must connect first, known before the model runs (MEM-273). */
+    synchronized void unavailableApps(List<ChatActivity.UnavailableApp> apps) {
+        unavailableApps = List.copyOf(apps.subList(0, Math.min(apps.size(), ChatActivity.MAX_ITEMS)));
+    }
+
     /** Running steps at the terminal outcome were interrupted; they are recorded as failed. */
     synchronized ChatActivity seal() {
         var sealed = new ArrayList<>(steps.values());
@@ -118,7 +124,7 @@ final class ChatActivityRecorder {
                 step.durationMs = step.elapsed();
             }
         }
-        var activity = build(sealed, true, reasoning.stream().filter(s -> !s.text().isEmpty()).toList());
+        var activity = build(sealed, true, reasoning.stream().filter(s -> !s.text().isEmpty()).toList(), unavailableApps);
         // Detail is removed from the latest steps first, then reasoning, until the bounded history fits.
         for (int keep = sealed.size(); size(activity) > BYTE_BUDGET && keep > 0; keep--) {
             var trimmed = sealed.get(keep - 1);
@@ -126,17 +132,19 @@ final class ChatActivityRecorder {
             trimmed.filters = null;
             trimmed.documents = List.of();
             trimmed.citations.clear();
-            activity = build(sealed, true, reasoning.stream().filter(s -> !s.text().isEmpty()).toList());
+            activity = build(sealed, true, reasoning.stream().filter(s -> !s.text().isEmpty()).toList(), unavailableApps);
         }
-        if (size(activity) > BYTE_BUDGET) activity = build(sealed, false, List.of());
+        if (size(activity) > BYTE_BUDGET) activity = build(sealed, false, List.of(), unavailableApps);
         return activity;
     }
 
-    private static ChatActivity build(List<Step> steps, boolean details, List<Segment> reasoning) {
+    private static ChatActivity build(List<Step> steps, boolean details, List<Segment> reasoning,
+                                      List<ChatActivity.UnavailableApp> unavailableApps) {
         return new ChatActivity(steps.stream().map(step -> new ChatActivity.ActivityStep(step.position, step.call.id(), step.call.name(),
                         step.status, step.startedAt, step.durationMs, step.textOffset, details ? step.queries : List.of(),
                         details ? step.filters : null, details ? step.documents : List.of(), details ? List.copyOf(step.citations) : List.of(), step.failure)).toList(),
-                reasoning.stream().map(segment -> new ChatActivity.ReasoningSegment(segment.position(), segment.textOffset(), segment.text().toString())).toList());
+                reasoning.stream().map(segment -> new ChatActivity.ReasoningSegment(segment.position(), segment.textOffset(), segment.text().toString())).toList(),
+                unavailableApps);
     }
 
     static int size(ChatActivity activity) {

@@ -147,21 +147,24 @@ public final class McpTools {
     }
 
     /**
-     * What to tell the model about servers it selected but cannot use, so it explains the connect step instead
-     * of guessing. Empty when every selected server is usable.
+     * What to tell the model about the turn's servers it cannot use, so it explains the missing step instead of
+     * guessing or claiming a result; empty when there are none. A server the User can connect has a Connect card
+     * under the answer; for the others only an administrator can help.
      */
-    public String unavailableNotice() {
-        var text = new StringBuilder();
-        if (!turn.unavailable().isEmpty()) {
-            text.append("These MCP servers are selected but unusable this turn; "
-                    + "tell the user to connect them from the composer rather than attempting their tools:");
-            for (var server : turn.unavailable()) {
-                text.append("\n- ").append(name(server.serverName())).append(": ").append(switch (server.reason()) {
-                    case NOT_CONNECTED -> "not connected";
-                    case REAUTH_REQUIRED -> "the connection expired and must be authorized again";
-                    case NO_TOOLS -> "no tools are enabled";
-                });
-            }
+    public static String unavailableNotice(List<McpTurnTools.Unavailable> unavailable) {
+        if (unavailable.isEmpty()) return "";
+        var text = new StringBuilder("These apps (MCP servers) of this conversation cannot be used this turn. "
+                + "Do not attempt their tools or claim results from them; mention this only when the request needs one:");
+        for (var server : unavailable) {
+            text.append("\n- ").append(name(server.serverName())).append(": ").append(switch (server.reason()) {
+                case NOT_CONNECTED -> "the user has not connected it; tell them to connect it with the Connect button "
+                        + "shown under your answer";
+                case REAUTH_REQUIRED -> "the user's sign-in has expired; tell them to reconnect it with the button "
+                        + "shown under your answer";
+                case NO_TOOLS -> "no tools are enabled; only an administrator can enable them";
+                case INACCESSIBLE -> "not available to this user; only an administrator can grant access, "
+                        + "so do not suggest connecting it";
+            });
         }
         return text.toString();
     }

@@ -30,9 +30,16 @@ public final class McpTurnTools implements AutoCloseable {
                           @Nullable String title, @Nullable String appResourceUri, boolean modelVisible,
                           boolean appVisible) {}
 
-    /** A server the User selected but cannot use yet, so the turn offers a connect action instead of tools. */
+    /**
+     * A server of the turn the User cannot use: one they selected, or one of the assistant's they could not select.
+     * {@code NOT_CONNECTED} and {@code REAUTH_REQUIRED} are theirs to fix with a connect action; {@code NO_TOOLS} and
+     * {@code INACCESSIBLE} (a server restricted to Groups they are not in) are an administrator's.
+     */
     public record Unavailable(UUID serverId, String serverName, Reason reason) {
-        public enum Reason { NOT_CONNECTED, REAUTH_REQUIRED, NO_TOOLS }
+        public enum Reason { NOT_CONNECTED, REAUTH_REQUIRED, NO_TOOLS, INACCESSIBLE }
+
+        /** Whether the User can fix it themselves by connecting. */
+        public boolean connectable() { return reason == Reason.NOT_CONNECTED || reason == Reason.REAUTH_REQUIRED; }
     }
 
     /**

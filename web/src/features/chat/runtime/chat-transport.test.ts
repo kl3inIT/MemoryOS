@@ -592,6 +592,29 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     expect(waiting).toEqual([true, false, false]);
   });
 
+  it("carries the apps the person must connect, live and from the saved reply", async () => {
+    const linear = {
+      serverId: "11111111-1111-4111-8111-111111111111",
+      serverName: "Linear",
+      reason: "NOT_CONNECTED",
+    } as const;
+    fixture(() =>
+      sse(
+        packet(1, "mcp_unavailable", { apps: [linear] }) +
+          packet(2, "text", { text: "Answer" }) +
+          packet(3, "outcome", { status: "COMPLETED", failureCode: null }),
+      ),
+    );
+    const chunks = await collect(await send(new MemoryOsChatTransport(session)));
+    expect(chunks).toContainEqual({
+      type: "message-metadata",
+      messageMetadata: { unavailableApps: [linear] },
+    });
+    const saved = { ...row, activity: { steps: [], reasoning: [], unavailableApps: [linear] } };
+    expect(toUiMessages([saved])[0]?.metadata?.unavailableApps).toEqual([linear]);
+    expect(toUiMessages([row])[0]?.metadata?.unavailableApps).toEqual([]);
+  });
+
   it("routes deep research progress into one data part and keeps agent steps off the timeline", async () => {
     const tool = {
       source: null,

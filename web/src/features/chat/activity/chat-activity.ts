@@ -105,6 +105,14 @@ export const reasoningEventSchema = z.object({
   parentToolCallId: z.string().min(1).max(256).nullable().default(null),
 });
 
+/** MEM-273: an app of the turn the person must connect, or sign in to again, before the assistant can use it. */
+export const unavailableAppSchema = z.object({
+  serverId: z.string().uuid(),
+  serverName: z.string().max(200),
+  reason: z.enum(["NOT_CONNECTED", "REAUTH_REQUIRED"]),
+});
+export type UnavailableApp = z.infer<typeof unavailableAppSchema>;
+
 export const activitySchema = z
   .object({
     steps: z
@@ -135,6 +143,7 @@ export const activitySchema = z
       )
       .max(32)
       .default([]),
+    unavailableApps: z.array(unavailableAppSchema).max(32).optional(),
   })
   .default({ steps: [], reasoning: [] });
 

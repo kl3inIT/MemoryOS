@@ -112,8 +112,8 @@ Field coverage (✓ has it):
     - Mở đầu: greeting, starters (at most 4, as Onyx; the editor hides *Thêm câu gợi ý* at four. Neither staging nor production had an assistant with more than four when the bound was lowered from 8).
     - Tài liệu: the switch, the unified picker, the "Chỉ trả lời có căn cứ" switch.
     - Công cụ: web search, code, images, MCP servers. "Ứng dụng MCP" is left out entirely when the organization has
-      no MCP server, rather than showing an empty state. Each person's connection state for an MCP server waits on the
-      access discussion (Q12) and is not in this design.
+      no MCP server, rather than showing an empty state. A person's missing connection shows in the conversation,
+      not here (decisions 19–23).
     - Model và suy luận: model and reasoning effort, visible (LobeHub puts both at the top of the profile). The
       title names reasoning beside "Model", which the Vietnamese catalog otherwise renders "Mô hình".
 12. **Save stays on the page.** The header shows "Đã lưu" or "Có thay đổi chưa lưu"; Save is disabled with a tooltip
@@ -165,6 +165,46 @@ Field coverage (✓ has it):
 18. **Out of this design:** direct messages joining the assistant's web topics. Per-group routing, one bot with an
     assistant per group, is designed in [design-groups.md](design-groups.md) (plan step 5).
 
+### An app the person has not connected (Q12)
+
+Owner's decisions of 2026-10-18, after a staging probe: an assistant with Linear (OAuth, per person), asked by a
+member who had never connected Linear, answered that its search results held no Linear data. Nothing on the
+assistant's page or in the conversation said Linear was missing. `McpTurnService` already knew why each server was
+unusable; `McpTools.unavailableNotice()` was written but only tests called it, the executor attached MCP only when a
+tool remained, and the composer never sends a server the person cannot use, so the turn never saw it.
+
+| | In the conversation | Before asking | Expired sign-in |
+| --- | --- | --- | --- |
+| Onyx | MCP: the server skips a server without credentials (`tool_constructor.py`, `logger.warning` then `continue`) and the composer lists the agent's servers with an authenticate action (`MCPLineItem.tsx`). Custom OAuth tool: a card under the answer, "{tool} not connected" with Connect (`CustomToolAuthCard.tsx` in `AgentMessage.tsx`) | No | The same card (`isTokenExpired`) |
+| Copilot Studio | An action set to the user's credentials invites them to sign in at the step that needs it, then runs on (Microsoft Learn) | No | Asks again |
+| ChatGPT (GPT Actions) | "Sign in with [Service]" in the conversation when the GPT calls the action (OpenAI forum, not code-checked) | No | The same button |
+| Glean | An "OAuth User" action is authorized by each person on first use (Glean developer docs; the runtime UI is not described) | Not described | Not described |
+| LobeHub | — | "Authorize Skills for this Agent" on the agent's welcome screen (`AgentWelcome/ToolAuthAlert.tsx`) | Reauthorize in the tool menu |
+
+19. **Not connected: the model is told and the answer carries a Connect card.** The turn resolves the assistant's
+    servers as well as the selected ones (`McpTurnService.open(actor, selected, attached)`): one the person did not
+    select is reported only when they could not have selected it, never when they turned a usable one off. Every
+    unusable server goes to the model in the final `<system-reminder>`, after the cached prefix, even when no MCP tool
+    remains (`McpTools.unavailableNotice`, `ChatModelGuard.mcpNotice`), and the model is told to mention it only when
+    the request needs that app. A server the person can connect becomes a card under the answer, "<app> chưa kết
+    nối" with the composer's `ConnectAction` (Onyx's custom-tool card, Copilot Studio's sign-in at need). The list
+    reaches the browser as an `mcp_unavailable` event before the model runs and is kept in the reply's activity
+    (`unavailableApps`), so a reloaded conversation shows it; the card follows the app's state now, so it disappears
+    once the app is connected. A channel turn (Lark, Zalo) reports nothing, as it has no card and runs as the bot's
+    account.
+20. **No notice on the welcome screen.** LobeHub's welcome authorization is not adopted: Onyx, Copilot Studio,
+    ChatGPT and Glean ask at the moment of need, and a person who never asks about Linear is not interrupted.
+21. **Expired sign-in is treated as not connected,** with its own words: "<app> đã hết hạn đăng nhập" and *Kết nối
+    lại*, as Onyx's card does for an expired token.
+22. **A server restricted to Groups the person is not in** gets one neutral line for the model (only an administrator
+    can grant access, so do not suggest connecting) and no card. The access check at chat time stays. Its name is
+    kept, not withheld: the assistant's page already lists its servers by name to everyone who may use it, so hiding
+    it from the model protects nothing and leaves the answer unable to say what is missing. A selected server the
+    assistant does not attach is still ignored silently, as the connections API does, so a raw command cannot learn
+    a restricted server's name.
+23. **No enabled tools** gets the same treatment as decision 22: the model hears that only an administrator can enable
+    them; there is no card, because the person cannot fix it.
+
 ## API
 
 - `PersonaInput` and `PersonaView` gain `title`, `greeting` and `reasoningEffort`, and lose `taskPrompt`,
@@ -174,6 +214,8 @@ Field coverage (✓ has it):
   the revision check.
 - `PUT /api/channels/{id}/persona` binds or unbinds a bot; `ChannelConnection` responses carry the assistant's id and
   name; `GET /api/chat/personas/{id}/channels` lists the bots of an assistant.
+- The reply stream gains `mcp_unavailable` (`apps`: server id, name, `NOT_CONNECTED` or `REAUTH_REQUIRED`) and
+  `ChatActivity` gains `unavailableApps`, omitted when empty (decision 19).
 - Migration V181: `persona.title`, `persona.greeting`, `persona.reasoning_effort`; task prompt folded into
   instructions; the five columns dropped. Migration V183: `chat_channel_binding` and `chat_session.channel_connection_id`.
 
@@ -202,7 +244,6 @@ panel beside it.
 
 ## Not in scope
 
-- Connection state per person and the silent MCP skip (Q12, to be discussed).
 - "Điền giúp" (MEM-276), Agent Builder (MEM-280), draft and publish (MEM-279), memory per assistant (MEM-278),
   organisation backup models (MEM-277).
 - Direct messages joining web topics; follow-up suggestions; variables in instructions.

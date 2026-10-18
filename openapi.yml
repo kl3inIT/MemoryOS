@@ -17449,9 +17449,9 @@ paths:
       summary: Read or resume reply events; reset requires persisted history
       description: "Events: text, reasoning, tool, image, code, research_plan, top_level_branching,\
         \ research_agent_start, intermediate_report, intermediate_report_citations,\
-        \ waiting, tool_approval, outcome, reset. Content event id is assistantMessageId:sequence.\
-        \ Only outcome confirms a committed terminal state. Heartbeats are comments.\
-        \ A reset has no event id."
+        \ waiting, tool_approval, mcp_unavailable, outcome, reset. Content event id\
+        \ is assistantMessageId:sequence. Only outcome confirms a committed terminal\
+        \ state. Heartbeats are comments. A reset has no event id."
       operationId: streamChatMessage
       parameters:
       - name: sessionId
@@ -17523,6 +17523,7 @@ paths:
                 - $ref: "#/components/schemas/IntermediateReportCitationsEvent"
                 - $ref: "#/components/schemas/WaitingEvent"
                 - $ref: "#/components/schemas/ToolApprovalEvent"
+                - $ref: "#/components/schemas/McpUnavailableEvent"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -32394,6 +32395,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ReasoningSegment"
+        unavailableApps:
+          type: array
+          items:
+            $ref: "#/components/schemas/UnavailableApp"
     ChatArtifact:
       type: object
       properties:
@@ -32805,6 +32810,19 @@ components:
           $ref: "#/components/schemas/Interval"
         updated:
           $ref: "#/components/schemas/Interval"
+    UnavailableApp:
+      type: object
+      properties:
+        serverId:
+          type: string
+          format: uuid
+        serverName:
+          type: string
+        reason:
+          type: string
+          enum:
+          - NOT_CONNECTED
+          - REAUTH_REQUIRED
     WebLocation:
       type: object
       properties:
@@ -33257,6 +33275,23 @@ components:
       - serverName
       - toolCallId
       - toolName
+    McpUnavailableEvent:
+      type: object
+      properties:
+        assistantMessageId:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          format: int64
+        apps:
+          type: array
+          items:
+            $ref: "#/components/schemas/UnavailableApp"
+      required:
+      - apps
+      - assistantMessageId
+      - sequence
     ChatBranch:
       type: object
       properties:

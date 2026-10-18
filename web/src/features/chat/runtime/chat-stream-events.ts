@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ApiError } from "@/lib/api";
+import { unavailableAppSchema } from "@/features/chat/activity/chat-activity";
 import type { GeneratedImage } from "@/features/chat/image/chat-image";
 import {
   generatedFileSchema,
@@ -50,6 +51,11 @@ export const toolApprovalSchema = eventSchema.extend({
   decision: z.enum(["APPROVED", "DECLINED", "NO_DECISION"]).nullish(),
   /** MEM-267: the reply's owner may answer with "always allow". */
   alwaysAllowable: z.boolean().default(false),
+});
+
+/** MEM-273: the reply's apps the person must connect first, sent before the model runs. */
+export const mcpUnavailableSchema = eventSchema.extend({
+  apps: z.array(unavailableAppSchema).max(32),
 });
 
 /** The reply waits for a turn, or has just been given one. */

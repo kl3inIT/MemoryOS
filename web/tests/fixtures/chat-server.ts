@@ -318,6 +318,7 @@ function create(
   return value;
 }
 const APPROVAL_CALL = { toolCallId: "call-send", toolName: "mcp_gmail_send_email" };
+export const LINEAR_SERVER = "50000000-0000-4000-8000-0000000000a1";
 function emit(run: Run, event: string, data: object) {
   const sequence = run.packets.length + 1;
   const packet = `id: ${run.id}:${sequence}\nevent: ${event}\ndata: ${JSON.stringify({ assistantMessageId: run.id, sequence, ...data })}\n\n`;
@@ -845,6 +846,14 @@ export async function handleChatFixture(
       202,
     );
     const grounded = state.mode.startsWith("grounded");
+    if (state.mode === "mcp-unavailable") {
+      // MEM-273: the assistant's Linear is not connected yet, so the reply offers Connect under the answer.
+      const apps = [
+        { serverId: LINEAR_SERVER, serverName: "Linear", reason: "NOT_CONNECTED" as const },
+      ];
+      state.messages.at(-1)!.activity = { steps: [], reasoning: [], unavailableApps: apps };
+      emit(run, "mcp_unavailable", { apps });
+    }
     if (state.mode === "approval") {
       // MEM-253: a Gmail send that waits for the person; the decision endpoint finishes the reply.
       emit(run, "tool", { ...APPROVAL_CALL, stage: "STARTED", source: null });
@@ -936,9 +945,11 @@ export async function handleChatFixture(
               ).join("\n\n")
             : grounded
               ? "## Annual leave\n\nEmployees receive **17 days** of annual leave [1].\n\nUnverified [99] remains plain text. Inline code `[1]` is not a citation.\n\n```text\n[1] in a code block\n```"
-              : state.mode === "renderers"
-                ? answer + "\n\n```mermaid\ngraph TD\n  Upload --> Parse\n  Parse --> Answer\n```"
-                : answer;
+              : state.mode === "mcp-unavailable"
+                ? "Mình chưa xem được issue trên Linear vì bạn chưa kết nối Linear. Bấm **Kết nối** bên dưới rồi hỏi lại nhé."
+                : state.mode === "renderers"
+                  ? answer + "\n\n```mermaid\ngraph TD\n  Upload --> Parse\n  Parse --> Answer\n```"
+                  : answer;
         if (state.mode === "renderers")
           state.messages.at(-1)!.artifacts = [
             {

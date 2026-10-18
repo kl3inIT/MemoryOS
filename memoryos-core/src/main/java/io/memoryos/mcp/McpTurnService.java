@@ -11,12 +11,14 @@ import io.memoryos.mcp.persistence.JpaMcpServerToolRepository;
 import io.memoryos.mcp.persistence.McpAccessRepository;
 import io.memoryos.mcp.persistence.McpServerEntity;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -56,15 +58,23 @@ public class McpTurnService {
         this.transactions = new TransactionTemplate(transactionManager);
     }
 
-    /**
-     * Opens the turn's tools. Servers the actor may not use are ignored rather than reported, matching the
-     * connections API. The result is closed by the caller when the turn ends.
-     */
+    /** Opens the tools of the servers the User selected, for a turn whose assistant attaches no others. */
     public McpTurnTools open(ActorId actor, List<UUID> serverIds) {
-        if (serverIds == null || serverIds.isEmpty()) return empty();
+        return open(actor, serverIds, List.of());
+    }
+
+    /**
+     * Opens the turn's tools from {@code serverIds}, the servers the User selected; the result is closed by the caller
+     * when the turn ends. {@code attached} are the assistant's servers. One of them the User did not select is reported
+     * as unavailable only when they could not have selected it, never when they turned a usable one off; one restricted
+     * to Groups they are not in is reported too, as its name is already on the assistant's page. A selected server
+     * the actor may not use and the assistant does not attach is ignored, matching the connections API.
+     */
+    public McpTurnTools open(ActorId actor, List<UUID> serverIds, Collection<UUID> attached) {
         if (serverIds.size() > MAX_SERVERS)
             throw McpException.invalid("A turn uses at most " + MAX_SERVERS + " MCP servers.");
-        var resolved = Objects.requireNonNull(transactions.execute(_ -> resolve(actor, serverIds)));
+        if (serverIds.isEmpty() && attached.isEmpty()) return empty();
+        var resolved = Objects.requireNonNull(transactions.execute(_ -> resolve(actor, serverIds, attached)));
         var targets = new LinkedHashMap<UUID, McpTurnTools.Target>();
         var bindings = new ArrayList<McpTurnTools.Binding>();
         var unavailable = new ArrayList<>(resolved.unavailable());
@@ -104,7 +114,7 @@ public class McpTurnService {
         serverAdministration.allowAlways(actor, binding.serverId(), binding.toolName());
     }
 
-    private Resolved resolve(ActorId actor, List<UUID> serverIds) {
+    private Resolved resolve(ActorId actor, List<UUID> serverIds, Collection<UUID> attached) {
         UUID tenant = authorization.require(actor, IamCapability.CHAT_WRITE, false).tenantId().value();
         Set<UUID> accessible = access.accessibleServerIds(tenant, actor.value());
         var candidates = new ArrayList<Candidate>();
@@ -113,10 +123,16 @@ public class McpTurnService {
         boolean manages = authorization.effectiveCapabilities(actor).contains(IamCapability.MCP_MANAGE);
         // Servers in ID order and tools by name, so a conversation's tool list, which leads the provider's cached prefix,
         // stays the same from turn to turn (MEM-269).
-        for (UUID serverId : serverIds.stream().distinct().sorted().toList()) {
-            if (!accessible.contains(serverId)) continue;
+        var selected = Set.copyOf(serverIds);
+        for (UUID serverId : Stream.concat(serverIds.stream(), attached.stream()).distinct().sorted().toList()) {
+            boolean chosen = selected.contains(serverId);
+            if (!accessible.contains(serverId) && !attached.contains(serverId)) continue;
             var server = servers.findByTenantIdAndId(tenant, serverId).orElse(null);
             if (server == null) continue;
+            if (!accessible.contains(serverId)) {
+                unavailable.add(new McpTurnTools.Unavailable(serverId, server.name(), McpTurnTools.Unavailable.Reason.INACCESSIBLE));
+                continue;
+            }
             UUID owner = server.authPerformer() == McpAuthPerformer.PER_USER ? actor.value() : null;
             var credential = server.authType() == McpAuthType.NONE ? null
                     : (owner == null
@@ -130,6 +146,7 @@ public class McpTurnService {
                 continue;
             }
             var bindings = new ArrayList<McpTurnTools.Binding>();
+            var allowable = new ArrayList<String>();
             for (var tool : tools.findByTenantIdAndServerIdOrderByNameAsc(tenant, serverId)) {
                 if (tool.policy() == McpToolPolicy.OFF) continue;
                 var modelName = McpServerRules.modelToolName(server.slug(), tool.name());
@@ -139,13 +156,16 @@ public class McpTurnService {
                         tool.title(), tool.appResourceUri(), tool.modelVisible(), tool.appVisible()));
                 if (manages && tool.policy() == McpToolPolicy.ASK
                         && McpServerRules.allowed(McpServerRules.risk(tool.readOnly(), tool.annotations()), McpToolPolicy.ALWAYS))
-                    alwaysAllowable.add(modelName.get());
+                    allowable.add(modelName.get());
             }
             if (bindings.isEmpty()) {
                 unavailable.add(new McpTurnTools.Unavailable(serverId, server.name(),
                         McpTurnTools.Unavailable.Reason.NO_TOOLS));
                 continue;
             }
+            // A usable server the User turned off for this conversation is neither offered nor reported.
+            if (!chosen) continue;
+            alwaysAllowable.addAll(allowable);
             candidates.add(new Candidate(serverId, server.name(), server.url(), server.authType(), owner,
                     server.headerTemplate() == null ? null : template(server), apiKey(tenant, credential), bindings));
         }

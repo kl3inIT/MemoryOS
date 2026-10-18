@@ -1,5 +1,6 @@
 package io.memoryos.chat.streaming;
 
+import io.memoryos.chat.ChatActivity;
 import io.memoryos.chat.ChatContextUse;
 import io.memoryos.chat.ChatCodeEvent;
 import io.memoryos.chat.ChatException;
@@ -206,6 +207,11 @@ public final class StreamBufferWriter {
 
     public void code(UUID id, ChatCodeEvent event) {
         publishNow(id, sequence -> new CodeRun(id, sequence, event));
+    }
+
+    /** The reply's apps the person must connect first (MEM-273). */
+    public void unavailableApps(UUID id, List<ChatActivity.UnavailableApp> apps) {
+        publishNow(id, sequence -> new McpUnavailable(id, sequence, apps));
     }
 
     /** A reply that must wait for a turn says so, and says when it has been given one. */

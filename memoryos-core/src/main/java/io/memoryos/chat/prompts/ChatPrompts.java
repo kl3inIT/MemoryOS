@@ -374,22 +374,31 @@ public final class ChatPrompts {
         return forInference(original, hasEvidence, lastCycle, siteFilter, grounded, "");
     }
 
+    public static Prompt forInference(Prompt original, boolean hasEvidence, boolean lastCycle, boolean siteFilter,
+                                      boolean grounded, String topicRules) {
+        return forInference(original, hasEvidence, lastCycle, siteFilter, grounded, topicRules, "");
+    }
+
     /**
      * The guidance and final reminder of every inference (Onyx {@code llm_loop.py} reminder).
      *
      * @param topicRules the blocked topics the answer model applies itself, behind the guardrail check
+     * @param mcpNotice the turn's apps the model cannot use (MEM-273); it goes in the final reminder, after the cached
+     *                  prefix, because it changes when the person connects one
      */
     public static Prompt forInference(Prompt original, boolean hasEvidence, boolean lastCycle, boolean siteFilter,
-                                      boolean grounded, String topicRules) {
+                                      boolean grounded, String topicRules, String mcpNotice) {
         var tools = lastCycle ? Set.<String>of() : availableTools(original);
         String guidance = toolGuidance(tools, siteFilter);
         if (grounded) guidance = guidance.isEmpty() ? GROUNDED_GUIDANCE : guidance + "\n" + GROUNDED_GUIDANCE;
         if (!topicRules.isEmpty()) guidance = guidance.isEmpty() ? topicRules : guidance + "\n" + topicRules;
         boolean openPages = !lastCycle && tools.contains("open_url") && justSearchedWeb(original);
-        if (!hasEvidence && !lastCycle && !openPages && guidance.isEmpty()) return original;
+        boolean remind = hasEvidence || lastCycle || openPages || !mcpNotice.isEmpty();
+        if (!remind && guidance.isEmpty()) return original;
         var messages = new ArrayList<>(withGuidance(original, guidance).getInstructions());
-        if (!hasEvidence && !lastCycle && !openPages) return new Prompt(messages, original.getOptions());
+        if (!remind) return new Prompt(messages, original.getOptions());
         var reminder = new StringBuilder("<system-reminder>\n");
+        if (!mcpNotice.isEmpty()) reminder.append(mcpNotice).append('\n');
         if (openPages) reminder.append(OPEN_URL_REMINDER);
         if (hasEvidence) reminder.append(CITATION_GUIDANCE).append("Remember to provide inline citations for the supplied evidence.\n");
         if (lastCycle) reminder.append("""

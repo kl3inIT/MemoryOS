@@ -49,6 +49,7 @@ import {
   outcomeSchema,
   pause,
   waitingSchema,
+  mcpUnavailableSchema,
   textSchema,
   toolApprovalSchema,
 } from "./chat-stream-events";
@@ -58,6 +59,7 @@ import {
   reasoningEventSchema,
   toolEventSchema,
   type ChatActivity,
+  type UnavailableApp,
 } from "@/features/chat/activity/chat-activity";
 import {
   ResearchChunks,
@@ -447,6 +449,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     let imageGenerating = false;
     let codeRuns: Record<string, CodeRun> = {};
     let generatedFiles: GeneratedFile[] = [];
+    let unavailableApps: UnavailableApp[] = [];
     let outcome: "COMPLETED" | "CANCELED" | "FAILED" | undefined;
     let failureCode: string | undefined;
     let context: { tokens: number; limit: number } | undefined;
@@ -605,6 +608,9 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
                   approvalId: approval.toolCallId,
                   approved: approval.decision === "APPROVED",
                 };
+            } else if (envelope.event === "mcp_unavailable") {
+              unavailableApps = mcpUnavailableSchema.parse(data).apps;
+              yield { type: "message-metadata", messageMetadata: { unavailableApps } };
             } else if (envelope.event === "waiting") {
               yield {
                 type: "message-metadata",
@@ -649,6 +655,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
             sources = sourcesSchema.parse(message.sources);
             artifacts = artifactsSchema.parse(message.artifacts);
             committedActivity = activitySchema.parse(message.activity);
+            unavailableApps = committedActivity.unavailableApps ?? [];
             committedResearch = historyResearch(message.research);
             images = parseGeneratedImages(message.images);
             imageGenerating = false;
@@ -684,6 +691,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
           waiting: false,
           codeRuns,
           generatedFiles,
+          ...(unavailableApps.length > 0 && { unavailableApps }),
         },
       };
       yield* research.finish(committedResearch);
