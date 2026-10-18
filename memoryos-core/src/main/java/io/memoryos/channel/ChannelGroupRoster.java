@@ -10,6 +10,7 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +28,7 @@ public class ChannelGroupRoster {
     private final ChatChannelBindings bindings;
     private final Clock clock;
 
+    @Autowired
     public ChannelGroupRoster(JdbcChannelGroupRepository groups, ChatChannelBindings bindings) {
         this(groups, bindings, Clock.systemUTC());
     }
