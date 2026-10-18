@@ -1,39 +1,39 @@
 package io.memoryos.chat.interpreter;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import org.springframework.modulith.NamedInterface;
 import io.memoryos.chat.ChatException;
+import io.memoryos.sandbox.SandboxCommand;
+import io.memoryos.sandbox.SandboxException;
+import io.memoryos.sandbox.SandboxService;
 import io.memoryos.shared.ActorId;
-import java.io.IOException;
-import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.spi.LoggingEventBuilder;
 import org.springframework.stereotype.Service;
 
 /**
- * PDF preview of a generated presentation, converted by LibreOffice inside the interpreter executor on first request
- * and cached beside the file, as Onyx Craft converts decks inside its sandbox. The API never parses the deck.
+ * PDF preview of a generated presentation, converted by LibreOffice in a sandbox of no conversation on first request
+ * and cached beside the file, as Onyx Craft converts decks inside its sandbox (MEM-271). The API never parses the deck.
  */
 @Service
 @NamedInterface("interpreter")
 public class PresentationPreviewService {
-    /** The service caps timeout_ms at MAX_EXEC_TIMEOUT_MS (60 s); pptx-to-pdf itself stops LibreOffice at 45 s. */
-    static final int TIMEOUT_MS = 60_000;
-    static final String DECK = "deck.pptx";
-    static final String PDF = "preview.pdf";
-    static final String CODE = """
-            import subprocess, sys
-            sys.exit(subprocess.run(['pptx-to-pdf', 'deck.pptx', 'preview.pdf']).returncode)""";
+    /** pptx-to-pdf stops LibreOffice at 45 s; the command gets a little more. */
+    static final Duration TIMEOUT = Duration.ofSeconds(60);
+    static final String DECK = SandboxService.WORKSPACE + "/deck.pptx";
+    static final String PDF = SandboxService.WORKSPACE + "/preview.pdf";
+    /** The largest preview kept, as a generated file. */
+    static final long MAX_PDF_BYTES = 25L * 1024 * 1024;
     private static final Logger LOG = LoggerFactory.getLogger(PresentationPreviewService.class);
 
     private final InterpreterService files;
-    private final InterpreterClient client;
+    private final SandboxService sandboxes;
 
-    public PresentationPreviewService(InterpreterService files, InterpreterClient client) {
+    public PresentationPreviewService(InterpreterService files, SandboxService sandboxes) {
         this.files = files;
-        this.client = client;
+        this.sandboxes = sandboxes;
     }
 
     public InterpreterService.Served pdf(ActorId actor, UUID id) {
@@ -42,7 +42,7 @@ public class PresentationPreviewService {
         if (artifact.previewKey() != null)
             return new InterpreterService.Served(files.openObject(artifact.previewKey()), name, "application/pdf");
         var tenant = files.activeTenant(actor);
-        if (!client.configured() || !files.enabled(tenant) || !client.healthy()) throw ChatException.providerUnavailable();
+        if (!files.enabled(tenant)) throw ChatException.providerUnavailable();
         byte[] pdf = convert(actor, id);
         files.storePreview(tenant, id, pdf);
         var stored = files.presentation(actor, id);
@@ -51,44 +51,32 @@ public class PresentationPreviewService {
     }
 
     private byte[] convert(ActorId actor, UUID id) {
-        String deck = null;
-        String output = null;
+        var tenant = files.activeTenant(actor);
         try {
-            try (var content = files.open(actor, id).content()) {
-                deck = client.upload(DECK, InterpreterService.PPTX, content.inputStream());
-            }
-            var execution = client.execute(CODE, TIMEOUT_MS, List.of(new InterpreterClient.StagedFile(DECK, deck)));
-            for (var file : execution.files())
-                if (PDF.equals(file.path()) && file.fileId() != null) output = file.fileId();
-                else if ("file".equals(file.kind()) && file.fileId() != null && !file.fileId().equals(deck)) delete(file.fileId());
-            if (execution.timedOut() || execution.exitCode() == null || execution.exitCode() != 0 || output == null) {
-                LoggingEventBuilder log = LOG.atWarn().addKeyValue("event", "chat.presentation_preview.conversion_failed")
-                        .addKeyValue("timed_out", execution.timedOut());
-                if (execution.exitCode() != null) log = log.addKeyValue("exit_code", execution.exitCode());
-                log.log("Presentation preview conversion failed");
-                throw ChatException.invalid("The presentation could not be previewed");
-            }
-            byte[] pdf = client.download(output);
+            byte[] pdf = sandboxes.scratch(tenant, sandbox -> {
+                try (var content = files.open(actor, id).content()) {
+                    sandbox.write(DECK, content.inputStream());
+                }
+                var run = sandbox.run(new SandboxCommand("pptx-to-pdf " + DECK + " " + PDF, SandboxService.WORKSPACE,
+                        SandboxService.USER, TIMEOUT));
+                if (run.timedOut() || run.exitCode() != 0) {
+                    LOG.atWarn().addKeyValue("event", "chat.presentation_preview.conversion_failed")
+                            .addKeyValue("timed_out", run.timedOut()).addKeyValue("exit_code", run.exitCode())
+                            .log("Presentation preview conversion failed");
+                    throw ChatException.invalid("The presentation could not be previewed");
+                }
+                return sandbox.read(PDF, MAX_PDF_BYTES);
+            });
             if (pdf.length < 5 || !new String(pdf, 0, 5, StandardCharsets.US_ASCII).equals("%PDF-"))
                 throw ChatException.invalid("The presentation could not be previewed");
             return pdf;
-        } catch (InterpreterClient.BusyException busy) {
-            throw ChatException.busy();
-        } catch (IOException failure) {
+        } catch (SandboxException refused) {
+            if ("SANDBOX_BUSY".equals(refused.code())) throw ChatException.busy();
             LOG.atWarn().addKeyValue("event", "chat.presentation_preview.conversion_failed")
-                    .addKeyValue("error_type", failure.getClass().getName()).log("Presentation preview conversion failed");
+                    .addKeyValue("error_code", refused.code()).log("Presentation preview conversion failed");
             throw ChatException.providerUnavailable();
-        } finally {
-            if (deck != null) delete(deck);
-            if (output != null) delete(output);
-        }
-    }
-
-    private void delete(String fileId) {
-        try { client.delete(fileId); }
-        catch (IOException | RuntimeException failure) {
-            LOG.atWarn().addKeyValue("event", "chat.presentation_preview.delete_failed")
-                    .addKeyValue("error_type", failure.getClass().getName()).log("Code Interpreter could not delete a preview file");
+        } catch (IllegalArgumentException tooLarge) {
+            throw ChatException.invalid("The presentation could not be previewed");
         }
     }
 }

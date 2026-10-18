@@ -49,6 +49,12 @@ work in it.
 - **Bound.** At most `memoryos.sandbox.max-running` sandboxes used within the idle timeout run at once; past it,
   acquiring a new one fails with `SANDBOX_BUSY`. Taking a place is serialised across conversations by a transaction-scoped advisory lock, so two conversations cannot both take the last place; the lock is never held while the runtime creates a sandbox. A deployment without a computer image or a runtime answers
   `SANDBOX_NOT_CONFIGURED`; a runtime failure is `SANDBOX_UNAVAILABLE`.
+- **Scratch sandboxes.** `SandboxService.scratch(tenant, work)` runs short work of no conversation, a presentation
+  preview's conversion (MEM-271), in a sandbox labelled with the Tenant, without egress, living at most five minutes
+  and killed when the work returns. It is not counted in the bound: at most two run at once per process, and a third
+  is `SANDBOX_BUSY`.
+- **Health.** `SandboxService.healthy()` is whether the deployment has a sandbox and a listing of MemoryOS's sandboxes
+  succeeds; the Code Interpreter page shows it.
 - **Reconciliation.** Every five minutes the Worker clears rows whose sandbox the runtime no longer holds and kills
   sandboxes labelled `memoryos.io/managed` that no row records and that are older than ten minutes (a start with its
   restore). It also deletes, 100 a run, the archives older than an hour that no row starts from: replaced by a later

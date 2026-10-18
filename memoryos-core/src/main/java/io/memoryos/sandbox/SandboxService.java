@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.Semaphore;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,6 +47,10 @@ public class SandboxService {
      */
     static final Duration STARTING_WINDOW = Duration.ofMinutes(10);
     private static final Duration STARTING_POLL = Duration.ofMillis(500);
+    /** How many {@link #scratch} sandboxes run at once in one process, and how long one lives at most. */
+    static final int SCRATCH_PARALLEL = 2;
+    private static final Duration SCRATCH_LIFE = Duration.ofMinutes(5);
+    private final Semaphore scratches = new Semaphore(SCRATCH_PARALLEL);
     private static final Logger LOG = LoggerFactory.getLogger(SandboxService.class);
 
     private final ObjectProvider<SandboxRuntime> runtimes;
@@ -210,6 +215,11 @@ public class SandboxService {
         withSandbox(tenant, actor, conversation, (runtime, id) -> { runtime.write(id, path, content); return path; });
     }
 
+    /** Writes the file from {@code content}, which the caller closes, without holding it in memory where the runtime streams. */
+    public void writeStream(TenantId tenant, ActorId actor, UUID conversation, String path, InputStream content) {
+        withSandbox(tenant, actor, conversation, (runtime, id) -> { runtime.write(id, path, content); return path; });
+    }
+
     public byte[] read(TenantId tenant, ActorId actor, UUID conversation, String path, long maxBytes) {
         return withSandbox(tenant, actor, conversation, (runtime, id) -> runtime.read(id, path, maxBytes));
     }
@@ -220,6 +230,63 @@ public class SandboxService {
 
     public List<SandboxEntry> list(TenantId tenant, ActorId actor, UUID conversation, String path, int depth) {
         return withSandbox(tenant, actor, conversation, (runtime, id) -> runtime.list(id, path, depth));
+    }
+
+    /** Whether the deployment has a sandbox and its runtime answers: a listing of MemoryOS's sandboxes succeeds. */
+    public boolean healthy() {
+        SandboxRuntime runtime = properties.configured() ? runtimes.getIfAvailable() : null;
+        if (runtime == null) return false;
+        try {
+            runtime.running(Map.of(MANAGED, "true"));
+            return true;
+        } catch (RuntimeException failed) {
+            LOG.atWarn().addKeyValue("event", "sandbox.health.failed").addKeyValue("error_type", failed.getClass().getSimpleName())
+                    .log("Sandbox runtime did not answer");
+            return false;
+        }
+    }
+
+    /**
+     * Runs {@code work} in a sandbox of no conversation, killed when it returns, as Onyx Craft converts a deck in its
+     * sandbox (MEM-271). Such work is short and rare, so it is not counted in the running bound: at most
+     * {@link #SCRATCH_PARALLEL} run at once in this process, and one more is {@code SANDBOX_BUSY}. One a crash leaves
+     * behind has no row, so the Worker's reconciliation kills it.
+     */
+    public <T> T scratch(TenantId tenant, ScratchWork<T> work) {
+        SandboxRuntime runtime = runtime();
+        if (!scratches.tryAcquire()) throw SandboxException.busy(SCRATCH_PARALLEL);
+        try {
+            var spec = new SandboxSpec(properties.computerImage(), SCRATCH_LIFE, properties.cpu(), properties.memory(),
+                    List.of(), Map.of(MANAGED, "true", TENANT, tenant.value().toString()));
+            String id = call(() -> runtime.create(spec));
+            try {
+                return work.apply(new Scratch() {
+                    @Override public SandboxCommandResult run(SandboxCommand command) { return call(() -> runtime.run(id, command)); }
+                    @Override public void write(String path, InputStream content) {
+                        call(() -> { runtime.write(id, path, content); return path; });
+                    }
+                    @Override public byte[] read(String path, long maxBytes) { return call(() -> runtime.read(id, path, maxBytes)); }
+                });
+            } finally {
+                end(runtime, id);
+            }
+        } finally {
+            scratches.release();
+        }
+    }
+
+    /** A sandbox of no conversation, for {@link #scratch}. */
+    public interface Scratch {
+        SandboxCommandResult run(SandboxCommand command);
+
+        void write(String path, InputStream content);
+
+        byte[] read(String path, long maxBytes);
+    }
+
+    @FunctionalInterface
+    public interface ScratchWork<T> {
+        T apply(Scratch sandbox);
     }
 
     private <T> T withSandbox(TenantId tenant, ActorId actor, UUID conversation, Operation<T> operation) {

@@ -9,12 +9,12 @@ import io.memoryos.TestDatabase;
 import io.memoryos.chat.image.ImageArtifactService;
 import io.memoryos.chat.image.ImageProviderClient;
 import io.memoryos.chat.interpreter.InterpreterService;
-import io.memoryos.chat.interpreter.InterpreterProperties;
 import io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository;
 import io.memoryos.chat.files.persistence.JdbcChatArtifactCleanupRepository;
 import io.memoryos.chat.image.persistence.JdbcImageArtifactRepository;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.objectstorage.ObjectContent;
+import io.memoryos.sandbox.SandboxService;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
@@ -123,7 +123,7 @@ class ChatArtifactCleanupIntegrationTest {
         pictures = new JdbcImageArtifactRepository(jdbc);
         var quotas = new StorageQuotaService(tenants,
                 new LibraryStorageProperties(0), new JdbcLibraryRepository(jdbc));
-        interpreter = new InterpreterService(artifacts, new InterpreterProperties(null, null),
+        interpreter = new InterpreterService(artifacts, mock(SandboxService.class),
                 mock(IamAuthorization.class), tenants, writes, storage, quotas,
                 // This suite covers the release itself, so deletion releases at once.
                 new LibraryTrashProperties(Duration.ZERO),

@@ -105,9 +105,6 @@ memoryos:
       max-output-tokens: 1024
       max-answer-characters: 1000000
       mcp-call-timeout: 60s
-    interpreter:
-      base-url: ${MEMORYOS_INTERPRETER_BASE_URL:}
-      api-key: ${MEMORYOS_INTERPRETER_API_KEY:}
     storage:
       library-bytes: ${MEMORYOS_CHAT_STORAGE_LIBRARY_BYTES:536870912}
   # MEM-270: the Chat sandbox, as the API configures it.

@@ -18,7 +18,6 @@ import io.memoryos.chat.image.ImageArtifactService;
 import io.memoryos.chat.image.ImageConnectionService;
 import io.memoryos.chat.image.ImageProviderClient;
 import io.memoryos.chat.ChatMemoryService;
-import io.memoryos.chat.interpreter.InterpreterClient;
 import io.memoryos.chat.interpreter.InterpreterService;
 import io.memoryos.chat.research.ResearchProperties;
 import io.memoryos.chat.research.ResearchTelemetry;
@@ -75,12 +74,12 @@ class ChatExecutionConfiguration {
                                         @Qualifier("chatInferenceScheduler") Scheduler scheduler, SearchTimings timings,
                                         UserFileService files, UserFileSearchService fileSearch, UserFileContentService fileContent,
                                         WebProviderClient web, ImageProviderClient image, ImageArtifactService imageArtifacts,
-                                        InterpreterClient interpreter, InterpreterService interpreterSettings,
+                                        InterpreterService interpreterSettings,
                                         DocumentOriginalService originals, ChatMemoryService memories, ResearchProperties research,
                                         ObjectProvider<SandboxService> sandboxes, MeterRegistry meters,
                                         ObservationRegistry observations) {
         return new ChatModelExecutor(contexts, repository, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent,
-                web, image, imageArtifacts, interpreter, interpreterSettings, originals, memories, sandboxes.getIfAvailable(),
+                web, image, imageArtifacts, interpreterSettings, originals, memories, sandboxes.getIfAvailable(),
                 research, new ResearchTelemetry(meters, observations), meters);
     }
 

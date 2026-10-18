@@ -1,6 +1,6 @@
 # MEM-271 plan
 
-Design: [design.md](design.md). Status 2026-10-18: design written; step 1 in progress on `dathip04/mem-271-run-python-sandbox` (a run on staging of a sandbox arm in the computer image read `attachments/` from `/workspace`).
+Design: [design.md](design.md). Status 2026-10-18: step 1 in PR #749; step 2 on `dathip04/mem-271-run-python-switch` (the chat and sandbox tests pass on zm; the evaluation runs before it merges).
 
 | Step | Change | Verification |
 | --- | --- | --- |

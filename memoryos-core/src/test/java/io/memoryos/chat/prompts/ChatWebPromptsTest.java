@@ -154,8 +154,10 @@ class ChatWebPromptsTest {
     @Test void runPythonGuidanceKeepsOnyxTextAndAppearsOnlyWithTheTool() {
         String with = ChatPrompts.forInference(prompt(Set.of("run_python"), null), false, false).toString();
         assertTrue(with.contains("## run_python"));
-        assertTrue(with.contains("each call to this tool runs in a fresh, stateless sandbox"));
-        assertTrue(with.contains("CPU time is limited to 30 seconds per run."));
+        // MEM-271: the conversation's sandbox keeps the files, and the attachments are under attachments/.
+        assertTrue(with.contains("files in the current directory stay for later calls and later turns"));
+        assertTrue(with.contains("available in `attachments/` under the current directory (`/workspace`)"));
+        assertFalse(with.contains("stateless"));
         assertTrue(with.contains("run `recalc-xlsx` via subprocess"));
         assertTrue(with.contains("Write intermediate files, such as text extracted from a document or scratch data, under `/tmp`"));
         assertTrue(with.contains("`pdftotext -layout file.pdf -`"));

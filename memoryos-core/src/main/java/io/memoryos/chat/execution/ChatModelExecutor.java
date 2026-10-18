@@ -20,7 +20,6 @@ import io.memoryos.chat.ChatToolActivity;
 import io.memoryos.chat.ChatTurnOptions;
 import io.memoryos.chat.WebSearchMode;
 import io.memoryos.chat.ChatMemoryService;
-import io.memoryos.chat.interpreter.InterpreterClient;
 import io.memoryos.chat.interpreter.InterpreterService;
 import io.memoryos.chat.research.ResearchProperties;
 import io.memoryos.chat.research.ResearchTelemetry;
@@ -86,7 +85,6 @@ public final class ChatModelExecutor {
     private final @Nullable WebProviderClient web;
     private final @Nullable ImageProviderClient image;
     private final ImageArtifactService imageArtifacts;
-    private final @Nullable InterpreterClient interpreter;
     private final @Nullable InterpreterService interpreterSettings;
     private final @Nullable DocumentOriginalService originals;
     private final @Nullable ChatMemoryService memories;
@@ -98,14 +96,12 @@ public final class ChatModelExecutor {
             ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits, Scheduler scheduler, SearchTimings timings,
             UserFileService files, UserFileSearchService fileSearch, UserFileContentService fileContent,
             @Nullable WebProviderClient web, @Nullable ImageProviderClient image, ImageArtifactService imageArtifacts,
-            @Nullable InterpreterClient interpreter,
             @Nullable InterpreterService interpreterSettings,
             @Nullable DocumentOriginalService originals,
             @Nullable ChatMemoryService memories,
             @Nullable SandboxService sandboxes,
             @Nullable ResearchProperties researchLimits, @Nullable ResearchTelemetry researchTelemetry,
             MeterRegistry meters) {
-        this.interpreter = interpreter;
         this.interpreterSettings = interpreterSettings;
         this.originals = originals;
         this.memories = memories;
@@ -335,16 +331,14 @@ public final class ChatModelExecutor {
                 runner = runner.withTools(Tool.fromInstance(new FileReaderTool(files, setup.actor(), setup.tenant(),
                         setup.fileIds(), fileActive, guard::availableContextTokens, selected.policy().tokens(), fileSearch, setup.evidence(), fileWork)));
             }
-            // Onyx is_available: configured, enabled and healthy; an unavailable interpreter omits the tool, never fails the turn.
+            // Onyx is_available: configured and enabled; a deployment without a sandbox omits the tools, never fails the turn.
             // The session agent must also allow the tool (Onyx per-agent tools).
-            // MEM-270: code_interpreter and the Tenant's switch govern the Sandbox group: run_python where the interpreter
-            // is healthy, the sandbox tools where the deployment has a sandbox.
-            boolean group = pythonAllowed(selected.toolCalling(), setup.options()) && interpreterSettings != null
-                    && interpreterSettings.enabled(setup.tenant());
-            boolean python = group && interpreter != null && interpreter.configured() && interpreter.healthy();
-            boolean sandboxTools = group && sandboxes != null && sandboxes.available();
+            // MEM-270/MEM-271: code_interpreter and the Tenant's switch govern the Sandbox group, run_python included,
+            // all in the conversation's sandbox.
+            boolean sandboxTools = pythonAllowed(selected.toolCalling(), setup.options()) && interpreterSettings != null
+                    && interpreterSettings.enabled(setup.tenant()) && sandboxes != null && sandboxes.available();
             // Onyx llm_loop.py: search hits with a stored original are staged for the Python calls that follow.
-            var sandbox = python && originals != null ? new SandboxDocuments(originals, setup.actor()) : null;
+            var sandbox = sandboxTools && originals != null ? new SandboxDocuments(originals, setup.actor()) : null;
             if (selected.toolCalling() && setup.options().searches()) {
                 var selectionRunner = context.ai().withLlmService(nativeService);
                 selectionRunner = selectionRunner.withLlm(Objects.requireNonNull(selectionRunner.getLlm())
@@ -366,14 +360,12 @@ public final class ChatModelExecutor {
                         setup.actor(), setup.tenant(), setup.sessionId(), setup.assistantMessageId(), setup.fileIds(), names,
                         fileActive, imageEvents, Integer.MAX_VALUE)));
             }
-            if (python) {
-                runner = runner.withTools(Tool.fromInstance(new RunPythonTool(interpreter, interpreterSettings,
-                        fileContent, setup.actor(), setup.tenant(), setup.assistantMessageId(), setup.fileIds(), fileActive,
-                        activity, codeEvents).withSandbox(sandbox)));
-            }
             if (sandboxTools) {
                 sandboxWork = new SandboxTools(sandboxes, interpreterSettings, fileContent, setup.fileIds(), setup.tenant(),
                         setup.actor(), setup.sessionId(), setup.assistantMessageId(), fileActive, activity, codeEvents);
+                runner = runner.withTools(Tool.fromInstance(new RunPythonTool(sandboxWork, interpreterSettings,
+                        fileContent, setup.actor(), setup.tenant(), setup.assistantMessageId(), setup.fileIds(), fileActive,
+                        activity, codeEvents).withSandbox(sandbox)));
                 runner = runner.withTools(Tool.fromInstance(sandboxWork));
             }
             // MEM-250: only the owner's own, non-temporary conversation edits their memory, and only while it is on.
