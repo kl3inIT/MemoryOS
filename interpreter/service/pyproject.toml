@@ -28,6 +28,9 @@ strict = true
 warn_unreachable = true
 pretty = true
 color_output = true
+# The kubernetes client types its generated API and models, but its hand-written
+# config loaders and websocket exec stream remain unannotated.
+untyped_calls_exclude = ["kubernetes.config", "kubernetes.stream"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["memoryos_interpreter"]

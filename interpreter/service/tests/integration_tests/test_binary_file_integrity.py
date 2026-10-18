@@ -18,10 +18,16 @@ from memoryos_interpreter.services.executor_kubernetes import KubernetesExecutor
 
 
 @pytest.fixture()
-def executor() -> KubernetesExecutor:
+def v1() -> MagicMock:
+    """The mocked CoreV1Api the executor fixture uses."""
+    return MagicMock()
+
+
+@pytest.fixture()
+def executor(v1: MagicMock) -> KubernetesExecutor:
     """Create a KubernetesExecutor without calling __init__ (no cluster needed)."""
     inst = KubernetesExecutor.__new__(KubernetesExecutor)
-    inst.v1 = MagicMock()
+    inst.v1 = v1
     inst.namespace = "test"
     inst.image = "test:latest"
     inst.service_account = ""
@@ -51,12 +57,13 @@ def _mock_stream_resp() -> MagicMock:
 
 def test_write_stdin_receives_bytes_not_string(
     executor: KubernetesExecutor,
+    v1: MagicMock,
 ) -> None:
     """The critical assertion: write_stdin must be called with raw bytes,
     not a latin-1 decoded string. Passing a string causes the WebSocket
     text frame to re-encode as UTF-8, corrupting bytes >= 0x80.
     """
-    _mock_pod_running(executor.v1)
+    _mock_pod_running(v1)
 
     binary_content = bytes(range(0x80, 0x100))
 

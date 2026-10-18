@@ -9,8 +9,8 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
-from kubernetes.client import V1OwnerReference  # type: ignore[import-untyped]
-from kubernetes.client.exceptions import ApiException  # type: ignore[import-untyped]
+from kubernetes.client import V1OwnerReference
+from kubernetes.client.exceptions import ApiException
 
 from memoryos_interpreter.services.executor_kubernetes import KubernetesExecutor
 
@@ -125,9 +125,11 @@ def test_manifest_carries_owner_reference(executor: KubernetesExecutor) -> None:
         labels={"app": "memoryos-interpreter", "component": "executor"},
     )
 
-    assert manifest.metadata.owner_references is not None
-    assert len(manifest.metadata.owner_references) == 1
-    assert manifest.metadata.owner_references[0].uid == "dep-uid-123"
+    assert manifest.metadata is not None
+    owner_references = manifest.metadata.owner_references
+    assert owner_references is not None
+    assert len(owner_references) == 1
+    assert owner_references[0].uid == "dep-uid-123"
 
 
 def test_manifest_omits_owner_reference_when_unresolved(executor: KubernetesExecutor) -> None:
@@ -137,4 +139,5 @@ def test_manifest_omits_owner_reference_when_unresolved(executor: KubernetesExec
         labels={"app": "memoryos-interpreter", "component": "executor"},
     )
 
+    assert manifest.metadata is not None
     assert manifest.metadata.owner_references is None
