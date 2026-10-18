@@ -1,6 +1,6 @@
 # MEM-271 plan
 
-Design: [design.md](design.md). Status 2026-10-18: steps 1 and 2 merged (PRs #749, #751) and accepted on staging; production runs the switch since 2026-10-18 (release `6b4f11f1`, after the channels image fix in #764), and a sandbox from the computer image ran Python there through the server's proxy; step 3 is #761. The computer image's stack and office tests moved from the executor's to `memoryos-sandbox/computer/tests/test_image.py`, run by the CI `sandbox` job; the first release without the interpreter removes its container after the sandbox server is healthy, and a rollback to a runtime that ran it starts it again.
+Design: [design.md](design.md). Status 2026-10-18: delivered. Steps 1 and 2 merged (PRs #749, #751) and accepted on staging; production runs the switch since 2026-10-18 (release `6b4f11f1`, after the channels image fix in #764), and a sandbox from the computer image ran Python there through the server's proxy; step 3 merged in #761. The computer image's stack and office tests moved from the executor's to `memoryos-sandbox/computer/tests/test_image.py`, run by the CI `sandbox` job; the first release without the interpreter removes its container after the sandbox server is healthy, and a rollback to a runtime that ran it starts it again.
 
 | Step | Change | Verification |
 | --- | --- | --- |
@@ -19,4 +19,5 @@ Design: [design.md](design.md). Status 2026-10-18: steps 1 and 2 merged (PRs #74
       200 `application/pdf` (131 KB) from a scratch sandbox.
 - [x] The evaluation scores the sandbox at least as well as the interpreter. 2026-10-18 on staging, `cx/gpt-6-luna`,
       5 repeats of 10 tasks: interpreter 35 first runs / 48 after one fix / 2 wrong without error; sandbox 38 / 49 / 0.
-- [ ] Staging and production run without `memoryos-interpreter`.
+- [x] Staging and production run without `memoryos-interpreter`. 2026-10-18: staging on `8ed4f0d4` and production on
+      the same release removed the container the previous runtime left; neither record names an interpreter image.
