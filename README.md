@@ -45,7 +45,6 @@ Claude Code reads the same repository guide through [`CLAUDE.md`](CLAUDE.md); pr
 | `memoryos-worker` | Source synchronization, extraction, Search projection and cleanup over Redis Streams |
 | `memoryos-channels` | The Tenant's chat bots: holds each bot's connection and answers with a Chat turn in process (MEM-246; staging only) |
 | `memoryos-sandbox` | The OpenSandbox server's configuration and the computer image each Chat conversation's sandbox runs (`run_python`, `bash`) |
-| `memoryos-interpreter` | The retired `run_python` service (MEM-110), kept as source; neither built nor deployed since MEM-271 |
 | `web`, `landing` | The browser application and the public landing page |
 
 [ARCHITECTURE.md](ARCHITECTURE.md) records the enforced dependencies and where each kind of state lives.

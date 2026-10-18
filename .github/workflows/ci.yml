@@ -79,7 +79,7 @@ jobs:
                   continue
                 fi
                 case "$path" in
-                  docs/*|tools/visual-paradigm-mcp/*|memoryos-interpreter/*)
+                  docs/*|tools/visual-paradigm-mcp/*)
                     ;;
                   openapi.yml)
                     backend=true

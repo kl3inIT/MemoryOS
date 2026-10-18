@@ -23,12 +23,11 @@ class GuidanceTest(unittest.TestCase):
         self.assertEqual(site, read(WORKTREE, "memoryos-sandbox/computer/sitecustomize.py"))
         self.assertIn("capture_open_figures", site)
 
-    def test_reads_the_retired_interpreter_where_a_ref_has_it(self):
-        _, site = arm(WORKTREE, "interpreter")
-        self.assertEqual(site, read(WORKTREE, "memoryos-interpreter/executor/sitecustomize.py"))
-        self.assertIn("MPLCONFIGDIR", site)
-        # A ref from before MEM-271 has it under interpreter/; the newest path is tried first.
-        self.assertEqual(site, sitecustomize(WORKTREE, "interpreter"))
+    def test_reads_the_first_path_a_ref_has(self):
+        self.assertEqual(sitecustomize(WORKTREE, "sandbox"), read(WORKTREE, RUNTIMES["sandbox"].sitecustomize[0]))
+        # The working tree has no interpreter/ since MEM-271.
+        with self.assertRaises(FileNotFoundError):
+            sitecustomize(WORKTREE, "interpreter")
 
     def test_tells_the_model_where_each_runtime_keeps_the_files(self):
         self.assertTrue(harness(RUNTIMES["interpreter"]).endswith("in the current directory."))

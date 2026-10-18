@@ -124,8 +124,8 @@ follows Claude and ChatGPT in two steps (owner decision 2026-10-15):
    sandbox has passed its staging acceptance. There is no fallback between them.
 2. A follow-up runs `run_python` (same name and guidance) as `python3` in the conversation's sandbox, from the same
    image, so its files stay in the workspace; `memoryos-interpreter` leaves Compose, CI and the Java client. Its
-   source stays in the repository, renamed from `interpreter/` to `memoryos-interpreter/`, with a note that it is
-   neither built nor deployed (owner, 2026-10-15), and Dependabot no longer watches it. `RunPythonTool` keeps all
+   source was to stay in the repository, renamed `memoryos-interpreter/` and marked not built (owner, 2026-10-15);
+   on 2026-10-18 the owner agreed to remove it instead (MEM-271 design), and Dependabot no longer watches it. `RunPythonTool` keeps all
    its logic (staging, artifacts, charts, output shaping) and runs code only in the sandbox: no `PythonRunner`
    interface, no interpreter adapter and no configuration to switch back (owner, 2026-10-18). A switch kept in the
    code would never run anywhere, so nothing would show it still works; every `run_python` change would be made twice
