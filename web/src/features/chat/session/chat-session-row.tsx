@@ -14,6 +14,40 @@ import { useRefreshChatSessions } from "@/features/chat/runtime/chat-threads-con
 /** The row whose rename just closed with the focus returning to it, for a short while after the list refreshes. */
 let focusAfterRename: { sessionId: string; until: number } | null = null;
 
+/**
+ * A conversation whose row left its list with the focus, such as a Project row after "Gỡ khỏi dự án": the same
+ * conversation's row in another list takes the focus when it is there, whichever comes last of the old row
+ * leaving and the new one mounting, which the other list's own query decides. Anything the person does first
+ * cancels it, and it never takes the focus from an element that has it.
+ */
+let focusHandoff: { sessionId: string; from: HTMLAnchorElement | null } | null = null;
+
+function cancelFocusHandoff() {
+  focusHandoff = null;
+}
+
+function handFocusOn(sessionId: string, from: HTMLAnchorElement | null) {
+  focusHandoff = { sessionId, from };
+  document.addEventListener("focusin", cancelFocusHandoff, { once: true });
+  document.addEventListener("pointerdown", cancelFocusHandoff, { once: true });
+  takeHandedFocus();
+}
+
+/** Focuses the conversation's other row if it is mounted and the focus has fallen to the page. */
+function takeHandedFocus() {
+  const handoff = focusHandoff;
+  if (!handoff) return;
+  if (document.activeElement !== document.body && document.activeElement !== null) return;
+  const target = Array.from(
+    document.querySelectorAll<HTMLAnchorElement>(`a[data-chat-session-id="${handoff.sessionId}"]`),
+  ).find((link) => link !== handoff.from && link.isConnected);
+  if (!target) return;
+  focusHandoff = null;
+  document.removeEventListener("focusin", cancelFocusHandoff);
+  document.removeEventListener("pointerdown", cancelFocusHandoff);
+  target.focus();
+}
+
 export const CHAT_DRAG_TYPE = "application/x-memoryos-chat";
 
 export function ChatSessionRow({
@@ -52,6 +86,15 @@ export function ChatSessionRow({
     if (document.activeElement === document.body || document.activeElement === null)
       link.current?.focus();
   });
+  // A row of this conversation mounting may be where a focus handed on from another list lands; the row it was
+  // handed from leaving drops the focus to the page, so its going is the other moment the focus can land.
+  useEffect(() => {
+    const own = link.current;
+    if (focusHandoff?.sessionId === session.id && own !== focusHandoff.from) takeHandedFocus();
+    return () => {
+      if (own && focusHandoff?.from === own) queueMicrotask(takeHandedFocus);
+    };
+  }, [session.id, renaming]);
   const selected = useRouterState({
     select: (state) => state.location.pathname === `/chat/${session.id}`,
   });
@@ -75,13 +118,9 @@ export function ChatSessionRow({
             onRename={() => setRenaming(true)}
             onChange={async () => {
               // Removing a Project row unmounts its menu button and drops focus to the page; the same
-              // conversation stays listed under "Hội thoại gần đây", so focus continues there.
-              requestAnimationFrame(() => {
-                if (!link.current?.isConnected && document.activeElement === document.body)
-                  document
-                    .querySelector<HTMLAnchorElement>(`a[data-chat-session-id="${session.id}"]`)
-                    ?.focus();
-              });
+              // conversation stays listed among its assistant's topics, so focus continues there once that
+              // list shows it.
+              handFocusOn(session.id, link.current);
             }}
           />
         )

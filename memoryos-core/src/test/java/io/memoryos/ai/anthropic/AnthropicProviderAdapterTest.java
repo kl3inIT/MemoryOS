@@ -30,6 +30,7 @@ import java.net.ServerSocket;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -363,13 +364,24 @@ class AnthropicProviderAdapterTest {
                     assertEquals(-1, eof.get(10, TimeUnit.SECONDS));
                 } finally { subscription.dispose(); }
             }
-            // The reader thread sees the closed connection shortly after the cancel returns.
-            Thread.sleep(500);
+            // The SDK reads a stream on a worker thread, which meets the closed response after the cancel returns;
+            // what it logs is only known once it has stopped reading.
+            awaitStreamReadersDone();
             assertEquals(List.of(), logs.list.stream().filter(event -> event.getLevel().isGreaterOrEqual(Level.WARN))
                     .map(ILoggingEvent::getFormattedMessage).toList());
         } finally {
             springAi.detachAppender(logs);
             meters.close();
+        }
+    }
+
+    /** Waits until no thread is inside the SDK's server-sent-event reader, the work a cancelled stream leaves. */
+    private static void awaitStreamReadersDone() throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (Thread.getAllStackTraces().values().stream().anyMatch(stack -> Arrays.stream(stack)
+                .anyMatch(frame -> frame.getClassName().startsWith("com.anthropic.core.handlers.SseHandler")))) {
+            if (System.nanoTime() > deadline) throw new AssertionError("The stream reader did not stop after the cancel");
+            Thread.sleep(5);
         }
     }
 

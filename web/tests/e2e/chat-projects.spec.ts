@@ -106,9 +106,18 @@ test("removing a conversation from a sidebar project keeps it among its assistan
   const recent = sidebar.getByRole("group", { name: "Chủ đề của MemoryOS", exact: true });
   await expect(folder.locator(`a[href="/chat/${session.id}"]`)).toBeVisible();
   await folder.getByRole("button", { name: `Thao tác hội thoại ${session.title}` }).click();
+  // The topics list loads from its own query; holding its reads makes it show the conversation after the Project
+  // row has gone, the order a busy machine produced, so the focus has to wait for the row to be there.
+  let holdReads = true;
+  await page.route("**/api/chat/**", async (route) => {
+    if (holdReads && route.request().method() === "GET")
+      await new Promise((done) => setTimeout(done, 1500));
+    await route.continue();
+  });
   await page.getByRole("menuitem", { name: "Gỡ khỏi dự án", exact: true }).click();
   await expect(folder.locator(`a[href="/chat/${session.id}"]`)).toHaveCount(0);
-  await expect(recent.locator(`a[href="/chat/${session.id}"]`)).toBeVisible();
+  await expect(recent.locator(`a[href="/chat/${session.id}"]`)).toBeVisible({ timeout: 10_000 });
+  holdReads = false;
   // Out of the Project, the sidebar is the conversation's assistant's; focus continues at its topic, not the page.
   await expect(recent.locator(`a[href="/chat/${session.id}"]`)).toBeFocused();
   await page
