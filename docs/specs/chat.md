@@ -599,7 +599,9 @@ from the returned evidence only.
   text with `refusalReason` `no_evidence` (no evidence was registered) or `uncited`.
 - Blocked phrases are checked on answers too, holding back as many trailing characters as the longest phrase so a
   phrase split across chunks is caught (NeMo Guardrails `RollingBuffer`). A match replaces the answer with the
-  Tenant's message.
+  Tenant's message. A tool call releases those characters first, so its step follows all the text written before it.
+- The model's text after a tool call starts a new paragraph of the stored answer, unless whitespace already separates
+  them.
 
 Tools and activity events stream throughout. The gate sits before the replay buffer, so the replay buffer only ever
 holds released text.

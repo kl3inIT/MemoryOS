@@ -162,6 +162,35 @@ class ChatGroundedTurnTest {
         }
     }
 
+    @Test
+    void aStepFollowsTheTextHeldForBlockedPhrasesAndTheNextRoundStartsAParagraph() {
+        var phrases = new ChatSettingsService.TurnPolicy(false, false,
+                new ChatGuardrails(List.of(), List.of("Dự án Phoenix"), ChatGuardrails.DEFAULT_PHRASE_MESSAGE));
+        prepare(true, phrases, ChatGuardrailCheck.Kind.CONVERSATIONAL);
+        var call = new ChatToolEvent.Call("call_1", "mcp_canva_create-design");
+        String before = "Vui lòng chờ thêm một chút nhé.";
+        doAnswer(invocation -> {
+            Consumer<String> text = invocation.getArgument(3);
+            Consumer<ChatActivityEvent> events = invocation.getArgument(5);
+            text.accept(before);
+            events.accept(ChatToolEvent.started(call));
+            events.accept(ChatToolEvent.finished(call, false, 5L, null, null));
+            text.accept("Mình đã gửi yêu cầu.");
+            return null;
+        }).when(model).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        var queued = new AtomicReference<Runnable>();
+        try (var service = service(queued)) {
+            service.send(actor, session, parent, UUID.randomUUID(), "Tạo poster", null);
+            queued.get().run();
+            var activity = ArgumentCaptor.forClass(ChatActivity.class);
+            // The gate held the last twelve characters back, and the step used to sit inside "một".
+            verify(persistence).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.COMPLETED),
+                    eq(before + "\n\nMình đã gửi yêu cầu."), isNull(), eq("gpt-5-mini"), isNull(), isNull(), isNull(), any(),
+                    activity.capture(), eq(ChatResearch.EMPTY), isNull(), any());
+            assertEquals(before.length(), activity.getValue().steps().getFirst().textOffset());
+        }
+    }
+
     private static final ChatSettingsService.TurnPolicy TOPICS = new ChatSettingsService.TurnPolicy(true, false,
             new ChatGuardrails(ChatGuardrails.BUILT_IN.subList(0, 2).stream().map(topic -> new ChatGuardrails.Topic(topic.id(),
                     topic.name(), topic.description(), topic.examples(), topic.message(), true)).toList(), List.of(), null));

@@ -99,4 +99,27 @@ class CitationGateTest {
         assertEquals("Kế hoạch quý ba", shown + ending.text());
         assertNull(ending.phrase());
     }
+
+    @Test
+    void aToolCallReleasesTheTextHeldForAPhraseThatMightContinue() {
+        Function<String, String> match = text -> text.contains("Dự án Phoenix") ? "Dự án Phoenix" : null;
+        var gate = new CitationGate(false, id -> false, match, "Dự án Phoenix".length());
+        String shown = gate.accept("Vui lòng chờ thêm một chút nhé.");
+        assertEquals("Vui lòng chờ thêm một chút nhé.", shown + gate.flush());
+        assertEquals("", gate.flush());
+    }
+
+    @Test
+    void aToolCallKeepsAnUncitedGroundedAnswerAndABlockedOneHeld() {
+        var uncited = grounded(1);
+        assertEquals("", uncited.accept("Theo tài liệu"));
+        assertEquals("", uncited.flush());
+        assertEquals("Theo tài liệu [1]", run(uncited, " [1]") + uncited.finish().text());
+
+        Function<String, String> match = text -> text.contains("Phoenix") ? "Phoenix" : null;
+        var blocked = new CitationGate(false, id -> false, match, 7);
+        blocked.accept("Dự án Phoenix");
+        assertEquals("", blocked.flush());
+        assertEquals(CitationGate.Outcome.BLOCKED, blocked.finish().outcome());
+    }
 }

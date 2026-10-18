@@ -59,6 +59,19 @@ public final class CitationGate {
         return release(pending.length() - hold);
     }
 
+    /**
+     * The model stopped writing to call a tool: text held only because a phrase or a citation might continue in the next
+     * chunk is released, so the step follows all the text written before it. Text held until a first valid citation
+     * stays held.
+     */
+    public synchronized String flush() {
+        if (blocked != null) return "";
+        if (grounded) dropUnknownCitations();
+        if (blockedPhraseMatches()) return "";
+        if (grounded && !cited) return "";
+        return release(pending.length());
+    }
+
     /** Ends the answer: the text still held, and whether the answer may stand. */
     public synchronized Ending finish() {
         if (blocked != null) return new Ending("", Outcome.BLOCKED, blocked);
