@@ -307,6 +307,8 @@ class KubernetesExecutor(BaseExecutor):
             restart_policy="Never",
             active_deadline_seconds=active_deadline_seconds,
             service_account_name=self.service_account if self.service_account else None,
+            # The pod runs untrusted code, which must never hold a Kubernetes API credential.
+            automount_service_account_token=False,
             volumes=[
                 V1Volume(name="workspace", empty_dir=V1EmptyDirVolumeSource(size_limit="100Mi")),
                 V1Volume(name="tmp", empty_dir=V1EmptyDirVolumeSource(size_limit="64Mi")),
