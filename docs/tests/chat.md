@@ -467,7 +467,7 @@ Open: visual review of the research timeline, staging acceptance with the real c
 | Behaviour | Evidence |
 | --- | --- |
 | Administration seals secrets, lists tools when a shared server is saved, refreshes the snapshot (a read-only tool runs, a tool whose name cannot fit stays off), sets one tool or a risk group, refuses `ALWAYS` for a destructive group, keeps a chosen policy across a refresh, resets to defaults, and fences every write by revision | `ChatSessionApiIntegrationTest.mcpAdministrationSealsSecretsRefreshesToolsAndFencesRevisions` |
-| A tool's risk and default policy come from its annotations; an unannotated tool asks; a destructive tool never runs unasked | `McpServerRulesTest.annotationsSetTheDefaultAndADestructiveToolNeverRunsUnasked` |
+| A tool's risk and default policy come from its annotations; an unannotated tool asks unless only its view calls it; a destructive tool never runs unasked | `McpServerRulesTest.annotationsSetTheDefaultAndADestructiveToolNeverRunsUnasked` |
 | V166 keeps levels an administrator chose and lets tools that change data ask | `McpToolPolicyMigrationTest` |
 | "Always allow" saves the tool's policy before approving; a refused change keeps the call waiting | `ChatTurnServiceTest.alwaysAllowSavesThePolicyBeforeApprovingAndARefusedChangeLeavesTheCallWaiting` |
 | An answer's context use survives an incomplete total and is read back with the answer | `ModelAccountingTest.theContextOfTheLastCallSurvivesAnIncompleteTotalAndAnUnknownOneIsDropped`; `ChatPersistenceIntegrationTest.finishingATurnWritesAndReadsItsOutcomeWithoutReloadingTheMessage` |
