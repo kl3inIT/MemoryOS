@@ -52,8 +52,9 @@ a file editor inside (owner, 2026-10-16).
 
 - **One switch.** The agent tool key `code_interpreter` turns on the whole group: `run_python` and the sandbox tools.
   No new key, no change to `persona_tool`'s CHECK; agents that have Code Interpreter get the computer. The Tenant
-  switch `chat_interpreter_setting` and the page `/admin/code-interpreter` govern the group; the page becomes the
-  Sandbox page (the switch, the health of the interpreter and of the sandbox server, the allowed domains). The
+  switch `chat_interpreter_setting` and the admin page govern the group; the page becomes the Sandbox page at
+  `/admin/sandbox` (the switch, the health of the sandbox server, the allowed domains), after MEM-271 retires the
+  interpreter so the page never shows its health (owner, 2026-10-18). The
   group's label is "Sandbox" in the menu, the agent editor and the page, untranslated in Vietnamese too (owner,
   2026-10-16).
 - **Few tools for the model.** Five, after Claude's bash and text editor, instead of ten: fewer tool schemas in every
@@ -74,7 +75,7 @@ with attribution.
 | `bash_output` | `bash_id`, `filter`, `kill` | New output of a background command since the last read and whether it still runs; with `kill` it first terminates the command's process group (TERM, then KILL after 1 s) | spring-agent `BashOutput` and `KillShell`, Claude Code |
 | `edit_file` | `command` (`view`, `create`, `str_replace`, `insert`), `path`, and per command `view_range`, `file_text`, `old_str`, `new_str`, `insert_line` | `view`: numbered lines (2,000 by default, at most 4 MB) or a directory listing two levels deep; `create`: writes the file with its parent directories; `str_replace`: the old text must match exactly once; `insert`: after a line | Claude's text editor tool, agents-flex |
 | `publish_file` | `path`, `filename` | Puts the file in the Library; description after agents-flex: the final delivery step, never return an internal path, on error fix and retry and never claim delivery | agents-flex |
-| `run_python` | `code` | Unchanged contract, through `PythonRunner` | MEM-110, Onyx |
+| `run_python` | `code` | Unchanged contract, as `python3` in the conversation's sandbox | MEM-110, Onyx |
 
 Background commands avoid spring-agent's faults: ids are UUIDs, not milliseconds; output is read from an offset with
 `tail -c +N`, not `dd bs=1`; each command runs under `setsid timeout` with a 30-minute ceiling and a capped output
@@ -124,13 +125,14 @@ follows Claude and ChatGPT in two steps (owner decision 2026-10-15):
 2. A follow-up runs `run_python` (same name and guidance) as `python3` in the conversation's sandbox, from the same
    image, so its files stay in the workspace; `memoryos-interpreter` leaves Compose, CI and the Java client. Its
    source stays in the repository, renamed from `interpreter/` to `memoryos-interpreter/`, with a note that it is
-   neither built nor deployed (owner, 2026-10-15). The interpreter stays switchable for `run_python` only:
-   `RunPythonTool` keeps all its logic (staging, artifacts, charts, output shaping) and runs code through a narrow
-   `PythonRunner` (`run(code, stagedFiles, timeout)` returning output, exit code and generated files) with two
-   implementations, the sandbox one and `InterpreterPythonRunner` (today's client, moved), chosen by deployment
-   configuration. The interpreter adapter keeps one contract test against recorded HTTP responses inside the normal
-   test run; it has no image build, CI job or Compose service. Switching back means the configuration line and the
-   service from its last image. With the interpreter, only `run_python` is offered; it receives no new features.
+   neither built nor deployed (owner, 2026-10-15), and Dependabot no longer watches it. `RunPythonTool` keeps all
+   its logic (staging, artifacts, charts, output shaping) and runs code only in the sandbox: no `PythonRunner`
+   interface, no interpreter adapter and no configuration to switch back (owner, 2026-10-18). A switch kept in the
+   code would never run anywhere, so nothing would show it still works; every `run_python` change would be made twice
+   or the interpreter path would fall behind; and the interpreter needs the same host Docker daemon as the sandbox,
+   so it serves no deployment the sandbox cannot. Rolling back the switch is a revert while the old images exist. A
+   customer who needs sandboxes elsewhere (Kubernetes, which OpenSandbox runs on, or a cloud runtime such as E2B)
+   gets another `SandboxRuntime` adapter, as in "A second runtime later".
 
 What the interpreter does today and where each part goes in the follow-up:
 
@@ -138,9 +140,9 @@ What the interpreter does today and where each part goes in the follow-up:
 | --- | --- |
 | `RunPythonTool` stages chat files and the source files behind search hits (`SandboxDocuments`, as Onyx), runs the code, returns generated files as `chat_file_artifact` rows and Library artifacts | The same contract on the sandbox: files staged into `/workspace`, `python3` with the sandbox command timeout, new or changed files collected into the same artifact rows |
 | `PresentationPreviewService` converts a generated deck to PDF with `pptx-to-pdf` in the executor (MEM-111) | The same command in a short-lived sandbox without a conversation, as Onyx converts decks in its sandbox |
-| `chat_interpreter_setting` (V71), the Tenant switch on `/admin/code-interpreter`, the agent tool key `code_interpreter` | Kept as they are: the switch and the tool key now govern `run_python` on the sandbox |
+| `chat_interpreter_setting` (V71), the Tenant switch on `/admin/code-interpreter`, the agent tool key `code_interpreter` | The setting and the tool key stay, stored data being unchanged, and now govern `run_python` on the sandbox; the page moves to `/admin/sandbox` to match its "Sandbox" label, without a redirect from the old path (owner, 2026-10-18) |
 | `tools/interpreter-eval` scores output quality | Pointed at the sandbox and run on both before the switch; the switch waits for an equal or better score |
-| Compose service, executor image, `images.env`, CI publication, `deploy.sh`, `prune-release-images.sh` and their infrastructure tests | Removed in a separate change after the switch has run on staging and production |
+| Compose service, executor image, `images.env`, CI publication, `deploy.sh`, `prune-release-images.sh`, the Dependabot entries and their infrastructure tests | Removed in a separate change after the switch has run on staging and production |
 | Past conversations replay `run_python` steps from `chat_message.activity`; artifacts live in Object Storage | Unchanged: the tool name is the same and no stored data moves |
 
 ## Probe on staging
