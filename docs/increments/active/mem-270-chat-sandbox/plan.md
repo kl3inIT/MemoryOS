@@ -22,7 +22,9 @@ follows in its own pull request. Comes before MEM-265 (owner, 2026-10-15).
 
 - [x] A workbook sent to Chat is cleaned and summed by month, and a follow-up "add a chart" works on the same file.
       2026-10-16 on `e12fd7d5`, once [MEM-287](../../completed/mem-287-tool-history/plan.md) replays earlier tool calls.
-- [ ] After the sandbox has expired, the next question in the conversation finds its files.
+- [x] After the sandbox has expired, the next question in the conversation finds its files. 2026-10-18 on `008adb99`:
+      a turn wrote `ghichu.txt` and `data/so.csv` and saved a 210-byte archive under `raw/{tenant}/`; with both of the
+      sandbox's containers removed, the next turn started a new sandbox from it and read `ma so 7351` and the sum 6.
 - [x] `sleep 300` stops after 60 seconds with the output so far and is reported as a timeout. 2026-10-16 on `7879ebe6`:
       the call ended after 63.7 s with exit code 124, and the answer said the default 60-second timeout stopped it.
 - [ ] A domain outside the allowlist, a direct IP and the host's ports are unreachable. 2026-10-16 on `7879ebe6`:
