@@ -8,7 +8,12 @@ export const vietnameseUi: Record<string, string> = {
   // MEM-273 where an assistant answers, and each group chat's assistant on the bot's page
   Kênh: "Channels",
   "Chưa có bot nào trả lời bằng trợ lý này.": "No bot answers with this assistant yet.",
-  "Trợ lý mặc định của bot": "The bot's default assistant",
+  "Mặc định của bot": "Bot default",
+  "Nhóm chat": "Group chats",
+  "Bot Lark": "Lark bot",
+  "Bot Zalo": "Zalo bot",
+  "chat riêng và nhóm chưa chọn trợ lý": "direct chats and groups without their own assistant",
+  "qua bot “{{v1}}”": "through the bot “{{v1}}”",
   "Nhóm Lark": "Lark group",
   "Nhóm Zalo": "Zalo group",
   "Theo nhóm chat": "By group chat",
