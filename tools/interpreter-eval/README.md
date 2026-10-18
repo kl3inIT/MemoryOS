@@ -35,6 +35,13 @@ From `tools/interpreter-eval`, with the variables of `.env` exported:
   --baseline origin/main --candidate WORKTREE --sandbox docker \
   --image ghcr.io/kl3init/memoryos-interpreter-executor:<tag>
 
+# MEM-271: the interpreter against the conversation's sandbox. Each arm runs in its own image, and a sandbox arm
+# finds the files under attachments/ and reads memoryos-sandbox/computer/sitecustomize.py at its ref.
+../../interpreter/executor/.venv/bin/python -m interpreter_eval \
+  --baseline origin/main --candidate WORKTREE --sandbox docker \
+  --baseline-image ghcr.io/kl3init/memoryos-interpreter-executor:<tag> \
+  --candidate-runtime sandbox --candidate-image ghcr.io/kl3init/memoryos-sandbox-computer:<tag>
+
 # Without Docker: the executor's virtual environment, in a temporary directory, with no credentials in its
 # environment. The code still runs on this machine.
 ../../interpreter/executor/.venv/bin/python -m interpreter_eval --baseline origin/main --candidate WORKTREE --sandbox local
