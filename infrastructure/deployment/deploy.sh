@@ -326,14 +326,18 @@ if [[ "$mode" == deploy ]]; then
   mkdir "$DOCKER_CONFIG"
   trap 'rm -f -- "$DOCKER_CONFIG/config.json"; rmdir -- "$DOCKER_CONFIG"' EXIT
   docker login ghcr.io --username "${4:?registry user}" --password-stdin
-  compose pull api worker web interpreter sandbox
-  if has_channels; then compose pull channels; fi
-  if has_keycloak "$tx/candidate.env"; then compose pull keycloak; fi
-  docker pull --quiet "$(image_reference interpreter-executor "$tx/candidate.env")" > /dev/null
-  docker pull --quiet "$(image_reference sandbox-computer "$tx/candidate.env")" > /dev/null
-  for component in "${images[@]}"; do
+  # The revision check reads exactly the images pulled here: a release carries a channels image even to a host whose
+  # Compose defines no channels service, as production does until the bot is accepted, and none was pulled for it.
+  pulled=(api worker web interpreter sandbox)
+  if has_channels; then pulled+=(channels); fi
+  if has_keycloak "$tx/candidate.env"; then pulled+=(keycloak); fi
+  compose pull "${pulled[@]}"
+  for component in interpreter-executor sandbox-computer; do
+    docker pull --quiet "$(image_reference "$component" "$tx/candidate.env")" > /dev/null
+    pulled+=("$component")
+  done
+  for component in "${pulled[@]}"; do
     reference=$(image_reference "$component" "$tx/candidate.env")
-    [[ -n "$reference" ]] || continue
     docker image inspect "$reference" | jq --exit-status --arg sha "${release:0:40}" '
       .[0].Config.Labels["org.opencontainers.image.revision"] == $sha
     ' > /dev/null

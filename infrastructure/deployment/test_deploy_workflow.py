@@ -203,13 +203,51 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         self.assertIn("${{ needs.sandbox.outputs.images }}", publish)
         deploy = SCRIPT.split('if [[ "$mode" == deploy ]]', 1)[1].split('elif [[ "$mode" == rollback ]]', 1)[0]
         # The computer image is not a Compose service: pull it with the job-scoped credentials before reserving.
-        pull = 'docker pull --quiet "$(image_reference sandbox-computer "$tx/candidate.env")"'
+        pull = 'for component in interpreter-executor sandbox-computer; do\n    docker pull --quiet'
         self.assertLess(deploy.index("docker login ghcr.io"), deploy.index(pull))
         self.assertLess(deploy.index(pull), deploy.index('> "$state/pending"'))
         # A runtime accepted before the sandbox joined the release has no sandbox server to capture.
         self.assertIn('has_sandbox "$state/current.env"', deploy)
         rollback = SCRIPT.split('elif [[ "$mode" == rollback ]]', 1)[1].split('elif [[ "$mode" == finish ]]', 1)[0]
         self.assertIn('target=candidate; compose stop --timeout 30 sandbox', rollback)
+
+    def test_the_revision_check_reads_only_the_images_it_pulled(self):
+        # Production deploys a release carrying a channels image with no channels service in its Compose; checking an
+        # image it never pulled stopped the deployment with "No such image".
+        deploy = SCRIPT.split('if [[ "$mode" == deploy ]]', 1)[1]
+        start = deploy.index("  pulled=(")
+        end = deploy.index("  done\n", deploy.index('for component in "${pulled[@]}"')) + len("  done\n")
+        stubs = '''set -euo pipefail
+tx=$1
+release=$2
+has_channels() { [[ -n "${CHANNELS:-}" ]]; }
+has_keycloak() { [[ -n "${KEYCLOAK:-}" ]]; }
+image_reference() { echo "image-$1"; }
+compose() {
+  echo "compose $*" >> "$tx/calls"
+  if [[ "$1" == pull ]]; then shift; for service; do echo "image-$service" >> "$tx/pulled"; done; fi
+}
+docker() {
+  echo "docker $*" >> "$tx/calls"
+  if [[ "$1" == pull ]]; then echo "${@: -1}" >> "$tx/pulled"; fi
+  if [[ "$1" == image ]]; then
+    grep -qx -- "$3" "$tx/pulled" || { echo "No such image: $3" >&2; return 1; }
+    printf '[{"Config":{"Labels":{"org.opencontainers.image.revision":"%s"}}}]' "$release"
+  fi
+}
+'''
+        for channels in ("", "1"):
+            with self.subTest(channels=bool(channels)), tempfile.TemporaryDirectory() as tx:
+                result = subprocess.run(
+                    ["bash", "-c", stubs + deploy[start:end], "deploy", tx, "a" * 40],
+                    env={**os.environ, "CHANNELS": channels, "KEYCLOAK": channels},
+                    capture_output=True, text=True, check=False)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                calls = (Path(tx) / "calls").read_text()
+                inspected = re.findall(r"^docker image inspect image-(\S+)$", calls, re.MULTILINE)
+                services = ["api", "worker", "web", "interpreter", "sandbox"] + (["channels", "keycloak"] if channels else [])
+                self.assertIn("compose pull " + " ".join(services) + "\n", calls)
+                self.assertEqual(inspected, services + ["interpreter-executor", "sandbox-computer"])
 
     def test_keycloak_is_rolled_out_by_the_release_on_every_host(self):
         backend = CI_WORKFLOW.split("  backend-images:\n", 1)[1].split("\n  secrets:\n", 1)[0]
