@@ -50,8 +50,13 @@ public final class RunPythonTool {
     static final int FILENAME_LIMIT = 200;
     /** The largest file a run hands to the user, as the interpreter returned at most 25 MiB. */
     static final long MAX_GENERATED_BYTES = 25L * 1024 * 1024;
-    /** Where the source files behind this turn's search hits are staged (MEM-271 design). */
-    static final String SEARCH = SandboxService.WORKSPACE + "/search";
+    /**
+     * Where the source files behind this turn's search hits are staged, relative to the workspace. Their authority is
+     * checked when each run copies them, so they live only for that run, as the interpreter forgot them: under
+     * {@code .memoryos}, which the workspace archive leaves out, and removed before staging and after the run.
+     */
+    static final String SEARCH_PATH = ".memoryos/search";
+    static final String SEARCH = SandboxService.WORKSPACE + "/" + SEARCH_PATH;
     /** Written by the computer image's memoryos_charts capture: chart-{n}.png and, when recognised, chart-{n}.json. */
     static final String CHART_DIR = SandboxService.WORKSPACE + "/.memoryos-charts";
     static final int MAX_CHART_JSON_BYTES = 256 * 1024;
@@ -296,12 +301,13 @@ public final class RunPythonTool {
                 ulimit -f %4$d
                 setsid timeout -k 5 %5$d python3 %3$s/main.py %3$s/code.py > %3$s/out 2> %3$s/err < /dev/null
                 code=$?
+                rm -rf %6$s
                 printf '%%s %%s %%s\\n' "$code" "$(stat -c %%s %3$s/out)" "$(stat -c %%s %3$s/err)"
                 find %1$s \\( -path %1$s/.memoryos -o -path %2$s -o -name node_modules -o -name .venv -o -name __pycache__ \\
                   -o -name .next \\) -prune -o -type f -newer %3$s/started -printf 'F %%s %%P\\n'
                 [ -d %2$s ] && find %2$s -maxdepth 1 -type f -printf 'C %%s %%f\\n'
                 true
-                """.formatted(SandboxService.WORKSPACE, CHART_DIR, dir, SandboxTools.FILE_LIMIT_BLOCKS, timeout.toSeconds());
+                """.formatted(SandboxService.WORKSPACE, CHART_DIR, dir, SandboxTools.FILE_LIMIT_BLOCKS, timeout.toSeconds(), SEARCH);
     }
 
     /** The script's report, or null when the wrapper itself failed. */
@@ -374,15 +380,16 @@ public final class RunPythonTool {
     }
 
     /**
-     * Copies the selected files into the workspace, where {@code bash} finds the attachments too; a file already there
-     * with the same size is kept, so a later call or turn copies nothing again. Answers the names that failed.
+     * Copies the selected files into the workspace, where {@code bash} finds the attachments too; an attachment already
+     * there with the same size is kept, so a later call or turn copies nothing again. Search originals are copied for
+     * every run. Answers the names that failed.
      */
     private List<String> stage(List<Candidate> selected) {
         var failed = new ArrayList<String>();
         if (selected.isEmpty()) return failed;
         var present = new HashMap<String, Long>();
-        String listed = workspace.run("find %s %s -maxdepth 1 -type f -printf '%%s %%p\\n' 2>/dev/null || true"
-                .formatted(SandboxTools.ATTACHMENTS, SEARCH), SandboxTools.WRAPPER_MARGIN).stdout();
+        String listed = workspace.run("rm -rf %s; find %s -maxdepth 1 -type f -printf '%%s %%p\\n' 2>/dev/null || true"
+                .formatted(SEARCH, SandboxTools.ATTACHMENTS), SandboxTools.WRAPPER_MARGIN).stdout();
         for (String line : listed.split("\n")) {
             int space = line.indexOf(' ');
             if (space > 0) present.put(line.substring(space + 1), Long.parseLong(line.substring(0, space)));

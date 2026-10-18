@@ -149,7 +149,7 @@ class RunPythonToolTest {
         assertEquals("", result(tool().runPython("x = 40")).path("stdout").asString());
     }
 
-    @Test void searchedSourceFilesAreStagedUnderSearchThroughCitationAuthority() {
+    @Test void searchedSourceFilesAreStagedForEachRunThroughCitationAuthority() {
         attach("notes.csv", 3, 5);
         var originals = mock(DocumentOriginalService.class);
         UUID document = UUID.randomUUID(), generation = UUID.randomUUID();
@@ -164,11 +164,15 @@ class RunPythonToolTest {
         sandbox.register(List.of(new SearchHit(document, generation, 0, "Report", "text/plain", "x", "[]",
                 Instant.EPOCH, .5)));
 
-        var reply = tool().withSandbox(sandbox).runPython("print(open('search/Report_" + stored.value() + ".xlsx').read())");
+        var tool = tool().withSandbox(sandbox);
+        var reply = tool.runPython("print(open('.memoryos/search/Report_" + stored.value() + ".xlsx').read())");
 
         assertEquals("data\n", result(reply).path("stdout").asString());
+        // Authority is checked for each run, so the copy lives only for it and never reaches the workspace archive.
+        assertFalse(Files.exists(root.resolve(".memoryos/search")));
+        tool.runPython("pass");
+        verify(originals, times(2)).citationOriginal(actor, document, generation);
         assertTrue(Files.exists(root.resolve("attachments/notes.csv")));
-        verify(originals).citationOriginal(actor, document, generation);
         assertTrue(closed.get());
     }
 

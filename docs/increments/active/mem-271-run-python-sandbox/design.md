@@ -19,7 +19,9 @@ settles how.
 ## How a call runs
 
 1. **Files in.** The turn's attachments are copied into `/workspace/attachments` by the same once-a-turn step the
-   sandbox tools use; the source files behind this turn's search hits go to `/workspace/search`. The staging order,
+   sandbox tools use; the source files behind this turn's search hits go to `/workspace/.memoryos/search` for that run
+   only: their authority is checked when they are copied, so they are removed before and after each run and the
+   workspace archive, which leaves out `.memoryos/`, never holds them (the interpreter forgot them after each run). The staging order,
    the 25-file and 100 MiB caps and the notice are today's (Onyx). A file already there with the same size is kept,
    so the upload cache goes.
 2. **The code.** It is written to `/workspace/.memoryos/run/<id>/main.py` inside Onyx's last-line wrapper, then run
@@ -27,7 +29,7 @@ settles how.
    whole process group, exit 124 is a timeout, and a written file stops at 100 MiB.
 3. **Files out.** A marker file is touched before the run; every regular file under `/workspace` newer than it is
    new or changed by this run and is handed to the user as today (a `chat_file_artifact` row and a Library
-   artifact), at most 25 files of at most 25 MiB each. `attachments/`, `search/`, `.memoryos/` and the directories the
+   artifact), at most 25 files of at most 25 MiB each. `attachments/`, `.memoryos/` and the directories the
    workspace archive leaves out (`node_modules`, `.venv`, `__pycache__`, `.next`) are not searched. Files an earlier
    call or turn wrote stay in the workspace and are not handed over again.
 4. **Charts.** The computer image's `sitecustomize.py` captures figures left open into `/workspace/.memoryos-charts`,
@@ -42,7 +44,7 @@ The result JSON (`stdout`, `stderr`, `exit_code`, `timed_out`, `generated_files`
 
 The `run_python` guidance keeps Onyx's text and the MemoryOS lines, except what the sandbox makes untrue:
 
-- The conversation's files are in `attachments/` and the search hits' files in `search/`, not in the current
+- The conversation's files are in `attachments/` and the search hits' files in `.memoryos/search/` for the run, not in the current
   directory.
 - The paragraph that every call is a fresh, stateless sandbox goes: files persist across calls and turns, as for
   `bash`; variables and imports still do not.

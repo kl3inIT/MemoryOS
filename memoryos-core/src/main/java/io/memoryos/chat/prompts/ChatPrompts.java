@@ -167,7 +167,7 @@ public final class ChatPrompts {
     private static final String RUN_PYTHON_GUIDANCE = """
             ## run_python
             Use the `run_python` tool to execute Python code in an isolated sandbox. The tool will respond with the output of the execution or time out after 60.0 seconds.
-            Any files uploaded to the chat are available in `attachments/` under the current directory (`/workspace`), and the source files behind search results in `search/`. The current directory in the file system can be used to save and persist user files. Files the code writes or changes in the current directory will be returned with a `file_link`. Use this to give the user a way to download the file.
+            Any files uploaded to the chat are available in `attachments/` under the current directory (`/workspace`), and the source files behind this turn's search results in `.memoryos/search/` for the run only. The current directory in the file system can be used to save and persist user files. Files the code writes or changes in the current directory will be returned with a `file_link`. Use this to give the user a way to download the file.
             Internet access is limited to the domains the administrator allowed; other web requests and API calls fail.
             Use `openpyxl` to read and write Excel files. You have access to libraries like numpy, pandas, scipy, matplotlib, and PIL.
             Write chart titles, axis labels, legends, and other text rendered into images in the language you reply in. The sandbox fonts cannot shape Arabic or render CJK glyphs (they come out as disconnected letters or boxes), so for those languages write the rendered text in English and explain the labels in your reply.
