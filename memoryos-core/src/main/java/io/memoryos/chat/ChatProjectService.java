@@ -128,7 +128,9 @@ public class ChatProjectService {
     private static void validate(ProjectInput input) {
         ChatPersonaService.text(input.name(), 200, true); ChatPersonaService.text(input.description(), 2000, false);
         ChatPersonaService.text(input.instructions(), 32000, false);
-        if (input.iconName() != null && !input.iconName().matches("[a-z0-9-]{1,40}")) throw ChatException.invalid("Invalid icon.");
+        // A blank icon is no icon (the picker's default), as icon() stores it.
+        String iconName = icon(input.iconName());
+        if (iconName != null && !iconName.matches("[a-z0-9-]{1,40}")) throw ChatException.invalid("Invalid icon.");
     }
     private static @Nullable String icon(@Nullable String iconName) {
         return iconName == null || iconName.isBlank() ? null : iconName;

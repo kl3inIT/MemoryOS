@@ -73,7 +73,8 @@ export function ProjectEditor({
         description: project?.description ?? "",
         instructions: value.instructions,
         fileIds: project?.fileIds ?? [],
-        iconName: value.iconName,
+        // The picker's default tile is no icon.
+        iconName: value.iconName || undefined,
       };
       try {
         if (project) {

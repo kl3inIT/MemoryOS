@@ -298,6 +298,18 @@ class ChatPersistenceIntegrationTest {
         assertTrue(reserve(session, second.assistantMessageId(), UUID.randomUUID(), "Default again").created());
     }
 
+    /** A Project without an icon is created from a blank or absent icon; a named icon is kept and a malformed one refused. */
+    @Test
+    void aProjectIconIsOptionalAndBlankMeansNone() {
+        var blank = projects.create(owner, new ChatProjectService.ProjectInput("Blank", "", "", List.of(), ""));
+        assertNull(blank.iconName());
+        var none = projects.create(owner, new ChatProjectService.ProjectInput("None", "", "", List.of(), null));
+        assertNull(none.iconName());
+        assertEquals("rocket", projects.create(owner, new ChatProjectService.ProjectInput("Named", "", "", List.of(), "rocket")).iconName());
+        assertThrows(ChatException.class,
+                () -> projects.create(owner, new ChatProjectService.ProjectInput("Bad", "", "", List.of(), "Bad Icon!")));
+    }
+
     @Test
     void projectsListInTheChosenOrderANewOneComesFirstAndAnEditOrReorderMovesNothing() {
         var work = projects.create(owner, new ChatProjectService.ProjectInput("Work", "", ""));
