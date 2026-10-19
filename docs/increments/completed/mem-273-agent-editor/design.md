@@ -3,8 +3,8 @@
 The assistant editor becomes one page with three tabs: Cấu hình, Kênh and Chia sẻ. The configuration sits on the
 left and a test chat on the right that runs the unsaved form. A Save button keeps the person on the page. The fields
 are standardised against the references: three are added and five are removed. This is part of
-[MEM-273](https://linear.app/memory-os/issue/MEM-273), after [avatars](../../active/mem-273-agent-avatars/design.md) and
-[the assistant sidebar](../../active/mem-273-agent-roster/design.md). "Điền giúp" (MEM-276) and the Agent Builder (MEM-280)
+[MEM-273](https://linear.app/memory-os/issue/MEM-273), after [avatars](../mem-273-agent-avatars/design.md) and
+[the assistant sidebar](../mem-273-agent-roster/design.md). "Điền giúp" (MEM-276) and the Agent Builder (MEM-280)
 follow it.
 
 The owner settled the decisions on 2026-10-16, question by question, from the research and the prototype reviewed in

@@ -79,10 +79,14 @@ and staging has deployed it. The web pull request is accepted when the owner has
 
 ## 3. Verification
 
-- [ ] On zm, throttled: the chat tests, `ModulithArchitectureTest`, `CoreDependencyRulesTest` and
-  `OpenApiContractTest`. CI runs the full gates.
-- [ ] Staging, with realistic data: old chats appear as MemoryOS topics; opening an assistant opens its latest topic;
+- [x] On zm, throttled: the chat tests, `ModulithArchitectureTest`, `CoreDependencyRulesTest` and
+  `OpenApiContractTest`. CI runs the full gates. Run with each pull request: #699 (chat 51 and more, API 98,
+  `OpenApiContractTest`), #709 (`io.memoryos.chat.*` with Modulith and dependency rules, 476 tests; `io.memoryos.api.chat.*`
+  with `OpenApiContractTest`, 115 tests).
+- [x] Staging, with realistic data: old chats appear as MemoryOS topics; opening an assistant opens its latest topic;
   a new topic appears in the sidebar and in "Gần đây" after the first send; an unshared assistant turns its row
-  unusable; history filters by assistant. Screenshots in light and dark, desktop and phone.
-- [ ] Docs: the chat spec (assistants, topics, sidebar), the test matrix, the roadmap, and the release note on where
-  conversations went.
+  unusable; history filters by assistant. Screenshots in light and dark, desktop and phone. Run 2026-10-19
+  ([verification](verification.md)).
+- [x] Docs: the chat spec (assistants, topics, sidebar), the test matrix, the roadmap, and the release note on where
+  conversations went. The repository keeps no release notes; where conversations went (every web conversation is a
+  topic of its assistant, a plain one of MemoryOS) is in the chat spec and in #704.
