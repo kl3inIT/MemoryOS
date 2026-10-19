@@ -21,6 +21,7 @@ import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -50,6 +51,9 @@ public class McpOAuthService {
     private static final int MAX_SECRET_CHARACTERS = 16384;
     private static final String ACCESS_TOKEN = "access_token";
     private static final String REFRESH_TOKEN = "refresh_token";
+    private static final String SCOPE = "scope";
+    /** MEM-227: what a {@code 403 insufficient_scope} asked for, requested by the next authorization. */
+    private static final String REQUESTED_SCOPE = "requested_scope";
 
     private final JpaMcpServerRepository servers;
     private final JpaMcpOAuthClientRepository clients;
@@ -325,7 +329,7 @@ public class McpOAuthService {
 
     private AuthorizationStart start(UUID tenant, McpServerEntity server, McpOAuthClientEntity client, String state,
                                      String codeChallenge, @Nullable UUID ownerActorId, String returnPath) {
-        String scope = String.join(" ", McpServerRules.stringList(server.oauthScopes()));
+        String scope = String.join(" ", scopes(tenant, server, ownerActorId));
         URI url = protocol.authorizationUrl(URI.create(client.authorizationEndpoint()), client.clientId(),
                 properties.redirectUri(), state, codeChallenge, scope.isEmpty() ? null : scope,
                 McpOAuthProtocol.canonicalResource(server.url()), McpServerRules.stringMap(server.oauthAdditionalParameters()));
@@ -361,7 +365,7 @@ public class McpOAuthService {
                     : credentials.findByTenantIdAndServerIdAndOwnerActorId(tenant, pending.serverId(), owner))
                     .orElseGet(() -> new McpCredentialEntity(UUID.randomUUID(), tenant, pending.serverId(), owner, now));
             credential.store(pending.oauthClientId(), seal(tenant, credential.getId(), tokens.accessToken(),
-                    tokens.refreshToken(), tokens.scope()), tokens.expiresAt(), now);
+                    tokens.refreshToken(), tokens.scope(), null), tokens.expiresAt(), now);
             credentials.saveAndFlush(credential);
             // The server status reports the shared connection only; a User's own connection never changes it.
             if (owner == null) {
@@ -444,10 +448,43 @@ public class McpOAuthService {
             Instant now = Instant.now();
             String rotated = tokens.refreshToken() != null ? tokens.refreshToken() : refreshToken;
             credential.store(credential.oauthClientId(), seal(tenantId, credential.getId(), tokens.accessToken(), rotated,
-                    tokens.scope()), tokens.expiresAt(), now);
+                    tokens.scope() != null ? tokens.scope() : snapshot.payload().get(SCOPE),
+                    snapshot.payload().get(REQUESTED_SCOPE)), tokens.expiresAt(), now);
             credentials.saveAndFlush(credential);
             return tokens.accessToken();
         });
+    }
+
+    /**
+     * MEM-227: an MCP server answered {@code 403 insufficient_scope} on this connection. The scope is kept with the
+     * credential, which stays usable for the tools that need nothing more, and the next authorization asks for it.
+     * Best effort: the call has already failed and the person is offered to connect again either way.
+     */
+    public void requireScope(UUID serverId, @Nullable UUID ownerActorId, String scope) {
+        if (scope.isBlank()) return;
+        try {
+            transactions.executeWithoutResult(_ -> servers.findById(serverId).ifPresent(server -> (ownerActorId == null
+                    ? credentials.findByTenantIdAndServerIdAndOwnerActorIdIsNull(server.tenantId(), serverId)
+                    : credentials.findByTenantIdAndServerIdAndOwnerActorId(server.tenantId(), serverId, ownerActorId))
+                    .filter(credential -> credential.status() == McpCredentialStatus.ACTIVE && credential.oauthClientId() != null)
+                    .ifPresent(credential -> {
+                        var payload = open(credential);
+                        var requested = new LinkedHashSet<String>();
+                        String earlier = payload.get(REQUESTED_SCOPE);
+                        if (earlier != null && !earlier.isBlank()) requested.addAll(List.of(earlier.split(" ")));
+                        if (!requested.addAll(List.of(scope.split(" ")))) return;
+                        String access = payload.get(ACCESS_TOKEN);
+                        if (access == null) return;
+                        credential.store(credential.oauthClientId(), seal(server.tenantId(), credential.getId(), access,
+                                payload.get(REFRESH_TOKEN), payload.get(SCOPE), String.join(" ", requested)),
+                                credential.accessExpiresAt(), Instant.now());
+                        credentials.saveAndFlush(credential);
+                    })));
+        } catch (RuntimeException failure) {
+            LOG.atWarn().addKeyValue("event", "mcp.oauth.scope.not_recorded").addKeyValue("mcp_server_id", serverId)
+                    .addKeyValue("error_type", failure.getClass().getName())
+                    .log("The scope an MCP server asked for was not recorded");
+        }
     }
 
     /** Serves the Client ID Metadata Document for authorization servers that fetch it. */
@@ -566,12 +603,37 @@ public class McpOAuthService {
         return new McpOAuthProtocol.Client(client.clientId(), secret, client.tokenEndpointAuthMethod());
     }
 
-    private String seal(UUID tenant, UUID credentialId, String accessToken, @Nullable String refreshToken, @Nullable String scope) {
+    private String seal(UUID tenant, UUID credentialId, String accessToken, @Nullable String refreshToken, @Nullable String scope,
+                        @Nullable String requestedScope) {
         var payload = new LinkedHashMap<String, String>();
         payload.put(ACCESS_TOKEN, accessToken);
         if (refreshToken != null) payload.put(REFRESH_TOKEN, refreshToken);
-        if (scope != null) payload.put("scope", scope);
+        if (scope != null) payload.put(SCOPE, scope);
+        if (requestedScope != null) payload.put(REQUESTED_SCOPE, requestedScope);
         return secrets.seal(tenant, credentialId, McpSecrets.Purpose.CREDENTIAL, McpServerRules.json(payload));
+    }
+
+    /**
+     * The scopes an authorization asks for: the configured ones, then those granted last time and those a server asked
+     * for since (MCP authorization 2026-07-28: the union, so a step-up loses nothing granted before).
+     */
+    private List<String> scopes(UUID tenant, McpServerEntity server, @Nullable UUID ownerActorId) {
+        var scopes = new LinkedHashSet<>(McpServerRules.stringList(server.oauthScopes()));
+        var credential = ownerActorId == null
+                ? credentials.findByTenantIdAndServerIdAndOwnerActorIdIsNull(tenant, server.getId())
+                : credentials.findByTenantIdAndServerIdAndOwnerActorId(tenant, server.getId(), ownerActorId);
+        credential.filter(stored -> stored.oauthClientId() != null).ifPresent(stored -> {
+            try {
+                var payload = open(stored);
+                for (String key : List.of(SCOPE, REQUESTED_SCOPE)) {
+                    String value = payload.get(key);
+                    if (value != null && !value.isBlank()) scopes.addAll(List.of(value.trim().split("\\s+")));
+                }
+            } catch (McpException unreadable) {
+                // A credential that cannot be read adds nothing; the configured scopes are still asked for.
+            }
+        });
+        return List.copyOf(scopes);
     }
 
     private Map<String, String> open(McpCredentialEntity credential) {

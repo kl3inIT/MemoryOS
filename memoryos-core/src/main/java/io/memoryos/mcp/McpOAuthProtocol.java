@@ -84,6 +84,8 @@ public final class McpOAuthProtocol {
     /** Parameters MemoryOS sets itself; an administrator's additional parameter never replaces one. */
     private static final Set<String> AUTHORIZATION_PARAMETERS = Set.of("response_type", "client_id", "redirect_uri", "state",
             "code_challenge", "code_challenge_method", "scope", "resource");
+    /** RFC 6749 §3.3 scope tokens separated by single spaces. */
+    private static final Pattern SCOPE = Pattern.compile("[\\x21\\x23-\\x5B\\x5D-\\x7E]+( [\\x21\\x23-\\x5B\\x5D-\\x7E]+)*");
     private static final Pattern AUTH_PARAMETER = Pattern.compile("([A-Za-z0-9_-]+)\\s*=\\s*(\"((?:[^\"\\\\]|\\\\.)*)\"|[^\\s,]+)");
     private static final JsonMapper JSON = JsonMapper.builder()
             .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
@@ -268,14 +270,8 @@ public final class McpOAuthProtocol {
 
     static Challenge challenge(List<String> headerValues) {
         for (String header : headerValues) {
-            int bearer = header.toLowerCase(Locale.ROOT).indexOf("bearer");
-            if (bearer < 0) continue;
-            var parameters = new LinkedHashMap<String, String>();
-            Matcher matcher = AUTH_PARAMETER.matcher(header.substring(bearer + "bearer".length()));
-            while (matcher.find()) {
-                String value = matcher.group(3) != null ? matcher.group(3).replaceAll("\\\\(.)", "$1") : matcher.group(2);
-                parameters.putIfAbsent(matcher.group(1).toLowerCase(Locale.ROOT), value);
-            }
+            var parameters = bearerParameters(header);
+            if (parameters == null) continue;
             URI metadata = null;
             if (parameters.containsKey("resource_metadata")) {
                 try {
@@ -287,6 +283,33 @@ public final class McpOAuthProtocol {
             return new Challenge(metadata, parameters.get("scope"));
         }
         return new Challenge(null, null);
+    }
+
+    /**
+     * The scope a {@code 403} challenge asks for when its error is {@code insufficient_scope} (MCP authorization, step-up),
+     * empty when it names none or names one that is not RFC 6749 scope tokens, and null for any other challenge.
+     */
+    static @Nullable String insufficientScope(List<String> headerValues) {
+        for (String header : headerValues) {
+            var parameters = bearerParameters(header);
+            if (parameters == null) continue;
+            if (!"insufficient_scope".equals(parameters.get("error"))) return null;
+            String scope = parameters.get("scope");
+            return scope != null && scope.length() <= 4096 && SCOPE.matcher(scope.trim()).matches() ? scope.trim() : "";
+        }
+        return null;
+    }
+
+    private static @Nullable Map<String, String> bearerParameters(String header) {
+        int bearer = header.toLowerCase(Locale.ROOT).indexOf("bearer");
+        if (bearer < 0) return null;
+        var parameters = new LinkedHashMap<String, String>();
+        Matcher matcher = AUTH_PARAMETER.matcher(header.substring(bearer + "bearer".length()));
+        while (matcher.find()) {
+            String value = matcher.group(3) != null ? matcher.group(3).replaceAll("\\\\(.)", "$1") : matcher.group(2);
+            parameters.putIfAbsent(matcher.group(1).toLowerCase(Locale.ROOT), value);
+        }
+        return parameters;
     }
 
     static List<URI> protectedResourceMetadataUrls(URI server) {

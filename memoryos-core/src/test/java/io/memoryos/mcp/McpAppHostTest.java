@@ -39,7 +39,7 @@ class McpAppHostTest {
     void open() {
         when(clients.open(any(), any(), any())).thenReturn(session);
         when(turns.open(ACTOR, List.of(SERVER))).thenAnswer(ignored -> new McpTurnTools(clients,
-                Map.of(SERVER, new McpTurnTools.Target(SERVER, "https://canva.example/mcp", Map.of())),
+                Map.of(SERVER, new McpTurnTools.Target(SERVER, "https://canva.example/mcp", Map.of(), null)),
                 bindings, unavailable, Set.of()));
     }
 

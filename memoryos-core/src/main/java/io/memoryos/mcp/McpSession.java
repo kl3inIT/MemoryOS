@@ -192,9 +192,17 @@ public final class McpSession implements AutoCloseable {
         }
     }
 
+    /** A 401, or a 403; MEM-227: a 403 {@code insufficient_scope} names the scope the next authorization asks for. */
+    private static McpException denied(McpHttpClientTransportAuthorizationException denied, Throwable failure) {
+        var response = denied.getResponseInfo();
+        String scope = response == null || response.statusCode() != 403 ? null
+                : McpOAuthProtocol.insufficientScope(response.headers().allValues("WWW-Authenticate"));
+        return scope == null ? McpException.authorizationRequired(failure) : McpException.insufficientScope(scope, failure);
+    }
+
     static McpException classify(Throwable failure) {
         for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
-            if (cause instanceof McpHttpClientTransportAuthorizationException) return McpException.authorizationRequired(failure);
+            if (cause instanceof McpHttpClientTransportAuthorizationException denied) return denied(denied, failure);
             if (cause instanceof TimeoutException || cause instanceof HttpTimeoutException) return McpException.timeout(failure);
             if (cause.getCause() == cause) break;
         }
