@@ -18,5 +18,8 @@ public record ChatSendTurnRequest(@NotNull UUID parentMessageId, @NotNull UUID c
                                   @Size(max = 8) @Nullable List<@NotNull UUID> mcpServerIds,
                                   @Schema(description = "The assistant's unsaved settings for this turn: only in a temporary conversation, "
                                           + "for a person who may edit its assistant; checked as a save is, never stored")
-                                  @Valid @Nullable ChatPersonaRequest draftPersona) {
+                                  @Valid @Nullable ChatPersonaRequest draftPersona,
+                                  @Schema(description = "Run the Agent Builder on draftPersona instead of the assistant: it edits the unsaved "
+                                          + "settings through assistant_change events and stores nothing; absent means false")
+                                  @Nullable Boolean builder) {
 }

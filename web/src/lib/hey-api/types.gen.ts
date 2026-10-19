@@ -878,7 +878,7 @@ export type SystemOneTaskRequest = {
  * What one task runs on: a Tenant model, a System One connection for a classifying task, or with neither the conversation model
  */
 export type ModelFlow = {
-    flow: 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
+    flow: 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'AGENT_BUILDER' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     modelConfigurationId: string | null;
     /**
      * False when the model is set but no longer eligible; the task then uses the conversation model
@@ -2462,6 +2462,10 @@ export type Send = {
      * The assistant's unsaved settings for this turn: only in a temporary conversation, for a person who may edit its assistant; checked as a save is, never stored
      */
     draftPersona?: PersonaInput;
+    /**
+     * Run the Agent Builder on draftPersona instead of the assistant: it edits the unsaved settings through assistant_change events and stores nothing; absent means false
+     */
+    builder?: boolean;
 };
 
 export type Accepted = {
@@ -3762,6 +3766,30 @@ export type McpUnavailableEvent = {
     assistantMessageId: string;
     sequence: number;
     apps: Array<UnavailableApp>;
+};
+
+export type AssistantChangeEvent = {
+    assistantMessageId: string;
+    sequence: number;
+    toolCallId: string;
+    change: AssistantPatch;
+};
+
+export type AssistantPatch = {
+    name?: string;
+    title?: string;
+    description?: string;
+    avatarSeed?: string;
+    instructions?: string;
+    greeting?: string;
+    starterPrompts?: Array<string>;
+    tools?: Array<string>;
+    sourceIds?: Array<string>;
+    documentSetIds?: Array<string>;
+    mcpServerIds?: Array<string>;
+    modelConfigurationId?: string;
+    reasoningEffort?: string;
+    grounded?: boolean;
 };
 
 export type ChatBranch = {
@@ -6545,7 +6573,7 @@ export type SaveChatVoiceConnectionResponse = SaveChatVoiceConnectionResponses[k
 export type SetSystemOneTaskData = {
     body: SystemOneTaskRequest;
     path: {
-        flow: 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
+        flow: 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'AGENT_BUILDER' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     };
     query?: never;
     url: '/api/chat/system-one/tasks/{flow}';
@@ -8796,7 +8824,7 @@ export type UpdateChatModelResponse = UpdateChatModelResponses[keyof UpdateChatM
 export type SetChatModelFlowData = {
     body?: never;
     path: {
-        flow: 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
+        flow: 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'AGENT_BUILDER' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     };
     query: {
         modelConfigurationId?: string;
@@ -17110,7 +17138,7 @@ export type StreamChatMessageResponses = {
     /**
      * SSE frames; the schema describes each data payload
      */
-    200: TextEvent | OutcomeEvent | ResetEvent | ToolEvent | ReasoningEvent | ImageEvent | CodeEvent | ResearchPlanEvent | TopLevelBranchingEvent | ResearchAgentStartEvent | IntermediateReportEvent | IntermediateReportCitationsEvent | WaitingEvent | ToolApprovalEvent | McpUnavailableEvent;
+    200: TextEvent | OutcomeEvent | ResetEvent | ToolEvent | ReasoningEvent | ImageEvent | CodeEvent | ResearchPlanEvent | TopLevelBranchingEvent | ResearchAgentStartEvent | IntermediateReportEvent | IntermediateReportCitationsEvent | WaitingEvent | ToolApprovalEvent | McpUnavailableEvent | AssistantChangeEvent;
 };
 
 export type StreamChatMessageResponse = StreamChatMessageResponses[keyof StreamChatMessageResponses];
@@ -19807,7 +19835,7 @@ export type GetAiCostSummaryData = {
         from: string;
         to: string;
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'AGENT_BUILDER' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
     };
     url: '/api/ai-costs/summary';
 };
@@ -19992,7 +20020,7 @@ export type ListAiCostDaysData = {
         to: string;
         split?: 'BOUNDARY' | 'MODEL' | 'NONE';
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'AGENT_BUILDER' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
     };
     url: '/api/ai-costs/daily';
 };
@@ -20032,7 +20060,7 @@ export type ListAiCostBreakdownData = {
         by: 'ACTOR' | 'GROUP' | 'MODEL' | 'FLOW' | 'PROVIDER';
         limit?: number;
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'AGENT_BUILDER' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
     };
     url: '/api/ai-costs/breakdown';
 };

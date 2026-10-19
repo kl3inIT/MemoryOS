@@ -1,5 +1,7 @@
 package io.memoryos.chat;
 
+import io.memoryos.mcp.McpConnectionService;
+import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import com.embabel.chat.Message;
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.StatementCounter;
@@ -177,7 +179,8 @@ class ChatPersistenceIntegrationTest {
         personas = service(new ChatPersonaService(tenants, authorization, repository, jpa.repository(JpaPersonaRepository.class),
                 agentRows, new PersonaRevisions(jpa.entityManager()),
                 models, sources, documentSets, documentSetRows, fileService,
-                mock(UserFileContentService.class), languages), ChatPersonaService.class);
+                mock(UserFileContentService.class), languages,
+                new StaticListableBeanFactory().getBeanProvider(McpConnectionService.class)), ChatPersonaService.class);
         projects = service(new ChatProjectService(tenants, authorization, repository, jpa.repository(JpaProjectRepository.class), sessions, fileService), ChatProjectService.class);
         shortcuts = service(new ChatPromptShortcutService(tenants, authorization, repository,
                 new JdbcPromptShortcutRepository(jdbc)), ChatPromptShortcutService.class);

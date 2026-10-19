@@ -125,6 +125,23 @@ class ModelCatalogSelectionTest {
         verify(fixture.catalog).setFlowDefault(fixture.tenant, ModelFlow.CHAT_NAMING, null, ReasoningEffort.LOW, 1);
     }
 
+    /** MEM-280: the Agent Builder works through tools, so a model that cannot call them is refused for it. */
+    @Test void theAgentBuilderRefusesAModelThatCannotCallTools() {
+        var fixture = new Fixture();
+        fixture.manage();
+        var untooled = new ModelSettings(36096, 4096, new ModelSettings.Capabilities(true, false, true, true, false),
+                Map.of(), null, "openai-o200k-v1");
+        when(fixture.catalog.model(fixture.tenant, fixture.otherId)).thenReturn(Optional.of(new ModelConfiguration(
+                fixture.otherId, fixture.tenant, fixture.otherProvider.id(), "other", "Other", true, untooled, 1)));
+        var refused = assertThrows(AiException.class,
+                () -> fixture.service.setFlowDefault(fixture.actor, ModelFlow.AGENT_BUILDER, fixture.otherId, null, 1));
+        assertEquals("This task needs a model that calls tools.", refused.getMessage());
+        verify(fixture.catalog, never()).setFlowDefault(any(), any(), any(), any(), anyLong());
+        // Other tasks may still run on it.
+        fixture.service.setFlowDefault(fixture.actor, ModelFlow.CHAT_NAMING, fixture.otherId, null, 1);
+        verify(fixture.catalog).setFlowDefault(fixture.tenant, ModelFlow.CHAT_NAMING, fixture.otherId, null, 1);
+    }
+
     @Test void flowViewReportsASetModelThatIsNoLongerEligible() {
         var fixture = new Fixture();
         fixture.manage();

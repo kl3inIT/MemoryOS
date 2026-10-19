@@ -23,6 +23,7 @@ import io.memoryos.chat.ChatMemoryService;
 import io.memoryos.chat.interpreter.InterpreterService;
 import io.memoryos.chat.research.ResearchProperties;
 import io.memoryos.chat.research.ResearchTelemetry;
+import io.memoryos.chat.tools.AgentBuilderTools;
 import io.memoryos.chat.tools.FileReaderTool;
 import io.memoryos.chat.tools.McpTools;
 import io.memoryos.chat.tools.RunPythonTool;
@@ -319,6 +320,10 @@ public final class ChatModelExecutor {
             }
             // Each withTools returns a new runner, so an unchanged runner registered no tool.
             var untooled = runner;
+            // MEM-280: an Agent Builder turn has no documents, files, Web, images, Sandbox, memory or MCP, only its tools.
+            var builder = setup.builder();
+            if (selected.toolCalling() && builder != null)
+                runner = runner.withTools(Tool.fromInstance(new AgentBuilderTools(builder, guard::checkActive, activity)));
             if (selected.toolCalling() && setup.webSearch() != WebSearchMode.off && !nativeWeb) {
                 if (web == null) throw TurnFailure.MODEL_UNAVAILABLE.exception();
                 var webTools = new WebTools(web, setup.webAccess(), setup.evidence(), fileActive,

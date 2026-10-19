@@ -2323,6 +2323,10 @@ Object.assign(englishUi, {
   "Summarizes the earlier turns of a long conversation so the chat model still knows them.":
     "Tóm tắt phần đầu của hội thoại dài để model chat vẫn nhớ những gì đã trao đổi.",
   "Long conversation summary model": "Model tóm tắt hội thoại dài",
+  "Agent Builder": "Agent Builder",
+  "Changes an assistant's settings when its editor asks. Needs a model that calls tools.":
+    "Sửa cấu hình trợ lý theo yêu cầu của người đang sửa. Cần model gọi được công cụ.",
+  "Agent Builder model": "Model của Agent Builder",
   "No model chosen; {{model}} is used.": "Chưa chọn mô hình; đang dùng {{model}}.",
   "Meeting minutes": "Biên bản họp",
   "Writes the summary, decisions and action items of a recorded meeting.":

@@ -266,6 +266,9 @@ public class ModelCatalogService {
         UUID tenant = admin(actor, true);
         if (id != null && flowSelection(tenant, id) == null)
             throw AiException.invalid("A task model must be visible and available to the Tenant without Group or Persona restrictions.");
+        // MEM-280: a task that works through tools cannot run on a model that does not call them.
+        if (id != null && flow.callsTools() && !catalog.model(tenant, id).orElseThrow().settings().capabilities().toolCalling())
+            throw AiException.invalid("This task needs a model that calls tools.");
         var before = catalog.flowDefault(tenant, flow);
         catalog.setFlowDefault(tenant, flow, id, effort, revision);
         var after = catalog.flowDefault(tenant, flow);

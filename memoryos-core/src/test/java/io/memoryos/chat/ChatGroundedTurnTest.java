@@ -379,6 +379,36 @@ class ChatGroundedTurnTest {
         }
     }
 
+    /** MEM-280: an Agent Builder turn drops the grounded-answer policy but keeps the Tenant's guardrails. */
+    @Test
+    void anAgentBuilderMessageThatTripsAGuardrailIsBlockedLikeAnyTurn() {
+        prepare(true, TOPICS, ChatGuardrailCheck.Kind.BLOCKED);
+        var personas = mock(ChatPersonaService.class);
+        UUID assistant = UUID.randomUUID();
+        when(persistence.testedAssistant(any(), any())).thenReturn(assistant);
+        when(persistence.agent(any(), any(), (JdbcChatRepository.DraftAgent) any())).thenReturn(new ChatTurnPersistence.SessionAgent(
+                new JdbcChatRepository.Persona("", ChatTurnOptions.DEFAULT, "0", null, List.of(), Set.of("search"), List.of()),
+                false, false, false));
+        when(personas.builderChoices(any(), eq(assistant)))
+                .thenReturn(new ChatPersonaService.BuilderChoices(List.of(), List.of(), List.of(), List.of()));
+        when(models.resolveFlow(any(), any(), eq(ModelFlow.AGENT_BUILDER)))
+                .thenAnswer(call -> new ModelResolver.Resolved(UUID.randomUUID(), null, lease));
+        var draft = new ChatPersonaService.PersonaInput("Trợ lý", null, "", "", null, List.of(), List.of(), null, Set.of("search"),
+                null, null, null, null, null, null, null, null, null);
+        var queued = new AtomicReference<Runnable>();
+        try (var service = new ChatTurnService(persistence, model, limits, queued::set, streams, models, null, null, settings,
+                null, null, null, guardrails, new ChatTurnMetrics(meters), null, personas)) {
+            service.command(actor, session, ChatCommand.builder(ChatCommand.Operation.SEND, parent, UUID.randomUUID(),
+                    "Vợ bác Hồ là ai?").build(), draft, true);
+            queued.get().run();
+            verify(models, never()).resolve(any(), any(), any(), any());
+            verify(guardrails).check(any(), any(), eq("Vợ bác Hồ là ai?"), any(), argThat(policy -> !policy.groundedAnswers()
+                    && policy.guardrails().equals(TOPICS.guardrails())), any());
+            verify(model, never()).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
+            verifyStored("Trợ lý không trả lời câu hỏi về lãnh tụ.", ChatMessage.BLOCKED_TOPIC);
+        }
+    }
+
     @Test
     void aBlockedQuestionIsAnsweredWithTheTenantMessageWithoutTheAnswerModel() {
         prepare(true, GROUNDED, ChatGuardrailCheck.Kind.BLOCKED);

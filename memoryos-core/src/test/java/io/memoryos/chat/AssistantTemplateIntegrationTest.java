@@ -1,5 +1,7 @@
 package io.memoryos.chat;
 
+import io.memoryos.mcp.McpConnectionService;
+import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -115,7 +117,8 @@ class AssistantTemplateIntegrationTest {
         var revisions = new PersonaRevisions(jpa.entityManager());
         personas = service(new ChatPersonaService(tenants, authorization, repository,
                 jpa.repository(JpaPersonaRepository.class), agents, revisions, models, sources, documentSets,
-                documentSetRows, files, mock(UserFileContentService.class), languages));
+                documentSetRows, files, mock(UserFileContentService.class), languages,
+                new StaticListableBeanFactory().getBeanProvider(McpConnectionService.class)));
         provisioner = new AssistantTemplateProvisioner(jpa.repository(JpaPersonaRepository.class), agents, revisions);
 
         tenant = UUID.randomUUID();
