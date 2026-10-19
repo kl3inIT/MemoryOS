@@ -55,7 +55,7 @@ public class IamAuthorizationRepository {
              AND capability.group_id = authority_group.id
              AND (
                     (authority_group.system_key = 'ADMIN' AND capability.capability = 'SYSTEM_ADMIN')
-                    OR (authority_group.system_key = 'BASIC' AND capability.capability = 'SYSTEM_BASIC')
+                    OR (authority_group.system_key = 'BASIC' AND capability.capability IN ('SYSTEM_BASIC', 'AGENTS_CREATE'))
                     OR (
                         authority_group.system_key IS NULL
                         AND capability.capability IN (

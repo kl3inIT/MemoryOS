@@ -54,3 +54,12 @@ Vietnamese, without `AGENTS_CREATE`). Every answer used the Tenant's default mod
   once a title existed.
 - **Members cannot make a copy.** On staging, members lack `AGENTS_CREATE`, so they have no *Tạo bản riêng*. This
   matches the design: copying creates an assistant.
+
+## Follow-ups
+
+The owner decided on 2026-10-19 to act on two of the observations above in one pull request:
+
+- Every member creates assistants by default: the Basic Group holds `AGENTS_CREATE` as an optional grant that a full
+  administrator may switch off, and V189 gave it to every existing Basic Group ([identity spec](../../../specs/identity.md)).
+- A new topic with an assistant the reader cannot use says *Trợ lý không còn dùng được.* and links back to the
+  assistants, with the home sidebar ([chat spec](../../../specs/chat.md)).

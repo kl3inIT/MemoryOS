@@ -258,7 +258,7 @@ class DefaultInvitationServiceTest {
         assertEquals(
                 Set.of(IamCapability.SYSTEM_BASIC, IamCapability.SEARCH_READ,
                         IamCapability.CHAT_READ, IamCapability.CHAT_WRITE,
-                        IamCapability.IMAGE_GENERATE, IamCapability.LLM_GATEWAY_USE),
+                        IamCapability.IMAGE_GENERATE, IamCapability.LLM_GATEWAY_USE, IamCapability.AGENTS_CREATE),
                 authorization.effectiveCapabilities(member)
         );
         assertEquals(Set.of(), authorization.scopedCapabilities(member));

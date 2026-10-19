@@ -7,6 +7,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.iam.IamCapability;
 
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -99,7 +100,7 @@ class GroupSchemaIntegrityTest {
                 boolean allowed = groupId.equals(GroupEntity.ADMIN_ID)
                         ? capability == IamCapability.SYSTEM_ADMIN
                         : groupId.equals(GroupEntity.BASIC_ID)
-                                ? capability == IamCapability.SYSTEM_BASIC
+                                ? capability == IamCapability.SYSTEM_BASIC || capability == IamCapability.AGENTS_CREATE
                                 : Set.of(IamCapability.USERS_MANAGE, IamCapability.GROUPS_MANAGE,
                                         IamCapability.SOURCES_MANAGE, IamCapability.MODELS_MANAGE,
                                         IamCapability.MCP_MANAGE, IamCapability.CHANNELS_MANAGE,
@@ -135,12 +136,13 @@ class GroupSchemaIntegrityTest {
                     .param("capability", derived.name()).param("tenantId", TENANT_TWO)
                     .param("basicId", GroupEntity.BASIC_ID).update());
         }
-        assertEquals("SYSTEM_BASIC", jdbc.sql("""
+        assertEquals(List.of("AGENTS_CREATE", "SYSTEM_BASIC"), jdbc.sql("""
                         SELECT capability FROM iam_group_capability_grants
                         WHERE tenant_id = :tenantId AND group_id = :basicId
+                        ORDER BY capability
                         """)
                 .param("tenantId", TENANT_TWO).param("basicId", GroupEntity.BASIC_ID)
-                .query(String.class).single());
+                .query(String.class).list());
         for (IamCapability derived : Set.of(
                 IamCapability.GROUPS_READ, IamCapability.SOURCES_READ, IamCapability.SOURCES_DELETE)) {
             assertThrows(DataIntegrityViolationException.class, () -> jdbc.sql("""

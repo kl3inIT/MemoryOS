@@ -91,7 +91,7 @@ public class GroupProjectionRepository {
                       AND grant_record.group_id = group_record.id
                       AND (
                             (group_record.system_key = 'ADMIN' AND grant_record.capability = 'SYSTEM_ADMIN')
-                            OR (group_record.system_key = 'BASIC' AND grant_record.capability = 'SYSTEM_BASIC')
+                            OR (group_record.system_key = 'BASIC' AND grant_record.capability IN ('SYSTEM_BASIC', 'AGENTS_CREATE'))
                             OR (
                                 group_record.system_key IS NULL
                                 AND grant_record.capability IN (
@@ -148,7 +148,7 @@ public class GroupProjectionRepository {
                       AND grant_record.group_id = group_record.id
                       AND (
                             (group_record.system_key = 'ADMIN' AND grant_record.capability = 'SYSTEM_ADMIN')
-                            OR (group_record.system_key = 'BASIC' AND grant_record.capability = 'SYSTEM_BASIC')
+                            OR (group_record.system_key = 'BASIC' AND grant_record.capability IN ('SYSTEM_BASIC', 'AGENTS_CREATE'))
                             OR (
                                 group_record.system_key IS NULL
                                 AND grant_record.capability IN (

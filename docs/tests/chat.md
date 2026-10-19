@@ -520,6 +520,7 @@ Receipts: [MEM-112 verification](../increments/completed/mem-112-chat-mcp-client
 | `run_python` needs an agent that allows the code interpreter | `ChatModelExecutorToolPolicyTest` |
 | Private shortcuts unique per owner, free-text names with spaces and diacritics, control characters rejected, public shortcuts managed and hideable | `ChatPersistenceIntegrationTest.promptShortcutsArePrivateUniqueAndPublicOnesAreManagedAndHideable` |
 | Agent capabilities, registry and schema | `IamCapabilityTest`, `DefaultGroupServiceAuthorizationTest`, `GroupSchemaIntegrityTest` |
+| A new topic with an assistant the caller cannot use says so, keeps the home sidebar and links to `/agents` | `chat-assistants.spec.ts` ("a new topic with an assistant the person cannot use says so and leads back") |
 | Gallery tabs, search, label facet chips, creator filter, featured badge, disabled create for members, desktop and mobile | `agents.spec.ts` (Playwright, mocked routes) |
 | Editor page: create from the short dialog, a face picked in the avatar studio, title, greeting, at most four starter fields (*Thêm câu gợi ý* hidden at four), the document picker and tools; edit saves only changes and guards leaving | `agents.spec.ts` |
 | An agent takes at most four starters; a fifth is `CHAT_INVALID_REQUEST` | `ChatPersistenceIntegrationTest.anAgentTakesAtMostFourStarters` |

@@ -1399,7 +1399,8 @@ class SessionSecurityIntegrationTest {
         var actual = new HashSet<String>();
         identity.path("capabilities").forEach(capability -> actual.add(capability.asText()));
         assertEquals(Set.of(
-                "SYSTEM_BASIC", "SEARCH_READ", "CHAT_READ", "CHAT_WRITE", "IMAGE_GENERATE", "LLM_GATEWAY_USE"
+                "SYSTEM_BASIC", "SEARCH_READ", "CHAT_READ", "CHAT_WRITE", "IMAGE_GENERATE", "LLM_GATEWAY_USE",
+                "AGENTS_CREATE"
         ), actual);
     }
 

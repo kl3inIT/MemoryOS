@@ -18,6 +18,7 @@ import io.memoryos.iam.group.persistence.GroupEntity;
 import io.memoryos.iam.group.persistence.GroupMembershipRepository;
 import io.memoryos.iam.group.persistence.GroupRepository;
 
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -93,7 +94,7 @@ class PostgresGroupProvisionerTest {
         transactions.executeWithoutResult(_ -> provisioner.addToBasicGroup(TENANT, INACTIVE_MEMBER));
 
         assertEquals(2L, count("iam_groups"));
-        assertEquals(2L, count("iam_group_capability_grants"));
+        assertEquals(3L, count("iam_group_capability_grants"));
         assertEquals(1L, jdbc.sql("""
                         SELECT COUNT(*)
                         FROM iam_group_capability_grants grant_record
@@ -107,7 +108,7 @@ class PostgresGroupProvisionerTest {
                 .param("tenantId", TENANT.value())
                 .query(Long.class)
                 .single());
-        assertEquals("SYSTEM_BASIC", jdbc.sql("""
+        assertEquals(List.of("AGENTS_CREATE", "SYSTEM_BASIC"), jdbc.sql("""
                         SELECT grant_record.capability
                         FROM iam_group_capability_grants grant_record
                         JOIN iam_groups group_record
@@ -115,10 +116,11 @@ class PostgresGroupProvisionerTest {
                          AND group_record.id = grant_record.group_id
                         WHERE group_record.tenant_id = :tenantId
                           AND group_record.system_key = 'BASIC'
+                        ORDER BY grant_record.capability
                         """)
                 .param("tenantId", TENANT.value())
                 .query(String.class)
-                .single());
+                .list());
         assertEquals(2L, membershipCount(OWNER));
         assertEquals(1L, membershipCount(INACTIVE_MEMBER));
         assertEquals(0L, adminMembershipCount());
@@ -148,6 +150,22 @@ class PostgresGroupProvisionerTest {
     }
 
     @Test
+    void aRerunKeepsTheAdministratorsChoiceOfBasicsOptionalGrants() {
+        transactions.executeWithoutResult(_ -> provisioner.bootstrap(TENANT, OWNER));
+        var groupRepository = new GroupRepository(jpa.entityManager());
+        var grantRepository = new GroupCapabilityGrantRepository(jpa.entityManager());
+        transactions.executeWithoutResult(_ -> grantRepository.replace(
+                groupRepository.findSystem(TENANT, GroupSystemKey.BASIC).orElseThrow(),
+                Set.of(IamCapability.SYSTEM_BASIC)));
+
+        transactions.executeWithoutResult(_ -> provisioner.bootstrap(TENANT, OWNER));
+
+        transactions.executeWithoutResult(_ -> assertEquals(Set.of(IamCapability.SYSTEM_BASIC),
+                grantRepository.findCapabilities(groupRepository.findSystem(TENANT, GroupSystemKey.BASIC)
+                        .orElseThrow())));
+    }
+
+    @Test
     void repositoryRejectsProtectedGrantReplacementWithoutRemovingExistingAuthority() {
         transactions.executeWithoutResult(_ -> provisioner.bootstrap(TENANT, OWNER));
         var groupRepository = new GroupRepository(jpa.entityManager());
@@ -171,6 +189,7 @@ class PostgresGroupProvisionerTest {
                 Set.of(IamCapability.SOURCES_READ),
                 Set.of(IamCapability.SOURCES_DELETE),
                 Set.of(IamCapability.SYSTEM_BASIC, IamCapability.USERS_MANAGE),
+                Set.of(IamCapability.AGENTS_CREATE),
                 Set.of(IamCapability.SYSTEM_ADMIN)
         )) {
             var failure = assertThrows(IamException.class, () -> transactions.executeWithoutResult(_ ->
@@ -190,7 +209,7 @@ class PostgresGroupProvisionerTest {
             assertEquals(IamFailureReason.GROUP_PROTECTED.code(), failure.code());
         }
         transactions.executeWithoutResult(_ -> {
-            assertEquals(Set.of(IamCapability.SYSTEM_BASIC),
+            assertEquals(Set.of(IamCapability.SYSTEM_BASIC, IamCapability.AGENTS_CREATE),
                     grantRepository.findCapabilities(groupRepository.findSystem(TENANT, GroupSystemKey.BASIC)
                             .orElseThrow()));
             assertEquals(Set.of(IamCapability.USERS_MANAGE),

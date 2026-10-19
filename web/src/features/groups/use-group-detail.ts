@@ -33,7 +33,8 @@ export function useGroupDetail(group: GroupSummary, onAuthorityChanged: () => Pr
   const [error, setError] = useState<AppCopy | null>(null);
   const systemGroup = group.systemKey === "ADMIN" || group.systemKey === "BASIC";
   const canRename = !systemGroup && can(group, "manage");
-  const canManageGrants = !systemGroup && can(group, "editPermissions");
+  // Basic's optional grants are the one choice a system group offers; the server says when it is yours.
+  const canManageGrants = group.systemKey !== "ADMIN" && can(group, "editPermissions");
   const canDelete = !systemGroup && can(group, "delete");
   const name = canRename ? (nameDraft ?? group.name) : group.name;
   const selectedCapabilities = useMemo(

@@ -180,6 +180,48 @@ describe("GroupPermissionsSection", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it("lets an administrator switch only Create agents on the Basic group", async () => {
+    const user = userEvent.setup();
+    const createAgents: GroupCapability = {
+      id: "AGENTS_CREATE",
+      label: "Create agents",
+      description: "Create and edit their own agents.",
+      editable: true,
+      implies: [],
+    };
+    const { onChange } = renderPermissions({
+      selected: ["SYSTEM_BASIC", "AGENTS_CREATE"],
+      systemKey: "BASIC",
+      capabilities: [...registry, createAgents],
+    });
+    expect(screen.getAllByRole("switch")).toHaveLength(2);
+    expect(screen.getByRole("switch", { name: "Basic access" })).toBeDisabled();
+    const create = screen.getByRole("switch", { name: "Create agents" });
+    expect(create).toBeChecked();
+    await user.click(create);
+    expect(onChange).toHaveBeenLastCalledWith(new Set(["SYSTEM_BASIC"]));
+    expect(screen.queryByRole("switch", { name: "Manage Sources" })).not.toBeInTheDocument();
+  });
+
+  it("keeps Create agents read-only on the Basic group without permission to edit", () => {
+    renderPermissions({
+      selected: ["SYSTEM_BASIC", "AGENTS_CREATE"],
+      systemKey: "BASIC",
+      editable: false,
+      capabilities: [
+        ...registry,
+        {
+          id: "AGENTS_CREATE",
+          label: "Create agents",
+          description: "",
+          editable: true,
+          implies: [],
+        },
+      ],
+    });
+    expect(screen.getByRole("switch", { name: "Create agents" })).toBeDisabled();
+  });
+
   it("does not invent ON grants from the system group identity", () => {
     renderPermissions({ selected: [], systemKey: "ADMIN" });
     for (const control of screen.getAllByRole("switch")) {

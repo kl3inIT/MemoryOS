@@ -132,6 +132,21 @@ test("keeps a gone assistant's pin and opens its topic without a composer", asyn
   await expect(page.getByRole("textbox", { name: "Câu hỏi", exact: true })).toHaveCount(0);
 });
 
+test("a new topic with an assistant the person cannot use says so and leads back", async ({
+  page,
+}) => {
+  // A hidden template, a deleted assistant or one no longer shared: neither list knows it.
+  await page.goto("/assistants/00000000-0000-4000-8000-0000000000aa/new");
+  const main = page.getByRole("main");
+  await expect(main.getByText("Trợ lý không còn dùng được.")).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Câu hỏi", exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole("complementary").locator("section[aria-labelledby=sidebar-assistants]"),
+  ).toBeVisible();
+  await main.getByRole("link", { name: "Về danh sách trợ lý" }).click();
+  await expect(page).toHaveURL(/\/agents$/);
+});
+
 test("filters the history by assistant", async ({ page }) => {
   const topic = await (
     await page.request.post("/api/chat/test-fixture", { data: { title: "Lợi nhuận gộp quý 3" } })

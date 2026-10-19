@@ -2,7 +2,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useAttachOnOpen } from "@/features/chat/composer/use-attach-on-open";
 import { useAuiState } from "@assistant-ui/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useParams } from "@tanstack/react-router";
+import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useSyncExternalStore, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { AppShellHeader } from "@/components/app-shell/app-shell-header";
@@ -151,6 +151,18 @@ function ChatConversation({
     return (
       <ChatPageState title={ui("Chat")} failed>
         <p>{ui("Hội thoại không còn khả dụng.")}</p>
+      </ChatPageState>
+    );
+  // A new topic with an assistant the person can no longer use: hidden, deleted or no longer shared.
+  if (personaId && !session && conversation.personaGone)
+    return (
+      <ChatPageState title={ui("Trợ lý")} failed>
+        <p>{ui("Trợ lý không còn dùng được.")}</p>
+        <div>
+          <Button asChild prominence="secondary">
+            <Link to="/agents">{ui("Về danh sách trợ lý")}</Link>
+          </Button>
+        </div>
       </ChatPageState>
     );
   if (state.historyFailed && !session)

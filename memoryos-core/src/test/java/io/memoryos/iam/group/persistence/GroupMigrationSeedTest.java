@@ -682,6 +682,53 @@ class GroupMigrationSeedTest {
         }
     }
 
+    @Test
+    void everyExistingBasicGroupCreatesAgentsAndOnlyBasicMayHoldItBesideBasicAccess() throws Exception {
+        dataSource = TestDatabase.freshPostgres("14");
+        JdbcClient jdbc = JdbcClient.create(dataSource);
+        jdbc.sql("""
+                        INSERT INTO tenants (
+                            id, slug, display_name, status, bootstrap_reference, deployment_slot
+                        ) VALUES (:id, 'basic-agents-test', 'Basic agents test', 'ACTIVE', 'test', 1)
+                        """)
+                .param("id", TENANT)
+                .update();
+        persistMember(jdbc, OWNER, "OWNER", "ACTIVE");
+        Flyway.configure().dataSource(dataSource)
+                .locations("classpath:db/migration").target("188").load().migrate();
+        jdbc.sql("UPDATE tenants SET authorization_version = 3 WHERE id = :tenantId")
+                .param("tenantId", TENANT).update();
+
+        Flyway.configure().dataSource(dataSource)
+                .locations("classpath:db/migration").target("189").load().migrate();
+
+        assertEquals(4L, jdbc.sql("SELECT authorization_version FROM tenants WHERE id = :tenantId")
+                .param("tenantId", TENANT).query(Long.class).single());
+        assertEquals(List.of("ADMIN:SYSTEM_ADMIN", "BASIC:AGENTS_CREATE", "BASIC:SYSTEM_BASIC"), jdbc.sql("""
+                        SELECT group_record.system_key || ':' || grant_record.capability
+                        FROM iam_group_capability_grants grant_record
+                        JOIN iam_groups group_record
+                          ON group_record.tenant_id = grant_record.tenant_id
+                         AND group_record.id = grant_record.group_id
+                        WHERE group_record.tenant_id = :tenantId
+                        ORDER BY 1
+                        """)
+                .param("tenantId", TENANT).query(String.class).list());
+        for (String refused : List.of("AGENTS_MANAGE", "USERS_MANAGE")) {
+            assertThrows(DataIntegrityViolationException.class, () -> jdbc.sql("""
+                            INSERT INTO iam_group_capability_grants (tenant_id, group_id, capability)
+                            VALUES (:tenantId, :groupId, :capability)
+                            """)
+                    .param("tenantId", TENANT).param("groupId", GroupEntity.BASIC_ID)
+                    .param("capability", refused).update());
+        }
+        assertThrows(DataIntegrityViolationException.class, () -> jdbc.sql("""
+                        INSERT INTO iam_group_capability_grants (tenant_id, group_id, capability)
+                        VALUES (:tenantId, :groupId, 'AGENTS_CREATE')
+                        """)
+                .param("tenantId", TENANT).param("groupId", GroupEntity.ADMIN_ID).update());
+    }
+
     private static List<String> tableRows(JdbcClient jdbc, String table) {
         return jdbc.sql("SELECT row_to_json(record)::text FROM " + table + " record ORDER BY 1")
                 .query(String.class).list();

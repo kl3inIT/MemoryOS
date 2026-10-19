@@ -448,15 +448,22 @@ public class DefaultGroupService implements GroupService {
     ) {
         ActorId requiredActorId = requireActor(actorId);
         GroupId requiredGroupId = requireGroup(groupId);
-        Set<IamCapability> requiredCapabilities = requireCapabilities(capabilities);
-        if (!requiredCapabilities.stream().allMatch(IamCapability::isOrdinaryGrant)) {
+        Set<IamCapability> requested = requireCapabilities(capabilities);
+        if (!requested.stream().allMatch(capability ->
+                capability.isOrdinaryGrant() || capability == IamCapability.SYSTEM_BASIC)) {
             throw new IamException(
                     IamFailureReason.GROUP_PROTECTED,
                     "Only ordinary administrative capabilities can be granted directly"
             );
         }
         IamAccess access = authorization.lockAndRequireAdministration(requiredActorId);
-        GroupEntity group = ordinaryGroup(access.tenantId(), requiredGroupId);
+        // Basic's optional grants are the one choice a system Group offers (MEM-281); the Admin Group stays fixed.
+        GroupEntity group = groups.find(access.tenantId(), requiredGroupId)
+                .filter(found -> found.getSystemKey() == GroupSystemKey.BASIC)
+                .orElseGet(() -> ordinaryGroup(access.tenantId(), requiredGroupId));
+        Set<IamCapability> requiredCapabilities = group.getSystemKey() == GroupSystemKey.BASIC
+                ? basicCapabilities(requested)
+                : ordinaryCapabilities(requested);
         Set<IamCapability> before = Set.copyOf(grants.findCapabilities(group));
         grants.replace(group, requiredCapabilities);
         groups.flush();
@@ -662,6 +669,30 @@ public class DefaultGroupService implements GroupService {
         }
     }
 
+    private static Set<IamCapability> ordinaryCapabilities(Set<IamCapability> requested) {
+        if (!requested.stream().allMatch(IamCapability::isOrdinaryGrant)) {
+            throw new IamException(
+                    IamFailureReason.GROUP_PROTECTED,
+                    "Only ordinary administrative capabilities can be granted directly"
+            );
+        }
+        return requested;
+    }
+
+    /** Basic keeps SYSTEM_BASIC; only its optional grants are a choice, so a request may name SYSTEM_BASIC or omit it. */
+    private static Set<IamCapability> basicCapabilities(Set<IamCapability> requested) {
+        if (!requested.stream().allMatch(capability ->
+                capability == IamCapability.SYSTEM_BASIC || capability.isBasicOptionalGrant())) {
+            throw new IamException(
+                    IamFailureReason.GROUP_PROTECTED,
+                    "The Basic Group holds Basic access and only its optional grants"
+            );
+        }
+        EnumSet<IamCapability> result = EnumSet.of(IamCapability.SYSTEM_BASIC);
+        result.addAll(requested);
+        return Set.copyOf(result);
+    }
+
     private GroupEntity ordinaryGroup(TenantId tenantId, GroupId groupId) {
         GroupEntity group = groups.find(tenantId, groupId)
                 .orElseThrow(() -> groupNotFound(groupId));
@@ -691,7 +722,7 @@ public class DefaultGroupService implements GroupService {
                 group.memberCount(),
                 group.managerCount(),
                 group.capabilities(),
-                GroupPermissions.of(effectiveCapabilities, group.systemKey() != null, group.managedByActor())
+                GroupPermissions.of(effectiveCapabilities, group.systemKey(), group.managedByActor())
         );
     }
 
