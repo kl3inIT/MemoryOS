@@ -48,7 +48,7 @@ func (l *lines) replies(t *testing.T, want int) []reply {
 func TestACommandThatCannotBeReadOrIsUnknownIsRefusedByCode(t *testing.T) {
 	sink := &lines{}
 	out := newOutput(sink)
-	held := newBots(nil, out, newLogger(&bytes.Buffer{}, "ERROR"))
+	held := newBots(nil, sessions{}, out, newLogger(&bytes.Buffer{}, "ERROR"))
 	serve(strings.NewReader("not json\n{\"id\":7,\"op\":\"teleport\"}\n{\"id\":8,\"op\":\"send\",\"bot\":\"b\"}\n"), out, held)
 	got := sink.replies(t, 3)
 	codes := map[int64]string{}
@@ -66,7 +66,7 @@ func TestACommandThatCannotBeReadOrIsUnknownIsRefusedByCode(t *testing.T) {
 func TestServingEndsAtShutdownWithoutReadingFurther(t *testing.T) {
 	sink := &lines{}
 	out := newOutput(sink)
-	held := newBots(nil, out, newLogger(&bytes.Buffer{}, "ERROR"))
+	held := newBots(nil, sessions{}, out, newLogger(&bytes.Buffer{}, "ERROR"))
 	serve(strings.NewReader("{\"op\":\"shutdown\"}\n{\"id\":9,\"op\":\"teleport\"}\n"), out, held)
 	time.Sleep(50 * time.Millisecond)
 	if got := sink.replies(t, 0); len(got) != 0 {
@@ -76,7 +76,7 @@ func TestServingEndsAtShutdownWithoutReadingFurther(t *testing.T) {
 
 func TestAnAckReleasesTheMessageItSettles(t *testing.T) {
 	sink := &lines{}
-	held := newBots(nil, newOutput(sink), newLogger(&bytes.Buffer{}, "ERROR"))
+	held := newBots(nil, sessions{}, newOutput(sink), newLogger(&bytes.Buffer{}, "ERROR"))
 	done := make(chan struct{})
 	go func() {
 		held.await(41, "bot", inbound{ID: "M1", Type: "TEXT"})

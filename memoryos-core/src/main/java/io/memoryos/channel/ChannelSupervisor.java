@@ -76,7 +76,7 @@ public class ChannelSupervisor implements SmartLifecycle {
      */
     private static final Set<String> AWAIT_CHANGE = Set.of("CHANNEL_WEBHOOK_UNREACHABLE", "CHANNEL_WEB_URL_MISSING",
             "CHANNEL_WHATSAPP_LOGGED_OUT", "CHANNEL_WHATSAPP_BANNED", "CHANNEL_WHATSAPP_REPLACED",
-            "CHANNEL_WHATSAPP_WRONG_NUMBER");
+            "CHANNEL_WHATSAPP_WRONG_NUMBER", "CHANNEL_WHATSAPP_NUMBER_IN_USE");
 
     /** The bots this process holds, read by the renewal without the pass's lock. */
     private final Map<UUID, Held> held = new ConcurrentHashMap<>();

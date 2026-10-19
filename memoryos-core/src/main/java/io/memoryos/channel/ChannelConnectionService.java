@@ -138,10 +138,11 @@ public class ChannelConnectionService {
         var adapter = adapters.of(draft.provider());
         var asked = given(draft.credentials(), adapter.features().pairs());
         var given = new ChannelCredentials(asked.appId(), asked.secret(), adapter.settings(asked.settings()));
+        boolean pairs = adapter.features().pairs();
         transactions.executeWithoutResult(_ -> {
-            writer(actor);
+            var tenant = writer(actor);
             credentials.cipher(draft.provider());
-            if (given.appId() != null && connections.appInUse(draft.provider(), given.appId())) {
+            if (given.appId() != null && inUse(tenant, draft.provider(), given.appId(), pairs)) {
                 throw ChannelException.appInUse();
             }
         });
@@ -149,10 +150,10 @@ public class ChannelConnectionService {
         String appId = verification.appId();
         return Objects.requireNonNull(transactions.execute(_ -> {
             var tenant = writer(actor);
-            if (connections.appInUse(draft.provider(), appId)) throw ChannelException.appInUse();
+            if (inUse(tenant, draft.provider(), appId, pairs)) throw ChannelException.appInUse();
             UUID id = UUID.randomUUID();
             // A bot linked by a code keeps no secret; its session is the provider bridge's (MEM-283).
-            var envelope = adapter.features().pairs() ? null : credentials.cipher(draft.provider()).encrypt(tenant, id,
+            var envelope = pairs ? null : credentials.cipher(draft.provider()).encrypt(tenant, id,
                     SECRET_PURPOSE, given.secret().getBytes(StandardCharsets.UTF_8));
             ActorId account = accounts.create(tenant, id, name, language);
             connections.insert(tenant, id, draft.provider(), name, appId, given.settings(), envelope, language, account);
@@ -213,6 +214,15 @@ public class ChannelConnectionService {
         var tenant = reader(actor);
         connections.find(tenant, id).orElseThrow(ChannelException::notFound);
         return leases.pairing(tenant, id, Instant.now());
+    }
+
+    /**
+     * Whether the app already serves a bot: of any Tenant, as the platform vouches for it; of this Tenant for a bot linked
+     * by a code, whose number nothing vouches for until it is linked, so that no Tenant holds another's number by adding
+     * it first (MEM-283). Linking lets a number serve one bot.
+     */
+    private boolean inUse(TenantId tenant, ChannelProvider provider, String appId, boolean pairs) {
+        return pairs ? connections.appInUse(tenant, provider, appId) : connections.appInUse(provider, appId);
     }
 
     /** At most a few checks at once, so a burst of them cannot hold the platform's connections. */

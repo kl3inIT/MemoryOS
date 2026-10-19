@@ -35,6 +35,7 @@ const (
 // Every WhatsApp bot of the process, one whatsmeow client each.
 type bots struct {
 	container *sqlstore.Container
+	sessions  sessions
 	out       *output
 	log       waLog.Logger
 	seq       atomic.Int64
@@ -54,8 +55,9 @@ type bot struct {
 	cancel context.CancelFunc
 }
 
-func newBots(container *sqlstore.Container, out *output, log waLog.Logger) *bots {
-	return &bots{container: container, out: out, log: log, held: map[string]*bot{}, acks: map[int64]chan struct{}{}}
+func newBots(container *sqlstore.Container, sessions sessions, out *output, log waLog.Logger) *bots {
+	return &bots{container: container, sessions: sessions, out: out, log: log, held: map[string]*bot{},
+		acks: map[int64]chan struct{}{}}
 }
 
 func (b *bots) emit(e event) int64 {
@@ -64,13 +66,13 @@ func (b *bots) emit(e event) int64 {
 	return e.Seq
 }
 
-// Opens a bot: connects its session, or starts pairing when its number has none.
+// Opens a bot: connects the session it linked, or starts pairing when it has none.
 func (b *bots) open(ctx context.Context, id, phone string) (map[string]any, error) {
 	if id == "" || !validPhone(phone) {
 		return nil, errInvalid
 	}
 	b.close(id)
-	device, err := b.device(ctx, phone)
+	device, err := b.device(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -103,19 +105,34 @@ func (b *bots) open(ctx context.Context, id, phone string) (map[string]any, erro
 	return map[string]any{"pairing": pairing}, nil
 }
 
-// The session of a number, or a new device for it.
-func (b *bots) device(ctx context.Context, phone string) (*store.Device, error) {
-	devices, err := b.container.GetAllDevices(ctx)
+// The session the bot linked, or a new device to pair. A session is never found by its number: a bot added later for
+// the same number, in this Tenant or another, links afresh.
+func (b *bots) device(ctx context.Context, id string) (*store.Device, error) {
+	linked, err := b.sessions.device(ctx, id)
 	if err != nil {
-		b.log.Warnf("the sessions could not be read: %v", err)
+		b.log.Warnf("bot %s: its session could not be read: %v", id, err)
 		return nil, errUnavailable
 	}
-	for _, device := range devices {
-		if device.ID != nil && device.ID.User == phone {
-			return device, nil
-		}
+	if linked == "" {
+		return b.container.NewDevice(), nil
 	}
-	return b.container.NewDevice(), nil
+	jid, err := types.ParseJID(linked)
+	if err != nil {
+		return nil, errUnavailable
+	}
+	device, err := b.container.GetDevice(ctx, jid)
+	if err != nil {
+		b.log.Warnf("bot %s: its session could not be read: %v", id, err)
+		return nil, errUnavailable
+	}
+	if device == nil {
+		// WhatsApp logged the device out and whatsmeow deleted it: the bot pairs again.
+		if err := b.sessions.unlink(ctx, id); err != nil {
+			return nil, errUnavailable
+		}
+		return b.container.NewDevice(), nil
+	}
+	return device, nil
 }
 
 // Hands each QR code to the JVM until the phone scans one or WhatsApp ends the pairing.
@@ -141,13 +158,21 @@ func (b *bots) handle(ctx context.Context, held *bot, evt any) {
 	case *events.PairSuccess:
 		if e.ID.User != held.phone {
 			// Another number scanned the code: it must not become this Tenant's bot.
-			logoutCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-			defer cancel()
-			if err := client.Logout(logoutCtx); err != nil {
-				client.Disconnect()
-				_ = client.Store.Delete(logoutCtx)
-			}
+			unpair(client)
 			b.emit(event{Event: "wrongNumber", Bot: held.id, JID: e.ID.ToNonAD().String()})
+			return
+		}
+		linkCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		if err := b.sessions.link(linkCtx, held.id, e.ID.String(), held.phone); err != nil {
+			// The number links another bot, or this one was removed meanwhile: the device must not stay linked.
+			unpair(client)
+			if errors.Is(err, errNumberInUse) {
+				b.emit(event{Event: "numberInUse", Bot: held.id})
+			} else {
+				b.log.Warnf("bot %s: its session could not be recorded: %v", held.id, err)
+				b.emit(event{Event: "loggedOut", Bot: held.id, Reason: "UNRECORDED"})
+			}
 			return
 		}
 		b.emit(event{Event: "paired", Bot: held.id, JID: e.ID.ToNonAD().String(), LID: e.LID.ToNonAD().String(),
@@ -158,6 +183,9 @@ func (b *bots) handle(ctx context.Context, held *bot, evt any) {
 	case *events.Disconnected:
 		b.emit(event{Event: "disconnected", Bot: held.id})
 	case *events.LoggedOut:
+		if err := b.sessions.unlink(ctx, held.id); err != nil {
+			b.log.Warnf("bot %s: its session could not be forgotten: %v", held.id, err)
+		}
 		b.emit(event{Event: "loggedOut", Bot: held.id, Reason: e.Reason.String()})
 	case *events.StreamReplaced:
 		b.emit(event{Event: "replaced", Bot: held.id})
@@ -233,32 +261,84 @@ func (b *bots) close(id string) {
 	}
 }
 
-// Logs a bot's device out of WhatsApp and deletes its session, opened or not.
-func (b *bots) logout(ctx context.Context, id, phone string) error {
-	if held, err := b.find(id); err == nil && held.client.Store.ID != nil {
-		err := held.client.Logout(ctx)
-		b.close(id)
-		if err == nil {
-			return nil
-		}
-	} else {
-		b.close(id)
-	}
-	if !validPhone(phone) {
+// Logs the device a bot linked out of WhatsApp and deletes its session, opened or not; only that bot's.
+func (b *bots) logout(ctx context.Context, id string) error {
+	if id == "" {
 		return errInvalid
 	}
-	devices, err := b.container.GetAllDevices(ctx)
+	if held, err := b.find(id); err == nil && held.client.Store.ID != nil {
+		unpair(held.client)
+	}
+	b.close(id)
+	linked, err := b.sessions.device(ctx, id)
 	if err != nil {
 		return errUnavailable
 	}
-	for _, device := range devices {
-		if device.ID != nil && device.ID.User == phone {
-			if err := device.Delete(ctx); err != nil {
-				return errUnavailable
+	if linked != "" {
+		if jid, err := types.ParseJID(linked); err == nil {
+			if device, err := b.container.GetDevice(ctx, jid); err == nil && device != nil {
+				b.unpairDevice(device)
 			}
 		}
 	}
+	if err := b.sessions.unlink(ctx, id); err != nil {
+		return errUnavailable
+	}
 	return nil
+}
+
+// Logs out every device no bot names, as the device of a bot removed while no process held it, and of none held here,
+// since a device being paired is named only once its scan is recorded.
+func (b *bots) prune(ctx context.Context) {
+	named, err := b.sessions.named(ctx)
+	if err != nil {
+		b.log.Warnf("the linked devices could not be read: %v", err)
+		return
+	}
+	devices, err := b.container.GetAllDevices(ctx)
+	if err != nil {
+		b.log.Warnf("the sessions could not be read: %v", err)
+		return
+	}
+	b.mu.Lock()
+	inUse := map[string]bool{}
+	for _, held := range b.held {
+		if held.client.Store.ID != nil {
+			inUse[held.client.Store.ID.String()] = true
+		}
+	}
+	b.mu.Unlock()
+	for _, device := range devices {
+		if device.ID == nil || named[device.ID.String()] || inUse[device.ID.String()] {
+			continue
+		}
+		b.unpairDevice(device)
+		b.log.Infof("a device no bot names was logged out")
+	}
+}
+
+// Logs a stored device out of WhatsApp, connecting it for the purpose, and deletes it whatever WhatsApp answers.
+func (b *bots) unpairDevice(device *store.Device) {
+	client := whatsmeow.NewClient(device, b.log.Sub("Prune"))
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := client.ConnectContext(ctx); err == nil {
+		if err := client.Logout(ctx); err == nil {
+			return
+		}
+	}
+	client.Disconnect()
+	_ = device.Delete(ctx)
+}
+
+// Logs a connected client's device out, and deletes its session when WhatsApp cannot be told.
+func unpair(client *whatsmeow.Client) {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if err := client.Logout(ctx); err != nil {
+		client.Disconnect()
+		_ = client.Store.Delete(ctx)
+	}
 }
 
 func (b *bots) send(ctx context.Context, id, chat, text string, quoted *quote) (map[string]any, error) {

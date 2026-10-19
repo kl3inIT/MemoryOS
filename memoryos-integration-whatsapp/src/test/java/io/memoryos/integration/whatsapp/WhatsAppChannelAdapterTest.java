@@ -176,6 +176,12 @@ class WhatsAppChannelAdapterTest {
         emit(other, "{\"event\":\"wrongNumber\",\"jid\":\"84911111111@s.whatsapp.net\"}");
         await(() -> !second.connected());
         assertEquals("CHANNEL_WHATSAPP_WRONG_NUMBER", second.stopped().orElseThrow().code());
+
+        var third = bot("84900000003");
+        var taken = adapter.open(third, "", received);
+        emit(third, "{\"event\":\"numberInUse\"}");
+        await(() -> !taken.connected());
+        assertEquals("CHANNEL_WHATSAPP_NUMBER_IN_USE", taken.stopped().orElseThrow().code());
     }
 
     @Test
@@ -224,7 +230,7 @@ class WhatsAppChannelAdapterTest {
         assertFalse(transport.connected());
         assertEquals(connection.id().toString(), last("close").path("bot").asString());
         adapter.forget(connection);
-        assertEquals("84900000001", last("logout").path("phone").asString());
+        assertEquals(connection.id().toString(), last("logout").path("bot").asString(), "only this bot's device");
     }
 
     private void emit(ChannelConnection connection, String event) throws IOException {

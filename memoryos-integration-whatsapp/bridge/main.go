@@ -50,7 +50,8 @@ func main() {
 	store.DeviceProps.RequireFullSync = proto.Bool(false)
 
 	out := newOutput(os.Stdout)
-	held := newBots(container, out, log)
+	held := newBots(container, sessions{db: db}, out, log)
+	go prune(held)
 	serve(os.Stdin, out, held)
 	held.closeAll()
 	_ = container.Close()
@@ -100,7 +101,7 @@ func execute(ctx context.Context, held *bots, cmd command) (any, error) {
 		held.close(cmd.Bot)
 		return nil, nil
 	case "logout":
-		return nil, held.logout(ctx, cmd.Bot, cmd.Phone)
+		return nil, held.logout(ctx, cmd.Bot)
 	case "send":
 		return held.send(ctx, cmd.Bot, cmd.Chat, cmd.Text, cmd.Quote)
 	case "typing":
@@ -113,6 +114,16 @@ func execute(ctx context.Context, held *bots, cmd command) (any, error) {
 		return held.group(ctx, cmd.Bot, cmd.Chat)
 	default:
 		return nil, errInvalid
+	}
+}
+
+// Logs out the devices no bot names a minute after the start, once the JVM opened what it holds, and every hour after.
+func prune(held *bots) {
+	for wait := time.Minute; ; wait = time.Hour {
+		time.Sleep(wait)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		held.prune(ctx)
+		cancel()
 	}
 }
 

@@ -135,6 +135,19 @@ public class JdbcChannelConnectionRepository {
                 .query(Boolean.class).single();
     }
 
+    /**
+     * Whether a bot of the Tenant already holds the app: for a provider whose app is a claim nothing verified until the
+     * bot is linked (MEM-283), where linking decides it across Tenants.
+     */
+    public boolean appInUse(TenantId tenant, ChannelProvider provider, String appId) {
+        return jdbc.sql("""
+                        SELECT EXISTS (SELECT 1 FROM channel_connections
+                                       WHERE tenant_id = :tenant AND provider = :provider AND app_id = :app)
+                        """)
+                .param("tenant", tenant.value()).param("provider", provider.name()).param("app", appId)
+                .query(Boolean.class).single();
+    }
+
     public ChannelConnection insert(TenantId tenant, UUID id, ChannelProvider provider, String name, String appId,
                                     Map<String, String> settings, CredentialCipher.@Nullable EncryptedCredential secret,
                                     String noticeLanguage, ActorId serviceAccount) {

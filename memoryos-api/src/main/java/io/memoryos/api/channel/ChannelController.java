@@ -5,8 +5,10 @@ import io.memoryos.api.channel.contract.BindChannelGroupAssistantRequest;
 import io.memoryos.api.channel.contract.ChannelAppCheckResponse;
 import io.memoryos.api.channel.contract.ChannelAppRequest;
 import io.memoryos.api.channel.contract.ChannelGroupResponse;
+import io.memoryos.api.channel.contract.ChannelPairingResponse;
 import io.memoryos.api.channel.contract.ChannelResponse;
 import io.memoryos.api.channel.contract.CreateChannelRequest;
+import io.memoryos.api.channel.contract.CreateWhatsAppChannelRequest;
 import io.memoryos.api.channel.contract.CreateZaloChannelRequest;
 import io.memoryos.api.channel.contract.LabelChannelGroupRequest;
 import io.memoryos.api.channel.contract.ReplaceChannelSecretRequest;
@@ -110,6 +112,38 @@ final class ChannelController {
         var created = channels.create(identity.actorId(), new ChannelConnectionDraft(ChannelProvider.ZALO_BOT, body.name(),
                 zalo(body.token(), body.transport()), body.noticeLanguage()));
         return ResponseEntity.status(HttpStatus.CREATED).body(find(identity, created.id()));
+    }
+
+    @Operation(operationId = "createWhatsAppChannel",
+            summary = "Add a WhatsApp bot by its number, switched off; it is linked by scanning its code once switched on")
+    @ApiResponse(responseCode = "201", description = "Added bot", useReturnTypeSchema = true)
+    @PostMapping(value = "/whatsapp", consumes = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ChannelResponse> createWhatsApp(@CurrentActor IdentityContext identity,
+            @Valid @RequestBody CreateWhatsAppChannelRequest body) {
+        var created = channels.create(identity.actorId(), new ChannelConnectionDraft(ChannelProvider.WHATSAPP, body.name(),
+                new ChannelCredentials(body.phone(), "", Map.of()), body.noticeLanguage()));
+        return ResponseEntity.status(HttpStatus.CREATED).body(find(identity, created.id()));
+    }
+
+    @Operation(operationId = "getChannelPairing",
+            summary = "Read the code a bot being linked shows, to scan with the bot's phone; none while it shows none")
+    @ApiResponse(responseCode = "200", description = "The code shown now", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "204", description = "No code is shown", content = @Content)
+    @GetMapping("/{channelId}/pairing")
+    ResponseEntity<ChannelPairingResponse> pairing(@CurrentActor IdentityContext identity, @PathVariable UUID channelId) {
+        return channels.pairing(identity.actorId(), channelId)
+                .map(shown -> ResponseEntity.ok().body(ChannelPairingResponse.from(shown)))
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
+    @Operation(operationId = "relinkChannel",
+            summary = "Link a bot linked by a code again, out of a logout or a ban, with a revision precondition")
+    @ApiResponse(responseCode = "200", description = "Updated bot", useReturnTypeSchema = true)
+    @PostMapping("/{channelId}/pairing")
+    ResponseEntity<ChannelResponse> relink(@CurrentActor IdentityContext identity, @PathVariable UUID channelId,
+            @RequestHeader("If-Match") String ifMatch) {
+        channels.relink(identity.actorId(), channelId, revision(ifMatch));
+        return ResponseEntity.ok().body(find(identity, channelId));
     }
 
     @Operation(operationId = "updateChannelTransport",

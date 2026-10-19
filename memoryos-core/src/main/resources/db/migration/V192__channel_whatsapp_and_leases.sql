@@ -16,9 +16,27 @@ ALTER TABLE channel_connections
             THEN secret_ciphertext IS NULL AND secret_nonce IS NULL AND secret_key_version IS NULL
             ELSE secret_ciphertext IS NOT NULL AND secret_nonce IS NOT NULL AND secret_key_version IS NOT NULL END);
 
--- The bridge's whatsmeow session store, whose tables whatsmeow creates and migrates itself; Flyway owns only the
--- schema.
+-- A number is no app the platform vouches for until it is linked, so adding a bot reserves it only within its Tenant;
+-- a number links one bot across every Tenant (whatsapp.channel_devices), so no Tenant can hold another's number by
+-- adding it first.
+ALTER TABLE channel_connections DROP CONSTRAINT uq_channel_connection_app;
+CREATE UNIQUE INDEX uq_channel_connection_app ON channel_connections (provider, app_id) WHERE provider <> 'WHATSAPP';
+CREATE UNIQUE INDEX uq_channel_connection_whatsapp_number ON channel_connections (tenant_id, app_id)
+    WHERE provider = 'WHATSAPP';
+
+-- The bridge's whatsmeow session store, whose whatsmeow_* tables whatsmeow creates and migrates itself.
 CREATE SCHEMA IF NOT EXISTS whatsapp;
+
+-- The device each WhatsApp bot linked, written by the bridge when the bot's own number scans its code. A session is
+-- found by its bot, never by its number, so a bot added later for the same number links afresh rather than inherit a
+-- removed bot's session; removing the bot removes the row, and the bridge logs out a device no bot names. A number
+-- links one bot.
+CREATE TABLE whatsapp.channel_devices (
+    connection_id UUID PRIMARY KEY REFERENCES public.channel_connections (id) ON DELETE CASCADE,
+    device_jid VARCHAR(128) NOT NULL UNIQUE,
+    phone VARCHAR(15) NOT NULL UNIQUE,
+    linked_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 
 -- The process holding a bot, until when, and the epoch of its hold: a new one each time the bot changes hands, which
 -- the holder's writes carry so that one that lost the bot cannot overwrite its successor. The address is where a

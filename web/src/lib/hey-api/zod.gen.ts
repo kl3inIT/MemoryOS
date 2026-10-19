@@ -3849,7 +3849,11 @@ export const zAssistantChannelGroupResponse = z.object({
 
 export const zAssistantChannelResponse = z.object({
     id: z.uuid(),
-    provider: z.enum(['LARK', 'ZALO_BOT']),
+    provider: z.enum([
+        'LARK',
+        'ZALO_BOT',
+        'WHATSAPP'
+    ]),
     name: z.string(),
     botName: z.string().optional(),
     enabled: z.boolean(),
@@ -4373,9 +4377,24 @@ export const zLabelChannelGroupRequest = z.object({
     label: z.string().min(0).max(100).nullish()
 });
 
+export const zCreateWhatsAppChannelRequest = z.object({
+    name: z.string().min(0).max(100),
+    phone: z.string().min(0).max(32),
+    noticeLanguage: z.enum(['vi', 'en'])
+});
+
+export const zChannelPairingResponse = z.object({
+    code: z.string(),
+    expiresAt: z.iso.datetime()
+});
+
 export const zChannelResponse = z.object({
     id: z.uuid(),
-    provider: z.enum(['LARK', 'ZALO_BOT']),
+    provider: z.enum([
+        'LARK',
+        'ZALO_BOT',
+        'WHATSAPP'
+    ]),
     name: z.string(),
     region: z.enum(['LARK', 'FEISHU']).optional(),
     transport: z.enum(['WEBHOOK', 'POLLING']).optional(),
@@ -4437,7 +4456,11 @@ export const zChannelLinkCodeResponse = z.object({
 export const zChannelLinkResponse = z.object({
     connectionId: z.uuid(),
     botName: z.string(),
-    provider: z.enum(['LARK', 'ZALO_BOT']),
+    provider: z.enum([
+        'LARK',
+        'ZALO_BOT',
+        'WHATSAPP'
+    ]),
     linkedAt: z.iso.datetime().optional()
 });
 
@@ -8836,6 +8859,35 @@ export const zListChannelGroupsPath = z.object({
  * Group chats
  */
 export const zListChannelGroupsResponse = z.array(zChannelGroupResponse);
+
+export const zCreateWhatsAppChannelBody = zCreateWhatsAppChannelRequest;
+
+/**
+ * Added bot
+ */
+export const zCreateWhatsAppChannelResponse = zChannelResponse;
+
+export const zGetChannelPairingPath = z.object({
+    channelId: z.uuid()
+});
+
+export const zGetChannelPairingResponse = z.union([
+    zChannelPairingResponse,
+    z.void()
+]);
+
+export const zRelinkChannelHeaders = z.object({
+    'If-Match': z.string()
+});
+
+export const zRelinkChannelPath = z.object({
+    channelId: z.uuid()
+});
+
+/**
+ * Updated bot
+ */
+export const zRelinkChannelResponse = zChannelResponse;
 
 export const zDeleteChannelHeaders = z.object({
     'If-Match': z.string()

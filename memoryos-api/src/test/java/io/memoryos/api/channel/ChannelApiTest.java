@@ -31,6 +31,7 @@ import io.memoryos.channel.ChannelGroup;
 import io.memoryos.channel.ChannelLink;
 import io.memoryos.channel.ChannelLinkCode;
 import io.memoryos.channel.ChannelLinkService;
+import io.memoryos.channel.ChannelPairing;
 import io.memoryos.channel.ChannelProvider;
 import io.memoryos.channel.ChannelRegion;
 import io.memoryos.channel.ChannelVerification;
@@ -44,6 +45,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
@@ -365,6 +367,50 @@ class ChannelApiTest {
                                 {"name":"Trợ lý","region":"LARK","appId":"cli_a1b2c3d4e5f6","appSecret":"%s","noticeLanguage":"fr"}
                                 """.formatted(SECRET)))
                 .andExpect(status().isBadRequest());
+    }
+
+    /** MEM-283: a WhatsApp bot is its number, takes no secret, shows a code to scan and is linked again. */
+    @Test
+    void aWhatsAppBotIsAddedByItsNumberAndShowsItsCodeWhileItIsLinked() throws Exception {
+        var id = UUID.randomUUID();
+        var bot = new ChannelConnection(id, ChannelProvider.WHATSAPP, "Bot WhatsApp", "84912345678", Map.of(), "vi", false,
+                new ActorId(UUID.randomUUID()), 1, Instant.now(), Instant.now(), null, "+84912345678",
+                "84912345678@s.whatsapp.net", List.of());
+        when(channels.create(any(), any())).thenReturn(bot);
+        when(channels.relink(any(), eq(id), eq(1L))).thenReturn(bot);
+        when(channels.listWithState(any())).thenReturn(List.of(new Listed(bot, ChannelConnectionState.NONE,
+                Listed.Status.OFF, null, null)));
+
+        mockMvc.perform(post("/api/channels/whatsapp").with(authentication(owner)).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                {"name":"Bot WhatsApp","phone":"+84 912 345 678","noticeLanguage":"vi"}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.provider").value("WHATSAPP"))
+                .andExpect(jsonPath("$.appId").value("84912345678"))
+                .andExpect(jsonPath("$.transport").doesNotExist());
+        verify(channels).create(any(), argThat(draft -> draft.provider() == ChannelProvider.WHATSAPP
+                && draft.credentials().equals(new ChannelCredentials("+84 912 345 678", "", Map.of()))));
+        mockMvc.perform(post("/api/channels/whatsapp").with(authentication(owner)).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                {"name":"Bot WhatsApp","noticeLanguage":"vi"}
+                                """))
+                .andExpect(status().isBadRequest());
+
+        when(channels.pairing(any(), eq(id))).thenReturn(Optional.empty());
+        mockMvc.perform(get("/api/channels/{id}/pairing", id).with(authentication(owner)))
+                .andExpect(status().isNoContent());
+        var expires = Instant.parse("2030-01-01T00:00:20Z");
+        when(channels.pairing(any(), eq(id))).thenReturn(Optional.of(new ChannelPairing("2@abc", expires)));
+        mockMvc.perform(get("/api/channels/{id}/pairing", id).with(authentication(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("2@abc"))
+                .andExpect(jsonPath("$.expiresAt").value("2030-01-01T00:00:20Z"));
+
+        mockMvc.perform(post("/api/channels/{id}/pairing", id).with(authentication(owner)).header("X-MemoryOS-CSRF", "1")
+                        .header("If-Match", "\"1\""))
+                .andExpect(status().isOk());
+        verify(channels).relink(any(), eq(id), eq(1L));
     }
 
     /** MEM-263: a Zalo bot is its token and how it receives; it answers with no region and never the token. */

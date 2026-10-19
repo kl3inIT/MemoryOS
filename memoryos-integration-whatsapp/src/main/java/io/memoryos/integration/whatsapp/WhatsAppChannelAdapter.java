@@ -209,10 +209,10 @@ public final class WhatsAppChannelAdapter implements ChannelAdapter, AutoCloseab
         }
     }
 
-    /** A removed bot's device is logged out of WhatsApp and its session deleted. */
+    /** A removed bot's device is logged out of WhatsApp and its session deleted; only that bot's. */
     @Override
     public void forget(ChannelConnection connection) {
-        bridge.call("logout", Map.of("bot", connection.id().toString(), "phone", connection.appId()), OPEN);
+        bridge.call("logout", Map.of("bot", connection.id().toString()), OPEN);
     }
 
     @Override
@@ -366,6 +366,10 @@ public final class WhatsAppChannelAdapter implements ChannelAdapter, AutoCloseab
                 case "wrongNumber" -> {
                     receiver.paired();
                     stop(ChannelException.whatsappWrongNumber());
+                }
+                case "numberInUse" -> {
+                    receiver.paired();
+                    stop(ChannelException.whatsappNumberInUse());
                 }
                 case "outdated" -> {
                     LOG.atError().addKeyValue("event", "channel.whatsapp.outdated")

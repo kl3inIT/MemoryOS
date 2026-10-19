@@ -95,6 +95,13 @@ public final class ChannelException extends BusinessException {
                 "WhatsApp pairing came from another number");
     }
 
+    /** The number already links another bot, of this Tenant or another; it was logged out of this one. */
+    public static ChannelException whatsappNumberInUse() {
+        return new ChannelException("CHANNEL_WHATSAPP_NUMBER_IN_USE", FailureCategory.CONFLICT,
+                "This number is already linked to another bot. Remove it there first.",
+                "WhatsApp number already links another bot");
+    }
+
     public static ChannelException appInUse() {
         return new ChannelException("CHANNEL_APP_IN_USE", FailureCategory.CONFLICT,
                 "Another bot already uses this app. Each bot needs an app of its own.", "Channel app is already connected");
