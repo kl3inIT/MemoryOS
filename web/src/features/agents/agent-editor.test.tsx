@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState, type ReactNode } from "react";
 import {
@@ -370,6 +370,29 @@ describe("AgentEditorPage", () => {
       within(builder).getByPlaceholderText("What should change in this assistant?"),
     ).toBeVisible();
     expect(localStorage.getItem("memoryos.agent-editor.panel")).toBe("builder");
+  }, 30_000);
+
+  it("takes no files in the Agent Builder, which the test chat's composer does", async () => {
+    localStorage.removeItem("memoryos.agent-editor.panel");
+    const user = await renderEditor();
+    await user.click(await screen.findByRole("button", { name: "Test chat" }));
+    const file = new File(["%PDF"], "leave-policy.pdf", { type: "application/pdf" });
+    const files = { types: ["Files"], files: [file] };
+    const field = (region: HTMLElement) =>
+      within(region).getByRole("textbox", { name: "Question" });
+
+    const test = await screen.findByRole("region", { name: "Test chat" }, { timeout: 15_000 });
+    fireEvent.dragEnter(field(test), { dataTransfer: files });
+    expect(test.querySelector("[data-dragging]")).not.toBeNull();
+
+    await user.click(screen.getByRole("tab", { name: "Agent Builder" }));
+    const builder = await screen.findByRole("region", { name: "Agent Builder" });
+    fireEvent.dragEnter(field(builder), { dataTransfer: files });
+    expect(builder.querySelector("[data-dragging]")).toBeNull();
+    fireEvent.drop(field(builder), { dataTransfer: files });
+    fireEvent.paste(field(builder), { clipboardData: { files: [file] } });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(within(builder).queryByText(/leave-policy/)).not.toBeInTheDocument();
   }, 30_000);
 
   it("gives someone who may only use the assistant neither the test chat nor the Agent Builder", async () => {

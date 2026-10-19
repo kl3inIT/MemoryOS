@@ -162,6 +162,9 @@ function usePanelThread(agent: Persona, form: AgentFormApi, builder?: BuilderCha
   });
   const runtime = useAISDKRuntime(chat, {
     isSendDisabled: state.connection !== "ready" || state.unavailable || state.checking,
+    // A builder turn takes no files, so its composer offers none: no drop, paste or attachment (assistant-ui reads
+    // the adapter's absence as no attachments).
+    ...(builder && { adapters: { attachments: undefined } }),
   });
   useEffect(() => {
     controller.connect(chat, () => runtime.thread.cancelRun());
