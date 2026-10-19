@@ -39,3 +39,7 @@
 
 - Live acceptance with a real Source a member reads through a Group, observed after signing in through Keycloak.
 - No Linear issue exists yet for this increment.
+
+## Staging acceptance (2026-10-19)
+
+As the test member `bm-finance`, the Sources tab lists the three Sources read through Benchmark - Tài chính and Lark (32 documents), none of the owner's; a Source narrows the documents with the reason "Qua nhóm Benchmark - Tài chính".

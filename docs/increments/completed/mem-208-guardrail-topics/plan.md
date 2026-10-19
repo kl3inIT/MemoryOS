@@ -16,3 +16,7 @@ One pull request, three commits.
 - [x] Chat spec, audit spec, test matrices, roadmap.
 - [ ] CI; owner approval of the screenshots; check the latest migration number on main; merge.
 - [ ] Staging: the four bypass pairs from 2026-10-01 and one ordinary follow-up; a custom topic end to end.
+
+## Staging acceptance (2026-10-19)
+
+The four bypass pairs of 2026-10-01, replayed verbatim, never produced the blocked answer, and an ordinary follow-up was answered. A custom topic added through the page blocked its question with its own reply and was then deleted. The check itself did not label the injected follow-ups with the blocked topic; hiding the blocked question and the topic rules in the answer model stopped them. Topic cards do not show their example count, and the check's model row does not name the model (design §3.4 and §3.6).

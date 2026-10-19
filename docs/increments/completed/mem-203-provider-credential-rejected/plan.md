@@ -9,3 +9,7 @@
   member and a model manager, with screenshots for owner review.
 - [x] Chat spec and test matrix.
 - [ ] Owner approval of the screenshots; CI; merge; staging check with the refused key.
+
+## Staging acceptance (2026-10-19)
+
+A provider whose key is refused after it was saved fails the turn in 1.6 s with `CHAT_PROVIDER_CREDENTIAL_REJECTED`: a model manager sees "Provider từ chối API key" with "Cập nhật API key", a member "Model không dùng được", the same after a reload. The failed answer's footer still says "Xong trong 0,8 giây".

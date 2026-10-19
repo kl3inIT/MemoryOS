@@ -25,3 +25,7 @@ Issue: [MEM-234](https://linear.app/memory-os/issue/MEM-234). See the [design](d
 ## Status
 
 - 2026-10-09: increment opened and implemented. `DefaultIngestionCoordinatorTest` (20 cases), `PaddleOcrVlClientTest` (35 cases) and `PostgresSourceLifecycleTest.unexpectedProcessingFailureRetriesThenTerminatesDurably` passed locally, no failures or skips. Open: CI, `promtool`, the staging check and the observability rollout.
+
+## Staging acceptance (2026-10-19)
+
+`promtool check rules` passes on `alerts.yaml` from `main` (10 rules) inside the staging Prometheus, and `memoryos_extraction_unavailable_total` exists on both hosts, but neither stack loads the rule yet (both run older observability configuration). Stopping `paddleocr-vl-api` remains.

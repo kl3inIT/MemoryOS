@@ -16,3 +16,7 @@ Design: [design.md](design.md).
 - [x] Docs: `docs/specs/chat-models.md` (task models), the test matrix, roadmap.
 - [x] UI screenshots for owner approval (2026-10-03); CI; merge (#491).
 - [ ] Staging: V143 applied, each task row shows its level, a level saved on the Models page reaches the task's call, and a level picked in the composer before the first question applies to the first answer.
+
+## Staging acceptance (2026-10-19)
+
+V143 applied; `GET /api/chat/model-flows` returns each flow's level and the Models page shows it ("Vừa" on the minutes). A saved level reaching the task's call and the composer check remain.

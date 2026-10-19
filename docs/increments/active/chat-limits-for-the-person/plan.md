@@ -20,3 +20,7 @@
 - [x] An answer still says an image or generated file was deleted after the bytes are released.
 - [ ] Staging: upload past the configured ceiling, then the meter and the category rows against real MinIO bytes.
 - [ ] Staging: the worker deletes a conversation past its owner's retention window, with the log line naming counts only.
+
+## Staging acceptance (2026-10-19)
+
+`/settings/storage` shows 25.1 MB / 512 MB in 106 files, equal to the 106 MinIO objects' sizes (26,342,256 bytes). The upload past the ceiling and the retention run remain: the per-file limit refuses first, and nobody on staging has a retention window.

@@ -11,3 +11,7 @@
 
 - `UserFileSearchServiceTest`: 1 of 1.
 - `ChatPersistenceIntegrationTest` on a database Flyway migrated to V175: 40 of 43, including both Project reorder tests. The three failures were connection errors (pool timeout, connection refused) as the local Docker engine stopped; a rerun could not start a container.
+
+## Staging acceptance (2026-10-19)
+
+V175 applied under `memoryos_app` on 2026-10-15. With sequential scans off, `EXPLAIN ANALYZE` of `ILIKE '%report%'` uses `ix_chat_user_file_filename_trgm` and `ix_chat_file_artifact_filename_trgm`, and the image branch a BitmapOr of the filename and prompt trigram indexes, each under 1 ms. Staging's tables are small (84, 10 and 0 rows), so the planner does not pick them unforced yet.

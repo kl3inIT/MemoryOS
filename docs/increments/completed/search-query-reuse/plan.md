@@ -23,3 +23,7 @@ Not run here: the OpenSearch integration tests (Docker) and the full `clean chec
 ## Open
 
 - Measure the saved embedding latency on staging after deployment.
+
+## Staging acceptance (2026-10-19)
+
+Eight new questions, each repeated, paged and filtered: the first search 298 ms (median), a repeat 132 ms, a page 129 ms, a filter 133.5 ms; 9 query embeddings for 34 searches.
