@@ -40,7 +40,10 @@ Dropped on 2026-10-19: Quản trị → Quản lý trợ lý sets the order by d
 
 ## Acceptance on staging
 
-- [ ] Each template answers its first starter as a member, and "Hỏi đáp chính sách nội bộ" cites a company policy.
-- [ ] An administrator hides a template and shows it again; a copy opens in the editor and stays private.
-- [ ] Delete the five test assistants under [Staging cleanup](design.md#staging-cleanup); keep "Benchmark - grounded".
-- [ ] Consolidate into `docs/specs/chat.md`, move this increment to `completed/` and reconcile the roadmap.
+Evidence: [verification.md](verification.md).
+
+- [x] Each template answers a first question as a member. "Hỏi đáp chính sách nội bộ" says the company's documents
+  hold no answer, because staging has no leave policy; it cites nothing it did not find.
+- [x] An administrator hides a template and shows it again; a copy opens in the editor and stays private.
+- [x] Delete the five test assistants under [Staging cleanup](design.md#staging-cleanup); keep "Benchmark - grounded".
+- [x] Consolidate into `docs/specs/chat.md`, move this increment to `completed/` and reconcile the roadmap.
