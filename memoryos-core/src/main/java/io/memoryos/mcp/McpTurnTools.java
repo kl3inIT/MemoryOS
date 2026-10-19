@@ -51,18 +51,30 @@ public final class McpTurnTools implements AutoCloseable {
         @Override public @NonNull String toString() { return "McpOutcome[redacted]"; }
     }
 
-    /** Raised when a call cannot run; Chat maps the reason to a model-facing sentence with no upstream text. */
+    /**
+     * Raised when a call cannot run; Chat maps the reason to a model-facing sentence with no upstream text.
+     * {@code shared} says the server uses the organization's connection, which only an administrator can fix.
+     */
     public static final class CallFailure extends RuntimeException {
         private final Reason reason;
+        private final boolean shared;
 
         public CallFailure(Reason reason) {
-            super(reason.name(), null, false, false);
-            this.reason = reason;
+            this(reason, false);
         }
 
-        public enum Reason { AUTHORIZATION_REQUIRED, TIMEOUT, UNAVAILABLE, UNKNOWN_TOOL, INVALID_ARGUMENTS }
+        public CallFailure(Reason reason, boolean shared) {
+            super(reason.name(), null, false, false);
+            this.reason = reason;
+            this.shared = shared;
+        }
+
+        /** {@code INSUFFICIENT_SCOPE}: the connection works but lacks a permission this tool needs (MEM-227). */
+        public enum Reason { AUTHORIZATION_REQUIRED, INSUFFICIENT_SCOPE, TIMEOUT, UNAVAILABLE, UNKNOWN_TOOL, INVALID_ARGUMENTS }
 
         public Reason reason() { return reason; }
+
+        public boolean shared() { return shared; }
     }
 
     /** The person's answer to a call of a tool that requires approval. */
@@ -88,7 +100,8 @@ public final class McpTurnTools implements AutoCloseable {
     private volatile Approvals approvals = (binding, callId, arguments) -> Decision.DECLINED;
 
     /** {@code scopeRequired} records a {@code 403 insufficient_scope} on the connection; null without OAuth. */
-    record Target(UUID serverId, String url, Map<String, String> headers, @Nullable Consumer<String> scopeRequired) {
+    record Target(UUID serverId, String url, Map<String, String> headers, boolean shared,
+                  @Nullable Consumer<String> scopeRequired) {
         @Override public @NonNull String toString() { return "McpTurnTarget[redacted]"; }
     }
 
@@ -135,8 +148,7 @@ public final class McpTurnTools implements AutoCloseable {
         } catch (McpException failure) {
             // The session is not reused after a transport failure; the next call opens a fresh one.
             if (failure.code().equals("MCP_TIMEOUT") || failure.code().equals("MCP_UNAVAILABLE")) discard(binding.serverId());
-            scopeRequired(binding.serverId(), failure);
-            throw new CallFailure(reason(failure));
+            throw rejected(binding.serverId(), failure);
         }
     }
 
@@ -183,14 +195,21 @@ public final class McpTurnTools implements AutoCloseable {
             sessions.put(serverId, opened);
             return opened;
         } catch (McpException failure) {
-            scopeRequired(serverId, failure);
-            throw new CallFailure(reason(failure));
+            throw rejected(serverId, failure);
         }
     }
 
     private void discard(UUID serverId) {
         var session = sessions.remove(serverId);
         if (session != null) closeQuietly(session);
+    }
+
+    /** The failure of a call, after a {@code 403 insufficient_scope} is recorded on its connection. */
+    private CallFailure rejected(UUID serverId, McpException failure) {
+        scopeRequired(serverId, failure);
+        var target = targets.get(serverId);
+        return new CallFailure(failure.requiredScope() != null ? CallFailure.Reason.INSUFFICIENT_SCOPE : reason(failure),
+                target != null && target.shared());
     }
 
     private static CallFailure.Reason reason(McpException failure) {

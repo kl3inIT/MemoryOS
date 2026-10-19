@@ -92,7 +92,7 @@ public class McpTurnService {
             Consumer<String> scopeRequired = candidate.authType() != McpAuthType.OAUTH ? null
                     : scope -> oauth.requireScope(candidate.serverId(), candidate.ownerActorId(), scope);
             targets.put(candidate.serverId(), new McpTurnTools.Target(candidate.serverId(), candidate.url(), headers,
-                    scopeRequired));
+                    candidate.ownerActorId() == null, scopeRequired));
             bindings.addAll(candidate.bindings());
         }
         return new McpTurnTools(clients, targets, bindings, unavailable, resolved.alwaysAllowable());

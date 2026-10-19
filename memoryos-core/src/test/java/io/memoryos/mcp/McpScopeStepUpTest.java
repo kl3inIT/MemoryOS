@@ -3,6 +3,7 @@ package io.memoryos.mcp;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
@@ -58,11 +59,12 @@ class McpScopeStepUpTest {
         var binding = new McpTurnTools.Binding(SERVER, "drive", "Drive", "export", "mcp_drive_export", "export",
                 "{\"type\":\"object\"}", true, false, null, null, true, true);
         try (var tools = new McpTurnTools(clients,
-                Map.of(SERVER, new McpTurnTools.Target(SERVER, "https://drive.example/mcp", Map.of(), recorded::add)),
+                Map.of(SERVER, new McpTurnTools.Target(SERVER, "https://drive.example/mcp", Map.of(), true, recorded::add)),
                 List.of(binding), List.of(), Set.of())) {
             var failure = assertThrows(McpTurnTools.CallFailure.class,
                     () -> tools.call(binding, Map.of(), Instant.now().plusSeconds(30)));
-            assertEquals(McpTurnTools.CallFailure.Reason.AUTHORIZATION_REQUIRED, failure.reason());
+            assertEquals(McpTurnTools.CallFailure.Reason.INSUFFICIENT_SCOPE, failure.reason());
+            assertTrue(failure.shared());
 
             assertThrows(McpException.class, () -> tools.forView(SERVER, Duration.ofSeconds(5),
                     opened -> opened.call("export", Map.of())));
