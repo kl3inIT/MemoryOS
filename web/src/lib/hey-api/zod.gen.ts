@@ -1263,15 +1263,10 @@ export const zPersonaPermissions = z.object({
     manage: z.boolean().optional()
 });
 
-export const zTemplateRef = z.object({
-    key: z.string().optional(),
-    category: z.string().optional()
-});
-
 export const zPersonaView = z.object({
     id: z.uuid().optional(),
     builtin: z.boolean().optional(),
-    template: zTemplateRef.optional(),
+    templateKey: z.string().optional(),
     permissions: zPersonaPermissions.optional(),
     revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
     name: z.string().optional(),

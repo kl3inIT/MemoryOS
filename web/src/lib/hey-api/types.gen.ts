@@ -1386,7 +1386,7 @@ export type PersonaPermissions = {
 export type PersonaView = {
     id?: string;
     builtin?: boolean;
-    template?: TemplateRef;
+    templateKey?: string;
     permissions?: PersonaPermissions;
     revision?: number;
     name?: string;
@@ -1419,11 +1419,6 @@ export type PersonaView = {
     grounded?: boolean;
     pinned?: boolean;
     deletedAt?: string;
-};
-
-export type TemplateRef = {
-    key?: string;
-    category?: string;
 };
 
 export type GroupShareInput = {

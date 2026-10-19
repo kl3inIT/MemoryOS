@@ -8,7 +8,7 @@ import org.jspecify.annotations.Nullable;
  * One of MemoryOS's assistant templates (MEM-281): the text people read in each account language, the instructions,
  * the tools and whether it answers from documents only. {@link AssistantTemplates} loads them from the catalogue.
  */
-public record AssistantTemplate(String key, String category, String avatarSeed, Set<String> tools, boolean grounded,
+public record AssistantTemplate(String key, String avatarSeed, Set<String> tools, boolean grounded,
                                 Text vi, Text en, String instructions) {
     public AssistantTemplate {
         tools = Set.copyOf(tools);

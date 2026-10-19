@@ -95,10 +95,8 @@ public class ChatPersonaService {
 
     public record AgentSourceRef(UUID id, String name) {}
     public record DocumentSetRef(UUID id, String name) {}
-    /** The MemoryOS template a system-owned assistant carries (MEM-281) and the Khám phá category it is listed under. */
-    public record TemplateRef(String key, String category) {}
-    /** {@code template} is set on a MemoryOS template, whose text is in the reader's account language. */
-    public record PersonaView(UUID id, boolean builtin, @Nullable TemplateRef template, PersonaPermissions permissions, long revision, String name,
+    /** {@code templateKey} is set on a MemoryOS template (MEM-281), whose text is in the reader's account language. */
+    public record PersonaView(UUID id, boolean builtin, @Nullable String templateKey, PersonaPermissions permissions, long revision, String name,
                               @Nullable String title, String description, String instructions, @Nullable String greeting,
                               List<String> starterPrompts,
                               List<UUID> sourceIds, List<AgentSourceRef> sources, List<UUID> documentSetIds, List<DocumentSetRef> documentSets,
@@ -641,7 +639,7 @@ public class ChatPersonaService {
             var template = AssistantTemplates.find(entity.templateKey()).orElse(null);
             var text = template == null ? null : template.text(language);
             result.add(new PersonaView(id, entity.builtin(),
-                    template == null ? null : new TemplateRef(template.key(), template.category()),
+                    template == null ? null : template.key(),
                     permissions, entity.revision(), text == null ? entity.name() : text.name(),
                     text == null ? entity.title() : text.title(), text == null ? entity.description() : text.description(),
                     entity.instructions(), text == null ? entity.greeting() : text.greeting(),

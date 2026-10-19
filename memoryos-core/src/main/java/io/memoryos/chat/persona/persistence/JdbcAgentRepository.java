@@ -51,16 +51,17 @@ public class JdbcAgentRepository {
     }
 
     /**
-     * Usable, non-deleted agents; non-owners only see listed agents, as Onyx. MemoryOS templates follow the built-in
-     * agent in {@code ALL}, so the first page carries them (MEM-281); nobody shares them, so {@code SHARED} leaves
-     * them out.
+     * Usable, non-deleted agents; non-owners only see listed agents, as Onyx. In {@code ALL} the built-in agent leads,
+     * then featured agents, then the MemoryOS templates, so the first page carries them (MEM-281); an agent manager
+     * also sees the templates hidden from everyone, to show them again. Nobody shares a template, so {@code SHARED}
+     * leaves them out.
      */
     public List<UUID> list(UUID tenant, UUID actor, boolean agentsManage, AgentListFilter view, @Nullable UUID label, @Nullable String query,
                            int offset, int limit) {
         String mine = "(p.builtin_key IS NULL AND (COALESCE(p.owner_actor_id = :actor, FALSE) OR EXISTS (SELECT 1 FROM iam_group_memberships m "
                 + "WHERE m.tenant_id = p.tenant_id AND m.group_id = p.owner_group_id AND m.actor_id = :actor)))";
         String scope = switch (view) {
-            case ALL -> AgentAccessSql.USES + " AND (p.is_listed OR " + mine + ")";
+            case ALL -> "(" + AgentAccessSql.USES + " AND (p.is_listed OR " + mine + ") OR :agentsManage AND p.template_key IS NOT NULL)";
             case MINE -> mine;
             case SHARED -> AgentAccessSql.USES + " AND p.is_listed AND p.builtin_key IS NULL AND p.template_key IS NULL AND NOT " + mine;
         };
@@ -70,7 +71,7 @@ public class JdbcAgentRepository {
                           AND (CAST(:label AS uuid) IS NULL OR EXISTS (SELECT 1 FROM persona_label_assignment a
                                WHERE a.tenant_id = p.tenant_id AND a.persona_id = p.id AND a.label_id = :label))
                           AND (CAST(:query AS text) IS NULL OR p.name ILIKE :pattern OR p.description ILIKE :pattern)
-                        ORDER BY p.builtin_key NULLS LAST, p.template_key IS NULL, p.is_featured DESC,
+                        ORDER BY p.builtin_key NULLS LAST, p.is_featured DESC, p.template_key IS NULL,
                                  p.display_priority NULLS LAST, lower(p.name), p.id
                         OFFSET :offset LIMIT :limit
                         """.formatted(scope))

@@ -1,7 +1,7 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { LogOut, MoreHorizontal, Trash2, UserRoundCog } from "lucide-react";
+import { CopyPlus, Eye, EyeOff, LogOut, MoreHorizontal, Trash2, UserRoundCog } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,10 +18,12 @@ import {
 import { can } from "@/lib/resource-permissions";
 import { actionErrorText } from "@/lib/action-errors";
 import { invalidateAgents, type Persona } from "@/features/chat/chat-personas-api";
+import { useGlobalCapability } from "@/features/identity/application-session-context";
 import { AgentTransferDialog } from "./agent-transfer-dialog";
+import { useTemplateActions } from "./use-agent-catalog";
 import { withRequestTimeout } from "@/lib/api";
 
-/** Secondary agent actions; each renders only when the server's permission hint allows it. */
+/** Secondary agent actions; each renders only when the server's permission hint or a capability allows it. */
 export function AgentActions({ agent }: { agent: Persona }) {
   const ui = useAppTranslation();
   const cache = useQueryClient();
@@ -35,7 +37,17 @@ export function AgentActions({ agent }: { agent: Persona }) {
     ...withRequestTimeout(leaveChatPersonaMutation()),
     onSuccess: () => invalidateAgents(cache, agent.id),
   });
-  const actions = [can(agent, "transfer"), can(agent, "leave"), can(agent, "delete")];
+  const templates = useTemplateActions();
+  const canCreate = useGlobalCapability("AGENTS_CREATE");
+  const canCopy = agent.template && canCreate;
+  const canHide = agent.template && agent.permissions.manage;
+  const actions = [
+    canCopy,
+    canHide,
+    can(agent, "transfer"),
+    can(agent, "leave"),
+    can(agent, "delete"),
+  ];
   if (!actions.some(Boolean)) return null;
   return (
     <>
@@ -60,6 +72,18 @@ export function AgentActions({ agent }: { agent: Persona }) {
           }}
         >
           <DropdownMenuGroup>
+            {canCopy && (
+              <DropdownMenuItem onSelect={() => templates.copy(agent)}>
+                <CopyPlus aria-hidden="true" />
+                {ui("Tạo bản riêng")}
+              </DropdownMenuItem>
+            )}
+            {canHide && (
+              <DropdownMenuItem onSelect={() => templates.setListed(agent, !agent.listed)}>
+                {agent.listed ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+                {agent.listed ? ui("Ẩn với mọi người") : ui("Hiện lại")}
+              </DropdownMenuItem>
+            )}
             {can(agent, "transfer") && (
               <DropdownMenuItem onSelect={() => setDialog("transfer")}>
                 <UserRoundCog aria-hidden="true" />

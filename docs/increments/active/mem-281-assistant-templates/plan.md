@@ -4,7 +4,7 @@ Design: [design.md](design.md). Three pull requests, each accepted when CI is gr
 
 ## 1. Templates (backend)
 
-- [x] Eight catalogue files under `memoryos-core/src/main/resources/chat/assistant-templates/` with category,
+- [x] Eight catalogue files under `memoryos-core/src/main/resources/chat/assistant-templates/` with
   Vietnamese and English text, English instructions, tools, `grounded` and avatar seed ([templates](design.md#templates)).
   Test: every file loads, has both languages and stays inside the assistant limits.
 - [x] Migration V188: `persona.template_key` (nullable, 64) with a unique
@@ -22,16 +22,20 @@ Design: [design.md](design.md). Three pull requests, each accepted when CI is gr
 
 ## 2. Khám phá (web)
 
-- [ ] "Mẫu của MemoryOS" at the top of "Tất cả", grouped by category; a card opens a new conversation; the viewer
-  offers "Trò chuyện" and "Tạo bản riêng"; agent administrators get "Ẩn khỏi Khám phá" / "Hiện ở Khám phá" on a
-  template and no edit actions.
-- [ ] i18n; unit tests for the grouped list, the hidden state and the template viewer; e2e for chatting with a
-  template and making a copy.
-- [ ] Screenshots light/dark, desktop and phone, reviewed before the pull request.
+- [x] Templates in "Tất cả" after the built-in and featured assistants, on the existing card naming "MemoryOS"
+  without "· Công khai"; ⋯ offers "Tạo bản riêng" (then the copy's editor) and, to agent administrators, "Ẩn với mọi
+  người" / "Hiện lại"; the viewer's "Tạo bản riêng" replaces "Sửa"; a hidden template shows only to agent
+  administrators, faded, with "Đã ẩn" ([decision 7](design.md#decisions)).
+- [x] Every viewer's composer reads "Nhập câu hỏi…".
+- [x] The catalogue's unused `category` goes; persona views carry `templateKey`; the model administrator's assistant
+  list names templates in the reader's language; `openapi.yml`, Hey API client.
+- [x] Tests: `AssistantTemplateIntegrationTest` (list order, the hidden template for administrators, the model list's
+  language); e2e for the card, the ⋯ menu as member and administrator, hiding, showing and copying.
+- [x] Screenshots light/dark, desktop and phone, reviewed before the pull request.
 
 ## 3. Remove `display_priority`
 
-- [ ] Migration dropping `persona.display_priority`; ordering built-in, featured, name; API and web stop passing the
+- [ ] Migration dropping `persona.display_priority`; ordering built-in, featured, templates, name; API and web stop passing the
   field; `openapi.yml`, Hey API client.
 
 ## Acceptance on staging

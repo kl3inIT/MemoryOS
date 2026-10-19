@@ -1,6 +1,5 @@
 {
   "key": "meeting-minutes",
-  "category": "meetings-reports",
   "avatarSeed": "template-minutes",
   "tools": ["search"],
   "grounded": false,

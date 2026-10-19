@@ -1,6 +1,5 @@
 {
   "key": "email",
-  "category": "writing",
   "avatarSeed": "template-email",
   "tools": ["search"],
   "grounded": false,

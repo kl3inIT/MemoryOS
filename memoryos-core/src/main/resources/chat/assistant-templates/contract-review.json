@@ -1,6 +1,5 @@
 {
   "key": "contract-review",
-  "category": "legal",
   "avatarSeed": "template-contract",
   "tools": ["search"],
   "grounded": false,

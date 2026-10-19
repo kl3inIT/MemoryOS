@@ -70,6 +70,7 @@ async function mockAgents(page: Page, capabilities: string[], initial: ReturnTyp
     updated: undefined as unknown,
     pins: undefined as unknown,
     deleted: undefined as string | undefined,
+    copied: undefined as string | undefined,
     listings: [] as { id: string; body: unknown }[],
   };
   await page.route("**/api/identity/me", (route) =>
@@ -170,6 +171,30 @@ async function mockAgents(page: Page, capabilities: string[], initial: ReturnTyp
         item.id === listing ? { ...item, ...body } : item,
       );
       return route.fulfill({ json: state.agents.find((item) => item.id === listing) });
+    }
+    const copied = /\/api\/chat\/personas\/([0-9a-f-]{36})\/copy$/.exec(path)?.[1];
+    if (copied && request.method() === "POST") {
+      expect(request.headers()["x-memoryos-csrf"]).toBe("1");
+      const template = state.agents.find((item) => item.id === copied)!;
+      const copy = agent({
+        ...template,
+        id: "70000000-0000-4000-8000-000000000098",
+        templateKey: undefined,
+        listed: false,
+        owner: { actor: { actorId: me, name: "Đạt Phan", email: "dat@tasco.vn" }, group: null },
+        permissions: {
+          edit: true,
+          share: true,
+          setPublic: true,
+          delete: true,
+          transfer: true,
+          leave: false,
+          manage: false,
+        },
+      });
+      state.copied = copied;
+      state.agents = [...state.agents, copy];
+      return route.fulfill({ status: 201, json: copy });
     }
     const sharing = /\/api\/chat\/personas\/([0-9a-f-]{36})\/sharing$/.exec(path)?.[1];
     if (sharing && request.method() === "PUT") {
@@ -373,6 +398,111 @@ test("browses, filters and pins agents with visibility and owners at desktop and
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole("article")).toHaveCount(6);
   await page.screenshot({ path: "../output/playwright/agents-gallery-mobile.png", fullPage: true });
+});
+
+const memoryos = "70000000-0000-4000-8000-000000000060";
+const emailTemplate = "70000000-0000-4000-8000-000000000061";
+const okrTemplate = "70000000-0000-4000-8000-000000000062";
+const nobody = { actor: null, group: null };
+
+/** The built-in assistant and two MemoryOS templates, one hidden by an administrator, as an administrator sees them. */
+const memoryosAgents = (manage: boolean) => [
+  agent({
+    id: memoryos,
+    builtin: true,
+    name: "MemoryOS",
+    description:
+      "Trợ lý chung của MemoryOS: hỏi đáp và tìm kiếm trong mọi tài liệu nội bộ bạn được phép đọc.",
+    owner: nobody,
+  }),
+  agent({
+    id: emailTemplate,
+    templateKey: "email",
+    name: "Soạn email công việc",
+    title: "Viết và trả lời email công việc",
+    description:
+      "Viết, sửa và trả lời email công việc đúng giọng văn phòng, dựa trên tài liệu liên quan.",
+    starterPrompts: ["Viết email xin nghỉ phép 2 ngày", "Trả lời khách hàng hỏi về tiến độ"],
+    owner: nobody,
+    permissions: { ...agent({}).permissions, manage },
+  }),
+  ...(manage
+    ? [
+        agent({
+          id: okrTemplate,
+          templateKey: "okr-kpi",
+          name: "Viết đánh giá OKR/KPI",
+          description: "Soạn mục tiêu, tự đánh giá và nhận xét theo OKR/KPI của kỳ.",
+          listed: false,
+          owner: nobody,
+          permissions: { ...agent({}).permissions, manage },
+        }),
+      ]
+    : []),
+];
+
+test("lists MemoryOS's templates by their maker, copies one into an own assistant and hides another", async ({
+  page,
+}) => {
+  const state = await mockAgents(
+    page,
+    ["AGENTS_CREATE"],
+    [...memoryosAgents(true), ...tascoAgents()],
+  );
+  await page.goto("/agents");
+  const cards = page.getByRole("article");
+  await expect(cards.nth(0)).toContainText("MemoryOS");
+  await expect(cards.nth(1)).toContainText("OKR/KPI hằng tháng");
+  const email = cards.filter({ hasText: "Soạn email công việc" });
+  await expect(email).toContainText("MemoryOS");
+  await expect(email).not.toContainText("Công khai");
+  await expect(email).not.toContainText("Riêng tư");
+  await expect(cards.nth(0)).not.toContainText("Công khai");
+  await expect(email.getByRole("button", { name: /^Sửa/ })).toHaveCount(0);
+  await expect(email.getByRole("button", { name: /^Chia sẻ/ })).toHaveCount(0);
+
+  const hidden = cards.filter({ hasText: "Viết đánh giá OKR/KPI" });
+  await expect(hidden).toContainText("Đã ẩn");
+  await expect(hidden.getByRole("button", { name: "Bắt đầu chat" })).toHaveCount(0);
+  await hidden.getByRole("button", { name: "Thao tác khác cho Viết đánh giá OKR/KPI" }).click();
+  await page.getByRole("menuitem", { name: "Hiện lại" }).click();
+  await expect
+    .poll(() => state.listings.at(-1))
+    .toEqual({
+      id: okrTemplate,
+      body: { listed: true, featured: false },
+    });
+
+  await email.getByRole("button", { name: "Thao tác khác cho Soạn email công việc" }).click();
+  await expect(page.getByRole("menuitem", { name: "Tạo bản riêng" })).toBeVisible();
+  await page.getByRole("menuitem", { name: "Ẩn với mọi người" }).click();
+  await expect
+    .poll(() => state.listings.at(-1))
+    .toEqual({
+      id: emailTemplate,
+      body: { listed: false, featured: false },
+    });
+  state.agents = state.agents.map((item) =>
+    item.id === emailTemplate ? { ...item, listed: true } : item,
+  );
+  await page.reload();
+
+  await page.getByRole("button", { name: "Soạn email công việc", exact: true }).click();
+  const viewer = page.getByRole("dialog", { name: "Soạn email công việc" });
+  await expect(viewer).toContainText("Tạo bởi MemoryOS");
+  await expect(viewer.getByRole("button", { name: "Sửa" })).toHaveCount(0);
+  await expect(viewer.getByPlaceholder("Nhập câu hỏi…")).toBeVisible();
+  await viewer.getByRole("button", { name: "Tạo bản riêng" }).click();
+  await expect(page).toHaveURL(/\/agents\/70000000-0000-4000-8000-000000000098\/edit/);
+  expect(state.copied).toBe(emailTemplate);
+});
+
+test("offers a member only a private copy of a template", async ({ page }) => {
+  await mockAgents(page, ["AGENTS_CREATE"], memoryosAgents(false));
+  await page.goto("/agents");
+  const email = page.getByRole("article").filter({ hasText: "Soạn email công việc" });
+  await email.getByRole("button", { name: "Thao tác khác cho Soạn email công việc" }).click();
+  await expect(page.getByRole("menuitem")).toHaveText(["Tạo bản riêng"]);
 });
 
 test("shows the full snapshot to a use-only reader without edit or share controls", async ({

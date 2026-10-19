@@ -1,6 +1,5 @@
 {
   "key": "okr-kpi",
-  "category": "people",
   "avatarSeed": "template-okr",
   "tools": ["search"],
   "grounded": false,

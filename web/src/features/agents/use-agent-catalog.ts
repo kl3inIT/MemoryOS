@@ -1,15 +1,22 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import type { Persona } from "@/features/chat/chat-personas-api";
+import { useActionNotifications } from "@/components/ui/action-notifications";
+import { invalidateAgents, type Persona } from "@/features/chat/chat-personas-api";
 import { personLabel } from "@/features/identity/principals";
+import { actionErrorText } from "@/lib/action-errors";
+import { withRequestTimeout } from "@/lib/api";
+import {
+  copyChatPersonaTemplateMutation,
+  setChatPersonaListingMutation,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
 import { usePinUpdates } from "./agent-pins";
 
 /** Who an agent's card names as its owner: MemoryOS, the owning Group or person, or nobody. */
 export function useOwnerName() {
   const ui = useAppTranslation();
   return (agent: Persona) =>
-    agent.builtin
+    agent.builtin || agent.template
       ? ui("MemoryOS")
       : (agent.owner.group?.name ?? (personLabel(agent.owner.actor) || ui("Chưa có chủ sở hữu")));
 }
@@ -26,6 +33,8 @@ type CatalogFilters = {
  * The catalog under its filters (Langdock, Lindy): the agents shown with featured ones first, label chips with
  * facet counts under the other filters, and the owners the creator filter offers.
  */
+const rank = (agent: Persona) => (agent.builtin ? 0 : agent.featured ? 1 : 2);
+
 export function agentCatalog(
   agents: Persona[],
   { query, labelId, creators }: CatalogFilters,
@@ -62,8 +71,9 @@ export function agentCatalog(
   return {
     labelChips,
     owners: [...new Set(agents.map(ownerName))].sort((a, b) => a.localeCompare(b)),
-    // Featured agents lead the catalog instead of forming a sparse section of their own.
-    shown: [...visible].sort((a, b) => Number(b.featured) - Number(a.featured)),
+    // The built-in agent, then featured ones, lead the catalog instead of forming a sparse section of their own;
+    // the API's order (templates next) holds otherwise.
+    shown: [...visible].sort((a, b) => rank(a) - rank(b)),
   };
 }
 
@@ -106,5 +116,53 @@ export function useAgentChatActions() {
     starting: start.isPending ? start.variables.agent.id : undefined,
     /** The failure of the latest start or pin, if it failed. */
     error: start.submittedAt >= pin.submittedAt ? start.error : pin.error,
+  };
+}
+
+/**
+ * What a MemoryOS template offers beyond chatting: "Tạo bản riêng" copies it into the person's own assistant and opens
+ * that in the editor, as Dify's "Use template" opens the new app; an administrator shows or hides it for everyone.
+ */
+export function useTemplateActions() {
+  const ui = useAppTranslation();
+  const navigate = useNavigate();
+  const cache = useQueryClient();
+  const notify = useActionNotifications();
+  const onError = (cause: unknown) => notify({ title: actionErrorText(cause), tone: "error" });
+  const copy = useMutation({
+    ...withRequestTimeout(copyChatPersonaTemplateMutation()),
+    onSuccess: async (created) => {
+      await invalidateAgents(cache);
+      if (created.id)
+        await navigate({ to: "/agents/$agentId/edit", params: { agentId: created.id } });
+    },
+    onError,
+  });
+  const listing = useMutation({
+    ...withRequestTimeout(setChatPersonaListingMutation()),
+    onSuccess: (_view, { path }) => invalidateAgents(cache, path.personaId),
+    onError,
+  });
+  return {
+    copy: (agent: Persona) => copy.mutate({ path: { personaId: agent.id } }),
+    /** The template being copied. */
+    copying: copy.isPending ? copy.variables.path.personaId : undefined,
+    setListed: (agent: Persona, listed: boolean) =>
+      listing.mutate(
+        {
+          path: { personaId: agent.id },
+          query: { revision: agent.revision },
+          body: { listed, featured: false },
+        },
+        {
+          onSuccess: () =>
+            notify({
+              title: listed
+                ? ui("Đã hiện lại {{v1}}", { v1: agent.name })
+                : ui("Đã ẩn {{v1}} với mọi người", { v1: agent.name }),
+              tone: "success",
+            }),
+        },
+      ),
   };
 }

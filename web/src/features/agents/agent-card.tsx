@@ -1,5 +1,5 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { ArrowRight, Globe, Lock, Pencil, Pin, Share2, Star, Users } from "lucide-react";
+import { ArrowRight, EyeOff, Globe, Lock, Pencil, Pin, Share2, Star, Users } from "lucide-react";
 import { hoverReveal } from "@/components/composites/hover-reveal";
 import { PersonAvatar } from "@/components/composites/person-avatar";
 import { Button } from "@/components/ui/button";
@@ -34,8 +34,17 @@ export function AgentCard({
   const ui = useAppTranslation();
   const visibility = agentVisibility(agent);
   const VisibilityIcon = visibility === "public" ? Globe : visibility === "shared" ? Users : Lock;
+  // MemoryOS's own assistants are everyone's by design, so their footer names only the maker (Onyx, GPT Store).
+  const vendor = agent.builtin || agent.template;
+  // Only an administrator sees a template hidden from everyone, to show it again; nobody can chat with it.
+  const hidden = agent.template && !agent.listed;
   return (
-    <article className="group relative min-w-0 rounded-2xl transition-shadow duration-150 hover:shadow-hover">
+    <article
+      className={cn(
+        "group relative min-w-0 rounded-2xl transition-shadow duration-150 hover:shadow-hover",
+        hidden && "opacity-60",
+      )}
+    >
       <Card size="sm" className="h-full">
         <CardContent className="flex flex-1">
           <div className="flex min-w-0 flex-1 gap-3">
@@ -43,14 +52,24 @@ export function AgentCard({
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-start gap-2 pr-7 no-hover:pr-0">
                 <h3 className="min-w-0 font-main-content-body text-content-primary">
-                  <button
-                    type="button"
-                    onClick={onOpen}
-                    className="line-clamp-2 text-left outline-none after:absolute after:inset-0 after:rounded-2xl focus-visible:after:ring-3 focus-visible:after:ring-focus-ring/40"
-                  >
-                    {agent.name}
-                  </button>
+                  {hidden ? (
+                    <span className="line-clamp-2">{agent.name}</span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={onOpen}
+                      className="line-clamp-2 text-left outline-none after:absolute after:inset-0 after:rounded-2xl focus-visible:after:ring-3 focus-visible:after:ring-focus-ring/40"
+                    >
+                      {agent.name}
+                    </button>
+                  )}
                 </h3>
+                {hidden && (
+                  <span className="inline-flex h-5 shrink-0 items-center gap-1 rounded-full bg-surface-sunken px-1.5 font-secondary-action text-content-secondary">
+                    <EyeOff aria-hidden="true" className="size-3" />
+                    {ui("Đã ẩn")}
+                  </span>
+                )}
                 {agent.featured && (
                   <span className="inline-flex h-5 shrink-0 items-center gap-1 rounded-full bg-status-warning-surface px-1.5 font-secondary-action text-status-warning-content">
                     <Star aria-hidden="true" className="size-3 fill-current" />
@@ -99,7 +118,7 @@ export function AgentCard({
                   )}
                   <AgentActions agent={agent} />
                 </div>
-                {!agent.builtin && (
+                {!agent.builtin && !hidden && (
                   <span className={cn("flex", !agent.pinned && hoverReveal)}>
                     <IconButton
                       size="sm"
@@ -127,20 +146,26 @@ export function AgentCard({
                 size="xs"
               />
               <span className="truncate">{owner}</span>
-              <span aria-hidden="true">·</span>
-              <VisibilityIcon aria-hidden="true" className="size-3 shrink-0" />
-              <span className="shrink-0">
-                {visibility === "public"
-                  ? ui("Công khai")
-                  : visibility === "shared"
-                    ? ui("Đã chia sẻ")
-                    : ui("Riêng tư")}
-              </span>
+              {!vendor && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <VisibilityIcon aria-hidden="true" className="size-3 shrink-0" />
+                  <span className="shrink-0">
+                    {visibility === "public"
+                      ? ui("Công khai")
+                      : visibility === "shared"
+                        ? ui("Đã chia sẻ")
+                        : ui("Riêng tư")}
+                  </span>
+                </>
+              )}
             </span>
-            <Button size="sm" prominence="tertiary" pending={pending} onClick={onStart}>
-              {ui("Bắt đầu chat")}
-              <ArrowRight data-icon="inline-end" aria-hidden="true" />
-            </Button>
+            {!hidden && (
+              <Button size="sm" prominence="tertiary" pending={pending} onClick={onStart}>
+                {ui("Bắt đầu chat")}
+                <ArrowRight data-icon="inline-end" aria-hidden="true" />
+              </Button>
+            )}
           </div>
         </CardFooter>
       </Card>

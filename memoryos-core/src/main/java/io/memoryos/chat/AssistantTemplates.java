@@ -14,15 +14,12 @@ import tools.jackson.databind.ObjectMapper;
 /**
  * MemoryOS's assistant templates (MEM-281), shipped with the build under {@code /chat/assistant-templates/<key>.json}
  * and reviewed in pull requests; nothing syncs from a community repository. The job split and prompt shape of several
- * templates follow lobe-chat-agents (MIT, see the catalogue's NOTICE.md); the text is MemoryOS's own. The order of
- * {@link #KEYS} is the order Khám phá shows them in.
+ * templates follow lobe-chat-agents (MIT, see the catalogue's NOTICE.md); the text is MemoryOS's own.
  */
 public final class AssistantTemplates {
-    /** Every template, in display order. Removing a key soft-deletes its rows at the next start. */
+    /** Every template. Removing a key soft-deletes its rows at the next start. */
     static final List<String> KEYS = List.of("email", "translate-vi-en", "meeting-minutes", "weekly-report",
             "document-summary", "policy-qa", "contract-review", "okr-kpi");
-    /** The categories Khám phá groups templates by. */
-    static final List<String> CATEGORIES = List.of("writing", "meetings-reports", "documents-policies", "legal", "people");
     private static final Pattern KEY = Pattern.compile("^[a-z0-9-]{1,64}$");
 
     private AssistantTemplates() {}
@@ -31,7 +28,7 @@ public final class AssistantTemplates {
         private static final Map<String, AssistantTemplate> TEMPLATES = read();
     }
 
-    /** Every template in display order. */
+    /** Every template. */
     public static List<AssistantTemplate> all() {
         return List.copyOf(Loaded.TEMPLATES.values());
     }
@@ -58,7 +55,6 @@ public final class AssistantTemplates {
     /** A template must fit every limit an assistant's editor enforces, in both languages. */
     static AssistantTemplate check(String key, AssistantTemplate template) {
         require(KEY.matcher(key).matches() && key.equals(template.key()), key, "key");
-        require(CATEGORIES.contains(template.category()), key, "category");
         require(template.avatarSeed() != null
                 && template.avatarSeed().matches(ChatPersonaService.PersonaInput.AVATAR_SEED_PATTERN), key, "avatarSeed");
         require(template.tools() != null && ChatPersonaService.TOOLS.containsAll(template.tools()), key, "tools");

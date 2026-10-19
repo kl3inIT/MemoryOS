@@ -1,6 +1,5 @@
 {
   "key": "policy-qa",
-  "category": "documents-policies",
   "avatarSeed": "template-policy",
   "tools": ["search"],
   "grounded": true,
