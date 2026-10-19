@@ -135,6 +135,11 @@ export function libraryOptions(
   };
 }
 
+/** One row of a filter's listing, read for its total alone: a view's count without opening it. */
+export function libraryCountOptions(filter: LibraryFilter) {
+  return listChatLibraryOptions({ query: libraryQuery(filter, 0, 1) });
+}
+
 /**
  * Every content search, whatever it asked: the generated key without a query is the prefix of all of them.
  */

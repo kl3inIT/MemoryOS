@@ -16,7 +16,8 @@ A meeting is read for an afternoon and corrected line by line, so what is read k
 8. **Marks of the reader.** A star shows as soon as it is pressed and is taken back if the server refuses it; a star or a bookmark that fails says so in a notification, since the page is as long as the meeting.
 9. **Proposals that stay true.** A change to a line moves the line's other proposals with the words and declines an undecided one whose words are gone; before, such a proposal stayed on screen pointing at the wrong characters and refused the whole *Nhận hết*. *Nhận hết* stands inside the opened list, and the button that starts a pass says the model only proposes.
 10. **Small guards.** A word written by hand has a save button and names its keys; removing a minutes item asks first; *Mở trong Chat* says it saves the minutes to the library; minutes that land while the reader is further down mark their tab; on a phone the tab row fades where tabs are hidden and the panel's button is labelled.
-11. **Names offered.** "Name đây" and "Name xin phép" count as a self-introduction only for a listed participant: every sentence opens with a capital, and "Chạy đây" is not a person.
+11. **Uploads and the list (critique of 2026-10-04, 29/40).** An uploaded recording names its language, which was fixed to Vietnamese; a cancelled or failed upload deletes the meeting it created. The list keeps its filters in the address, and its record button leads to the meeting being recorded instead of standing disabled. `B` marks the moment while recording. A meeting with no lines yet shows no length. Opening the minutes in Chat asks first and says it stores them in the library; the names waiting in the panel are said to a screen reader.
+12. **Names offered.** "Name đây" and "Name xin phép" count as a self-introduction only for a listed participant: every sentence opens with a capital, and "Chạy đây" is not a person.
 
 ## Reuse
 
@@ -28,4 +29,4 @@ No stat strip (a meeting has no counters worth a row), deletion in the header me
 
 ## Out of scope
 
-Taking back a dismissed name offer (needs an endpoint), the reason on the disabled *Ghi cuộc họp mới* button, notes beside the transcript, and the shell-level findings of the in-browser detector.
+Taking back a dismissed name offer (needs an endpoint), tabs pinned on a phone, a 44 px target for a marked word, notes beside the transcript, and the shell-level findings of the in-browser detector.

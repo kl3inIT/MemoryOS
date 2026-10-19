@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Bookmark, Pause, Play, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -7,6 +8,7 @@ import { cn } from "@/lib/utils";
 import type { MeetingRecorder } from "./meeting-recorder";
 import type { MeetingTrack } from "./meeting-socket";
 import { formatClock, type MeetingKind } from "./meetings-api";
+import { OPEN_DIALOG, typing } from "./page-keys";
 import { useRecorderValue } from "./recorder-state";
 
 /** The time recorded so far; it is the only part of the page that follows the recorder's clock. */
@@ -14,6 +16,9 @@ export function RecordingClock({ recorder }: { recorder: MeetingRecorder }) {
   // Formatted inside the selector, so the clock repaints once a second rather than on every level reading.
   return <>{useRecorderValue(recorder, (snapshot) => formatClock(snapshot.elapsedMs))}</>;
 }
+
+/** The key that marks the moment being recorded. */
+const BOOKMARK_KEY = "b";
 
 /**
  * The live controls pinned above a meeting being recorded. The bar follows the recorder's phase; the clock
@@ -40,6 +45,20 @@ export function RecordingBar({
     snapshot.tracks.map((track) => track.track).join(","),
   );
   const paused = phase === "paused";
+  const stopping = phase === "stopping";
+  // Whoever runs the meeting is listening, not aiming a pointer: B marks the moment from anywhere on the page.
+  useEffect(() => {
+    if (stopping) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key.toLowerCase() !== BOOKMARK_KEY || event.repeat) return;
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      if (typing(event.target) || document.querySelector(OPEN_DIALOG)) return;
+      event.preventDefault();
+      onBookmark(recorder.getSnapshot().elapsedMs);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [stopping, recorder, onBookmark]);
   return (
     <div className="sticky top-0 z-10 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border-subtle bg-surface-raised px-(--page-gutter) py-2.5">
       <DotMatrix
@@ -66,11 +85,19 @@ export function RecordingBar({
       <Button
         prominence="tertiary"
         size="sm"
-        disabled={phase === "stopping"}
+        disabled={stopping}
+        aria-keyshortcuts={BOOKMARK_KEY.toUpperCase()}
         onClick={() => onBookmark(recorder.getSnapshot().elapsedMs)}
       >
         <Bookmark data-icon="inline-start" aria-hidden="true" />
         {ui("Đánh dấu")}
+        {/* A phone has no keyboard to press it on. */}
+        <kbd
+          aria-hidden="true"
+          className="rounded-sm border border-border-default px-1 font-mono text-xs text-content-muted max-md:hidden"
+        >
+          {BOOKMARK_KEY.toUpperCase()}
+        </kbd>
       </Button>
       {tracks
         .split(",")

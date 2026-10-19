@@ -228,9 +228,14 @@ export const vietnameseUi: Record<string, string> = {
   "Xóa quyết định này?": "Delete this decision?",
   "“{{text}}” sẽ bị xóa khỏi biên bản và không lấy lại được.":
     "“{{text}}” will be removed from the minutes and cannot be restored.",
-  "Lưu biên bản vào Thư viện và mở hội thoại mới với biên bản đó.":
-    "Saves the minutes to the Library and opens a new conversation with them attached.",
+  "Mở biên bản trong Chat?": "Open the minutes in Chat?",
+  "Biên bản được lưu vào Thư viện, rồi một hội thoại mới mở ra với biên bản đó.":
+    "The minutes are saved to the Library, then a new conversation opens with them attached.",
+  "Đang mở…": "Opening…",
+  "Không đổi được sau khi tải lên.": "Cannot be changed after the upload.",
+  "Có tên người nói đang chờ bạn xác nhận": "Speaker names are waiting for your confirmation",
   "Chi tiết": "Details",
+  "Trang nguồn {{provider}}": "{{provider}} source pages",
   "vừa viết xong": "just written",
   "Người nói {{label}} tự giới thiệu là {{name}}":
     "Speaker {{label}} introduced themselves as {{name}}",
