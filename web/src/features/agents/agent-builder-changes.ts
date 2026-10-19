@@ -33,10 +33,7 @@ export type BuilderChange = { id: string; fields: FieldChange[]; undone: boolean
 const same = (left: unknown, right: unknown) => JSON.stringify(left) === JSON.stringify(right);
 
 /** The change's new value of each field, in the form's terms; a field equal to the form's value is no change. */
-function changedFields(
-  values: AgentValues,
-  change: AssistantChange["change"],
-): FieldChange[] {
+function changedFields(values: AgentValues, change: AssistantChange["change"]): FieldChange[] {
   const fields: FieldChange[] = [];
   for (const field of builderFields) {
     const sent = change[field];
