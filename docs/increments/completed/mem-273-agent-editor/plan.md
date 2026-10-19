@@ -62,7 +62,8 @@ owner checks the editor on staging after the third.
 
 Design: [design-groups.md](design-groups.md). Three pull requests.
 
-- [ ] 5a. Save and Cancel only on the Cấu hình tab; Kênh and Chia sẻ keep the unsaved-changes state (decision 9).
+- [x] 5a. Save and Cancel only on the Cấu hình tab; Kênh and Chia sẻ keep the unsaved-changes state (decision 9).
+  [#738](https://github.com/kl3inIT/MemoryOS/pull/738).
 - [x] 5b. Backend: one migration (V185) with `channel_groups`, `chat_channel_group_binding` and
   `chat_session.channel_chat_id`; groups recorded on an accepted group message, Lark's name from the chat read the
   external check makes; resolution group → bot → built-in in `channelPersona` and `CHANNEL_OR_USES`; the group API and
@@ -71,12 +72,15 @@ Design: [design-groups.md](design-groups.md). Three pull requests.
   ignores group overrides; permission refusals; an external Lark group is not recorded.
 - [x] 5c. Web: the bot page's "Trợ lý mặc định" picker and "Theo nhóm chat" list; the Kênh tab read-only with links to the
   bot pages. Unit and e2e tests; staging screenshots; channel and chat specs, test matrices.
-- [ ] 5d. Lark groups known on joining ([design-groups decision 9](design-groups.md#step-5d-lark-groups-known-on-joining)):
+- [x] 5d. Lark groups known on joining ([design-groups decision 9](design-groups.md#step-5d-lark-groups-known-on-joining)):
   `ChannelReceiver.joined`, `ChannelAdapter.groups`, `ChannelGroupRoster` with the supervisor's 10-minute listing,
   V187 (`channel_groups.last_message_at` nullable), the Lark adapter's `botAdded` and paged `im/v1/chats`; the page's
   "chưa có ai hỏi" and no "Quên nhóm" on Lark; the dialog and runbook name `im.chat.member.bot.added_v1`. Tests:
   roster (join, list adds, renames, removes with the override), supervisor (listed on connect, not again before 10
-  minutes, joined passed on), Lark paging and filters, unit and e2e.
+  minutes, joined passed on), Lark paging and filters, unit and e2e. [#758](https://github.com/kl3inIT/MemoryOS/pull/758);
+  the empty "Chưa có nhóm chat nào" line and the shorter Kênh tab subtitle in
+  [#769](https://github.com/kl3inIT/MemoryOS/pull/769). The live check in a Lark group needs the app owner to add the
+  event first and moved to [MEM-296](https://linear.app/memory-os/issue/MEM-296).
 
 ## 6. An app the person has not connected (Q12)
 
@@ -89,13 +93,17 @@ Design: decisions 19–23. One pull request.
 - [x] Tests: `McpTurnServiceTest` (each reason, a usable server turned off, a selected server not attached),
   `McpToolsTest` (each reason's sentence), `ChatWebPromptsTest` (reminder, not system), `ChatTurnServiceTest`
   (attached servers opened, card event and stored activity), transport and card unit tests, e2e with screenshots.
-- [ ] Staging: the probe of 2026-10-18 again (a member without Linear asks the Linear assistant); the answer names
-  the missing connection and Connect returns to the conversation.
+- [x] Staging: the probe of 2026-10-18 again (a member without Linear asks the Linear assistant); the answer names
+  the missing connection and Connect starts the provider's sign-in
+  ([verification](verification.md#q12-an-app-the-person-has-not-connected)). The return after a completed sign-in was
+  not exercised, because the probe does not sign in to Linear.
 
 ## Verification
 
-- [ ] On zm, throttled: the persona, chat and channel tests, `ModulithArchitectureTest`, `CoreDependencyRulesTest`,
-  `OpenApiContractTest`; CI runs the full gates.
-- [ ] Staging: create through the dialog, edit and test without saving, save and reopen, share tab, bind a Zalo bot
-  and ask it a question. Screenshots in light and dark, desktop and phone.
-- [ ] Docs: the chat spec (assistant fields, editor), the channels spec, the test matrices, the roadmap.
+- [x] On zm, throttled: the persona, chat and channel tests, `ModulithArchitectureTest`, `CoreDependencyRulesTest`,
+  `OpenApiContractTest`, run for each pull request; CI ran the full gates before every merge.
+- [x] Staging: create through the dialog, edit and test without saving, save and reopen, share tab, a bot's assistant
+  and group chats on the bot page; screenshots in light and dark, desktop and phone
+  ([verification](verification.md)). A question to a live Zalo bot was not part of these runs.
+- [x] Docs: the chat spec (assistant fields, editor, Q12), the channel spec (the bot's assistant, group chats), the test
+  matrices, the roadmap.
