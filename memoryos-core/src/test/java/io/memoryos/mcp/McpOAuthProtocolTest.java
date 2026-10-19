@@ -29,12 +29,16 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import tools.jackson.databind.json.JsonMapper;
 
 class McpOAuthProtocolTest {
+    /** RFC 7636 asks for 43 to 128 characters, and Nimbus refuses anything else before sending. */
+    private static final String VERIFIER = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
     private static final JsonMapper JSON = JsonMapper.builder().build();
     private final Map<String, Consumer<HttpExchange>> routes = new ConcurrentHashMap<>();
-    private final McpOAuthProtocol protocol = new McpOAuthProtocol(Duration.ofSeconds(2), Duration.ofSeconds(5));
+    private final McpOAuthProtocol protocol = new McpOAuthProtocol(Duration.ofSeconds(5));
     private HttpServer server;
     private String origin;
 
@@ -204,10 +208,10 @@ class McpOAuthProtocolTest {
         var client = new McpOAuthProtocol.Client("client id", "secret:with+chars", McpTokenEndpointAuthMethod.CLIENT_SECRET_BASIC);
 
         var tokens = protocol.exchangeCode(URI.create(origin + "/token"), client, "the-code",
-                URI.create("https://memoryos.example/login/oauth2/code/mcp"), "verifier", origin + "/mcp");
+                URI.create("https://memoryos.example/login/oauth2/code/mcp"), VERIFIER, origin + "/mcp");
 
         assertEquals("authorization_code", form.get().get("grant_type"));
-        assertEquals("verifier", form.get().get("code_verifier"));
+        assertEquals(VERIFIER, form.get().get("code_verifier"));
         assertEquals(origin + "/mcp", form.get().get("resource"));
         assertNull(form.get().get("client_secret"));
         assertEquals("Basic " + Base64.getEncoder().encodeToString("client+id:secret%3Awith%2Bchars".getBytes(StandardCharsets.UTF_8)),
@@ -227,7 +231,7 @@ class McpOAuthProtocolTest {
                 McpTokenEndpointAuthMethod.NONE);
 
         var tokens = protocol.exchangeCode(URI.create(origin + "/token"), client, "the-code",
-                URI.create("https://memoryos.example/login/oauth2/code/mcp"), "verifier", origin + "/mcp");
+                URI.create("https://memoryos.example/login/oauth2/code/mcp"), VERIFIER, origin + "/mcp");
 
         assertEquals("access", tokens.accessToken());
         assertNull(tokens.scope());
@@ -269,6 +273,67 @@ class McpOAuthProtocolTest {
         assertEquals("https://mcp.example/mcp", McpOAuthProtocol.canonicalResource("HTTPS://MCP.example/mcp/"));
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"asana", "canva", "figma", "github", "gmail", "google-drive", "hubspot", "linear", "miro", "notion",
+            "slack"})
+    void readsTheMetadataEachCatalogServerPublishes(String provider) throws IOException {
+        // Recorded on 2026-10-19 from each catalog server's unauthenticated discovery (MEM-227); Atlassian answered none.
+        byte[] document;
+        try (var stream = getClass().getResourceAsStream("/mcp/oauth-metadata/" + provider + ".authorization-server.json")) {
+            document = stream.readAllBytes();
+        }
+        String issuer = JSON.readTree(document).path("issuer").asString();
+
+        var server = McpOAuthProtocol.authorizationServer(issuer, document);
+
+        assertEquals(issuer, server.issuer());
+        assertEquals("https", server.authorizationEndpoint().getScheme());
+        assertEquals("https", server.tokenEndpoint().getScheme());
+        boolean registers = JSON.readTree(document).has("registration_endpoint");
+        assertEquals(registers, server.registrationEndpoint() != null);
+        assertEquals(JSON.readTree(document).path("client_id_metadata_document_supported").asBoolean(false),
+                server.clientIdMetadataDocumentSupported());
+    }
+
+    @Test
+    void refusesDuplicateMembersTrailingContentAndAnOversizedAnswer() {
+        var client = new McpOAuthProtocol.Client("public", null, McpTokenEndpointAuthMethod.NONE);
+        // A second access_token would win in a lenient reader; MemoryOS refuses the answer instead.
+        routes.put("POST /token", exchange -> respondRaw(exchange, 200,
+                "{\"access_token\":\"a\",\"token_type\":\"Bearer\",\"access_token\":\"b\"}"));
+        assertCode("MCP_OAUTH_TOKEN_FAILED", () -> protocol.refresh(URI.create(origin + "/token"), client, "refresh", origin + "/mcp"));
+
+        routes.put("POST /token", exchange -> respondRaw(exchange, 200, "{\"access_token\":\"a\",\"token_type\":\"Bearer\"} {}"));
+        assertCode("MCP_OAUTH_TOKEN_FAILED", () -> protocol.refresh(URI.create(origin + "/token"), client, "refresh", origin + "/mcp"));
+
+        routes.put("POST /token", exchange -> respondRaw(exchange, 200,
+                "{\"access_token\":\"" + "a".repeat(McpOAuthProtocol.MAX_RESPONSE_BYTES) + "\",\"token_type\":\"Bearer\"}"));
+        assertCode("MCP_OAUTH_TOKEN_FAILED", () -> protocol.refresh(URI.create(origin + "/token"), client, "refresh", origin + "/mcp"));
+
+        routes.put("POST /token", exchange -> respond(exchange, 200, Map.of("access_token", "a", "token_type", "Bearer",
+                "expires_in", "3600")));
+        assertCode("MCP_OAUTH_TOKEN_FAILED", () -> protocol.refresh(URI.create(origin + "/token"), client, "refresh", origin + "/mcp"));
+    }
+
+    @Test
+    void revokesWithTheClientsAuthenticationAndNoTokenTypeHint() {
+        var form = new AtomicReference<Map<String, String>>();
+        var authorization = new AtomicReference<String>();
+        routes.put("POST /revoke", exchange -> {
+            authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
+            form.set(query(read(exchange)));
+            respond(exchange, 200, null);
+        });
+
+        protocol.revoke(URI.create(origin + "/revoke"), new McpOAuthProtocol.Client("id", "secret",
+                McpTokenEndpointAuthMethod.CLIENT_SECRET_POST), "the-token");
+
+        assertEquals("the-token", form.get().get("token"));
+        assertNull(form.get().get("token_type_hint"));
+        assertEquals("secret", form.get().get("client_secret"));
+        assertNull(authorization.get());
+    }
+
     private Map<String, Object> metadata(String issuer) {
         return Map.of("issuer", issuer, "authorization_endpoint", origin + "/authorize?tenant=1", "token_endpoint", origin + "/token",
                 "registration_endpoint", origin + "/register", "code_challenge_methods_supported", List.of("S256"),
@@ -288,6 +353,17 @@ class McpOAuthProtocolTest {
             if (bytes.length > 0) exchange.getResponseBody().write(bytes);
         } catch (IOException failure) {
             throw new IllegalStateException(failure);
+        }
+    }
+
+    private static void respondRaw(HttpExchange exchange, int status, String body) {
+        try (exchange) {
+            byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(status, bytes.length);
+            exchange.getResponseBody().write(bytes);
+        } catch (IOException failure) {
+            // The client stops reading an answer past its bound.
         }
     }
 

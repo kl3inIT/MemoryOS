@@ -1,0 +1,1 @@
+{"resource":"https://mcp.miro.com/","authorization_servers":["https://mcp.miro.com/"],"scopes_supported":["boards:read","boards:write","openid","email"],"bearer_methods_supported":["header"]}
