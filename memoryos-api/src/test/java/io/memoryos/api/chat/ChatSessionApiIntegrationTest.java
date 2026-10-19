@@ -6152,7 +6152,8 @@ class ChatSessionApiIntegrationTest {
             assertTrue(afterTimeout.contains("did not answer in time"));
             assertFalse(afterTimeout.contains("fixture-mcp-key"));
 
-            // 3. The stored credential stops working. The model is told to reconnect, and the turn still answers.
+            // 3. The shared credential stops working. The model is told an administrator must connect it again
+            // (MEM-295), and the turn still answers.
             var wrongKey = mcpServerBody(slug, fixture.url());
             wrongKey.putObject("sharedApiKey").put("action", "REPLACE").put("value", "no-longer-valid");
             var current = Json.mapper().readTree(mockMvc.perform(get("/api/mcp/servers/" + serverId)
@@ -6163,7 +6164,7 @@ class ChatSessionApiIntegrationTest {
             prompts.clear();
             runMcpTurn(serverId, "Thử lại lần ba.");
             String afterRejection = prompts.getLast();
-            assertTrue(afterRejection.contains("reconnect"));
+            assertTrue(afterRejection.contains("an administrator must connect it again"));
             // A whole-word status only: the random server slug ("fail" and five digits) can contain 401.
             assertFalse(afterRejection.matches("(?s).*\\b401\\b.*"));
         }
