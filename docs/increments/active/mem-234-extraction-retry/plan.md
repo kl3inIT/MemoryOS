@@ -29,3 +29,5 @@ Issue: [MEM-234](https://linear.app/memory-os/issue/MEM-234). See the [design](d
 ## Staging acceptance (2026-10-19)
 
 `promtool check rules` passes on `alerts.yaml` from `main` (10 rules) inside the staging Prometheus, and `memoryos_extraction_unavailable_total` exists on both hosts, but neither stack loads the rule yet (both run older observability configuration). Stopping `paddleocr-vl-api` remains.
+
+Staging rollout (2026-10-19): the stack now runs from `/apps/memoryos/observability-stack` at `5dadbc7d`, as production does, with Grafana's volume backed up first. Its containers had been created from `97663fcc` and `46540b18`, so Tempo still carried the 768 MiB limit that `e1365574` removed and was killed compacting 2.4 GB of blocks on every start. Tempo 3.1.0 now runs without a limit at about 780 MiB, with no restart; Prometheus loads the ten rules, including `MemoryOSExtractionUnavailable`, and `memoryos_extraction_unavailable_total` has two series. Production loads the rule at its next observability rollout; stopping `paddleocr-vl-api` remains.

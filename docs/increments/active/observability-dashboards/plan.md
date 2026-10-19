@@ -17,3 +17,5 @@
 ## Staging acceptance (2026-10-19)
 
 Production confirmed: its stack (revision `6ac59f77`) receives API and worker series and traces labelled production, with the MCP endpoint row. Staging's stack still runs `46540b18` without that row, and Tempo there is down: it is killed at its 768 MiB limit while compacting old blocks on start.
+
+Staging rollout (2026-10-19): the stack now runs from `/apps/memoryos/observability-stack` at `5dadbc7d`, as production does, with Grafana's volume backed up first. Its containers had been created from `97663fcc` and `46540b18`, so Tempo still carried the 768 MiB limit that `e1365574` removed and was killed compacting 2.4 GB of blocks on every start. Tempo 3.1.0 now runs without a limit at about 780 MiB, with no restart; Prometheus loads the ten rules; `traces_spanmetrics_calls_total` has 24 series and the Chat AI dashboard has its MCP rows. Production still runs `6ac59f77` and waits for its next deployment.
