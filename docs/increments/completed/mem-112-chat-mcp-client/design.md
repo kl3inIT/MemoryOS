@@ -81,7 +81,7 @@ Each row follows [reference-based design](../../../conventions.md#reference-base
 - Proposal (gated last phase): never forward the login token; exchange it per call with Keycloak token exchange (RFC 8693) for a token whose audience is the MCP server, as OrgMemory `apps/mcp/.../McpDownstreamOAuthConfiguration.java` does. MemoryOS still needs a subject token server-side: Retain the session's Keycloak access and refresh tokens encrypted, bound to the HTTP session, removed at sign-out and Keycloak back-channel logout, refreshed before use. Audience must include the MCP server; configure a Keycloak client scope/audience mapper per server rather than forwarding a token whose audience is MemoryOS.
 - Benefit: internal MCP servers behind the same Keycloak need no second consent.
 - Cost: reverses the accepted identity contract "provider tokens are still discarded" ([identity spec](../../../specs/identity.md)), adds a token store to the identity threat model, and must be reconciled with the active sign-out increment, which rejected storing the ID token for the same reason. Upstream IdP (Google) tokens are not passed; that would need Keycloak token exchange and is not Onyx behavior.
-- Evidence to choose: owner accepts retaining login tokens; interaction with [logout-without-keycloak-page](../../active/logout-without-keycloak-page/design.md).
+- Evidence to choose: owner accepts retaining login tokens; interaction with [logout-without-keycloak-page](../../completed/logout-without-keycloak-page/design.md).
 
 ### Improvements over the reference
 

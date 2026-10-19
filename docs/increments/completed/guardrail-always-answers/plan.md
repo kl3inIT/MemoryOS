@@ -7,3 +7,7 @@
 - [x] Tests: `ChatGroundedTurnTest`, `ChatGuardrailRulesTest`, `GroundingClassifierTest`, `TurnFailureTest`.
 - [x] Chat spec, test matrix and the MEM-203 increment.
 - [ ] CI; merge; on staging, ask the questions that failed on 2026-10-01 and watch `chat.guardrail.unavailable`.
+
+## Closed (2026-10-19)
+
+Closed by owner decision without the staging re-ask of the questions that failed on 2026-10-01; the guardrail was rebuilt since by MEM-206, MEM-208 and MEM-198.

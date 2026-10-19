@@ -34,3 +34,7 @@
 - Google Drive ingestion capturing source dates, and the re-index it needs.
 - Onyx's overlap mapping for "updated in [S,E]".
 - Any change to the direct Search `updatedSince` contract, which filters an always-present field.
+
+## Closed (2026-10-19)
+
+Closed by owner decision without the staging re-run and the temporal benchmark; the MEM-141 runner they needed was removed on 2026-10-06.

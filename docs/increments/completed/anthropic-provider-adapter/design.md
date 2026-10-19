@@ -46,7 +46,7 @@ No request or stream is hand-written.
 - A Claude tokenizer profile: the adapter estimates with O200K and the 5% input margin, which undercounts Claude's tokenizer on some text.
 - `thinkingBudget` in the model editor; it is settable through the API.
 - The `openai` adapter refusing `api.anthropic.com`, and removing its reading of Anthropic's listing fields.
-- Anthropic's hosted Web search (the open item of [Chat web search](../../active/chat-web-search/plan.md)), an `xhigh` level, the 1M-token context beta, Bedrock and Vertex, a Gemini adapter.
+- Anthropic's hosted Web search (the open item of [Chat web search](../../completed/chat-web-search/plan.md)), an `xhigh` level, the 1M-token context beta, Bedrock and Vertex, a Gemini adapter.
 
 ## Risks
 

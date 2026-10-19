@@ -639,3 +639,7 @@ Frontend check passed 60 tests and all gates; browser suites passed 34 scenarios
 - [x] Replace whole-Source invalidation on selection activation with retained-membership reconciliation: carry forward already-authorized, successfully indexed files still covered by a retained root or explicit approval.
 - [x] Preserve the current content version, Document and Search readiness for retained files; continue fencing cancelled work and revoking removed, excluded or credential-stale inputs.
 - [x] Verify selection shrink, unchanged synchronization and authority boundaries in PostgreSQL-backed regression checks; consolidate the behavior and evidence in the connector contract and verification matrix.
+
+## Closed (2026-10-19)
+
+Closed by owner decision without the live Google and customer-data acceptance (MEM-60 is closed).

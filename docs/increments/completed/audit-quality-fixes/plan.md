@@ -30,3 +30,7 @@
 - New tests: `MeetingRepositoryTest` (abandoned leases), SharePoint FAILED status, SharePoint storage-failure retry keeps the run, `SessionSecurityIntegrationTest` (typed invitation query code), `meetings-api.test.ts`, `meeting-session.test.ts`, admin entry path, MCP errors, source history paging, library favourite failure, search results kept while paging, invitation error mapping.
 - Not run: JetBrains Gate-1 inspection (MCP unreachable) and Playwright e2e. Notes autosave, group navigation blocking and correction polling have no new tests because the touched components have no test harness.
 - `DefaultSharePointSourceService.java` was stored with CRLF on main; replacing its raw control characters let Git normalise it to LF, so its diff shows as a full rewrite (`git show --ignore-cr-at-eol afa577de` shows the 10 real lines; bytecode is identical).
+
+## Closed (2026-10-19)
+
+Closed by owner decision without the six owner decisions in `owner-decisions.md`, mostly superseded by ADR 0027's platform modules and the phase 5 frontend work.

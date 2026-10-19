@@ -308,3 +308,7 @@ Orientation commit `bbace1ae0fb68c8c10264168eef4935b07ad8bbf` was pushed to the 
 Integrated `clean check --rerun-tasks --no-daemon --no-parallel --max-workers=1 --console=plain` passed in 11m33s: all 24 actionable tasks executed, 682 cases, 677 passed, five optional Chat-related skips, zero failures/errors. Counts are API 134, Connector 108, Core 413 and Worker 27. Every JUnit report was newer than this gate's start. The same final orientation image served the authenticated three-format Docling tests and Worker DOCX publication/cleanup fixture again; all passed. No orientation scratch directory remained, and the owned container stopped successfully.
 
 The integrated frontend `pnpm check` passed generated API/routes stability, CI-image and i18n guards, lint, formatting, types, all 176 unit cases in 31 files and the production build. The existing large-chunk warning remains. These are integrated backend/frontend gates, not a new Sources browser acceptance or OCR corpus rerun; no implementation change was needed after the documentation-only conflict resolution. The integration launcher was removed after both gates completed, with their logs and exact totals retained privately.
+
+## Closed (2026-10-19)
+
+Closed by owner decision without the remote 100 MiB ingress (blocked on deployment access) and the row and period-column fidelity fix.

@@ -29,3 +29,7 @@
 - [x] Consolidate implemented facts and record remaining live-provider acceptance separately.
 - [x] Run the whole-repository `clean check` gate for the external Web slice.
 - [ ] Run real-provider acceptance and repeat final gates after native adapters before release.
+
+## Closed (2026-10-19)
+
+Closed by owner decision without the native provider-hosted adapters and the paid live acceptance, kept as a candidate.

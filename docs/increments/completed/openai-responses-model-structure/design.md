@@ -1,7 +1,7 @@
 # OpenAI Responses model, structured after Spring AI
 
 Status: **implemented 2026-09-30.** Linear: [MEM-202](https://linear.app/memory-os/issue/MEM-202). Related:
-[Chat Web search](../../active/chat-web-search/design.md), which introduced the model.
+[Chat Web search](../../completed/chat-web-search/design.md), which introduced the model.
 
 ## Problem
 

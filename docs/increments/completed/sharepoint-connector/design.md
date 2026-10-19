@@ -5,7 +5,7 @@
 - Tracking: [MEM-126](https://linear.app/memory-os/issue/MEM-126), issue con của [MEM-118](https://linear.app/memory-os/issue/MEM-118).
 - Tham chiếu hành vi: [onyx-sharepoint-reference.md](onyx-sharepoint-reference.md). Tham chiếu giao diện: [ui-references.md](ui-references.md). Kế hoạch: [plan.md](plan.md).
 - Liên quan:
-  - [Google Drive ingestion](../../active/google-drive-structured-ingestion/design.md), [connector spec](../../../specs/connector.md), [ingestion spec](../../../specs/ingestion.md);
+  - [Google Drive ingestion](../../completed/google-drive-structured-ingestion/design.md), [connector spec](../../../specs/connector.md), [ingestion spec](../../../specs/ingestion.md);
   - [ADR 0002](../../../decisions/0002-no-speculative-operational-surfaces.md), [ADR 0006](../../../decisions/0006-shared-connector-bundle-and-jdbc-source-persistence.md);
   - [MEM-105](https://linear.app/memory-os/issue/MEM-105), [MEM-106](https://linear.app/memory-os/issue/MEM-106).
 

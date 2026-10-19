@@ -85,3 +85,7 @@ Target-host measurements remain deferred with the server baseline.
 - [x] Run the repository gate.
 - [ ] Publish the pull request and attach evidence to MEM-66.
 - [ ] Move the increment to completed and reconcile the roadmap after merge.
+
+## Closed (2026-10-19)
+
+Closed by owner decision without the measurements; the research was parked on 2026-09-19 and PR #238 removed self-hosted model serving.
