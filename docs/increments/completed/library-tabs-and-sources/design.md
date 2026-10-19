@@ -1,7 +1,7 @@
 # Library tabs and the Sources a member reads from
 
 Status: **accepted 2026-09-28; backend and web implemented** on `phamnhatanh811/library-sources-view`. It follows the
-[library hub](../library-hub/design.md). No Linear issue yet. The interactive mockup and design board are under
+[library hub](../../active/library-hub/design.md). No Linear issue yet. The interactive mockup and design board are under
 [mockups/](mockups/).
 
 ## Problem

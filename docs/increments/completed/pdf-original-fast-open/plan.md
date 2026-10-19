@@ -48,3 +48,7 @@ does not touch.
   or two stragglers read ahead 256 KiB each.
 - The tail waits for the head's response headers because the server ignores a suffix range (`bytes=-N`).
   Honouring one would start both at once and save a request's latency on every first opening.
+
+## Staging acceptance (2026-10-19)
+
+`Báo cáo tài chính năm 2023.pdf` (15.2 MB) opens at its cited page 10 of 33 drawn 1.78 s after the click, after 35 range requests and 1.18 MB; reopening fetches one byte and draws in 593 ms. Through nginx-proxy-manager the scripts and the PDF worker arrive gzip-encoded with `Vary: Accept-Encoding`, the same bytes the web container sends.

@@ -13,3 +13,7 @@
 - [x] After merge: staging runs the stack from `releases/97663fcc…` (2026-09-27); all five services ready, the four
   dashboards provisioned, Tempo writing span metrics (14 series) and the service graph (3).
 - [ ] After the next production promotion: confirm production series and traces arrive, then update its observability stack the same way.
+
+## Staging acceptance (2026-10-19)
+
+Production confirmed: its stack (revision `6ac59f77`) receives API and worker series and traces labelled production, with the MCP endpoint row. Staging's stack still runs `46540b18` without that row, and Tempo there is down: it is killed at its 768 MiB limit while compacting old blocks on start.

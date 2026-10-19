@@ -37,3 +37,7 @@ by the owner on 2026-10-13 ([design](design.md#designed-built-and-dropped-the-co
   contrast and the screenshots are in [verification](verification.md#the-term-mark-against-the-passage-highlight).
 - **Two increments edit `pdf-view.tsx` and `file-preview.tsx`.** The edits here stay in the toolbar and one
   effect dependency.
+
+## Staging acceptance (2026-10-19)
+
+"quyền và nghĩa vụ của cổ đông" opens the Savico charter with 49 marked ranges, all inside the located passage. Three other Word originals did not locate their passage ("Không tìm thấy"), which predates this increment.

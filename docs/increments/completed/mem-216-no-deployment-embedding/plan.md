@@ -23,3 +23,7 @@ Design: [design.md](design.md). Linear: [MEM-216](https://linear.app/memory-os/i
   - existing users of `SearchProperties`.
 - [x] Docs: `docs/specs/search.md`, `docs/runbooks/search-runtime.md` (first install), the development runbook, the test matrix, roadmap.
 - [ ] CI; merge; staging: V144 applied, the Search settings page lists only `serving-embedding`, a search answers.
+
+## Staging acceptance (2026-10-19)
+
+V144 applied; no provider keeps `credential='deployment'`. `GET /api/search/embedding-providers` lists only `serving-embedding` (Qwen3-Embedding-4B, 2560 dimensions, 182 documents), and `POST /api/search` answers in 88–226 ms.

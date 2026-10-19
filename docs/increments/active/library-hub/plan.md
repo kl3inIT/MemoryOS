@@ -44,3 +44,7 @@ Owner decisions (2026-09-25):
 - Live acceptance with real data: a second member in another Group, a shared meeting and a shared Agent, observed
   after signing in through Keycloak.
 - No Linear issue exists yet for this increment.
+
+## Staging acceptance (2026-10-19)
+
+As the test member `bm-finance`, a test Agent's file shared to the Group is listed in Shared with its reason, downloads and stars. The shared meeting remains: staging has none.

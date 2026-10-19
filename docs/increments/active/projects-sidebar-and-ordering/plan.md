@@ -36,3 +36,7 @@
 - [x] `ChatPersistenceIntegrationTest`, `ChatSessionApiIntegrationTest` and `OpenApiContractTest` on PostgreSQL with V159 applied; `ModulithArchitectureTest`, `CoreDependencyRulesTest`
 - [ ] `clean check` and the complete Playwright suite on the pull request's CI (one complete local run: 207 passed, 5 failed — two from this change and fixed, three from fixture state or load)
 - [ ] Browser verification of the sidebar, the Projects page and the conversation menu on staging
+
+## Staging acceptance (2026-10-19)
+
+Moving a conversation into and out of a Project works, but creating a Project failed (400 "Invalid icon."), fixed by PR #794; the sidebar shows no chevrons and hides "Xem tất cả dự án" below six Projects, unlike the checked plan items.
