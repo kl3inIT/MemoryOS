@@ -84,7 +84,7 @@ none.
 
 A bot keeps its assistant as its default, and an administrator may give each group chat the bot is in an assistant of
 its own, as Onyx configures a Slack bot by channel under one default config (`SlackChannelConfig`, `is_default`) and
-OpenClaw binds one group to an agent (MEM-273, [design](../increments/active/mem-273-agent-editor/design-groups.md)).
+OpenClaw binds one group to an agent (MEM-273, [design](../increments/completed/mem-273-agent-editor/design-groups.md)).
 Direct messages always answer with the default.
 
 - **The groups** are those the bot has answered in (`channel_groups`, the channel's): `ChannelInboundService` records
