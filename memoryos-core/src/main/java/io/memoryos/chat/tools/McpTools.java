@@ -157,10 +157,11 @@ public final class McpTools {
                 + "Do not attempt their tools or claim results from them; mention this only when the request needs one:");
         for (var server : unavailable) {
             text.append("\n- ").append(name(server.serverName())).append(": ").append(switch (server.reason()) {
-                case NOT_CONNECTED -> "the user has not connected it; tell them to connect it with the Connect button "
-                        + "shown under your answer";
-                case REAUTH_REQUIRED -> "the user's sign-in has expired; tell them to reconnect it with the button "
-                        + "shown under your answer";
+                // The card's label is translated ("Kết nối"); naming it here made the answer say "nút Connect".
+                case NOT_CONNECTED -> "the user has not connected it; tell them they can connect it with the button "
+                        + "shown under your answer, without naming the button";
+                case REAUTH_REQUIRED -> "the user's sign-in has expired; tell them they can connect it again with the "
+                        + "button shown under your answer, without naming the button";
                 case NO_TOOLS -> "no tools are enabled; only an administrator can enable them";
                 case INACCESSIBLE -> "not available to this user; only an administrator can grant access, "
                         + "so do not suggest connecting it";

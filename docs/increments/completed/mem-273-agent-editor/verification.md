@@ -30,7 +30,8 @@ The return to the conversation after a completed sign-in was not exercised, and 
 produced on staging (no safe way to expire a real token); unit and e2e tests cover both.
 
 The model wrote "nút Connect" while the Vietnamese card reads "Kết nối", because the notice names "the Connect button"
-(`McpTools.unavailableNotice`); a follow-up should name the button without its English label.
+(`McpTools.unavailableNotice`). The notice now points to the button under the answer without naming it
+(`McpToolsTest.namesEachUnusableServerWithWhoCanFixIt`).
 
 The same run confirmed the roster and the faces on a new assistant: opening the assistant opens its latest topic, the
 topic is listed in the assistant's sidebar, the session list filtered by the assistant returns it, and the new
