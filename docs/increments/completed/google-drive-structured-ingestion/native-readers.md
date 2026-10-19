@@ -24,4 +24,4 @@ Use the [current Document contract](../../../specs/document.md): publish current
 
 Exclusions: search/answer generation, formula computation engine, Google Group expansion, a separate Google Sheets source-management surface and Docling parsing of Sheets.
 
-Repository plan: `docs/increments/active/google-drive-structured-ingestion/plan.md`.
+Repository plan: `docs/increments/completed/google-drive-structured-ingestion/plan.md`.

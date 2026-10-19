@@ -33,3 +33,7 @@ generated images.
 
 - Measure a real `/library` page before and after, and record the numbers in this increment.
 - Uploaded images still draw as icons; a thumbnail for them is separate work.
+
+## Closed (2026-10-19)
+
+Closed by owner decision without measuring a real `/library` page before and after.

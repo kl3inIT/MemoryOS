@@ -23,3 +23,7 @@
 - `./gradlew :memoryos-core:test --tests io.memoryos.iam.identityprovider.DefaultIdentityProviderAdministrationTest`: 9 tests passed, including create setting back-channel logout with the discovered logout URL and update enabling it on a provider without it while clearing it on a provider with no logout URL.
 
 Not verified: staging. Sessions created before deployment have no recorded `sid`, so their first sign-out still uses the provider logout page.
+
+## Closed (2026-10-19)
+
+Closed by owner decision without enabling back-channel logout on staging and the owner's acceptance there.

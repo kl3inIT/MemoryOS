@@ -97,3 +97,7 @@ matches visible; the ranking itself belongs to Search.
 - **Anchor matching can still mislocate** within a document that repeats a phrase. The 40% length tolerance
   and the `approximate` label bound the damage; ingestion-recorded anchors remove it, and are the recorded
   follow-up.
+
+## Closed (2026-10-19)
+
+Closed by owner decision without the live acceptance against the Tasco corpus.

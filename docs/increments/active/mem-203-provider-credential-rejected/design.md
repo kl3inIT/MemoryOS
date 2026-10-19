@@ -45,7 +45,7 @@ answer says no answer could be generated. A turn the server committed as FAILED 
 
 **A question the guardrail could not check.** #422 stored `CHAT_GUARDRAIL_UNAVAILABLE` for it. That code was
 removed the same day, before any deployment: a guardrail no longer fails a turn at all
-([guardrail always answers](../guardrail-always-answers/design.md)).
+([guardrail always answers](../../completed/guardrail-always-answers/design.md)).
 
 **Not in scope.** Marking a provider whose key was refused on the Models page (item 4 of the issue) waits for an
 owner decision.

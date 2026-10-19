@@ -10,3 +10,7 @@
 - [x] `tsc -b`, `oxlint`, `oxfmt` clean
 - [ ] `clean check` (needs Docker for integration tests)
 - [ ] Browser verification of the four surfaces
+
+## Closed (2026-10-19)
+
+Closed by owner decision without `clean check` and the browser verification; the Projects pages were reworked since by projects-sidebar-and-ordering.

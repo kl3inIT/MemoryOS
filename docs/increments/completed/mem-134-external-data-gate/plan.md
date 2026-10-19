@@ -23,3 +23,7 @@ One pull request.
 - [ ] 8. Docs: [chat-models](../../../specs/chat-models.md) (the boundary is now enforced for retrieval),
       [connector](../../../specs/connector.md) (the Source flag), [chat](../../../specs/chat.md), the matrices, the
       roadmap.
+
+## Closed (2026-10-19)
+
+Closed by owner decision without the implementation; only the design was made, and the gate is kept as a candidate.

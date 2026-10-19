@@ -217,7 +217,7 @@ These departures from the sections above were found while building the change; t
 ## Out of scope
 
 - Intent routing and switching to an external model belong to MEM-129.
-- Controlling what data leaves for external models belongs to MEM-134. Its first-slice design is kept in `docs/increments/active/mem-134-external-data-gate/`, not yet committed.
+- Controlling what data leaves for external models belongs to MEM-134. Its first-slice design is kept in `docs/increments/completed/mem-134-external-data-gate/`, not yet committed.
 - The general evaluation programme belongs to MEM-176. This increment only adds the categories it needs to the MEM-141 benchmark.
 - **Phase 3, waiting for an owner decision on cost and latency:**
   - per-sentence or per-claim grounding checks with a model (the Bedrock/NeMo chunked check with the recipes' claim-checking prompt);

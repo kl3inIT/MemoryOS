@@ -35,3 +35,7 @@ throwaway preview server; the unit tests cover the attach-then-send order.
 ## Open
 
 - Keyboard-only cropping: the selection is drawn with a pointer.
+
+## Closed (2026-10-19)
+
+Closed by owner decision without keyboard-only cropping, kept as a candidate.

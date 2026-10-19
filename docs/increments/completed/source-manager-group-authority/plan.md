@@ -33,3 +33,7 @@ Not verified: staging, and any browser run of the administrator appointment sect
 - Web follow-up: `node node_modules/typescript/bin/tsc -b` and `node node_modules/vitest/vitest.mjs run src/features/sources/source-groups-section.test.tsx` passed; the latter has 10 tests, including the out-of-scope Group regression.
 
 Not verified: staging or a browser run of Group detail with two managers.
+
+## Closed (2026-10-19)
+
+Closed by owner decision without the owner's acceptance on staging and the decision whether appointing a new manager pauses Google Drive synchronization.
