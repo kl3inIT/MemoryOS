@@ -65,7 +65,7 @@ owner has checked the faces on staging.
   `OpenApiContractTest`, all green on 2026-10-16: `ChatPersistenceIntegrationTest` (49), `ChatSessionApiIntegrationTest`
   (3), `OpenApiContractTest` (write, then compare), `ModulithArchitectureTest`, `CoreDependencyRulesTest`. `pnpm check` also
   passed on zm (191 files, 1,036 tests). CI runs the full gates.
-- [ ] Staging:
+- [x] Staging, 2026-10-19 on `396b72f6` ([verification](verification.md)):
   - existing agents show faces;
   - a new agent gets one;
   - "Đổi mặt khác" changes it and the change is kept after saving;
