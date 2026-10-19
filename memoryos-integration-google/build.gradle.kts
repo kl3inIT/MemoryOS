@@ -22,9 +22,9 @@ dependencies {
     implementation(libs.google.api.sheets)
     implementation(libs.google.api.docs)
     implementation(libs.google.api.admin.directory)
-    // The Google Drive account consent: token exchange over RestClient and ID-token validation.
+    // The Google Drive account consent: token exchange over RestClient; the ID token is validated by Nimbus (MEM-227).
     implementation(libs.spring.web)
-    implementation(libs.spring.security.oauth2.jose)
+    implementation(libs.nimbus.oauth2.oidc.sdk)
     // Links inside an Office file or a PDF of a Drive Source are read offline (OfflineGoogleDriveLinkReader).
     implementation(libs.poi.ooxml)
     implementation(libs.pdfbox)

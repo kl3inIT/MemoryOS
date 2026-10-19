@@ -4,32 +4,37 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeToken
 import com.google.api.client.http.GenericUrl;
 import com.google.api.client.http.UrlEncodedContent;
 import com.google.api.services.drive.Drive;
+import com.nimbusds.jose.JOSEException;
+import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.jwk.JWKSet;
-import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
+import com.nimbusds.jose.proc.BadJOSEException;
+import com.nimbusds.jwt.JWTParser;
+import com.nimbusds.oauth2.sdk.id.ClientID;
+import com.nimbusds.oauth2.sdk.id.Issuer;
+import com.nimbusds.oauth2.sdk.token.BearerAccessToken;
+import com.nimbusds.openid.connect.sdk.Nonce;
+import com.nimbusds.openid.connect.sdk.claims.IDTokenClaimsSet;
+import com.nimbusds.openid.connect.sdk.validators.AccessTokenValidator;
+import com.nimbusds.openid.connect.sdk.validators.IDTokenValidator;
+import com.nimbusds.openid.connect.sdk.validators.InvalidHashException;
 import io.memoryos.connector.GoogleDriveAccountClient;
 import io.memoryos.connector.GoogleDriveAuthorizationService;
 import io.memoryos.connector.GoogleDriveAuthorizationService.Grant;
 import io.memoryos.connector.GoogleDriveException;
 import io.memoryos.connector.GoogleDriveOAuthClient;
-import io.memoryos.shared.Sha256;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.text.ParseException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import org.jspecify.annotations.Nullable;
-import org.springframework.security.oauth2.jwt.JwtAudienceValidator;
-import org.springframework.security.oauth2.jwt.JwtValidators;
-import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.web.util.UriComponentsBuilder;
 import tools.jackson.core.StreamReadFeature;
 import tools.jackson.databind.DeserializationFeature;
@@ -43,11 +48,11 @@ import tools.jackson.databind.json.JsonMapper;
  * cannot forward the client secret elsewhere.
  *
  * <p>The code is exchanged by Google's OAuth library and the account read by Google's Drive client, on
- * {@link GoogleTransport} (MEM-226). The ID token is still verified by the Nimbus decoder of Spring Security, which
- * keeps the checks written here (audience, nonce, authorized party, verified email, issue time, {@code at_hash});
- * Google's own verifier fetches its certificates with a request that cannot be bounded or kept from a redirect. The
- * key set is fetched here, within a bound, and handed to the decoder. One deadline covers the three requests of a
- * consent.
+ * {@link GoogleTransport} (MEM-226). The ID token is checked by Nimbus's OpenID Connect validator (MEM-227): signature,
+ * issuer, audience, authorized party, expiry, nonce and {@code at_hash}. MemoryOS adds a verified email and an issue
+ * time that is not in the future. Google's own verifier fetches its certificates with a request that cannot be bounded
+ * or kept from a redirect, so the key set is fetched here, within a bound, and handed to the validator. One deadline
+ * covers the three requests of a consent.
  */
 public final class RestGoogleDriveAccountClient implements GoogleDriveAccountClient {
     private static final String CALLBACK_PATH = "/login/oauth2/code/google-drive";
@@ -67,17 +72,22 @@ public final class RestGoogleDriveAccountClient implements GoogleDriveAccountCli
         this.mapper = mapper;
     }
 
-    /** The decoder of one consent, over the key set as Google serves it now. */
-    private NimbusJwtDecoder decoder(Deadline deadline) {
+    /**
+     * The claims of an ID token that meets the OpenID Connect rules for this consent, checked against the key set as
+     * Google serves it now.
+     */
+    private IDTokenClaimsSet identity(String idToken, String clientId, String nonce, String accessToken, Deadline deadline) {
         endpoint(properties.jwkSetUri());
         byte[] keys = send(() -> transport.transport().createRequestFactory(transport.initializer(null))
                 .buildGetRequest(new GenericUrl(properties.jwkSetUri().toString())).execute(), deadline);
         try {
-            var decoder = NimbusJwtDecoder.withJwkSource(
-                    new ImmutableJWKSet<>(JWKSet.parse(new String(keys, StandardCharsets.UTF_8)))).build();
-            decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(endpoint(properties.issuerUri()).toString()));
-            return decoder;
-        } catch (ParseException exception) {
+            var validator = new IDTokenValidator(new Issuer(endpoint(properties.issuerUri()).toString()), new ClientID(clientId),
+                    JWSAlgorithm.RS256, JWKSet.parse(new String(keys, StandardCharsets.UTF_8)));
+            var claims = validator.validate(JWTParser.parse(idToken), new Nonce(nonce));
+            if (claims.getAccessTokenHash() != null)
+                AccessTokenValidator.validate(new BearerAccessToken(accessToken), JWSAlgorithm.RS256, claims.getAccessTokenHash());
+            return claims;
+        } catch (ParseException | BadJOSEException | JOSEException | InvalidHashException exception) {
             throw invalid();
         }
     }
@@ -160,28 +170,22 @@ public final class RestGoogleDriveAccountClient implements GoogleDriveAccountCli
             token = json(request::executeUnparsed, deadline);
         } finally { Arrays.fill(secret, (byte) 0); }
         if (!"Bearer".equalsIgnoreCase(text(token, "token_type"))) throw invalid();
-        var identity = decoder(deadline).decode(text(token, "id_token"));
-        if (new JwtAudienceValidator(oauthClient.clientId()).validate(identity).hasErrors()) throw invalid();
-        String nonce = identity.getClaimAsString("nonce");
-        String authorizedParty = identity.getClaimAsString("azp");
-        String email = identity.getClaimAsString("email");
-        List<String> audience = identity.getAudience();
-        if (nonce == null || !equal(expectedNonce, nonce)
-                || !Boolean.TRUE.equals(identity.getClaimAsBoolean("email_verified"))
-                || identity.getExpiresAt() == null || identity.getIssuedAt() == null
-                || identity.getIssuedAt().isAfter(Instant.now().plusSeconds(60))
-                || identity.getSubject() == null || identity.getSubject().isBlank() || email == null || email.isBlank()
-                || audience == null || (audience.size() > 1 && authorizedParty == null)
-                || (authorizedParty != null && !oauthClient.clientId().equals(authorizedParty))) throw invalid();
         String accessToken = text(token, "access_token");
-        String atHash = identity.getClaimAsString("at_hash");
-        if (atHash != null && !equal(accessTokenHash(accessToken), atHash)) throw invalid();
+        var identity = identity(text(token, "id_token"), oauthClient.clientId(), expectedNonce, accessToken, deadline);
+        String email = identity.getStringClaim("email");
+        // Nimbus checks the authorized party only when there are several audiences and does not require one then;
+        // MemoryOS requires one with several audiences and refuses one that names another client in every case.
+        var authorizedParty = identity.getAuthorizedParty();
+        if (!Boolean.TRUE.equals(identity.getBooleanClaim("email_verified")) || email == null || email.isBlank()
+                || identity.getIssueTime().toInstant().isAfter(Instant.now().plusSeconds(60))
+                || identity.getAudience().size() > 1 && authorizedParty == null
+                || authorizedParty != null && !oauthClient.clientId().equals(authorizedParty.getValue())) throw invalid();
         String accountEmail = accountEmail(accessToken, deadline);
         if (!email.equalsIgnoreCase(accountEmail)) throw invalid();
         Set<String> scopes = token.path("scope").isString()
                 ? new HashSet<>(Arrays.asList(text(token, "scope").split(" +"))) : requestedScopes();
         byte[] refreshToken = text(token, "refresh_token").getBytes(StandardCharsets.UTF_8);
-        try { return new Grant(identity.getSubject(), email, scopes, refreshToken); }
+        try { return new Grant(identity.getSubject().getValue(), email, scopes, refreshToken); }
         finally { Arrays.fill(refreshToken, (byte) 0); }
     }
 
@@ -259,15 +263,6 @@ public final class RestGoogleDriveAccountClient implements GoogleDriveAccountCli
     private static Set<String> requestedScopes() {
         var scopes = new TreeSet<>(GoogleDriveAuthorizationService.REQUIRED_SCOPES);
         scopes.add("email"); return scopes;
-    }
-
-    private static String accessTokenHash(String token) {
-        byte[] hash = Sha256.digest(token.getBytes(StandardCharsets.US_ASCII));
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(Arrays.copyOf(hash, hash.length / 2));
-    }
-
-    private static boolean equal(String expected, String supplied) {
-        return MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), supplied.getBytes(StandardCharsets.UTF_8));
     }
 
     private static String text(JsonNode node, String field) {

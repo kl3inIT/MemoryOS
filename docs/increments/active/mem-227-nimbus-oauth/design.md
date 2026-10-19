@@ -126,14 +126,24 @@ the authorization-server half of `discover` move to Nimbus.
 
 ### Google Drive and upstream discovery
 
-- **Google Drive.** `RestGoogleDriveAccountClient` keeps Google's library for the exchange and its bounded key set
-  fetch. The claim checks move to Nimbus `IDTokenValidator`: issuer, audience, `azp`, expiry, issue time and nonce,
-  with `AccessTokenHash` for `at_hash`. MemoryOS keeps its own rules on top: a verified email, and the email matching
-  the Drive account. About 20 lines leave.
-- **Upstream sign-in discovery.** `OidcDiscoveryClient` keeps its request over `OutboundHttp` and its exact issuer
-  match. Its fields are read by `OIDCProviderMetadata.parse` after the strict reader.
-
-These two are small. They are in scope so the same three OAuth paths parse the same way, not for their size.
+- **Google Drive.** `RestGoogleDriveAccountClient` keeps Google's library for the exchange, and its own bounded fetch
+  of the key set. Nimbus `IDTokenValidator` takes over the OpenID Connect checks from the Spring decoder and the
+  checks written here: signature, issuer, audience, `azp` when there are several audiences, expiry and nonce. Nimbus
+  `AccessTokenValidator` checks `at_hash`.
+  - MemoryOS keeps its own rules on top:
+    - a verified email;
+    - an issue time no more than 60 seconds ahead;
+    - an authorized party when there are several audiences, and no `azp` naming another client even with one
+      audience: Nimbus checks `azp` only with several audiences and does not require it then (the test caught both);
+    - the email matching the Drive account.
+  - `spring-security-oauth2-jose` leaves the module.
+  - Before the change, a new test signed an ID token breaking one rule at a time. The code it replaced passed that
+    test, and so does the new code.
+- **Upstream sign-in discovery: left as it is (decided 2026-10-19).** `OidcDiscoveryClient` already sends over
+  `OutboundHttp` and reads six string fields; there is no protocol code to hand over. Nimbus
+  `OIDCProviderMetadata.parse` also requires fields that sign-in does not use, such as `subject_types_supported` and
+  `id_token_signing_alg_values_supported`. An upstream provider that omits one would then be refused where it signs
+  in today. The risk buys nothing.
 
 ## Outcome of the MCP part (2026-10-19)
 
