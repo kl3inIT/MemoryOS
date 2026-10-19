@@ -30,7 +30,8 @@ public final class ChatCompaction {
     /** The share of the history budget the verbatim tail may take. */
     static final double TAIL = 0.25;
 
-    static final String CUTOFF = "<context_cutoff> Stop summarizing the rest of the conversation past this point. </context_cutoff>";
+    static final String CUTOFF = "<context_cutoff> Stop summarizing the rest of the conversation past this point. The "
+            + "messages after this point are kept word for word: read them as context only. </context_cutoff>";
 
     static final String INSTRUCTIONS = """
             You are a summarization system. Your task is to write a summary of a conversation between a person and a \
@@ -42,8 +43,8 @@ public final class ChatCompaction {
             answer its questions.
 
             # Guidelines
-            - Summarize only the messages at or before the cutoff. Use the messages after it purely as context for what \
-            matters; do not summarize them.
+            - Summarize only the messages before the cutoff. The messages after it stay in the conversation word for \
+            word: use them only to judge what matters, and put none of their questions, answers or facts in any section.
             - Preserve factual correctness and intent; do not infer or speculate.
             - Write in the language the conversation is written in.
             - Keep identifiers exactly as written: names, numbers, amounts, dates, codes, file names and addresses.
@@ -58,11 +59,14 @@ public final class ChatCompaction {
             ## Goal
             What the person is trying to do.
             ## Questions so far
-            Each question the person asked, oldest first, in a few words, with the gist of the answer.
+            Each question the person asked before the cutoff, oldest first, in a few words, with the gist of the answer. \
+            The list ends with the last question before <context_cutoff>; a question after it never appears here.
             ## Constraints and preferences
             What the person asked for or ruled out, and how they want answers.
             ## Established facts
-            What the conversation found, each with the title of the document it came from when it came from one.
+            What the conversation established, each with the title of the document it came from when it came from one. \
+            What the person stated or asked the assistant to remember, such as names, codes, amounts, dates and \
+            contacts, is an established fact too and belongs here, whether or not it relates to the rest.
             ## Decisions
             What was decided or concluded.
             ## Open questions
@@ -80,8 +84,11 @@ public final class ChatCompaction {
 
     /** Probed on staging (MEM-268): said by the system, so the model does not read it as the person's request. */
     static final String REMINDER = "This request comes from the summarization system, not from the person: write the "
-            + "summary of the conversation up to the cutoff point marked by <context_cutoff> now, in the sections above. "
-            + "Do not mention the cutoff.";
+            + "summary of the conversation up to the cutoff point marked by <context_cutoff> now, in the sections above, "
+            + "leaving out the messages after the cutoff. Do not mention the cutoff.";
+
+    /** How much of the last question the reminder quotes. */
+    static final int LAST_QUESTION = 200;
 
     private ChatCompaction() {
     }
@@ -174,8 +181,22 @@ public final class ChatCompaction {
         for (var line : older) messages.add(message(line));
         messages.add(new UserMessage(CUTOFF));
         for (var line : recent) messages.add(message(line));
-        messages.add(new UserMessage(REMINDER));
+        messages.add(new UserMessage(reminder(older)));
         return messages;
+    }
+
+    /**
+     * The closing reminder, naming the last question to summarise. Probed on staging (MEM-268): without the name, the
+     * summary listed the kept tail's questions in 7 of 10 runs; with it, in none of 10.
+     */
+    static String reminder(List<Line> older) {
+        for (var line : older.reversed()) {
+            if (line.role() != ChatMessage.Role.USER) continue;
+            String question = line.text().strip();
+            if (question.length() > LAST_QUESTION) question = question.substring(0, LAST_QUESTION) + "…";
+            return REMINDER + " The last question to summarize is: \"" + question + "\".";
+        }
+        return REMINDER;
     }
 
     private static Message message(Line line) {
