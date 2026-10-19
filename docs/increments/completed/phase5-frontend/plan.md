@@ -50,3 +50,7 @@ Branch `dathip04/frontend-audit`; wave 1 runs in parallel worktrees on disjoint 
 ## Verification
 
 Recorded per task as it lands.
+
+## Closed (2026-10-19)
+
+Waves merged in PRs #381 and #393; every plan item checked.

@@ -10,3 +10,7 @@ Nothing is implemented yet.
 - [x] `ChatEventStream` maps with an exhaustive `switch`; the SSE event names follow the records.
 - [x] Round-trip, legacy-fixture and unknown-type tests; existing streaming tests unchanged; `clean check`.
 - [ ] Update the Chat spec and test matrix; after merge move to `completed/` and reconcile the roadmap.
+
+## Closed (2026-10-19)
+
+PR #415 (MEM-202) merged 2026-09-30; `ChatStreamEvent` is in `docs/specs/chat.md` and `docs/tests/chat.md`.

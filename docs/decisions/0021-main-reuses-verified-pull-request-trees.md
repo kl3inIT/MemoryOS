@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted 2026-10-02 by the owner. Implementation starts with the [CI main fast path](../increments/active/ci-main-fast-path/design.md) increment.
+Accepted 2026-10-02 by the owner. Implementation starts with the [CI main fast path](../increments/completed/ci-main-fast-path/design.md) increment.
 
 ## Context
 

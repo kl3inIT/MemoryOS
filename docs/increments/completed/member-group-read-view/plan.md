@@ -12,3 +12,7 @@
 - `corepack pnpm --config.verify-deps-before-run=false --dir web exec tsc -b` passed.
 - Targeted Vitest group/session coverage and changed-file oxlint passed.
 - Repository-wide `clean check` was attempted. It found the now-updated group projection assertion and two unrelated integration failures: an image-heavy source extraction and search rebuild cancellation. The extraction test passed when rerun alone; the search test could not initialize Testcontainers despite Docker being reachable.
+
+## Closed (2026-10-19)
+
+PR #420 merged 2026-10-01; covered in `docs/tests/identity.md`.

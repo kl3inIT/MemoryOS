@@ -1,6 +1,6 @@
 # One AI Providers page
 
-Frontend only. The administration menu listed five pages that each configure a connection to an external AI service: Models, System One, Web search, Voice and Image generation. With them the menu held about 20 links and scrolled on a laptop ([MEM-221 L2-3a](../mem-221-list-page-patterns/design.md)); folding its sections was tried and removed on the owner's review (2026-10-10). The owner chose to merge the five into one page instead (2026-10-10).
+Frontend only. The administration menu listed five pages that each configure a connection to an external AI service: Models, System One, Web search, Voice and Image generation. With them the menu held about 20 links and scrolled on a laptop ([MEM-221 L2-3a](../../active/mem-221-list-page-patterns/design.md)); folding its sections was tried and removed on the owner's review (2026-10-10). The owner chose to merge the five into one page instead (2026-10-10).
 
 ## Requirement and design
 

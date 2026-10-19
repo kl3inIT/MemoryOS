@@ -2,7 +2,7 @@
 
 ## Requirement
 
-Owner decision 2026-09-26: fix every item of the frontend audit (the phase 5 list of [owner-decisions.md](../audit-quality-fixes/owner-decisions.md) group 3 plus the 2026-09-26 best-practice, design-token and stack audit), install the shadcn agent skill and `@shadcn/lint`, best practice even where behaviour or contracts change, one pull request.
+Owner decision 2026-09-26: fix every item of the frontend audit (the phase 5 list of [owner-decisions.md](../../active/audit-quality-fixes/owner-decisions.md) group 3 plus the 2026-09-26 best-practice, design-token and stack audit), install the shadcn agent skill and `@shadcn/lint`, best practice even where behaviour or contracts change, one pull request.
 
 ## Decisions
 

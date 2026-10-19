@@ -11,3 +11,7 @@
 - `node node_modules/typescript/bin/tsc -b`: passed.
 - `node node_modules/vitest/vitest.mjs run src/features/groups/group-members-section.test.tsx src/features/sources/source-groups-section.test.tsx`: passed — 10 tests. The member test proves staged add/cancel/save behavior; the Source tests prove an association removal creates no request before Save Changes.
 - The focused Playwright test could not launch because the local Playwright Chromium executable is missing. The test remains updated and typechecked; browser-runtime evidence is pending browser installation.
+
+## Closed (2026-10-19)
+
+PR #279 merged 2026-09-21; the behaviour is in `docs/specs/identity.md`; CI runs the browser suite.

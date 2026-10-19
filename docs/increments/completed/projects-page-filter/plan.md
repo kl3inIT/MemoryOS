@@ -10,3 +10,7 @@
 - [x] `tests/e2e/chat-projects.spec.ts`: narrowing, address across a reload, no drag while narrowed, empty state
 - [x] `docs/tests/chat.md` lists the checks
 - [ ] `pnpm --dir web check` and the full Playwright suite on the pull request's CI
+
+## Closed (2026-10-19)
+
+PR #686 merged 2026-10-15 with `pnpm --dir web check` and the browser suite green on its CI.
