@@ -340,16 +340,59 @@ describe("AgentEditorPage", () => {
     const chat = await screen.findByRole("region", { name: "Test chat" }, { timeout: 15_000 });
     expect(await within(chat).findByRole("heading", { name: "Contract law" })).toBeVisible();
     expect(within(chat).getByText("Contract lawyer")).toBeVisible();
-    expect(within(chat).queryByText("Using unsaved changes")).not.toBeInTheDocument();
+    expect(screen.queryByText("Using unsaved changes")).not.toBeInTheDocument();
 
     // jsdom lays everything out at 0×0, so a click would land on the panels' separator; type in place instead.
     const greeting = screen.getByRole("textbox", { name: "Greeting" });
     greeting.focus();
     await user.type(greeting, "Ask me about a clause.", { skipClick: true });
     expect(within(chat).getByText("Ask me about a clause.")).toBeVisible();
-    expect(within(chat).getByText("Using unsaved changes")).toBeVisible();
+    expect(screen.getByText("Using unsaved changes")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Test chat" })).not.toBeInTheDocument();
   }, 30_000);
+
+  it("puts the Agent Builder beside the test chat and remembers the tab", async () => {
+    localStorage.removeItem("memoryos.agent-editor.panel");
+    const user = await renderEditor();
+    await user.click(await screen.findByRole("button", { name: "Test chat" }));
+    const builderTab = await screen.findByRole(
+      "tab",
+      { name: "Agent Builder" },
+      { timeout: 15_000 },
+    );
+    expect(screen.getByRole("tab", { name: "Test chat" })).toHaveAttribute("aria-selected", "true");
+    await user.click(builderTab);
+    const builder = await screen.findByRole("region", { name: "Agent Builder" });
+    expect(
+      within(builder).getByRole("heading", { name: "What should this assistant do?" }),
+    ).toBeVisible();
+    expect(
+      within(builder).getByPlaceholderText("What should change in this assistant?"),
+    ).toBeVisible();
+    expect(localStorage.getItem("memoryos.agent-editor.panel")).toBe("builder");
+  }, 30_000);
+
+  it("gives someone who may only use the assistant neither the test chat nor the Agent Builder", async () => {
+    server.use(
+      handleGetChatPersona({
+        body: saved({
+          permissions: {
+            edit: false,
+            share: false,
+            setPublic: false,
+            delete: false,
+            transfer: false,
+            leave: false,
+            manage: false,
+          },
+        }),
+      }),
+    );
+    await renderEditor();
+    await screen.findByRole("textbox", { name: "Assistant name" });
+    expect(screen.queryByRole("button", { name: "Test chat" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Agent Builder" })).not.toBeInTheDocument();
+  });
 
   it("opens the test chat from a button on a narrow screen", async () => {
     const user = await renderEditor();

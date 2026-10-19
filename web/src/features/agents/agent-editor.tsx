@@ -17,6 +17,7 @@ import { personaOf, type Persona } from "@/features/chat/chat-personas-api";
 import { getChatPersonaOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { actionErrorText } from "@/lib/action-errors";
 import { useIsWide } from "@/hooks/use-mobile";
+import { hasBrief } from "./agent-builder-handoff";
 import type { AgentEditorTab } from "./agent-editor-search";
 import {
   DocumentsSection,
@@ -187,7 +188,13 @@ function AgentEditor({ agent, tab, onTabChange }: { agent: Persona } & TabProps)
             forceMount
             className="min-h-0 flex-1 data-[state=inactive]:hidden"
           >
-            <ConfigLayout agent={agent} form={form} dirty={dirty} editable={editable}>
+            <ConfigLayout
+              agent={agent}
+              form={form}
+              dirty={dirty}
+              editable={editable}
+              choices={choices}
+            >
               <form
                 id={formId}
                 noValidate
@@ -232,8 +239,9 @@ function AgentEditor({ agent, tab, onTabChange }: { agent: Persona } & TabProps)
 }
 
 /**
- * Cấu hình beside its test chat (Dify, FastGPT): two resizable panes from `lg` up, and below it one column with a
- * "Chat thử" button that opens the test chat in a drawer, as Dify does on phones. Only an editor may test.
+ * Cấu hình beside its test chat and Agent Builder (Dify, FastGPT, LobeHub): two resizable panes from `lg` up, and
+ * below it one column with a "Chat thử" button that opens the panel in a drawer, as Dify does on phones; a new
+ * assistant with a description opens it at once. Only an editor may test or build.
  *
  * Each scroller is `relative`: the visually hidden inputs behind switches and checkboxes are positioned absolutely,
  * and without a positioned scroller they escape it, so focusing one scrolls the shell and pushes its header away.
@@ -243,17 +251,19 @@ function ConfigLayout({
   form,
   dirty,
   editable,
+  choices,
   children,
 }: {
   agent: Persona;
   form: AgentFormApi;
   dirty: boolean;
   editable: boolean;
+  choices: AgentChoices;
   children: ReactNode;
 }) {
   const ui = useAppTranslation();
   const wide = useIsWide();
-  const [drawer, setDrawer] = useState(false);
+  const [drawer, setDrawer] = useState(() => hasBrief(agent.id));
   const chat = (
     <Suspense
       fallback={
@@ -262,7 +272,7 @@ function ConfigLayout({
         </div>
       }
     >
-      <AgentTestChat agent={agent} form={form} dirty={dirty} />
+      <AgentTestChat agent={agent} form={form} dirty={dirty} choices={choices} />
     </Suspense>
   );
   if (!editable) return <div className="relative h-full overflow-y-auto">{children}</div>;
