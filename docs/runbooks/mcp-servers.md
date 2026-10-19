@@ -57,7 +57,8 @@ that organization can connect.
 
 `REAUTH_REQUIRED` on a credential means the authorization server rejected the stored refresh token. For a
 per-User server the person reconnects from the composer; for a shared connection an administrator reconnects
-from `/admin/mcp`. Deleting an OAuth application also removes the shared connection that used it and returns
+from `/admin/mcp`. A server that answers `403 insufficient_scope` gives the same prompt while the credential stays
+`ACTIVE`: connecting again asks for the scope the server named as well as those granted before. Deleting an OAuth application also removes the shared connection that used it and returns
 the server to `AWAITING_AUTH`.
 
 `memoryos.chat.mcp.call` carries the server slug, the tool name and the outcome, so a server that starts
