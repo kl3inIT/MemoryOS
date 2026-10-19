@@ -290,10 +290,11 @@ public final class McpTools {
      */
     static String message(McpTurnTools.Binding binding, McpTurnTools.CallFailure rejected) {
         String server = name(binding.serverName());
+        // Staging (MEM-295): told only what not to do, the model left out who fixes a shared connection.
         String fix = rejected.shared()
-                ? "This server uses the organization's shared connection: only an administrator can connect it again, "
-                        + "so do not ask the user to reconnect it."
-                : "The user can connect it again with the button shown on this tool step.";
+                ? "Tell the user that " + server + " uses their organization's shared connection, so an administrator "
+                        + "must connect it again; the user cannot do it themselves."
+                : "Tell the user they can connect " + server + " again with the button shown on this tool step.";
         String explain = " Explain this to the user in their language and in your own words; do not quote this message.";
         return switch (rejected.reason()) {
             case AUTHORIZATION_REQUIRED -> server + " refused the connection, which has expired or was revoked. " + fix
