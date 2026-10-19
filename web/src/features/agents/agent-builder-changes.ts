@@ -2,7 +2,7 @@ import type { AssistantChange } from "@/features/chat/runtime/chat-stream-events
 import type { AgentValues } from "./agent-form";
 
 /** The form fields the Agent Builder may change (MEM-280), in the order its change card lists them. */
-export const builderFields = [
+const builderFields = [
   "name",
   "title",
   "description",
@@ -33,7 +33,7 @@ export type BuilderChange = { id: string; fields: FieldChange[]; undone: boolean
 const same = (left: unknown, right: unknown) => JSON.stringify(left) === JSON.stringify(right);
 
 /** The change's new value of each field, in the form's terms; a field equal to the form's value is no change. */
-export function changedFields(
+function changedFields(
   values: AgentValues,
   change: AssistantChange["change"],
 ): FieldChange[] {
@@ -50,7 +50,7 @@ export function changedFields(
 }
 
 /** What the form needs to take to undo a change: each field back, unless the person has edited it since. */
-export function undoFields(values: AgentValues, change: BuilderChange) {
+function undoFields(values: AgentValues, change: BuilderChange) {
   const restored: FieldChange[] = [];
   const kept: BuilderField[] = [];
   for (const field of change.fields) {
