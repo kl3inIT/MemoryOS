@@ -16,3 +16,7 @@
 - Vitest, whole suite: 859 of 862 before the two link expectations in `meeting-minutes.test.tsx` were updated; they pass after. The remaining failure, `library-page.test.tsx` "says a deleted file goes to the trash…", fails and passes between runs with and without this change.
 - Playwright, one worker: `voice-administration`, `system-one-administration`, `models-administration`, `models-discovery`, `chat-ui-polish` and `identity-shell`, 36 of 36. `voice-administration` opens `/admin/voice` and asserts the redirect to `?tab=voice`. The whole suite has not run.
 - Browser evidence: the Voice tab at 1440×900 and 390×844 on the spec's fixtures. On the phone the open tab sat outside the tab row; the row now scrolls it into view, which is not recaptured.
+
+## Closed (2026-10-19)
+
+PRs #571 and #574 merged 2026-10-11 after the owner's review.

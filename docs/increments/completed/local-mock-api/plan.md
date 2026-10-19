@@ -8,3 +8,7 @@
 - [ ] Run the browser suite on CI.
 
 Keep this increment active until its pull request merges.
+
+## Closed (2026-10-19)
+
+PR #686 merged 2026-10-15 with the browser suite (frontend shards 1–6) green on its CI.

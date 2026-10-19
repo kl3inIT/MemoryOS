@@ -19,3 +19,7 @@
 - `corepack pnpm --config.verify-deps-before-run=false --dir web exec vitest run src/components/app-shell/app-shell.test.tsx`: passed — 4 tests.
 - Web `tsc -b`, changed-file oxlint, and changed-file oxfmt checks passed.
 - The local `OpenApiContractTest` remains unavailable because Testcontainers cannot discover Docker Desktop, although `docker version` succeeds. The current-identity contract and Hey API client are aligned; CI validates the committed contract.
+
+## Closed (2026-10-19)
+
+PR #420 merged 2026-10-01; in `docs/specs/identity.md` and `docs/tests/identity.md`.

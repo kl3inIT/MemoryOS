@@ -35,3 +35,7 @@
 Run 37041478495 (`6bcff78c`) là lần đầu `main` bỏ test: các job test bị bỏ qua, CI Gate xanh, nhưng `Publish verified release` cũng bị bỏ qua. Một job có `if` không chứa hàm trạng thái ngầm đòi mọi job phía trước trong chuỗi phụ thuộc đã chạy thành công, nên các job test bị bỏ qua sau gate kéo theo `publish`. `Deploy staging` 37042468509 vì vậy thất bại. PR #463 (`6ac59f77`) cho `publish` dùng `!cancelled()` và kiểm trực tiếp kết quả của `gate` cùng ba job image.
 
 - [ ] Lần chạy `main` bỏ test kế tiếp: `Publish verified release` chạy và `Deploy staging` nhận release.
+
+## Closed (2026-10-19)
+
+`main` CI run 39215655511 (f9ccabf5, 2026-10-19): backend tests skipped, images built, CI Gate and Publish verified release green; Deploy staging run 39216742079 received the release.

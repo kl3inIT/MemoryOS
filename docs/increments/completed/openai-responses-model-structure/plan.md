@@ -10,3 +10,7 @@ Nothing is implemented yet.
 - [x] No spec names the class; the Chat test matrix is updated.
 - [ ] After merge move to `completed/` and reconcile the roadmap.
 - [ ] Later, with Spring AI 2.1: replace with Spring AI's model and delete these classes.
+
+## Closed (2026-10-19)
+
+PR #415 (MEM-202) merged 2026-09-30. Replacing the model by Spring AI's own, once it can, is later work, not part of this increment.

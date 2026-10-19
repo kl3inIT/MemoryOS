@@ -10,3 +10,7 @@ Nothing is implemented yet.
 - [x] Sweep main code for other records with telescoping constructors or three or more positional nulls and apply
   the rule.
 - [ ] `clean check`; after merge move to `completed/` and reconcile the roadmap.
+
+## Closed (2026-10-19)
+
+PR #415 (MEM-202) merged 2026-09-30.
