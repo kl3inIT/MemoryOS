@@ -75,7 +75,9 @@ MemoryOS's editor: whether the AI's change is saved at once.
    or disabling a plugin the agent relies on, and always asks before installing. The builder asks in its reply, with
    two answer buttons, before: switching the model, turning off document search, the web or an MCP server, removing a
    Source or Document Set, or turning `grounded` off. Everything else it changes directly; the card and *Hoàn tác*
-   cover it.
+   cover it. *As built (PR 2):* the person answers the question in the composer. The two answer buttons need the
+   server to mark a reply as a question, which the builder turn does not; guessing it from the text would offer them
+   under replies that ask nothing.
 6. **Two tools, like LobeHub: `update_assistant` and `write_instructions`.** `update_assistant` takes any subset of
    the fields of decision 4 in one call (LobeHub batches related edits in one `updateConfig`); `write_instructions`
    takes the whole new instructions, written last so they can name the tools now on (LobeHub's order: identity, then

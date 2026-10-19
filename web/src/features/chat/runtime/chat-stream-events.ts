@@ -58,6 +58,33 @@ export const mcpUnavailableSchema = eventSchema.extend({
   apps: z.array(unavailableAppSchema).max(32),
 });
 
+/**
+ * MEM-280: a change the Agent Builder made to the editor's unsaved form, with only the fields it changed, each with
+ * its whole new value.
+ */
+export const assistantChangeSchema = eventSchema.extend({
+  toolCallId: z.string().min(1).max(256),
+  change: z
+    .object({
+      name: z.string(),
+      title: z.string(),
+      description: z.string(),
+      avatarSeed: z.string(),
+      instructions: z.string(),
+      greeting: z.string(),
+      starterPrompts: z.array(z.string()),
+      tools: z.array(z.string()),
+      sourceIds: z.array(z.string()),
+      documentSetIds: z.array(z.string()),
+      mcpServerIds: z.array(z.string()),
+      modelConfigurationId: z.string(),
+      reasoningEffort: z.string(),
+      grounded: z.boolean(),
+    })
+    .partial(),
+});
+export type AssistantChange = z.infer<typeof assistantChangeSchema>;
+
 /** The reply waits for a turn, or has just been given one. */
 export const waitingSchema = eventSchema.extend({ waiting: z.boolean() });
 export const imageSchema = eventSchema.extend({

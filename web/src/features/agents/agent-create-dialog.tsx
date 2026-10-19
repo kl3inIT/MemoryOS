@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { invalidateAgents } from "@/features/chat/chat-personas-api";
 import { createChatPersonaMutation } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { withRequestTimeout } from "@/lib/api";
+import { handBrief } from "./agent-builder-handoff";
 import { createRequest, maxTitle } from "./agent-form";
 
 /**
@@ -38,8 +39,10 @@ export function AgentCreateDialog({ onClose }: { onClose: () => void }) {
           body: createRequest({ name: name.trim(), title: title.trim(), description }),
         });
         await invalidateAgents(cache);
-        if (created.id)
-          await navigate({ to: "/agents/$agentId/edit", params: { agentId: created.id } });
+        if (!created.id) return;
+        // A described assistant opens on its Agent Builder, which builds the rest from the description.
+        if (description.trim()) handBrief(created.id, description.trim());
+        await navigate({ to: "/agents/$agentId/edit", params: { agentId: created.id } });
       }}
     >
       <div className="flex flex-col gap-4">

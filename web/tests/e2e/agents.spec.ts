@@ -536,7 +536,7 @@ test("creates an agent from the short dialog, configures it in place and shares 
   const dialog = page.getByRole("dialog", { name: "Tạo trợ lý" });
   await dialog.getByLabel("Tên trợ lý").fill("Pháp chế hợp đồng");
   await dialog.getByLabel("Chức danh").fill("Chuyên viên pháp chế");
-  await dialog.getByLabel("Mô tả").fill("Rà soát điều khoản theo mẫu hợp đồng đã ban hành.");
+  // A description would open the Agent Builder (MEM-280); this flow configures the form by hand.
   await page.screenshot({ path: "../output/playwright/agents-create-dialog.png" });
   await dialog.getByRole("button", { name: "Tạo trợ lý" }).click();
   await expect(page).toHaveURL(/\/agents\/70000000-0000-4000-8000-000000000099\/edit$/);
@@ -681,14 +681,14 @@ test("tests the unsaved assistant beside the editor without saving it", async ({
   await page.goto(`/agents/${hr}/edit`);
   const chat = page.getByRole("region", { name: "Chat thử" });
   await expect(chat.getByRole("heading", { name: "Chính sách nhân sự" })).toBeVisible();
-  await expect(chat.getByText("Đang dùng bản chưa lưu")).toHaveCount(0);
+  await expect(page.getByText("Đang dùng bản chưa lưu")).toHaveCount(0);
 
   await page.getByLabel("Lời chào").fill("Chào bạn, hỏi mình về nghỉ phép nhé.");
   await page
     .getByRole("textbox", { name: "Hướng dẫn", exact: true })
     .fill("Trả lời ngắn gọn, ghi rõ điều khoản.");
   await expect(chat.getByText("Chào bạn, hỏi mình về nghỉ phép nhé.")).toBeVisible();
-  await expect(chat.getByText("Đang dùng bản chưa lưu")).toBeVisible();
+  await expect(page.getByText("Đang dùng bản chưa lưu")).toBeVisible();
 
   const created = page.waitForRequest(
     (request) =>
@@ -710,9 +710,71 @@ test("tests the unsaved assistant beside the editor without saving it", async ({
   await expect(chat.getByText("Hello 👋")).toBeVisible();
   expect(state.updated).toBeUndefined();
 
-  await chat.getByRole("button", { name: "Làm mới" }).click();
+  await page.getByRole("button", { name: "Làm mới" }).click();
   await expect(chat.getByText("Nghỉ phép năm mấy ngày?")).toHaveCount(0);
   await expect(chat.getByText("Chào bạn, hỏi mình về nghỉ phép nhé.")).toBeVisible();
+});
+
+test("builds a new assistant from its description with the Agent Builder, then undoes a change", async ({
+  page,
+}) => {
+  const state = await mockAgents(page, ["AGENTS_CREATE"], tascoAgents());
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/agents");
+  await page.getByRole("button", { name: "Tạo trợ lý" }).click();
+  const dialog = page.getByRole("dialog", { name: "Tạo trợ lý" });
+  await dialog.getByLabel("Tên trợ lý").fill("Chính sách nhân sự");
+  await dialog
+    .getByLabel("Mô tả")
+    .fill(
+      "Trả lời nhân viên về nghỉ phép, công tác phí, bảo hiểm. Chỉ dựa trên tài liệu, trả lời ngắn.",
+    );
+  const sent = page.waitForRequest(
+    (request) => request.method() === "POST" && request.url().endsWith("/messages"),
+  );
+  await dialog.getByRole("button", { name: "Tạo trợ lý" }).click();
+  await expect(page).toHaveURL(/\/agents\/70000000-0000-4000-8000-000000000099\/edit$/);
+
+  // The editor opens on the Agent Builder, which receives the description as its first message.
+  await expect(page.getByRole("tab", { name: "Agent Builder" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  expect((await sent).postDataJSON()).toMatchObject({
+    builder: true,
+    webSearch: "off",
+    mcpServerIds: [],
+    text: expect.stringContaining("Chỉ dựa trên tài liệu, trả lời ngắn."),
+    draftPersona: { name: "Chính sách nhân sự" },
+  });
+  const builder = page.getByRole("region", { name: "Agent Builder" });
+  const card = builder.getByRole("region", { name: "Đã sửa bản nháp" }).first();
+  await expect(card).toContainText("Chuyên viên chính sách nhân sự");
+  await expect(builder.getByText("Viết mới · 4 dòng")).toBeVisible();
+
+  // The changes wait in the form: filled, unsaved, and nothing written.
+  await expect(page.getByLabel("Chức danh")).toHaveValue("Chuyên viên chính sách nhân sự");
+  await expect(page.getByRole("textbox", { name: "Câu hỏi gợi ý 1" })).toHaveValue(
+    "Nghỉ phép năm bao nhiêu ngày?",
+  );
+  await expect(page.getByRole("switch", { name: "Chỉ trả lời có căn cứ" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
+  await expect(page.getByRole("textbox", { name: "Hướng dẫn", exact: true })).toHaveValue(
+    /Chỉ trả lời từ tài liệu nội bộ/,
+  );
+  await expect(page.getByRole("status").filter({ hasText: "Có thay đổi chưa lưu" })).toBeVisible();
+  expect(state.updated).toBeUndefined();
+  await page.screenshot({ path: "../output/playwright/agents-builder.png" });
+
+  // Hoàn tác puts the first change's fields back.
+  await card.getByRole("button", { name: "Hoàn tác" }).click();
+  await expect(page.getByLabel("Chức danh")).toHaveValue("");
+  await expect(card).toContainText("Đã hoàn tác");
+  await expect(page.getByRole("textbox", { name: "Hướng dẫn", exact: true })).toHaveValue(
+    /Chỉ trả lời từ tài liệu nội bộ/,
+  );
 });
 
 test("manages prompt shortcuts inline and inserts them from /", async ({ page }) => {
