@@ -240,7 +240,7 @@ public final class McpTools {
                 return Tool.Result.text(cap(binding, result.text()));
             } catch (McpTurnTools.CallFailure rejected) {
                 failure = switch (rejected.reason()) {
-                    case AUTHORIZATION_REQUIRED -> ChatToolEvent.Failure.AUTHORIZATION_REQUIRED;
+                    case AUTHORIZATION_REQUIRED, INSUFFICIENT_SCOPE -> ChatToolEvent.Failure.AUTHORIZATION_REQUIRED;
                     case TIMEOUT -> ChatToolEvent.Failure.TIMEOUT;
                     case UNAVAILABLE -> ChatToolEvent.Failure.UNAVAILABLE;
                     case INVALID_ARGUMENTS, UNKNOWN_TOOL -> null;
@@ -248,6 +248,7 @@ public final class McpTools {
                 if (failure == null) activity.fail(); else activity.fail(failure);
                 outcome = switch (rejected.reason()) {
                     case AUTHORIZATION_REQUIRED -> "auth_required";
+                    case INSUFFICIENT_SCOPE -> "insufficient_scope";
                     case TIMEOUT -> "timeout";
                     case INVALID_ARGUMENTS -> "invalid_arguments";
                     case UNKNOWN_TOOL -> "unknown_tool";
@@ -257,7 +258,7 @@ public final class McpTools {
                 LOG.atWarn().addKeyValue("event", "chat.mcp_tool.failed").addKeyValue("tool", binding.modelName())
                         .addKeyValue("mcp_server_id", binding.serverId()).addKeyValue("error_code", rejected.reason().name())
                         .log("MCP tool call failed");
-                return Tool.Result.error(message(binding, rejected.reason()));
+                return Tool.Result.error(message(binding, rejected));
             } finally {
                 measure(binding, outcome, System.nanoTime() - upstream);
             }
@@ -282,15 +283,28 @@ public final class McpTools {
                 "outcome", outcome).record(elapsedNanos, TimeUnit.NANOSECONDS);
     }
 
-    private static String message(McpTurnTools.Binding binding, McpTurnTools.CallFailure.Reason reason) {
+    /**
+     * What the model is told when a call cannot run (MEM-295): the situation and who can fix it, never a sentence to
+     * repeat, so the answer stays in the user's language. The step under the answer shows the same outcome, with a
+     * reconnect button when the connection is the user's own.
+     */
+    static String message(McpTurnTools.Binding binding, McpTurnTools.CallFailure rejected) {
         String server = name(binding.serverName());
-        return switch (reason) {
-            case AUTHORIZATION_REQUIRED -> server + " rejected the stored credential. Tell the user to reconnect "
-                    + server + " from the composer; do not retry this tool.";
-            case TIMEOUT -> server + " did not answer in time. Do not retry more than once.";
+        String fix = rejected.shared()
+                ? "This server uses the organization's shared connection: only an administrator can connect it again, "
+                        + "so do not ask the user to reconnect it."
+                : "The user can connect it again with the button shown on this tool step.";
+        String explain = " Explain this to the user in their language and in your own words; do not quote this message.";
+        return switch (rejected.reason()) {
+            case AUTHORIZATION_REQUIRED -> server + " refused the connection, which has expired or was revoked. " + fix
+                    + " Do not retry this tool." + explain;
+            case INSUFFICIENT_SCOPE -> server + " refused this call because the connection lacks a permission this tool "
+                    + "needs; its other tools still work. " + fix + " Connecting again asks for that permission. "
+                    + "Do not retry this tool." + explain;
+            case TIMEOUT -> server + " did not answer in time. Do not retry more than once." + explain;
             case INVALID_ARGUMENTS -> "The arguments did not match the tool's schema.";
             case UNKNOWN_TOOL -> "That tool is not available this turn.";
-            case UNAVAILABLE -> server + " could not be reached. Answer without it and say so.";
+            case UNAVAILABLE -> server + " could not be reached. Answer without it and say so." + explain;
         };
     }
 

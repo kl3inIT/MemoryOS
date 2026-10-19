@@ -139,8 +139,34 @@ class McpToolsTest {
                 events::add, new ChatToolActivity(ignored -> {}), () -> 8000,
                 Tokenizers.o200k(), meters).tools().getFirst().call("{}");
         String message = assertInstanceOf(Tool.Result.Error.class, rejectedResult).getMessage();
-        assertTrue(message.contains("reconnect"));
+        assertTrue(message.contains("connect it again with the button shown on this tool step"));
         assertTrue(message.contains("Drive"));
+    }
+
+    /** MEM-295: the model learns the situation and who can fix it, and answers in the user's language. */
+    @Test
+    void anAuthorizationFailureNamesWhoCanFixItAndLeavesTheWordingToTheModel() {
+        var expired = McpTools.message(binding, new McpTurnTools.CallFailure(McpTurnTools.CallFailure.Reason.AUTHORIZATION_REQUIRED, false));
+        var sharedExpired = McpTools.message(binding, new McpTurnTools.CallFailure(McpTurnTools.CallFailure.Reason.AUTHORIZATION_REQUIRED, true));
+        var missing = McpTools.message(binding, new McpTurnTools.CallFailure(McpTurnTools.CallFailure.Reason.INSUFFICIENT_SCOPE, false));
+        var sharedMissing = McpTools.message(binding, new McpTurnTools.CallFailure(McpTurnTools.CallFailure.Reason.INSUFFICIENT_SCOPE, true));
+
+        for (String own : List.of(expired, missing)) {
+            assertTrue(own.contains("The user can connect it again"), own);
+            assertFalse(own.contains("administrator"), own);
+        }
+        for (String shared : List.of(sharedExpired, sharedMissing)) {
+            assertTrue(shared.contains("only an administrator can connect it again"), shared);
+            assertTrue(shared.contains("do not ask the user to reconnect it"), shared);
+        }
+        for (String permission : List.of(missing, sharedMissing)) {
+            assertTrue(permission.contains("lacks a permission this tool needs"), permission);
+            assertFalse(permission.contains("expired"), permission);
+        }
+        for (String message : List.of(expired, sharedExpired, missing, sharedMissing)) {
+            assertTrue(message.contains("in their language and in your own words; do not quote this message"), message);
+            assertTrue(message.contains("Do not retry this tool."), message);
+        }
     }
 
     @Test
