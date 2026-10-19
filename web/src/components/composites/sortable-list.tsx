@@ -1,5 +1,7 @@
 import {
+  useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type HTMLAttributes,
@@ -89,11 +91,25 @@ export function SortableList<T>({
   }
   const shown = dropped ?? items;
   const ids = shown.map(getId);
+  // A list that unmounts mid-drag or before the drop's click arrives must not leave the page swallowing clicks.
+  const settling = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(
+    () => () => {
+      clearTimeout(settling.current);
+      window.removeEventListener("click", cancelClick, { capture: true });
+    },
+    [],
+  );
   function start() {
+    clearTimeout(settling.current);
     window.addEventListener("click", cancelClick, { capture: true });
   }
   function settle() {
-    setTimeout(() => window.removeEventListener("click", cancelClick, { capture: true }), 100);
+    clearTimeout(settling.current);
+    settling.current = setTimeout(
+      () => window.removeEventListener("click", cancelClick, { capture: true }),
+      100,
+    );
   }
   function end(event: DragEndEvent) {
     settle();
