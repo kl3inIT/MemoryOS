@@ -97,6 +97,12 @@ binary, `memoryos-whatsapp-bridge`, built in its own Dockerfile stage (`CGO_ENAB
   (`search_path=whatsapp`, pgx), as GoClaw keeps it; the bridge receives the address in its environment, never its
   arguments, and opens at most three connections. whatsmeow migrates its own tables (`whatsmeow_*`) in that schema;
   Flyway creates the schema (V192) and never touches its tables. Nothing is written to disk.
+- **A session belongs to its bot,** not to its number. `whatsapp.channel_devices` (V192: bot, device JID, number;
+  removed with the bot) names the device each bot linked, written when the bot's own number scans its code. Found by
+  number, a session of a bot removed while no process held it would be reused by the next bot added for that number,
+  in another Tenant too; found by bot, a new bot always links afresh, removing a bot logs out only its own device, and
+  the bridge logs out every device no bot names a minute after it starts and every hour, sparing those it holds open
+  (found by the review of the first commit).
 - **Quiet device.** `SynchronousAck` on, history sync not downloaded (`ManualHistorySyncDownload`), no presence sent
   on connect, the device named "MemoryOS" in the phone's list of linked devices.
 - **At least once.** With `SynchronousAck`, WhatsApp is acknowledged only after the handler returns; the handler
@@ -106,9 +112,10 @@ binary, `memoryos-whatsapp-bridge`, built in its own Dockerfile stage (`CGO_ENAB
 - **Commands.** `open {bot, phone}`, `close {bot}`, `logout {bot}`, `send {bot, chat, text, quote?}`,
   `typing {bot, chat, on}`, `read {bot, chat, sender, ids}`, `groups {bot}`, `group {bot, chat}`, `ack {event}`,
   `shutdown`.
-- **Events.** `qr {bot, code, expiresAt}`, `paired {bot, jid, lid, name}`, `connected {bot, jid, lid, name}`,
-  `disconnected {bot}`, `loggedOut {bot}`, `replaced {bot}`, `banned {bot, reason, expiresAt}`,
-  `wrongNumber {bot, jid}`, `message {…}`, `joined {bot, chat, name}`.
+- **Events.** `qr {bot, code, expiresAt}`, `pairingEnded {bot, reason}`, `paired {bot, jid, lid, name}`,
+  `connected {bot, jid, lid, name}`, `disconnected {bot}`, `loggedOut {bot}`, `replaced {bot}`,
+  `banned {bot, reason, expiresAt}`, `wrongNumber {bot, jid}`, `numberInUse {bot}`, `outdated {bot}`, `message {…}`,
+  `joined {bot, chat, name}`.
 
 ### The adapter
 
@@ -121,10 +128,14 @@ supervisor reopens them at its next pass. `memoryos.whatsapp.bridge-path` names 
 
 - **Features.** No organisations (members link their account with a code, as for Zalo), no rewritten reply, 4,096
   characters (GoClaw and Hermes).
-- **A bot** is the number given when it is added, in international form (`+84…`); its digits are the app id, unique
-  across Tenants. `verify` checks the form only, since nothing can be asked before the number is linked. A WhatsApp
-  bot has no secret: the session is the bridge's. `ChannelFeatures` gains `pairs` (the bot is linked by scanning, not
-  by a secret); for such a provider the service stores an envelope of an empty secret and refuses `replaceSecret`.
+- **A bot** is the number given when it is added, in international form (`+84…`); its digits are the app id.
+  `verify` checks the form only, since nothing can be asked before the number is linked. So the number is reserved
+  within its Tenant only when the bot is added (a partial unique index), and linking decides it across Tenants: a
+  number links one bot (`channel_devices.phone` unique, else `CHANNEL_WHATSAPP_NUMBER_IN_USE`), so no Tenant can hold
+  another's number by adding it first. A WhatsApp bot has no secret: the session is the bridge's. `ChannelFeatures`
+  gains `pairs` (the bot is linked by scanning, not by a secret); such a bot's secret columns are empty, which the
+  database requires of it and refuses of any other (the shared cipher refuses an empty plaintext), and
+  `replaceSecret` is refused.
 - **Linking.** An enabled bot without a session opens into pairing: the bridge emits a QR code every 20 seconds or
   so for about two minutes, which the adapter hands to `ChannelReceiver.pairing`; the capability keeps the current
   code in `channel_pairings` (V192: bot, code, expiry), and the bot's page reads it every two seconds and draws it.
@@ -133,9 +144,10 @@ supervisor reopens them at its next pass. `memoryos.whatsapp.bridge-path` names 
   `CHANNEL_WHATSAPP_WRONG_NUMBER`, so a code seen by someone else cannot link their account into the Tenant.
 - **Ending.** WhatsApp logging the device out (removed from the phone, or the number banned for good) is
   `CHANNEL_WHATSAPP_LOGGED_OUT`; a temporary ban is `CHANNEL_WHATSAPP_BANNED` with its end; the session opened by
-  another process is `CHANNEL_WHATSAPP_REPLACED`. Each waits for the bot's next revision, as an unreachable webhook
-  does, so no pass keeps relinking. "Liên kết lại" on the bot's page moves the revision and the next pass shows a new
-  QR. Removing the bot logs the device out and deletes its session.
+  another process is `CHANNEL_WHATSAPP_REPLACED`. The transport reports each through `ChannelTransport.stopped()`,
+  and each waits for the bot's next revision, as an unreachable webhook does, so no pass keeps relinking. "Liên kết
+  lại" (`POST /api/channels/{id}/pairing`) moves the revision and the next pass shows a new QR. Removing the bot
+  while a process holds it logs the device out (`ChannelAdapter.forget`); otherwise the bridge does within the hour.
 - **A message.** The sender is known by their LID (`…@lid`), which stays when they change number or hide it behind a
   username; the phone JID is mapped to it through whatsmeow's LID store, and only a sender with no LID known is kept
   by phone. A direct chat is the sender; a group is its `…@g.us`. Messages the account sent itself, status updates,

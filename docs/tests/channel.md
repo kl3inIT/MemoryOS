@@ -129,3 +129,24 @@ address, a restart of the process while idle, and the load and provider limits
 a second message during an answer and the three-account acceptance wait for a person on the Lark test tenant. The
 Zalo adapter runs against a local stand-in for Zalo; a real bot, its group mention and the webhook on staging are
 the probe and acceptance of [MEM-263](../increments/active/mem-263-zalo-bot/plan.md).
+| MEM-283: a bot linked by a code takes no secret and keeps none, is refused a secret, and is linked again by moving its revision; its number is reserved within its Tenant | `PostgresChannelConnectionTest.aBotLinkedByACodeHasNoSecretAndIsLinkedAgain` |
+| The database holds a WhatsApp bot by its number in international form and refuses it a secret, and any other bot none | `PostgresChannelConnectionTest.theDatabaseHoldsAWhatsAppBotByItsNumber` |
+| Two processes never hold one bot; the address of the holder is where a webhook request is passed; stopping hands the bot over at the next pass | `ChannelSupervisorTest.twoProcessesNeverHoldOneBotAndAStoppingOneHandsItOver` |
+| A holder whose lease another process took closes the bot at its next renewal and does not open it again | `ChannelSupervisorTest.aLeaseTakenElsewhereClosesTheBotAtTheNextRenewal` |
+| A holder that cannot renew closes the bot after 60 seconds, before its lease can end | `ChannelSupervisorTest.aHolderThatCannotRenewClosesTheBotBeforeItsLeaseEnds` |
+| A change of hands starts a new epoch; a write of a lost epoch, its pairing code and its renewal change nothing | `ChannelSupervisorTest.aStaleEpochCannotOverwriteItsSuccessor` |
+| A WhatsApp session WhatsApp ended waits for the bot's next revision | `ChannelSupervisorTest.aSessionWhatsAppEndedWaitsForTheBotToChange` |
+| A pairing code is kept for the bot's page until it is scanned | `ChannelSupervisorTest.aPairingCodeIsKeptUntilItIsScanned` |
+| A bot removed while held is forgotten by its provider; one switched off is not | `ChannelSupervisorTest.aRemovedBotIsForgottenAndASwitchedOffOneIsNot` |
+| A webhook request for a bot held elsewhere is passed to its holder once and answered as it answered; one no live process holds is `503` | `ChannelWebhookControllerTest.aRequestForABotHeldElsewhereIsPassedToItsHolderOnce`, `ChannelWebhookControllerTest.aRequestWithoutThePlatformsSecretIsRefusedUnreadAndAnUnknownBotIsNotFound` |
+| The API adds a WhatsApp bot by its number, shows its code or `204`, and links it again with the revision | `ChannelApiTest.aWhatsAppBotIsAddedByItsNumberAndShowsItsCodeWhileItIsLinked` |
+| A WhatsApp bot is its number in international form and takes no secret or setting | `WhatsAppChannelAdapterTest.aBotIsItsNumberInInternationalFormAndTakesNoSecret` |
+| A number without a session shows its code; unscanned codes are shown again at the next pass | `WhatsAppChannelAdapterTest.aNumberWithoutASessionShowsItsCodeUntilItIsScanned` |
+| A message is handed over and only then acknowledged; a caption carries the note, other media is `OTHER` | `WhatsAppChannelAdapterTest.aMessageIsHandedOverAndOnlyThenAcknowledged` |
+| An answer goes in pieces of at most 4,096 characters in WhatsApp's formatting, the first quoting the question, with the typing mark meanwhile and the question marked read | `WhatsAppChannelAdapterTest.anAnswerIsSentInPiecesQuotingTheQuestionWithTheTypingMarkMeanwhile` |
+| A logout, another number's scan and a number linked elsewhere stop the bot until it changes | `WhatsAppChannelAdapterTest.aSessionWhatsAppEndedStopsTheBotUntilItChanges` |
+| A bridge that ends closes its bots and is started again after its back-off | `WhatsAppChannelAdapterTest.aBridgeThatEndsClosesItsBotsAndTheNextOpeningStartsAnother` |
+| Groups are listed with their names and count as having outsiders until MEM-285 | `WhatsAppChannelAdapterTest.groupsAreListedAndCountAsHavingOutsidersUntilTheTenantRuleExists` |
+| Closing and removing reach the bridge, the removal for that bot's device only | `WhatsAppChannelAdapterTest.closingAndRemovingABotReachTheBridge` |
+| WhatsApp's formatting from markdown; the bridge's database address | `WhatsAppTextTest`, `WhatsAppDatabaseTest` |
+| The bridge: a sender by LID, the device part dropped, own, status, broadcast, newsletter, reactions, edits and votes dropped, captions, mentions and replies in a group, the line protocol and the ack | `go test` in `memoryos-integration-whatsapp/bridge` (`inbound_test.go`, `protocol_test.go`) |
