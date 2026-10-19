@@ -1,5 +1,13 @@
 # syntax=docker/dockerfile:1.7
 
+# MEM-283: the WhatsApp bridge, a static Go binary on whatsmeow that the channels process starts as a child process.
+FROM golang:1.27.2-bookworm@sha256:5cf287a799e6b94384bad13d16b14904c531f51ba65792237e122ce42b392f61 AS whatsapp-bridge
+WORKDIR /bridge
+COPY memoryos-integration-whatsapp/bridge/go.mod memoryos-integration-whatsapp/bridge/go.sum ./
+RUN go mod download
+COPY memoryos-integration-whatsapp/bridge/*.go ./
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/memoryos-whatsapp-bridge .
+
 FROM eclipse-temurin:25-jdk-noble@sha256:589ff4cc3f71aab462e7048a47a0d10edf57fbccde3fceea2281e610bf5880b4 AS build
 
 WORKDIR /workspace
@@ -14,6 +22,7 @@ COPY memoryos-integration-lark/build.gradle.kts ./memoryos-integration-lark/
 COPY memoryos-integration-google/build.gradle.kts ./memoryos-integration-google/
 COPY memoryos-integration-microsoft/build.gradle.kts ./memoryos-integration-microsoft/
 COPY memoryos-integration-zalo/build.gradle.kts ./memoryos-integration-zalo/
+COPY memoryos-integration-whatsapp/build.gradle.kts ./memoryos-integration-whatsapp/
 COPY memoryos-integration-opensandbox/build.gradle.kts ./memoryos-integration-opensandbox/
 COPY memoryos-extraction/build.gradle.kts ./memoryos-extraction/
 COPY memoryos-api/build.gradle.kts ./memoryos-api/
@@ -28,6 +37,7 @@ COPY memoryos-integration-lark ./memoryos-integration-lark
 COPY memoryos-integration-google ./memoryos-integration-google
 COPY memoryos-integration-microsoft ./memoryos-integration-microsoft
 COPY memoryos-integration-zalo ./memoryos-integration-zalo
+COPY memoryos-integration-whatsapp/src ./memoryos-integration-whatsapp/src
 COPY memoryos-integration-opensandbox ./memoryos-integration-opensandbox
 COPY memoryos-extraction ./memoryos-extraction
 COPY memoryos-api ./memoryos-api
@@ -119,3 +129,5 @@ COPY --from=build --chown=1654:1654 /workspace/channels-extracted/dependencies/ 
 COPY --from=build --chown=1654:1654 /workspace/channels-extracted/spring-boot-loader/ ./
 COPY --from=build --chown=1654:1654 /workspace/channels-extracted/snapshot-dependencies/ ./
 COPY --from=build --chown=1654:1654 /workspace/channels-extracted/application/ ./
+# Owned by root, so the process that runs it cannot change it.
+COPY --from=whatsapp-bridge --chmod=0755 /out/memoryos-whatsapp-bridge /application/bin/memoryos-whatsapp-bridge

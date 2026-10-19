@@ -56,9 +56,10 @@ class ChannelsApplicationTest {
 
         var response = http.getForEntity("/actuator/health/readiness", String.class);
         assertEquals(HttpStatus.OK, response.getStatusCode(), response.getBody());
-        // MEM-263: the address a platform pushes to is served, without a session; no bot receives over it here.
+        // MEM-263: the address a platform pushes to is served, without a session; no process holds this bot (MEM-283).
         context.getBean(ChannelAdapters.class).of(ChannelProvider.ZALO_BOT);
+        context.getBean(ChannelAdapters.class).of(ChannelProvider.WHATSAPP);
         var pushed = http.postForEntity("/hooks/channels/" + UUID.randomUUID(), "{}", String.class);
-        assertEquals(HttpStatus.NOT_FOUND, pushed.getStatusCode());
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, pushed.getStatusCode());
     }
 }

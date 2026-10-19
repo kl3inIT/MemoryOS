@@ -4,7 +4,9 @@ package io.memoryos.channel;
 public enum ChannelProvider {
     LARK("Lark"),
     /** The Zalo Bot Platform, a bot made in Zalo Bot Creator; not a Zalo Official Account, whose API differs (MEM-263). */
-    ZALO_BOT("Zalo");
+    ZALO_BOT("Zalo"),
+    /** A WhatsApp number linked as a companion device, as WhatsApp Web is (MEM-283). */
+    WHATSAPP("WhatsApp");
 
     private final String platform;
 

@@ -120,6 +120,11 @@ memoryos:
     credential-encryption-key: ${MEMORYOS_CHANNEL_CREDENTIAL_ENCRYPTION_KEY:}
     credential-key-version: ${MEMORYOS_CHANNEL_CREDENTIAL_KEY_VERSION:}
     web-url: ${MEMORYOS_CHANNEL_WEB_URL:}
+    # MEM-283: where another channel process passes a webhook request for a bot this one holds; Docker names each
+    # container by its host name on the network.
+    address: ${MEMORYOS_CHANNEL_ADDRESS:${HOSTNAME:localhost}:${MEMORYOS_CHANNELS_PORT:8082}}
+  whatsapp:
+    bridge-path: ${MEMORYOS_WHATSAPP_BRIDGE_PATH:/application/bin/memoryos-whatsapp-bridge}
   mcp:
     credential-encryption-key: ${MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY:}
     connect-timeout: 5s

@@ -32,8 +32,9 @@ dependencies {
     runtimeOnly(project(":memoryos-integration-opensandbox"))
     runtimeOnly(project(":memoryos-integration-google"))
     runtimeOnly(project(":memoryos-integration-microsoft"))
-    // MEM-263: the Zalo bot, which no Source type uses.
+    // MEM-263, MEM-283: the Zalo and WhatsApp bots, which no Source type uses.
     runtimeOnly(project(":memoryos-integration-zalo"))
+    runtimeOnly(project(":memoryos-integration-whatsapp"))
     runtimeOnly(libs.postgresql)
     testImplementation(libs.spring.boot.starter.test)
     testImplementation(libs.archunit.junit5)

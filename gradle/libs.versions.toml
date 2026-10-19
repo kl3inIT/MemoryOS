@@ -42,6 +42,8 @@ mcp-sdk = "2.1.0"
 nimbus-oauth2-oidc-sdk = "11.38.2"
 # MEM-114 rate limit of the MCP endpoint.
 bucket4j = "8.21.0"
+# MEM-283: an answer's markdown made WhatsApp's own formatting.
+commonmark = "0.30.1"
 
 [libraries]
 azure-speech = { module = "com.microsoft.cognitiveservices.speech:client-sdk", version.ref = "azure-speech" }
@@ -58,6 +60,9 @@ embabel-byok = { module = "com.embabel.agent:embabel-agent-byok-autoconfigure", 
 mcp = { module = "io.modelcontextprotocol.sdk:mcp", version.ref = "mcp-sdk" }
 spring-ai-starter-mcp-server-webmvc = { module = "org.springframework.ai:spring-ai-starter-mcp-server-webmvc" }
 bucket4j-core = { module = "com.bucket4j:bucket4j_jdk17-core", version.ref = "bucket4j" }
+commonmark = { module = "org.commonmark:commonmark", version.ref = "commonmark" }
+commonmark-gfm-tables = { module = "org.commonmark:commonmark-ext-gfm-tables", version.ref = "commonmark" }
+commonmark-gfm-strikethrough = { module = "org.commonmark:commonmark-ext-gfm-strikethrough", version.ref = "commonmark" }
 caffeine = { module = "com.github.ben-manes.caffeine:caffeine" }
 tomcat-embed-core = { module = "org.apache.tomcat.embed:tomcat-embed-core" }
 spring-ai-model-tool = { module = "org.springframework.ai:spring-ai-autoconfigure-model-tool" }

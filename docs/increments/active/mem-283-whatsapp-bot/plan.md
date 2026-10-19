@@ -23,8 +23,13 @@ group rule (step 6) rides with the second. Each is accepted when CI is green and
   revision.
 - [ ] Migration V192: the provider check with `WHATSAPP` and its app id (`^[0-9]{8,15}$`), schema `whatsapp`,
   `channel_pairings`.
-- [ ] Tests: `PostgresChannelConnectionTest` (checks, the empty secret), `ChannelSupervisorTest` (pairing kept and
-  cleared, the waiting codes).
+- [ ] The lease a bot: V192 columns, take and renew on the database's clock every 10 s, stop at 60 s without a
+  renewal, a new epoch at each change of hands guarding the state writes, release on stop, abandoned claims only
+  for bots no live process holds; the webhook passed to the holder's address, `503` when it is unknown or dead.
+- [ ] Tests: `PostgresChannelConnectionTest` (checks, the empty secret, two holders racing for a lease, an expired
+  one taken over, a stale epoch's write refused), `ChannelSupervisorTest` (pairing kept and cleared, the waiting
+  codes, a lost renewal closing the transport, release on stop), `ChannelWebhookControllerTest` (passed to the
+  holder).
 
 ## 3. The adapter
 

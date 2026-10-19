@@ -1,5 +1,7 @@
 package io.memoryos.channels;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -10,10 +12,15 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.sun.net.httpserver.HttpServer;
 import io.memoryos.channel.ChannelSupervisor;
+import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
@@ -54,9 +61,42 @@ class ChannelWebhookControllerTest {
 
         UUID other = UUID.randomUUID();
         when(supervisor.authorize(eq(other), any())).thenReturn(ChannelSupervisor.Delivery.UNKNOWN);
-        mvc.perform(post("/hooks/channels/" + other).content("{}")).andExpect(status().isNotFound());
+        when(supervisor.holderAddress(other)).thenReturn(Optional.empty());
+        // No live process holds it, as between two holders: the platform retries.
+        mvc.perform(post("/hooks/channels/" + other).content("{}")).andExpect(status().isServiceUnavailable());
 
         mvc.perform(post("/hooks/channels/not-a-bot").content("{}")).andExpect(status().isBadRequest());
+        verify(supervisor, never()).deliver(any(), any(), any());
+    }
+
+    /** MEM-283: a request for a bot another process holds is passed to it once and answered as it answered. */
+    @Test
+    void aRequestForABotHeldElsewhereIsPassedToItsHolderOnce() throws Exception {
+        var seen = new ConcurrentHashMap<String, String>();
+        var holder = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        holder.createContext("/hooks/channels/" + BOT, exchange -> {
+            seen.put("secret", String.valueOf(exchange.getRequestHeaders().getFirst("X-Bot-Api-Secret-Token")));
+            seen.put("passed", String.valueOf(exchange.getRequestHeaders().getFirst("X-MemoryOS-Passed")));
+            seen.put("body", new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            exchange.sendResponseHeaders(403, -1);
+            exchange.close();
+        });
+        holder.start();
+        try {
+            when(supervisor.authorize(eq(BOT), any())).thenReturn(ChannelSupervisor.Delivery.UNKNOWN);
+            when(supervisor.holderAddress(BOT)).thenReturn(Optional.of("127.0.0.1:" + holder.getAddress().getPort()));
+
+            mvc.perform(post("/hooks/channels/" + BOT).header("X-Bot-Api-Secret-Token", "s3cret").content("{\"ok\":1}"))
+                    .andExpect(status().isForbidden());
+            assertEquals(Map.of("secret", "s3cret", "passed", "1", "body", "{\"ok\":1}"), Map.copyOf(seen));
+
+            seen.clear();
+            mvc.perform(post("/hooks/channels/" + BOT).header("X-MemoryOS-Passed", "1").content("{}"))
+                    .andExpect(status().isServiceUnavailable());
+            assertNull(seen.get("body"), "a request passed once is not passed again");
+        } finally {
+            holder.stop(0);
+        }
         verify(supervisor, never()).deliver(any(), any(), any());
     }
 

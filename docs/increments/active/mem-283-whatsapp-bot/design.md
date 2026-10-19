@@ -160,6 +160,44 @@ manual form of the same rule). `ChannelChat` carries the participants' ids for a
 group whose list cannot be read counts as external, as Lark's does. Until this is built, a WhatsApp group question is
 refused with the existing external-group notice.
 
+### One holder a bot, several processes
+
+Today every `memoryos-channels` process opens every enabled bot, so the deployment runs one: two would hold two Lark
+connections, set Zalo's webhook over each other, and for WhatsApp replace each other's stream (`StreamReplaced`)
+in a loop, which is the kind of reconnect storm that draws a ban. Each bot is held under a lease instead, so any
+number of processes share the bots and one takes over a bot whose holder died.
+
+How the references and the platforms do it:
+
+| | Unit | Timing | On losing it | On stopping |
+| --- | --- | --- | --- | --- |
+| Onyx Slack bot (`onyxbot/slack/listener.py`, `config.py:62-71`) | A Tenant, a Redis lock a pod takes without blocking | Heartbeat every 15 s, taken over after 60 s, acquisition every 60 s, at most 50 Tenants a pod | — | Released |
+| Kubernetes leader election (controller-runtime `manager.go`) | One lease | Lease 15 s, renew deadline 10 s, retry 2 s | The holder stops acting once it cannot renew by the deadline, before the lease ends | `ReleaseOnCancel` hands over without waiting out the lease |
+| MemoryOS's own claims (`cleanup_lease_until`, `minutes_lease_until`) | A row | The database's clock | — | — |
+
+The rules, from those:
+
+- **A lease a bot**, in `channel_connection_state` (V192: `holder`, `holder_address`, `lease_until`, `lease_epoch`),
+  taken and renewed with one conditional `UPDATE … WHERE lease_until < now() OR holder = :me` on the database's
+  clock, never a process's. The lease lasts 90 seconds; the supervisor renews the bots it holds every 10 seconds, on
+  a thread apart from the 30-second pass, so a slow open never delays a renewal.
+- **Stop before the lease ends.** A holder that has not renewed for 60 seconds (the database unreachable, a long
+  pause) closes the bot's transport itself, so two processes never hold one bot; the next holder waits out the 90.
+- **A new epoch each time a bot changes hands**, which the holder's writes of the bot's state carry, so a holder that
+  lost the bot cannot overwrite its successor's state.
+- **Release on stop.** A process that stops closes its bots and clears its leases, so another takes them at its next
+  pass instead of 90 seconds later.
+- **Stay put.** A holder keeps its bots; a process takes only bots nobody holds. There is no balancing: Onyx caps the
+  Tenants a pod takes, which MemoryOS does not need at its size.
+- **A webhook reaches the holder.** The provider pushes to any process behind `memoryos-channels:8082`; one that does
+  not hold the bot passes the request to the holder's address (`holder_address`, its host name and port) and answers
+  what the holder answered, since only the holder knows the webhook's secret of this opening (Zalo's is made at each
+  opening). An unknown or dead holder is `503`, which the provider retries.
+- **Abandoned claims.** A claimed message is taken for abandoned only when no live process holds its bot, not merely
+  because it is older than this process.
+
+A WhatsApp session is in PostgreSQL, so the next holder connects without a new QR.
+
 ### Not built, and why
 
 - **A pairing code** (`PairPhone`): none of the three references uses it; the QR covers an administrator with the
@@ -174,7 +212,5 @@ refused with the existing external-group notice.
   for good. Mitigations the references and WAHA's guide agree on: a dedicated number, only replies, typing before
   sending, pauses between pieces, no bulk or first contact, a filled profile. Spam reports from five to ten people can
   ban a number; the bot answers only linked members, so strangers get one linking notice at most once a minute.
-- **One holder.** Two processes opening one device replace each other's stream. `channels` runs one replica; a
-  second replica would need the bot to be held under a lease first.
 - **Protocol changes.** whatsmeow is bumped by Dependabot (`gomod`) with the other dependencies; a break shows as
   bots not connecting, recorded by the supervisor.
