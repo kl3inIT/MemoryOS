@@ -271,6 +271,30 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     });
     expect(listed.at(-1)).toMatchObject({ messageMetadata: { assistantChanges: ["call_1"] } });
   });
+  it("takes a builder change shaped as the server sends it, unchanged fields left out", async () => {
+    // As staging sent it (MEM-280 acceptance), with the unchanged fields omitted as the contract declares.
+    const change = {
+      toolCallId: "call_85298b2a493b446c9427f480a17d08c5",
+      change: {
+        title: "Chuyên viên nhân sự",
+        greeting: "",
+        starterPrompts: ["Nghỉ phép năm bao nhiêu ngày?"],
+        grounded: true,
+      },
+    };
+    fixture(() =>
+      sse(
+        packet(1, "assistant_change", change) +
+          packet(2, "text", { text: "Đã dựng trợ lý trong biểu mẫu chưa lưu." }) +
+          packet(3, "outcome", { status: "COMPLETED", failureCode: null }),
+      ),
+    );
+    const transport = new MemoryOsChatTransport(session);
+    const taken = vi.fn();
+    transport.onAssistantChange = taken;
+    await collect(await send(transport));
+    expect(taken).toHaveBeenCalledWith(expect.objectContaining(change));
+  });
   it("loads committed artifact metadata once after outcome without a second inference and restores it on reload", async () => {
     const artifacts = [
       {
