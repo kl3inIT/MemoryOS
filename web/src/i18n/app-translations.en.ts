@@ -925,6 +925,7 @@ export const vietnameseUi: Record<string, string> = {
   "Đang trả lời…": "Answering…",
   "Xem tất cả": "See all",
   "Về danh sách trợ lý": "Back to assistants",
+  "Trợ lý không còn dùng được.": "This assistant is no longer available.",
   "Thông tin trợ lý": "Assistant details",
   "Chủ đề của {{v1}}": "Topics of {{v1}}",
   "Tải lại chủ đề": "Reload topics",

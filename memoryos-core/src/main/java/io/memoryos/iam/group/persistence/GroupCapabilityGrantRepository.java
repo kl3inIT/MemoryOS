@@ -61,7 +61,8 @@ public class GroupCapabilityGrantRepository {
         GroupSystemKey systemKey = group.getSystemKey();
         boolean valid = switch (systemKey) {
             case ADMIN -> capabilities.equals(Set.of(IamCapability.SYSTEM_ADMIN));
-            case BASIC -> capabilities.equals(Set.of(IamCapability.SYSTEM_BASIC));
+            case BASIC -> capabilities.contains(IamCapability.SYSTEM_BASIC) && capabilities.stream()
+                    .allMatch(capability -> capability == IamCapability.SYSTEM_BASIC || capability.isBasicOptionalGrant());
             case null -> capabilities.stream().allMatch(IamCapability::isOrdinaryGrant);
         };
         if (!valid) {

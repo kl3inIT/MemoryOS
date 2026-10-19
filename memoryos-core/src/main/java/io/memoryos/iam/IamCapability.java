@@ -53,6 +53,14 @@ public enum IamCapability {
         };
     }
 
+    /**
+     * A grant the protected Basic Group may hold beside SYSTEM_BASIC, on by default and switched off only by a full
+     * administrator, as Onyx's seeded Basic group keeps its toggleable grants (MEM-281).
+     */
+    public boolean isBasicOptionalGrant() {
+        return this == AGENTS_CREATE;
+    }
+
     public Set<IamCapability> impliedCapabilities() {
         return switch (this) {
             case SYSTEM_ADMIN -> SYSTEM_ADMIN_IMPLICATIONS;

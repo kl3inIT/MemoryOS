@@ -15,6 +15,7 @@ import {
   listChatSessionsOptions,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { AgentAvatar } from "@/features/agents/agent-avatar";
+import { personasOptions } from "@/features/chat/chat-personas-api";
 import {
   useChatThreads,
   useOptionalChatThreads,
@@ -114,7 +115,18 @@ function useOpenAssistant(listed?: string) {
     ...getChatSessionOptions({ path: { sessionId: sessionId ?? "" } }),
     enabled: false,
   });
-  if (newTopic) return newTopic.params.personaId;
+  const assistants = useSidebarAssistants();
+  const personas = useQuery(personasOptions());
+  if (newTopic) {
+    const id = newTopic.params.personaId;
+    // An assistant the person can no longer use, known to neither list, keeps the home sidebar.
+    const unknown =
+      assistants.isSuccess &&
+      personas.isSuccess &&
+      !assistants.data.some((assistant) => assistant.id === id) &&
+      !personas.data.some((persona) => persona.id === id);
+    return unknown ? undefined : id;
+  }
   if (!sessionId) return undefined;
   if (stored.data) return stored.data.projectId ? undefined : stored.data.personaId;
   return listed || undefined;

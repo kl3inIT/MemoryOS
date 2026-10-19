@@ -14,9 +14,11 @@ import io.memoryos.iam.group.persistence.GroupRepository;
 import io.memoryos.iam.tenant.persistence.TenantEntity;
 import io.memoryos.iam.tenant.persistence.TenantMembershipEntity;
 
+import java.util.EnumSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -51,6 +53,7 @@ public class GroupProvisioner {
                 "Admin",
                 GroupSystemKey.ADMIN
         );
+        boolean basicExisted = groups.findSystem(requiredTenantId, GroupSystemKey.BASIC).isPresent();
         GroupEntity basic = systemGroup(
                 tenant,
                 requiredTenantId,
@@ -59,7 +62,7 @@ public class GroupProvisioner {
                 GroupSystemKey.BASIC
         );
         grants.replace(admin, Set.of(IamCapability.SYSTEM_ADMIN));
-        grants.replace(basic, Set.of(IamCapability.SYSTEM_BASIC));
+        grants.replace(basic, basicGrants(basicExisted ? grants.findCapabilities(basic) : null));
 
         TenantMembershipEntity ownerMembership = memberships.tenantMembershipReference(
                 requiredTenantId,
@@ -85,6 +88,18 @@ public class GroupProvisioner {
         );
         addIfAbsent(requiredTenantId, basic, requiredActorId, tenantMembership);
         memberships.flush();
+    }
+
+    /**
+     * SYSTEM_BASIC with the optional grants a new Basic Group starts with, or, on a re-run, with the ones it holds, so an
+     * administrator's choice survives every start.
+     */
+    private static Set<IamCapability> basicGrants(@Nullable Set<IamCapability> held) {
+        EnumSet<IamCapability> result = EnumSet.of(IamCapability.SYSTEM_BASIC);
+        for (IamCapability capability : IamCapability.values()) {
+            if (capability.isBasicOptionalGrant() && (held == null || held.contains(capability))) result.add(capability);
+        }
+        return result;
     }
 
     private GroupEntity systemGroup(

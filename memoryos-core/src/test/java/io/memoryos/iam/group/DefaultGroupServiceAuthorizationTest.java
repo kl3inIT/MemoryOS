@@ -5,11 +5,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.memoryos.audit.AuditTrail;
 import io.memoryos.iam.Authority;
 import io.memoryos.iam.GroupId;
+import io.memoryos.iam.GroupSystemKey;
 import io.memoryos.iam.IamAccess;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
@@ -27,6 +29,7 @@ import io.memoryos.iam.group.persistence.GroupRepository;
 import io.memoryos.iam.tenant.persistence.TenantEntity;
 
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -90,10 +93,12 @@ class DefaultGroupServiceAuthorizationTest {
 
     @Test
     void publicGrantMutationRejectsSystemBundlesAndAllDerivedCapabilities() {
+        IamAuthorization authorization = mock(IamAuthorization.class);
+        GroupRepository groups = mock(GroupRepository.class);
         var service = new DefaultGroupService(
-                mock(IamAuthorization.class),
+                authorization,
                 mock(TenantAccessResolver.class),
-                mock(GroupRepository.class),
+                groups,
                 mock(GroupMembershipRepository.class),
                 mock(GroupCapabilityGrantRepository.class),
                 mock(GroupProjectionRepository.class),
@@ -101,6 +106,9 @@ class DefaultGroupServiceAuthorizationTest {
                 mock(GroupAdministrationGuard.class),
                 mock(AuditTrail.class)
         );
+        when(authorization.lockAndRequireAdministration(MANAGER)).thenReturn(new IamAccess(TENANT, Authority.GLOBAL));
+        when(groups.find(TENANT, GROUP_ID)).thenReturn(Optional.of(new GroupEntity(
+                new TenantEntity(TENANT.value(), "tenant", "Tenant", "test"), GROUP_ID.value(), "Ordinary", null)));
 
         for (IamCapability capability : Set.of(
                 IamCapability.SYSTEM_ADMIN, IamCapability.SYSTEM_BASIC, IamCapability.SEARCH_READ,
@@ -112,6 +120,50 @@ class DefaultGroupServiceAuthorizationTest {
                     () -> service.replaceCapabilities(MANAGER, GROUP_ID, Set.of(capability)));
             assertEquals(IamFailureReason.GROUP_PROTECTED.code(), failure.code());
         }
+    }
+
+    @Test
+    void theBasicGroupKeepsBasicAccessAndSwitchesOnlyItsOptionalGrants() {
+        IamAuthorization authorization = mock(IamAuthorization.class);
+        GroupRepository groups = mock(GroupRepository.class);
+        GroupCapabilityGrantRepository grants = mock(GroupCapabilityGrantRepository.class);
+        var service = new DefaultGroupService(
+                authorization,
+                mock(TenantAccessResolver.class),
+                groups,
+                mock(GroupMembershipRepository.class),
+                grants,
+                mock(GroupProjectionRepository.class),
+                mock(GroupInvariantRepository.class),
+                mock(GroupAdministrationGuard.class),
+                mock(AuditTrail.class)
+        );
+        GroupEntity basic = new GroupEntity(new TenantEntity(TENANT.value(), "tenant", "Tenant", "test"),
+                GroupEntity.BASIC_ID, "Basic", GroupSystemKey.BASIC);
+        GroupEntity admin = new GroupEntity(new TenantEntity(TENANT.value(), "tenant", "Tenant", "test"),
+                GroupEntity.ADMIN_ID, "Admin", GroupSystemKey.ADMIN);
+        GroupId basicId = new GroupId(GroupEntity.BASIC_ID);
+        GroupId adminId = new GroupId(GroupEntity.ADMIN_ID);
+        when(authorization.lockAndRequireAdministration(MANAGER)).thenReturn(new IamAccess(TENANT, Authority.GLOBAL));
+        when(groups.find(TENANT, basicId)).thenReturn(Optional.of(basic));
+        when(groups.find(TENANT, adminId)).thenReturn(Optional.of(admin));
+        when(grants.findCapabilities(basic))
+                .thenReturn(Set.of(IamCapability.SYSTEM_BASIC, IamCapability.AGENTS_CREATE));
+
+        service.replaceCapabilities(MANAGER, basicId, Set.of());
+        verify(grants).replace(basic, Set.of(IamCapability.SYSTEM_BASIC));
+        service.replaceCapabilities(MANAGER, basicId, Set.of(IamCapability.SYSTEM_BASIC, IamCapability.AGENTS_CREATE));
+        verify(grants).replace(basic, Set.of(IamCapability.SYSTEM_BASIC, IamCapability.AGENTS_CREATE));
+
+        for (var refused : List.of(
+                Set.of(IamCapability.USERS_MANAGE), Set.of(IamCapability.AGENTS_MANAGE, IamCapability.SYSTEM_BASIC))) {
+            var failure = assertThrows(IamException.class,
+                    () -> service.replaceCapabilities(MANAGER, basicId, refused));
+            assertEquals(IamFailureReason.GROUP_PROTECTED.code(), failure.code());
+        }
+        var adminFailure = assertThrows(IamException.class,
+                () -> service.replaceCapabilities(MANAGER, adminId, Set.of(IamCapability.AGENTS_CREATE)));
+        assertEquals(IamFailureReason.GROUP_PROTECTED.code(), adminFailure.code());
     }
 
     @Test
