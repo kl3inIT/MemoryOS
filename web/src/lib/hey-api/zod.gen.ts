@@ -1417,12 +1417,12 @@ export const zDefault = z.object({
     revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
 });
 
-export const zInterpreterSettingsRequest = z.object({
+export const zSandboxSettingsRequest = z.object({
     enabled: z.boolean(),
     revision: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
 });
 
-export const zInterpreterSettingsResponse = z.object({
+export const zSandboxSettingsResponse = z.object({
     configured: z.boolean(),
     enabled: z.boolean(),
     revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
@@ -4043,7 +4043,7 @@ export const zChatLibrarySourceOption = z.object({
     ])
 });
 
-export const zInterpreterHealthResponse = z.object({
+export const zSandboxHealthResponse = z.object({
     connected: z.boolean(),
     error: z.string(),
     version: z.string()
@@ -5573,16 +5573,16 @@ export const zStarChatLibraryEntryPath = z.object({
 export const zStarChatLibraryEntryResponse = z.void();
 
 /**
- * Code Interpreter setting
+ * Sandbox setting
  */
-export const zGetChatInterpreterSettingsResponse = zInterpreterSettingsResponse;
+export const zGetChatSandboxSettingsResponse = zSandboxSettingsResponse;
 
-export const zUpdateChatInterpreterSettingsBody = zInterpreterSettingsRequest;
+export const zUpdateChatSandboxSettingsBody = zSandboxSettingsRequest;
 
 /**
- * Saved Code Interpreter setting
+ * Saved Sandbox setting
  */
-export const zUpdateChatInterpreterSettingsResponse = zInterpreterSettingsResponse;
+export const zUpdateChatSandboxSettingsResponse = zSandboxSettingsResponse;
 
 export const zSelectChatImageProviderBody = zImageSelectionRequest;
 
@@ -8005,9 +8005,9 @@ export const zDownloadChatLibraryArchivePath = z.object({
 export const zDownloadChatLibraryArchiveResponse = z.string();
 
 /**
- * Live Code Interpreter service health
+ * Live sandbox runtime health
  */
-export const zGetChatInterpreterHealthResponse = zInterpreterHealthResponse;
+export const zGetChatSandboxHealthResponse = zSandboxHealthResponse;
 
 /**
  * Configured image availability

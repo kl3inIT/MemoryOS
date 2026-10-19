@@ -58,10 +58,10 @@ class ChatFileArtifactController {
 
     @GetMapping(value = "/{artifactId}/pdf-preview", produces = MediaType.APPLICATION_PDF_VALUE)
     @Operation(operationId = "getChatFileArtifactPdfPreview",
-            summary = "Read a PDF rendering of an owner-private generated presentation, converted in the interpreter on first request")
+            summary = "Read a PDF rendering of an owner-private generated presentation, converted in a short-lived sandbox on first request")
     @ApiResponse(responseCode = "200", description = "PDF bytes",
             content = @Content(mediaType = MediaType.APPLICATION_PDF_VALUE, schema = @Schema(type = "string", format = "binary")))
-    @ApiResponse(responseCode = "429", description = "The interpreter is busy")
+    @ApiResponse(responseCode = "429", description = "Every short-lived sandbox is in use")
     void pdfPreview(@CurrentActor IdentityContext identity,
             @PathVariable UUID artifactId, HttpServletResponse response) throws IOException {
         var served = presentations.pdf(identity.actorId(), artifactId);

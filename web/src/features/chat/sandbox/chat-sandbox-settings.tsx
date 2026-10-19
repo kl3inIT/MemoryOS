@@ -10,10 +10,10 @@ import { Switch } from "@/components/ui/switch";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
-  getChatInterpreterHealthOptions,
-  getChatInterpreterSettingsOptions,
-  getChatInterpreterSettingsQueryKey,
-  updateChatInterpreterSettingsMutation,
+  getChatSandboxHealthOptions,
+  getChatSandboxSettingsOptions,
+  getChatSandboxSettingsQueryKey,
+  updateChatSandboxSettingsMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { presentProblem } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
@@ -28,19 +28,19 @@ export function ChatSandboxSettings() {
   const problemMessage = useProblemMessage();
   const cache = useQueryClient();
   const settings = useQuery({
-    ...getChatInterpreterSettingsOptions(),
+    ...getChatSandboxSettingsOptions(),
     enabled: manager,
     retry: false,
   });
   const health = useQuery({
-    ...getChatInterpreterHealthOptions(),
+    ...getChatSandboxHealthOptions(),
     enabled: manager && settings.data?.configured === true,
     retry: false,
   });
   const update = useMutation({
-    ...updateChatInterpreterSettingsMutation(),
+    ...updateChatSandboxSettingsMutation(),
     // A rejected change also reloads, so the switch shows the stored state.
-    onSettled: () => cache.invalidateQueries({ queryKey: getChatInterpreterSettingsQueryKey() }),
+    onSettled: () => cache.invalidateQueries({ queryKey: getChatSandboxSettingsQueryKey() }),
   });
 
   if (!manager)

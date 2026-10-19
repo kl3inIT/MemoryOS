@@ -14,7 +14,7 @@ async function stub(page: Page, allowedDomains: string[] = ["pypi.org", "files.p
       },
     }),
   );
-  await page.route("**/api/chat/interpreter", async (route) => {
+  await page.route("**/api/chat/sandbox", async (route) => {
     if (route.request().method() === "PUT") {
       const body = route.request().postDataJSON() as { enabled: boolean; revision: number };
       state.enabled = body.enabled;
@@ -22,7 +22,7 @@ async function stub(page: Page, allowedDomains: string[] = ["pypi.org", "files.p
     }
     await route.fulfill({ json: state });
   });
-  await page.route("**/api/chat/interpreter/health", (route) =>
+  await page.route("**/api/chat/sandbox/health", (route) =>
     route.fulfill({ json: { connected: true, error: "", version: "OpenSandbox" } }),
   );
   return state;
