@@ -45,8 +45,9 @@ Design: [design.md](design.md).
 
 ## 5. Verification
 
-- [ ] `clean check` on zm.
-- [ ] Staging: reconnect Linear and Canva, connect Google Drive, sign in through an upstream provider.
-- [ ] Staging: a step-up, against a test MCP server that answers `403 insufficient_scope`, or a provider that does.
-- [ ] Spec `chat` (MCP authorization), test matrix `chat`, runbook `mcp-servers`.
-- [ ] Roadmap row once merged.
+- [x] `clean check`: repository CI on each pull request; the MCP and Google sets on zm.
+- [x] Staging: Canva refreshed, disconnected and connected again; Linear called. Google Drive and upstream sign-in
+  were not exercised (owner, 2026-10-19); see [verification](verification.md).
+- [x] Staging: a step-up against a test MCP server that answers `403 insufficient_scope`.
+- [x] Spec `chat` (MCP authorization), spec `connector`, test matrices `chat` and `connector`, runbook `mcp-servers`.
+- [x] Roadmap row.
