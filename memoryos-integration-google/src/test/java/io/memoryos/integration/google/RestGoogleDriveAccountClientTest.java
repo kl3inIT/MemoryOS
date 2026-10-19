@@ -7,19 +7,37 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.nimbusds.jose.JOSEException;
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.JWSHeader;
+import com.nimbusds.jose.crypto.RSASSASigner;
+import com.nimbusds.jose.jwk.JWKSet;
+import com.nimbusds.jose.jwk.RSAKey;
+import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
+import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.SignedJWT;
 import com.sun.net.httpserver.HttpServer;
 import io.memoryos.connector.GoogleDriveAccountClient.Consent;
 import io.memoryos.connector.GoogleDriveException;
 import io.memoryos.connector.GoogleDriveOAuthClient;
+import io.memoryos.shared.Sha256;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
+import java.util.function.UnaryOperator;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -170,11 +188,80 @@ class RestGoogleDriveAccountClientTest {
         }
     }
 
+    /** Every rule of the identity token, each broken alone on a token signed by the key set the consent reads. */
+    @Test
+    void acceptsOnlyAnIdentityTokenThatMeetsEveryRule() throws Exception {
+        RSAKey key = new RSAKeyGenerator(2048).keyID("drive-key").generate();
+        byte[] keys = new JWKSet(key.toPublicJWK()).toString().getBytes(StandardCharsets.UTF_8);
+        server.createContext("/jwks", exchange -> {
+            exchange.sendResponseHeaders(200, keys.length);
+            try (var output = exchange.getResponseBody()) { output.write(keys); }
+        });
+        byte[] about = "{\"user\":{\"emailAddress\":\"owner@example.com\"}}".getBytes(StandardCharsets.UTF_8);
+        server.createContext("/drive/v3/about", exchange -> {
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, about.length);
+            try (var output = exchange.getResponseBody()) { output.write(about); }
+        });
+        var answer = new AtomicReference<byte[]>();
+        server.createContext("/token", exchange -> {
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, answer.get().length);
+            try (var output = exchange.getResponseBody()) { output.write(answer.get()); }
+        });
+        String access = "test-access";
+        Instant now = Instant.now();
+        Function<UnaryOperator<JWTClaimsSet.Builder>, Boolean> accepted = change -> {
+            var claims = new JWTClaimsSet.Builder().issuer(issuer).subject("google-subject").audience(CLIENT_ID)
+                    .issueTime(Date.from(now)).expirationTime(Date.from(now.plusSeconds(600))).claim("nonce", "flow-nonce")
+                    .claim("email", "owner@example.com").claim("email_verified", true)
+                    .claim("at_hash", accessTokenHash(access));
+            try {
+                var token = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.RS256).keyID("drive-key").build(),
+                        change.apply(claims).build());
+                token.sign(new RSASSASigner(key));
+                answer.set(("{\"access_token\":\"" + access + "\",\"refresh_token\":\"test-refresh\",\"token_type\":\"Bearer\","
+                        + "\"expires_in\":3600,\"id_token\":\"" + token.serialize() + "\"}").getBytes(StandardCharsets.UTF_8));
+            } catch (JOSEException failure) {
+                throw new IllegalStateException(failure);
+            }
+            try (var client = new GoogleDriveOAuthClient(CLIENT_ID, "test-client-secret".getBytes(StandardCharsets.UTF_8))) {
+                var grant = accounts.exchange("code", "verifier", "flow-nonce", client);
+                assertEquals("google-subject", grant.accountSubject());
+                return true;
+            } catch (IllegalStateException refused) {
+                assertNull(refused.getCause());
+                return false;
+            }
+        };
+
+        assertTrue(accepted.apply(claims -> claims));
+        assertTrue(accepted.apply(claims -> claims.claim("at_hash", null)), "at_hash is optional in the code flow");
+        assertTrue(accepted.apply(claims -> claims.audience(List.of(CLIENT_ID, "other")).claim("azp", CLIENT_ID)));
+        var refused = Map.<String, UnaryOperator<JWTClaimsSet.Builder>>of(
+                "issuer", claims -> claims.issuer("https://accounts.example.test"),
+                "audience", claims -> claims.audience("another-client"),
+                "authorized party", claims -> claims.claim("azp", "another-client"),
+                "several audiences without an authorized party", claims -> claims.audience(List.of(CLIENT_ID, "other")),
+                "nonce", claims -> claims.claim("nonce", "another-flow"),
+                "unverified email", claims -> claims.claim("email_verified", false),
+                "no email", claims -> claims.claim("email", null),
+                "access token hash", claims -> claims.claim("at_hash", accessTokenHash("another-access")),
+                "issued in the future", claims -> claims.issueTime(Date.from(now.plusSeconds(600))),
+                "expired", claims -> claims.expirationTime(Date.from(now.minusSeconds(600))));
+        refused.forEach((rule, change) -> assertFalse(accepted.apply(change), rule));
+    }
+
     private RestGoogleDriveAccountClient client(URI callback, URI tokenUri) {
         return new RestGoogleDriveAccountClient(new GoogleDriveProviderProperties(tokenUri, URI.create(issuer + "/drive/v3"),
                 null, null, null, null, null, null, 0, 0, 0, 0, 0, 0,
                 callback, URI.create(issuer + "/authorize"), null, URI.create(issuer + "/jwks"), URI.create(issuer)),
                 new ObjectMapper());
+    }
+
+    private static String accessTokenHash(String token) {
+        byte[] hash = Sha256.digest(token.getBytes(StandardCharsets.US_ASCII));
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(Arrays.copyOf(hash, hash.length / 2));
     }
 
     private static String clientJson() {

@@ -35,9 +35,13 @@ Design: [design.md](design.md).
 
 ## 4. Google Drive and upstream discovery
 
-- [ ] `RestGoogleDriveAccountClient`: `IDTokenValidator` and `AccessTokenHash` replace the claim checks.
-- [ ] `OidcDiscoveryClient`: `OIDCProviderMetadata.parse` after the strict reader.
-- [ ] `RestGoogleDriveAccountClientTest` and `OidcDiscoveryClientTest` pass unchanged.
+- [x] `RestGoogleDriveAccountClientTest.acceptsOnlyAnIdentityTokenThatMeetsEveryRule`, written first and passing on
+  the old checks: a valid token, an absent `at_hash` and several audiences with `azp` are accepted; a wrong issuer,
+  audience, `azp`, nonce or `at_hash`, several audiences without `azp`, an unverified or absent email, an issue time
+  in the future and an expired token are refused.
+- [x] `RestGoogleDriveAccountClient`: `IDTokenValidator` and `AccessTokenValidator` replace the Spring decoder and the
+  claim checks; `spring-security-oauth2-jose` leaves the module for `oauth2-oidc-sdk`.
+- [x] `OidcDiscoveryClient` stays as it is (see the design).
 
 ## 5. Verification
 
