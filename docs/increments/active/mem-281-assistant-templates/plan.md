@@ -33,10 +33,10 @@ Design: [design.md](design.md). Three pull requests, each accepted when CI is gr
   language); e2e for the card, the ⋯ menu as member and administrator, hiding, showing and copying.
 - [x] Screenshots light/dark, desktop and phone, reviewed before the pull request.
 
-## 3. Remove `display_priority`
+## 3. Remove `display_priority` (dropped)
 
-- [ ] Migration dropping `persona.display_priority`; ordering built-in, featured, templates, name; API and web stop passing the
-  field; `openapi.yml`, Hey API client.
+Dropped on 2026-10-19: Quản trị → Quản lý trợ lý sets the order by dragging, so the field is in use
+([decision 10](design.md#decisions)). The owner kept it and the drag order.
 
 ## Acceptance on staging
 
