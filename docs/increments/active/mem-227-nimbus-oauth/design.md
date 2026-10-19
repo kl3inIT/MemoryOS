@@ -56,19 +56,26 @@ compared on 2026-10-18 (MEM-227 on Linear holds the full table):
 
 `core` declares `com.nimbusds:oauth2-oidc-sdk` 11.38.2 in the version catalog: the latest release (2026-07-21), and the version `api` already resolves through `spring-security-oauth2-client` 7.1.1. Spring Boot does not manage it, so the catalog pins it.
 
-**`OAuthHttp`** (package `shared`) implements Nimbus `HTTPRequestSender` over an `OutboundHttp` client:
+**Sending.** Nimbus builds each request (`toHTTPRequest()`), and `McpOAuthProtocol` sends it over an
+`OutboundHttp` client with `exchange`. Nimbus's own sender, which follows redirects and reads without a bound, is
+never used.
 
-- It uses `exchange`, so an OAuth error body (`invalid_grant`) is read within the bound.
-- It keeps the four transport rules. `McpOAuthProtocol` stops using its own `HttpClient`, the last client MEM-223
-  left outside `OutboundHttp`.
-- The bound stays 64 KiB, the deadline the existing request timeout.
-- `OutboundHttp` already never follows a redirect. Discovery keeps treating a redirect as a failure, as
-  `doesNotFollowRedirectsDuringDiscovery` asserts today.
+- `exchange` reads an OAuth error body (`invalid_grant`) within the bound.
+- The four transport rules hold. `McpOAuthProtocol` stops using its own `HttpClient`, the last client MEM-223 left
+  outside `OutboundHttp`.
+- The bound stays 64 KiB, and the deadline is the existing request timeout. The connect timeout is `OutboundHttp`'s,
+  5 seconds, which was also the old default.
+- A redirect is an answer like any other, and discovery treats it as a failure, as
+  `doesNotFollowRedirectsDuringDiscovery` asserts.
+- The sending stays inside `McpOAuthProtocol` rather than a shared class: no second caller needs it
+  ([ADR 0002](../../../decisions/0002-no-speculative-operational-surfaces.md)).
 
 **The strict reader.** Nimbus parses JSON with json-smart, which accepts duplicate members (the last one wins) and
-ignores trailing content. MemoryOS refuses both today. `OAuthHttp` therefore reads every JSON response once with the
-existing strict mapper (`STRICT_DUPLICATE_DETECTION`, `FAIL_ON_TRAILING_TOKENS`) before Nimbus sees it. A body that
-fails is a protocol failure, as it is now.
+ignores trailing content. MemoryOS refuses both today. `McpOAuthProtocol` therefore reads every JSON answer once with
+the existing strict mapper (`STRICT_DUPLICATE_DETECTION`, `FAIL_ON_TRAILING_TOKENS`) before Nimbus parses it.
+
+- A body that fails is the same failure as now: a discovery, registration or token failure, depending on the call.
+- Nimbus also accepts `expires_in` as a string. MemoryOS keeps a lifetime only when it is a number.
 
 **Field limits.** The per-field limits (client ID 2,048, tokens 16,384, scope 4,096, `expires_in` at most 366 days)
 move from the parser to the values MemoryOS keeps. They are checked after Nimbus parses and before anything is
@@ -127,6 +134,22 @@ the authorization-server half of `discover` move to Nimbus.
   match. Its fields are read by `OIDCProviderMetadata.parse` after the strict reader.
 
 These two are small. They are in scope so the same three OAuth paths parse the same way, not for their size.
+
+## Outcome of the MCP part (2026-10-19)
+
+`McpOAuthProtocol` did not get shorter: 558 lines against 519.
+
+The research estimated 150 to 200 lines, counting only the protocol code Nimbus replaces. What MemoryOS keeps on top
+accounts for the rest:
+- the strict reader and the field limits;
+- protected-resource discovery and the challenge;
+- the provider deviations;
+- about 35 import lines.
+
+What changed is who writes the messages. Form and JSON encoding, the client authentication headers, PKCE, the
+registration and revocation requests and the token response parsing now come from Nimbus. The transport moved onto
+`OutboundHttp`, which MEM-223 had left aside. This matches the owner's rule of 2026-10-04 (ADR 0025 amendment): a
+maintained library is chosen for quality and maintenance, not for size.
 
 ## Out of scope
 

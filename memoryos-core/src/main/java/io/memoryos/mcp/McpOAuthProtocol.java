@@ -1,20 +1,46 @@
 package io.memoryos.mcp;
 
-import java.io.IOException;
-import java.io.InputStream;
+import com.nimbusds.common.contenttype.ContentType;
+import com.nimbusds.oauth2.sdk.AccessTokenResponse;
+import com.nimbusds.oauth2.sdk.AuthorizationCode;
+import com.nimbusds.oauth2.sdk.AuthorizationCodeGrant;
+import com.nimbusds.oauth2.sdk.AuthorizationGrant;
+import com.nimbusds.oauth2.sdk.AuthorizationRequest;
+import com.nimbusds.oauth2.sdk.GrantType;
+import com.nimbusds.oauth2.sdk.ParseException;
+import com.nimbusds.oauth2.sdk.RefreshTokenGrant;
+import com.nimbusds.oauth2.sdk.ResponseType;
+import com.nimbusds.oauth2.sdk.Scope;
+import com.nimbusds.oauth2.sdk.TokenRequest;
+import com.nimbusds.oauth2.sdk.TokenRevocationRequest;
+import com.nimbusds.oauth2.sdk.as.AuthorizationServerMetadata;
+import com.nimbusds.oauth2.sdk.auth.ClientAuthentication;
+import com.nimbusds.oauth2.sdk.auth.ClientAuthenticationMethod;
+import com.nimbusds.oauth2.sdk.auth.ClientSecretBasic;
+import com.nimbusds.oauth2.sdk.auth.ClientSecretPost;
+import com.nimbusds.oauth2.sdk.auth.Secret;
+import com.nimbusds.oauth2.sdk.client.ClientDeleteRequest;
+import com.nimbusds.oauth2.sdk.client.ClientInformation;
+import com.nimbusds.oauth2.sdk.client.ClientMetadata;
+import com.nimbusds.oauth2.sdk.client.ClientRegistrationRequest;
+import com.nimbusds.oauth2.sdk.http.HTTPRequest;
+import com.nimbusds.oauth2.sdk.id.ClientID;
+import com.nimbusds.oauth2.sdk.id.State;
+import com.nimbusds.oauth2.sdk.pkce.CodeChallenge;
+import com.nimbusds.oauth2.sdk.pkce.CodeChallengeMethod;
+import com.nimbusds.oauth2.sdk.pkce.CodeVerifier;
+import com.nimbusds.oauth2.sdk.token.BearerAccessToken;
+import com.nimbusds.oauth2.sdk.token.RefreshToken;
+import com.nimbusds.oauth2.sdk.token.TypelessToken;
+import com.nimbusds.oauth2.sdk.util.JSONObjectUtils;
+import io.memoryos.shared.OutboundHttp;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpHeaders;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -22,13 +48,17 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
+import net.minidev.json.JSONObject;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 import tools.jackson.core.StreamReadFeature;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.JsonNode;
@@ -36,8 +66,11 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * OAuth protocol calls for MCP authorization (MCP {@code 2025-11-25} authorization, RFC 9728, RFC 8414, RFC 7591,
- * RFC 8707). Redirects are never followed, responses are bounded, and upstream bodies never cross this boundary.
- * Endpoints follow the MCP endpoint policy: HTTP(S) including internal hosts, without credentials or fragments.
+ * RFC 8707). Nimbus builds and parses the OAuth messages (MEM-227); they are sent over {@link OutboundHttp}, so
+ * redirects are never followed and responses are bounded. Every JSON answer is read strictly here before Nimbus reads
+ * it, and the values kept are bounded. Protected-resource metadata and the challenge, which Nimbus has no class for,
+ * stay here. Upstream bodies never cross this boundary. Endpoints follow the MCP endpoint policy: HTTP(S) including
+ * internal hosts, without credentials or fragments.
  */
 @Component
 public final class McpOAuthProtocol {
@@ -48,18 +81,18 @@ public final class McpOAuthProtocol {
     private static final int MAX_TOKEN_CHARACTERS = 16384;
     private static final long MAX_EXPIRES_IN_SECONDS = 366L * 24 * 3600;
     private static final String PROTECTED_RESOURCE = "/.well-known/oauth-protected-resource";
+    /** Parameters MemoryOS sets itself; an administrator's additional parameter never replaces one. */
+    private static final Set<String> AUTHORIZATION_PARAMETERS = Set.of("response_type", "client_id", "redirect_uri", "state",
+            "code_challenge", "code_challenge_method", "scope", "resource");
     private static final Pattern AUTH_PARAMETER = Pattern.compile("([A-Za-z0-9_-]+)\\s*=\\s*(\"((?:[^\"\\\\]|\\\\.)*)\"|[^\\s,]+)");
     private static final JsonMapper JSON = JsonMapper.builder()
             .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
             .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).build();
 
-    private final HttpClient http;
-    private final Duration requestTimeout;
+    private final RestClient http;
 
-    public McpOAuthProtocol(@Value("${memoryos.mcp.connect-timeout:5s}") Duration connectTimeout,
-                            @Value("${memoryos.mcp.request-timeout:30s}") Duration requestTimeout) {
-        this.http = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).connectTimeout(connectTimeout).build();
-        this.requestTimeout = requestTimeout;
+    public McpOAuthProtocol(@Value("${memoryos.mcp.request-timeout:30s}") Duration requestTimeout) {
+        this.http = OutboundHttp.builder(new OutboundHttp.Limits(requestTimeout, MAX_RESPONSE_BYTES)).build();
     }
 
     /** A {@code WWW-Authenticate: Bearer} challenge from an MCP server. */
@@ -128,82 +161,74 @@ public final class McpOAuthProtocol {
                 : methods.contains("client_secret_post") ? McpTokenEndpointAuthMethod.CLIENT_SECRET_POST
                 : methods.contains("none") ? McpTokenEndpointAuthMethod.NONE : null;
         if (requested == null) throw McpException.oauthRegistrationFailed();
-        var body = new LinkedHashMap<String, Object>();
-        body.put("client_name", clientName);
-        body.put("redirect_uris", List.of(redirectUri.toString()));
-        body.put("grant_types", List.of("authorization_code", "refresh_token"));
-        body.put("response_types", List.of("code"));
-        body.put("token_endpoint_auth_method", requested.wireValue());
+        var metadata = new ClientMetadata();
+        metadata.setName(clientName);
+        metadata.setRedirectionURI(redirectUri);
+        metadata.setGrantTypes(Set.of(GrantType.AUTHORIZATION_CODE, GrantType.REFRESH_TOKEN));
+        metadata.setResponseTypes(Set.of(ResponseType.CODE));
+        metadata.setTokenEndpointAuthMethod(ClientAuthenticationMethod.parse(requested.wireValue()));
         Response response;
         try {
-            response = send(HttpRequest.newBuilder(server.registrationEndpoint()).timeout(requestTimeout)
-                    .header("Content-Type", "application/json").header("Accept", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(JSON.writeValueAsString(body))).build(), true);
+            response = send(new ClientRegistrationRequest(server.registrationEndpoint(), metadata, null).toHTTPRequest(), true);
         } catch (McpException unavailable) {
             throw McpException.oauthRegistrationFailed();
         }
         if (response.status() != 200 && response.status() != 201) throw McpException.oauthRegistrationFailed();
         try {
-            JsonNode registered = object(response.body());
-            String clientId = text(registered, "client_id", 2048);
-            String secret = optionalText(registered, "client_secret", MAX_TOKEN_CHARACTERS);
-            String method = optionalText(registered, "token_endpoint_auth_method", 64);
-            McpTokenEndpointAuthMethod granted = method == null ? requested : McpTokenEndpointAuthMethod.fromWire(method);
+            ClientInformation registered = ClientInformation.parse(nimbusObject(response.body()));
+            String clientId = bounded(registered.getID().getValue(), 2048);
+            String secret = registered.getSecret() == null ? null : bounded(registered.getSecret().getValue(), MAX_TOKEN_CHARACTERS);
+            ClientAuthenticationMethod method = registered.getMetadata().getTokenEndpointAuthMethod();
+            McpTokenEndpointAuthMethod granted = method == null ? requested : McpTokenEndpointAuthMethod.fromWire(method.getValue());
             if ((granted == McpTokenEndpointAuthMethod.NONE) != (secret == null)) throw McpException.oauthRegistrationFailed();
             // RFC 7592 asks for an absolute URL; Canva answers with a path ("/register/<id>"), resolved against the
             // registration endpoint as a browser resolves a link.
-            String clientUri = optionalText(registered, "registration_client_uri", 2048);
+            URI clientUri = registered.getRegistrationURI();
+            BearerAccessToken registrationToken = registered.getRegistrationAccessToken();
             return new Registration(new Client(clientId, secret, granted),
                     clientUri == null ? null : endpoint(server.registrationEndpoint().resolve(clientUri).toString(), false),
-                    optionalText(registered, "registration_access_token", MAX_TOKEN_CHARACTERS));
-        } catch (RuntimeException invalid) {
+                    registrationToken == null ? null : bounded(registrationToken.getValue(), MAX_TOKEN_CHARACTERS));
+        } catch (ParseException | RuntimeException invalid) {
             throw McpException.oauthRegistrationFailed();
         }
     }
 
     public URI authorizationUrl(URI authorizationEndpoint, String clientId, URI redirectUri, String state, String challenge,
                                 @Nullable String scope, String resource, Map<String, String> additionalParameters) {
-        var parameters = new LinkedHashMap<String, String>();
-        parameters.put("response_type", "code");
-        parameters.put("client_id", clientId);
-        parameters.put("redirect_uri", redirectUri.toString());
-        parameters.put("state", state);
-        parameters.put("code_challenge", challenge);
-        parameters.put("code_challenge_method", "S256");
-        if (scope != null && !scope.isBlank()) parameters.put("scope", scope);
-        parameters.put("resource", resource);
-        additionalParameters.forEach(parameters::putIfAbsent);
-        String query = form(parameters);
-        String existing = authorizationEndpoint.getRawQuery();
-        String base = authorizationEndpoint.toString();
-        return URI.create(existing == null ? base + "?" + query : base + "&" + query);
+        try {
+            var request = new AuthorizationRequest.Builder(ResponseType.CODE, new ClientID(clientId))
+                    .endpointURI(authorizationEndpoint)
+                    .redirectionURI(redirectUri)
+                    .state(new State(state))
+                    .codeChallenge(CodeChallenge.parse(challenge), CodeChallengeMethod.S256)
+                    .resources(URI.create(resource));
+            if (scope != null && !scope.isBlank()) request.scope(Scope.parse(scope));
+            additionalParameters.forEach((name, value) -> {
+                if (!AUTHORIZATION_PARAMETERS.contains(name)) request.customParameter(name, value);
+            });
+            return request.build().toURI();
+        } catch (ParseException invalid) {
+            throw new IllegalArgumentException("Invalid PKCE code challenge", invalid);
+        }
     }
 
     public Tokens exchangeCode(URI tokenEndpoint, Client client, String code, URI redirectUri, String verifier, String resource) {
-        var parameters = new LinkedHashMap<String, String>();
-        parameters.put("grant_type", "authorization_code");
-        parameters.put("code", code);
-        parameters.put("redirect_uri", redirectUri.toString());
-        parameters.put("code_verifier", verifier);
-        parameters.put("resource", resource);
-        return tokens(tokenEndpoint, client, parameters);
+        return tokens(tokenEndpoint, client,
+                new AuthorizationCodeGrant(new AuthorizationCode(code), redirectUri, new CodeVerifier(verifier)), resource);
     }
 
     /** Refreshes an access token; {@code invalid_grant} means the User or administrator must connect again. */
     public Tokens refresh(URI tokenEndpoint, Client client, String refreshToken, String resource) {
-        var parameters = new LinkedHashMap<String, String>();
-        parameters.put("grant_type", "refresh_token");
-        parameters.put("refresh_token", refreshToken);
-        parameters.put("resource", resource);
-        return tokens(tokenEndpoint, client, parameters);
+        return tokens(tokenEndpoint, client, new RefreshTokenGrant(new RefreshToken(refreshToken)), resource);
     }
 
     /** RFC 7009 revocation, best effort: the local disconnect has already committed. */
     public void revoke(URI revocationEndpoint, Client client, String token) {
         try {
-            var parameters = new LinkedHashMap<String, String>();
-            parameters.put("token", token);
-            send(tokenRequest(revocationEndpoint, client, parameters), false);
+            var revocation = client.method() == McpTokenEndpointAuthMethod.NONE
+                    ? new TokenRevocationRequest(revocationEndpoint, new ClientID(client.clientId()), new TypelessToken(token))
+                    : new TokenRevocationRequest(revocationEndpoint, clientAuthentication(client), new TypelessToken(token));
+            send(revocation.toHTTPRequest(), false);
         } catch (RuntimeException ignored) {
             // Remote revocation cannot restore local authority.
         }
@@ -214,8 +239,8 @@ public final class McpOAuthProtocol {
      * HTTP status; transport failures throw {@link McpException}. The caller has already deleted the client locally.
      */
     public int deregister(URI registrationClientUri, String registrationAccessToken) {
-        return send(HttpRequest.newBuilder(registrationClientUri).timeout(requestTimeout)
-                .header("Authorization", "Bearer " + registrationAccessToken).DELETE().build(), false).status();
+        return send(new ClientDeleteRequest(registrationClientUri, new BearerAccessToken(registrationAccessToken)).toHTTPRequest(),
+                false).status();
     }
 
     /** Canonical MCP server URI for the RFC 8707 {@code resource} parameter. */
@@ -283,14 +308,53 @@ public final class McpOAuthProtocol {
                 URI.create(origin + path + "/.well-known/openid-configuration"));
     }
 
+    /**
+     * The authorization server a metadata document describes, if it is usable: its issuer is the one listed (RFC 8414
+     * §3.3, compared exactly with the callback's {@code iss}), it supports PKCE S256, and its endpoints are allowed.
+     */
+    static AuthorizationServer authorizationServer(String issuer, byte[] document) {
+        AuthorizationServerMetadata metadata;
+        JsonNode raw;
+        try {
+            raw = object(document);
+            metadata = AuthorizationServerMetadata.parse(JSONObjectUtils.parse(new String(document, StandardCharsets.UTF_8)));
+        } catch (ParseException | RuntimeException invalid) {
+            throw McpException.oauthDiscoveryFailed("Authorization metadata is not valid.");
+        }
+        String metadataIssuer = metadata.getIssuer().getValue();
+        if (metadataIssuer.length() > 2048 || !trimTrailingSlash(issuer).equals(trimTrailingSlash(metadataIssuer)))
+            throw McpException.oauthDiscoveryFailed("The authorization server metadata names a different issuer.");
+        var challenges = metadata.getCodeChallengeMethods();
+        if (challenges == null || !challenges.contains(CodeChallengeMethod.S256))
+            throw McpException.oauthDiscoveryFailed("The authorization server does not support PKCE S256.");
+        URI authorization = metadata.getAuthorizationEndpointURI();
+        URI token = metadata.getTokenEndpointURI();
+        if (authorization == null || token == null)
+            throw McpException.oauthDiscoveryFailed("Authorization metadata is missing an endpoint.");
+        URI registration = metadata.getRegistrationEndpointURI();
+        URI revocation = metadata.getRevocationEndpointURI();
+        var methods = metadata.getTokenEndpointAuthMethods();
+        return new AuthorizationServer(metadataIssuer,
+                endpoint(authorization.toString(), true),
+                endpoint(token.toString(), false),
+                registration == null ? null : endpoint(registration.toString(), false),
+                revocation == null ? null : endpoint(revocation.toString(), false),
+                methods == null ? List.of() : methods.stream().map(ClientAuthenticationMethod::getValue).toList(),
+                raw.path("client_id_metadata_document_supported").asBoolean(false),
+                metadata.supportsAuthorizationResponseIssuerParam());
+    }
+
     private Challenge unauthenticatedChallenge(URI server) {
         String initialize = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-11-25\","
                 + "\"capabilities\":{},\"clientInfo\":{\"name\":\"MemoryOS\",\"version\":\"1\"}}}";
+        var probe = new HTTPRequest(HTTPRequest.Method.POST, server);
+        probe.setEntityContentType(ContentType.APPLICATION_JSON);
+        probe.setAccept("application/json, text/event-stream");
+        probe.setBody(initialize);
         try {
-            Response response = send(HttpRequest.newBuilder(server).timeout(requestTimeout)
-                    .header("Content-Type", "application/json").header("Accept", "application/json, text/event-stream")
-                    .POST(HttpRequest.BodyPublishers.ofString(initialize)).build(), false);
-            return response.status() == 401 ? challenge(response.headers().allValues("WWW-Authenticate")) : new Challenge(null, null);
+            Response response = send(probe, false);
+            return response.status() == 401 ? challenge(response.headers().getOrEmpty(HttpHeaders.WWW_AUTHENTICATE))
+                    : new Challenge(null, null);
         } catch (McpException unreachable) {
             throw McpException.oauthDiscoveryFailed("The MCP server could not be reached for authorization discovery.");
         }
@@ -320,32 +384,21 @@ public final class McpOAuthProtocol {
             return null;
         }
         for (URI url : authorizationServerMetadataUrls(issuerUri)) {
-            JsonNode metadata = optionalJson(url);
-            if (metadata == null) continue;
-            // RFC 8414 §3.3: the metadata issuer is authoritative; the callback iss is compared with it exactly.
-            String metadataIssuer = text(metadata, "issuer", 2048);
-            if (!trimTrailingSlash(issuer).equals(trimTrailingSlash(metadataIssuer)))
-                throw McpException.oauthDiscoveryFailed("The authorization server metadata names a different issuer.");
-            if (!strings(metadata, "code_challenge_methods_supported", 32).contains("S256"))
-                throw McpException.oauthDiscoveryFailed("The authorization server does not support PKCE S256.");
-            String registration = optionalText(metadata, "registration_endpoint", 2048);
-            String revocation = optionalText(metadata, "revocation_endpoint", 2048);
-            return new AuthorizationServer(metadataIssuer,
-                    endpoint(text(metadata, "authorization_endpoint", 2048), true),
-                    endpoint(text(metadata, "token_endpoint", 2048), false),
-                    registration == null ? null : endpoint(registration, false),
-                    revocation == null ? null : endpoint(revocation, false),
-                    strings(metadata, "token_endpoint_auth_methods_supported", 32),
-                    metadata.path("client_id_metadata_document_supported").asBoolean(false),
-                    metadata.path("authorization_response_iss_parameter_supported").asBoolean(false));
+            Response response = metadata(url);
+            if (response.status() == 404) continue;
+            return authorizationServer(issuer, response.body());
         }
         return null;
     }
 
-    private Tokens tokens(URI tokenEndpoint, Client client, Map<String, String> parameters) {
+    private Tokens tokens(URI tokenEndpoint, Client client, AuthorizationGrant grant, String resource) {
+        var builder = client.method() == McpTokenEndpointAuthMethod.NONE
+                ? new TokenRequest.Builder(tokenEndpoint, new ClientID(client.clientId()), grant)
+                : new TokenRequest.Builder(tokenEndpoint, clientAuthentication(client), grant);
+        String grantType = grant.getType().getValue();
         Response response;
         try {
-            response = send(tokenRequest(tokenEndpoint, client, parameters), true);
+            response = send(builder.resources(URI.create(resource)).build().toHTTPRequest(), true);
         } catch (McpException unavailable) {
             throw McpException.oauthTokenFailed();
         }
@@ -359,86 +412,64 @@ public final class McpOAuthProtocol {
             // RFC 6749 error codes are a closed vocabulary; anything else, and the description, stays out of logs.
             LOG.atWarn().addKeyValue("event", "mcp.oauth.token.rejected").addKeyValue("http_status", response.status())
                     .addKeyValue("error_code", error != null && OAUTH_ERROR_CODE.matcher(error).matches() ? error : "unreadable")
-                    .addKeyValue("grant_type", parameters.get("grant_type"))
+                    .addKeyValue("grant_type", grantType)
                     .log("Authorization server rejected the MCP OAuth token request");
             if ("invalid_grant".equals(error)) throw McpException.authorizationRequired();
             throw McpException.oauthTokenFailed();
         }
         if (response.status() != 200) {
             LOG.atWarn().addKeyValue("event", "mcp.oauth.token.rejected").addKeyValue("http_status", response.status())
-                    .addKeyValue("grant_type", parameters.get("grant_type"))
+                    .addKeyValue("grant_type", grantType)
                     .log("Authorization server rejected the MCP OAuth token request");
             throw McpException.oauthTokenFailed();
         }
-        JsonNode token;
+        JsonNode raw;
+        AccessTokenResponse parsed;
         try {
-            token = object(response.body());
-        } catch (RuntimeException unreadable) {
-            throw unusableToken(parameters, "body");
+            raw = object(response.body());
+            parsed = AccessTokenResponse.parse(nimbusObject(response.body()));
+        } catch (ParseException | RuntimeException unreadable) {
+            throw unusableToken(grantType, "response");
         }
-        if (!"bearer".equalsIgnoreCase(token.path("token_type").asString(""))) throw unusableToken(parameters, "token_type");
+        if (!(parsed.getTokens().getAccessToken() instanceof BearerAccessToken accessToken)) throw unusableToken(grantType, "token_type");
+        // Nimbus also reads a string; MemoryOS keeps a lifetime only when it is a number within a year.
         Instant expiresAt = null;
-        if (token.has("expires_in")) {
-            long seconds = token.path("expires_in").asLong(-1);
-            if (!token.path("expires_in").isNumber() || seconds <= 0 || seconds > MAX_EXPIRES_IN_SECONDS)
-                throw unusableToken(parameters, "expires_in");
+        if (raw.has("expires_in")) {
+            long seconds = raw.path("expires_in").asLong(-1);
+            if (!raw.path("expires_in").isNumber() || seconds <= 0 || seconds > MAX_EXPIRES_IN_SECONDS)
+                throw unusableToken(grantType, "expires_in");
             expiresAt = Instant.now().plusSeconds(seconds);
         }
-        String accessToken;
-        try {
-            accessToken = text(token, "access_token", MAX_TOKEN_CHARACTERS);
-        } catch (RuntimeException invalid) {
-            throw unusableToken(parameters, "access_token");
-        }
-        String refreshToken;
-        try {
-            refreshToken = optionalText(token, "refresh_token", MAX_TOKEN_CHARACTERS);
-        } catch (RuntimeException invalid) {
-            throw unusableToken(parameters, "refresh_token");
-        }
+        RefreshToken refreshToken = parsed.getTokens().getRefreshToken();
         // A grant without scopes comes back as "scope": "" from some servers (Linear); that is no scope, not a failure.
-        JsonNode scope = token.path("scope");
-        if (scope.isString() && scope.asString().isBlank()) return new Tokens(accessToken, refreshToken, expiresAt, null);
+        JsonNode scope = raw.path("scope");
         try {
-            return new Tokens(accessToken, refreshToken, expiresAt, optionalText(token, "scope", 4096));
+            return new Tokens(bounded(accessToken.getValue(), MAX_TOKEN_CHARACTERS),
+                    refreshToken == null ? null : bounded(refreshToken.getValue(), MAX_TOKEN_CHARACTERS), expiresAt,
+                    scope.isString() && scope.asString().isBlank() ? null : optionalText(raw, "scope", 4096));
         } catch (RuntimeException invalid) {
-            throw unusableToken(parameters, "scope");
+            throw unusableToken(grantType, "length");
         }
     }
 
     /** Names the rejected member of a 200 token response, never its value. */
-    private static McpException unusableToken(Map<String, String> parameters, String reason) {
-        LOG.atWarn().addKeyValue("event", "mcp.oauth.token.invalid").addKeyValue("grant_type", parameters.get("grant_type"))
+    private static McpException unusableToken(String grantType, String reason) {
+        LOG.atWarn().addKeyValue("event", "mcp.oauth.token.invalid").addKeyValue("grant_type", grantType)
                 .addKeyValue("reason", reason).log("MCP OAuth token response is not a usable bearer token");
         return McpException.oauthTokenFailed();
     }
 
-    private HttpRequest tokenRequest(URI endpoint, Client client, Map<String, String> parameters) {
-        var form = new LinkedHashMap<>(parameters);
-        var request = HttpRequest.newBuilder(endpoint).timeout(requestTimeout)
-                .header("Content-Type", "application/x-www-form-urlencoded").header("Accept", "application/json");
-        switch (client.method()) {
-            case NONE -> form.put("client_id", client.clientId());
-            case CLIENT_SECRET_POST -> {
-                form.put("client_id", client.clientId());
-                form.put("client_secret", requireSecret(client));
-            }
-            case CLIENT_SECRET_BASIC -> {
-                // RFC 6749 §2.3.1: form-encode both parts before Base64.
-                String credentials = encode(client.clientId()) + ":" + encode(requireSecret(client));
-                request.header("Authorization", "Basic "
-                        + Base64.getEncoder().encodeToString(credentials.getBytes(StandardCharsets.UTF_8)));
-            }
-        }
-        return request.POST(HttpRequest.BodyPublishers.ofString(form(form))).build();
+    private static ClientAuthentication clientAuthentication(Client client) {
+        var id = new ClientID(client.clientId());
+        var secret = new Secret(requireSecret(client));
+        // RFC 6749 §2.3.1: Nimbus form-encodes both parts of the basic credentials before Base64.
+        return client.method() == McpTokenEndpointAuthMethod.CLIENT_SECRET_POST ? new ClientSecretPost(id, secret)
+                : new ClientSecretBasic(id, secret);
     }
 
     private @Nullable JsonNode optionalJson(URI url) {
-        Response response = send(HttpRequest.newBuilder(url).timeout(requestTimeout).header("Accept", "application/json")
-                .GET().build(), true);
+        Response response = metadata(url);
         if (response.status() == 404) return null;
-        if (response.status() != 200)
-            throw McpException.oauthDiscoveryFailed("Authorization metadata could not be read (HTTP " + response.status() + ").");
         try {
             return object(response.body());
         } catch (RuntimeException invalid) {
@@ -446,28 +477,45 @@ public final class McpOAuthProtocol {
         }
     }
 
-    private Response send(HttpRequest request, boolean readBody) {
+    /** A metadata document; any answer but 200 or 404, a redirect included, ends discovery. */
+    private Response metadata(URI url) {
+        var request = new HTTPRequest(HTTPRequest.Method.GET, url);
+        request.setAccept("application/json");
+        Response response = send(request, true);
+        if (response.status() != 200 && response.status() != 404)
+            throw McpException.oauthDiscoveryFailed("Authorization metadata could not be read (HTTP " + response.status() + ").");
+        return response;
+    }
+
+    private Response send(HTTPRequest request, boolean readBody) {
         try {
-            HttpResponse<InputStream> response = http.send(request, HttpResponse.BodyHandlers.ofInputStream());
-            try (InputStream body = response.body()) {
-                byte[] bytes = readBody ? body.readNBytes(MAX_RESPONSE_BYTES + 1) : new byte[0];
-                if (bytes.length > MAX_RESPONSE_BYTES) throw McpException.unavailable(new IOException("Response too large"));
-                return new Response(response.statusCode(), response.headers(), bytes);
-            }
-        } catch (HttpTimeoutException timeout) {
-            throw McpException.timeout(timeout);
-        } catch (IOException failure) {
+            var call = http.method(HttpMethod.valueOf(request.getMethod().name())).uri(request.getURI());
+            request.getHeaderMap().forEach((name, values) -> call.header(name, values.toArray(String[]::new)));
+            if (request.getBody() != null) call.body(request.getBody().getBytes(StandardCharsets.UTF_8));
+            return call.exchange((sent, response) -> new Response(response.getStatusCode().value(), response.getHeaders(),
+                    readBody ? response.getBody().readAllBytes() : new byte[0]), true);
+        } catch (RestClientException failure) {
+            for (Throwable cause = failure; cause != null; cause = cause.getCause())
+                if (cause instanceof HttpTimeoutException timeout) throw McpException.timeout(timeout);
             throw McpException.unavailable(failure);
-        } catch (InterruptedException interrupted) {
-            Thread.currentThread().interrupt();
-            throw McpException.unavailable(interrupted);
         }
     }
 
+    /** The strict reading every JSON answer gets before Nimbus reads it: one object, no duplicate member, nothing after. */
     private static JsonNode object(byte[] body) {
         JsonNode node = JSON.readTree(body);
         if (node == null || !node.isObject()) throw new IllegalArgumentException("JSON object required");
         return node;
+    }
+
+    private static JSONObject nimbusObject(byte[] body) throws ParseException {
+        object(body);
+        return JSONObjectUtils.parse(new String(body, StandardCharsets.UTF_8));
+    }
+
+    private static String bounded(String value, int maximum) {
+        if (value.isBlank() || value.length() > maximum) throw new IllegalArgumentException("Value out of bounds");
+        return value;
     }
 
     private static String text(JsonNode node, String field, int maximum) {
@@ -506,14 +554,5 @@ public final class McpOAuthProtocol {
     private static String trimTrailingSlash(@Nullable String value) {
         if (value == null) return "";
         return value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
-    }
-
-    private static String form(Map<String, String> parameters) {
-        return parameters.entrySet().stream().map(entry -> encode(entry.getKey()) + "=" + encode(entry.getValue()))
-                .collect(Collectors.joining("&"));
-    }
-
-    private static String encode(String value) {
-        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 }

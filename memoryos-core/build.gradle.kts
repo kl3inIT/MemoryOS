@@ -55,6 +55,8 @@ dependencies {
     // The OpenAI and Anthropic providers own their OkHttp transport for raw-call cancellation.
     implementation(libs.okhttp)
     implementation(libs.mcp)
+    // MEM-227: the MCP OAuth client builds and parses its messages with Nimbus and sends them over OutboundHttp.
+    implementation(libs.nimbus.oauth2.oidc.sdk)
     implementation(libs.opensearch.java)
     implementation(libs.httpclient5)
     implementation(libs.jsoup)

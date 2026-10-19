@@ -2,22 +2,26 @@
 
 Design: [design.md](design.md).
 
-## 1. Sender and strict reader
+## 1. Sending and the strict reader
 
-- [ ] `core` declares `com.nimbusds:oauth2-oidc-sdk` 11.38.2 in `gradle/libs.versions.toml`.
-- [ ] `shared.OAuthHttp`: Nimbus `HTTPRequestSender` over `OutboundHttp` with `exchange`; strict JSON check before
-  Nimbus parses; 64 KiB bound and the request deadline.
-- [ ] `OAuthHttpTest` on the wire: no redirect followed, deadline, bound, an error body read, duplicate members and
-  trailing content refused.
+- [x] `core` declares `com.nimbusds:oauth2-oidc-sdk` 11.38.2 in `gradle/libs.versions.toml`.
+- [x] `McpOAuthProtocol` sends Nimbus requests over `OutboundHttp` with `exchange`, and reads every JSON answer
+  strictly before Nimbus parses it.
+- [x] Tests on the wire: no redirect followed, an error body read, duplicate members, trailing content, an answer
+  over 64 KiB and a string `expires_in` refused.
 
 ## 2. MCP client on Nimbus
 
-- [ ] Record today's provider responses as fixtures in `McpOAuthProtocolTest` (Linear, Canva, Notion, Google) and
-  run them against the current code first.
-- [ ] `McpOAuthProtocol`: registration, deregistration, authorization URL, code and refresh grants, revocation and
-  authorization server metadata through Nimbus; field limits checked on the kept values. Discovery of the protected
+- [x] The authorization-server metadata of the eleven catalog servers that answer unauthenticated discovery (all
+  but Atlassian), recorded on 2026-10-19 under `src/test/resources/mcp/oauth-metadata/`, is read by
+  `McpOAuthProtocolTest`. Token and registration answers need an account; their shapes, Canva's relative
+  `registration_client_uri` and Linear's empty `scope` included, stay in the existing tests.
+- [x] `McpOAuthProtocol`: registration, deregistration, authorization URL, code and refresh grants, revocation and
+  authorization-server metadata through Nimbus; field limits checked on the kept values. Discovery of the protected
   resource, the challenge, CIMD and the provider deviations stay.
-- [ ] The existing `McpOAuthProtocolTest`, `McpOAuthCallbackTest` and `McpOAuthPropertiesTest` pass unchanged.
+- [x] The existing tests pass. Two changed with the code: the constructor takes only the request timeout, and the
+  PKCE verifier in the test is 43 characters, as RFC 7636 asks and Nimbus enforces. `io.memoryos.mcp.*` (core) and
+  `io.memoryos.api.mcp.*`: 94 tests, 0 failures.
 
 ## 3. Step-up
 
