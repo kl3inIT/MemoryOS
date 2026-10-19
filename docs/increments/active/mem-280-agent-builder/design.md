@@ -117,10 +117,13 @@ MemoryOS's editor: whether the AI's change is saved at once.
   `AGENT_BUILDER` model with a fixed builder system prompt (English, MemoryOS's own, after LobeHub's role, workflow
   and guidelines), the current form and choices as context, and only the builder tools: no document search, web,
   Sandbox or MCP, so the builder cannot be steered by a document or page, and no assistant instructions.
-- Tool results stream as ordinary tool events; the web renders `update_assistant` and `write_instructions` as the
-  change card instead of the activity row, applies the accepted values to the form, and marks the card applied.
-- A refused proposal (an unreadable Source, a model not in the list, a field over its limit) returns its reason to
-  the model, which tells the person; nothing reaches the form.
+- Each accepted change streams as an `assistant_change` event: the tool call ID and only the fields it changed, each
+  with its whole new value (an empty title, greeting or reasoning level clears it). The web applies it to the form and
+  draws the before → after card from the values it replaced, so the server sends no `previous`; the tool calls keep
+  their ordinary activity rows. A later call builds on the form with the earlier changes applied.
+- A proposal is checked whole, merged into the form, with `draftPersona`'s rules (Save's). A refused one (an
+  unreadable Source, a model not in the list, a field over its limit) returns its reason to the model, which tells
+  the person; no part of that call reaches the form.
 - The builder answers in the person's language; the instructions it writes follow the assistant's language as the
   person describes it (Vietnamese by default for a Vietnamese account).
 
@@ -129,9 +132,23 @@ MemoryOS's editor: whether the AI's change is saved at once.
 | Change | What |
 | --- | --- |
 | `ChatSendTurnRequest.builder` | Optional boolean, with `draftPersona` required, only on a temporary conversation the caller owns, for an assistant they may edit; otherwise `CHAT_INVALID_REQUEST` |
-| Tool events `update_assistant`, `write_instructions` | Carry `accepted` (the field values), `previous` and `refused` (field and reason) |
-| `ModelFlow.AGENT_BUILDER` | A new task row (migration seeds it for every Tenant like `CHAT_COMPACTION`, V172) |
+| Stream event `assistant_change` | `toolCallId` and `change`, the changed fields of the form; a refusal is only the tool result the model reads |
+| Task model refusal | Setting `AGENT_BUILDER` to a model without tool calling is refused; a builder turn whose model cannot call tools fails with `CHAT_BUILDER_MODEL_UNSUPPORTED` |
+| `ModelFlow.AGENT_BUILDER` | A new task row (V190 seeds it for every Tenant from the Chat model, as V172 did for `CHAT_COMPACTION`; V191 validates the usage check) |
 | `AiUsageFlow.AGENT_BUILDER` | Usage of builder turns |
+
+## Security
+
+- **The Tenant's guardrails apply to builder turns.** A builder turn runs with the Tenant's guardrails exactly as an
+  ordinary turn does: the question check on the person's message (blocked topics and phrases, refused with the
+  Tenant's message before any model call), the topic rules given to the model, and the blocked-phrase check on the
+  reply. The guardrails are a Tenant rule about what anyone may discuss with AI in the product, not a property of
+  answering from documents, so changing an assistant through chat is no way around them.
+- **Only what does not apply is dropped:** the grounded-answer policy (answer only from documents, cite, no Deep
+  research or Web without permission). The builder answers from no document and has no search tool, so a citation
+  requirement would refuse every reply.
+- **Authority stays the person's.** The builder's choices are the editor's own lists, every proposal passes Save's
+  checks again on the server, and nothing is written: the person reviews each change and saves it.
 
 ## Not in scope
 

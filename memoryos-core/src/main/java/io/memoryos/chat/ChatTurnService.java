@@ -343,8 +343,11 @@ public final class ChatTurnService implements AutoCloseable {
         if (building != null) agent = building.agent();
         var tools = agent.persona();
         // MEM-195: answers from documents only are refused Deep research and, unless allowed, Web search.
-        // The builder answers no question from documents, so no Tenant policy or guardrail applies to it.
-        var policy = settings == null || building != null ? ChatSettingsService.TurnPolicy.NONE : settings.turnPolicy(actor);
+        // The builder answers no question from documents, so the grounded-answer policy does not apply to it; the
+        // Tenant's guardrails do, as on every turn: its messages and replies are checked as an ordinary turn's are.
+        var tenantPolicy = settings == null ? ChatSettingsService.TurnPolicy.NONE : settings.turnPolicy(actor);
+        var policy = building == null ? tenantPolicy
+                : new ChatSettingsService.TurnPolicy(false, false, tenantPolicy.guardrails());
         boolean grounded = tools.options().grounded();
         if (grounded && command.deepResearch()) throw ChatException.researchUnavailable();
         if (grounded && command.webSearch() != WebSearchMode.off && !policy.groundedAllowWeb()) throw ChatException.webUnavailable();
