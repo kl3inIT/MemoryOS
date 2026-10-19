@@ -5562,20 +5562,20 @@ class ChatSessionApiIntegrationTest {
             UUID serverId = UUID.fromString(id);
             UUID clientId = UUID.fromString(client.path("id").asText());
             var mismatched = mcpOAuth.startAdministratorAuthorization(actorId, serverId, clientId, "state-1",
-                    McpAuthorizationSessionState.challenge("verifier-1"));
+                    McpAuthorizationSessionState.challenge(pkceVerifier("verifier-1")));
             var mismatchedParameters = formParameters(mismatched.authorizationUrl().getRawQuery());
             assertEquals(fixture.url(), mismatchedParameters.get("resource"));
             assertEquals("S256", mismatchedParameters.get("code_challenge_method"));
             assertEquals("MCP_OAUTH_ISSUER_MISMATCH", Assertions.assertThrows(McpException.class,
-                    () -> mcpOAuth.complete(actorId, mismatched.pending(), "stolen-code", "verifier-1",
+                    () -> mcpOAuth.complete(actorId, mismatched.pending(), "stolen-code", pkceVerifier("verifier-1"),
                             "https://evil.example")).code());
             assertEquals("MCP_OAUTH_ISSUER_MISMATCH", Assertions.assertThrows(McpException.class,
-                    () -> mcpOAuth.complete(actorId, mismatched.pending(), "stolen-code", "verifier-1",
+                    () -> mcpOAuth.complete(actorId, mismatched.pending(), "stolen-code", pkceVerifier("verifier-1"),
                             null)).code());
 
             var launch = mcpOAuth.startAdministratorAuthorization(actorId, serverId, clientId, "state-2",
-                    McpAuthorizationSessionState.challenge("verifier-2"));
-            mcpOAuth.complete(actorId, launch.pending(), "good-code", "verifier-2", issuer);
+                    McpAuthorizationSessionState.challenge(pkceVerifier("verifier-2")));
+            mcpOAuth.complete(actorId, launch.pending(), "good-code", pkceVerifier("verifier-2"), issuer);
             var exchanged = tokenForms.getLast();
             assertEquals("good-code", exchanged.get("code"));
             assertEquals(fixture.url(), exchanged.get("resource"));
@@ -5583,7 +5583,7 @@ class ChatSessionApiIntegrationTest {
                     McpAuthorizationSessionState.challenge(exchanged.get("code_verifier")));
             // Connecting changed the server revision, so the earlier pending authorization can no longer complete.
             assertEquals("MCP_CONFLICT", Assertions.assertThrows(McpException.class,
-                    () -> mcpOAuth.complete(actorId, mismatched.pending(), "late-code", "verifier-1",
+                    () -> mcpOAuth.complete(actorId, mismatched.pending(), "late-code", pkceVerifier("verifier-1"),
                             issuer)).code());
             String payload = jdbc.sql("SELECT payload FROM mcp_credential WHERE server_id=:id AND owner_actor_id IS NULL")
                     .param("id", UUID.fromString(id)).query(String.class).single();
@@ -5656,12 +5656,12 @@ class ChatSessionApiIntegrationTest {
             invalidGrant.set(false);
             UUID clientBId = UUID.fromString(clientB.path("id").asText());
             var knownLaunch = mcpOAuth.startAdministratorAuthorization(actorId, knownServerId, clientBId, "state-known",
-                    McpAuthorizationSessionState.challenge("verifier-known"));
+                    McpAuthorizationSessionState.challenge(pkceVerifier("verifier-known")));
             var knownParameters = formParameters(knownLaunch.authorizationUrl().getRawQuery());
             assertEquals("org-b-client", knownParameters.get("client_id"));
             assertEquals("files:read", knownParameters.get("scope"));
             assertEquals("offline", knownParameters.get("access_type"));
-            mcpOAuth.complete(actorId, knownLaunch.pending(), "known-code", "verifier-known", null);
+            mcpOAuth.complete(actorId, knownLaunch.pending(), "known-code", pkceVerifier("verifier-known"), null);
             assertEquals("org-b-client", tokenForms.getLast().get("client_id"));
             assertEquals("org-b-secret", tokenForms.getLast().get("client_secret"));
             assertEquals("null", tokenAuthorizations.getLast());
@@ -5701,12 +5701,12 @@ class ChatSessionApiIntegrationTest {
             assertFalse(connections.contains(issuer));
 
             var userLaunch = mcpOAuth.startUserAuthorization(otherId, perUserId, userClientId, "state-user",
-                    McpAuthorizationSessionState.challenge("verifier-user"), "/chat/session-9");
+                    McpAuthorizationSessionState.challenge(pkceVerifier("verifier-user")), "/chat/session-9");
             assertEquals(otherId.value(), userLaunch.pending().ownerActorId());
             assertEquals("/chat/session-9", userLaunch.pending().returnPath());
             assertEquals("MCP_CONFLICT", Assertions.assertThrows(McpException.class,
-                    () -> mcpOAuth.complete(actorId, userLaunch.pending(), "user-code", "verifier-user", issuer)).code());
-            mcpOAuth.complete(otherId, userLaunch.pending(), "user-code", "verifier-user", issuer);
+                    () -> mcpOAuth.complete(actorId, userLaunch.pending(), "user-code", pkceVerifier("verifier-user"), issuer)).code());
+            mcpOAuth.complete(otherId, userLaunch.pending(), "user-code", pkceVerifier("verifier-user"), issuer);
             assertEquals("user-client", tokenForms.getLast().get("client_id"));
             assertEquals(1, jdbc.sql("SELECT count(*) FROM mcp_credential WHERE server_id=:id AND owner_actor_id=:owner")
                     .param("id", perUserId).param("owner", otherId.value()).query(Long.class).single());
@@ -5745,11 +5745,11 @@ class ChatSessionApiIntegrationTest {
                     .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
             assertEquals(1, restrictedServer.path("groupIds").size());
             var withdrawn = mcpOAuth.startUserAuthorization(otherId, perUserId, userClientId, "state-withdrawn",
-                    McpAuthorizationSessionState.challenge("verifier-withdrawn"), "/chat/session-9");
+                    McpAuthorizationSessionState.challenge(pkceVerifier("verifier-withdrawn")), "/chat/session-9");
             jdbc.sql("DELETE FROM iam_group_memberships WHERE tenant_id=:tenant AND group_id=:group AND actor_id=:actor")
                     .param("tenant", TENANT).param("group", restricted).param("actor", otherId.value()).update();
             assertEquals("MCP_NOT_FOUND", Assertions.assertThrows(McpException.class,
-                    () -> mcpOAuth.complete(otherId, withdrawn.pending(), "late-code", "verifier-withdrawn", issuer)).code());
+                    () -> mcpOAuth.complete(otherId, withdrawn.pending(), "late-code", pkceVerifier("verifier-withdrawn"), issuer)).code());
             assertFalse(mockMvc.perform(get("/api/mcp/connections").with(authentication(other))).andExpect(status().isOk())
                     .andReturn().getResponse().getContentAsString().contains(perUserId.toString()));
 
@@ -5766,6 +5766,11 @@ class ChatSessionApiIntegrationTest {
         } finally {
             authorizationServer.stop(0);
         }
+    }
+
+    /** A PKCE verifier of the 43 characters RFC 7636 asks for at least, which Nimbus enforces before sending. */
+    private static String pkceVerifier(String name) {
+        return name + "~".repeat(Math.max(0, 43 - name.length()));
     }
 
     private static Map<String, String> formParameters(String raw) {
