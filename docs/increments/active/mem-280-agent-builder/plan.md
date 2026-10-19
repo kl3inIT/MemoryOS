@@ -17,14 +17,14 @@ Design: [design.md](design.md). Three pull requests, each accepted when CI is gr
   search, web or MCP tool is offered; usage lands on the flow.
 - [ ] `openapi.yml`, Hey API client; chat and chat-models specs, test matrix.
 
-## 2. *Nhờ AI chỉnh* (web)
+## 2. *Agent Builder* (web)
 
-- [ ] The test chat panel's two tabs (*Chat thử*, *✦ Nhờ AI chỉnh*), on desktop and in the phone drawer, the last tab
+- [ ] The test chat panel's two tabs (*Chat thử*, *✦ Agent Builder*), on desktop and in the phone drawer, the last tab
   remembered per browser.
 - [ ] The builder thread: its own temporary conversation, `builder: true`, the change card (before → after, the
   instructions as a line count) and *Hoàn tác*, field by field, skipping fields edited since; the two answer buttons
   for a change that asks first.
-- [ ] The create dialog: a filled *Mô tả* opens the editor on *Nhờ AI chỉnh* and sends it to the builder.
+- [ ] The create dialog: a filled *Mô tả* opens the editor on *Agent Builder* and sends it to the builder.
 - [ ] Tests: the card applies to the form and *Hoàn tác* restores; *Hủy* drops builder changes; a viewer has no tab;
   e2e of a description becoming a filled form.
 - [ ] Screenshots light, dark and phone; chat spec.

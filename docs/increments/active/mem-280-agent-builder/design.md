@@ -5,7 +5,10 @@ The person who edits an assistant can ask an AI, in the panel beside the editor,
 changes the editor's unsaved form, shows what it changed, and *Lưu* still publishes. It replaces the one-shot buttons
 MEM-276 proposed ("Điền giúp", "Viết giúp", "Gợi ý thêm").
 
-The owner asked on 2026-10-19 to build the multi-turn builder directly ("làm luôn cái agent builder đi").
+The owner asked on 2026-10-19 to build the multi-turn builder directly ("làm luôn cái agent builder đi") and approved
+the decisions below the same day: the tab is named *✦ Agent Builder* in both languages, as LobeHub and Glean name
+theirs; changes go to the unsaved draft; the scope and the ask-first list of decisions 4 and 5; the `AGENT_BUILDER`
+task model; temporary builder conversations; the create dialog's hand-off; MEM-276 closed as merged; editors only.
 
 ## Today
 
@@ -47,7 +50,7 @@ MemoryOS's editor: whether the AI's change is saved at once.
 
 ## Decisions
 
-1. **The builder lives in the test chat's panel, as a second tab: *Chat thử* | *✦ Nhờ AI chỉnh*.** LobeHub puts the
+1. **The builder lives in the test chat's panel, as a second tab: *Chat thử* | *✦ Agent Builder*.** LobeHub puts the
    builder in the profile's right panel; Glean opens a panel beside the editor. MemoryOS already has that panel, so no
    new pane: the header's title becomes a two-tab switch, the badge *Đang dùng bản chưa lưu* stays, and on phones the
    same drawer opens with the same two tabs. The panel remembers the last tab per browser.
@@ -85,7 +88,7 @@ MemoryOS's editor: whether the AI's change is saved at once.
    ids, at most 50 of each, with a `find_options` tool for the rest, as LobeHub's `getAvailableModels`). The builder
    never asks for what it can read.
 8. **It stays a builder.** LobeHub's rule: a message that reads like a domain question is a description of the
-   assistant to build. "Nghỉ phép năm bao nhiêu ngày?" in *Nhờ AI chỉnh* becomes a starter or an instruction, not an
+   assistant to build. "Nghỉ phép năm bao nhiêu ngày?" in *Agent Builder* becomes a starter or an instruction, not an
    answer; to try the assistant, *Chat thử* is one tab away, and the builder says so.
 9. **A task model, `AGENT_BUILDER`.** It runs on its own `ModelFlow` row, set on the Models page and falling back to
    the Tenant's Chat default like every task, not on the assistant's model: the assistant may be set to a small model
@@ -97,11 +100,11 @@ MemoryOS's editor: whether the AI's change is saved at once.
     form and then the saved assistant; keeping them would add a second history nobody reads. A builder conversation
     never appears in the sidebar, *Gần đây* or history.
 11. **The create dialog hands its description to the builder.** As LobeHub's "What should this Agent do?": when the
-    dialog's *Mô tả* is filled, the new assistant's editor opens on *Nhờ AI chỉnh* and sends "Dựng trợ lý theo mô tả
+    dialog's *Mô tả* is filled, the new assistant's editor opens on *Agent Builder* and sends "Dựng trợ lý theo mô tả
     này" with the description, so the first answer already fills title, instructions, greeting, starters and tools. An
     empty description opens the editor as today. The dialog keeps its three fields.
 12. **MEM-276's buttons are not built.** Dify's *Automatic* and Coze's auto-generate buttons are single-field helpers;
-    with the builder beside the form, "viết lại hướng dẫn" or "gợi ý thêm câu hỏi" is one sentence in *Nhờ AI chỉnh*,
+    with the builder beside the form, "viết lại hướng dẫn" or "gợi ý thêm câu hỏi" is one sentence in *Agent Builder*,
     and two ways to do the same thing is what the owner asks us to avoid. MEM-276 closes as merged into MEM-280.
 13. **Templates need nothing extra.** *Tạo bản riêng* opens the copy's editor, where the builder works like on any
     assistant; a template itself has no editor.
