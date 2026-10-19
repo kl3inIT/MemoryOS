@@ -1,5 +1,6 @@
 package io.memoryos.chat.streaming;
 
+import io.memoryos.chat.AssistantPatch;
 import io.memoryos.chat.ChatActivity;
 import io.memoryos.chat.ChatContextUse;
 import io.memoryos.chat.ChatCodeEvent;
@@ -212,6 +213,11 @@ public final class StreamBufferWriter {
     /** The reply's apps the person must connect first (MEM-273). */
     public void unavailableApps(UUID id, List<ChatActivity.UnavailableApp> apps) {
         publishNow(id, sequence -> new McpUnavailable(id, sequence, apps));
+    }
+
+    /** A change the Agent Builder made to the assistant's unsaved form (MEM-280). */
+    public void assistantChange(UUID id, String toolCallId, AssistantPatch change) {
+        publishNow(id, sequence -> new AssistantChange(id, sequence, toolCallId, change));
     }
 
     /** A reply that must wait for a turn says so, and says when it has been given one. */

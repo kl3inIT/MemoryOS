@@ -41,6 +41,7 @@ import io.memoryos.api.mcp.McpFixtureServer;
 import io.memoryos.api.mcp.contract.McpOAuthClientRequest;
 import io.memoryos.api.mcp.contract.McpServerRequest;
 import io.memoryos.chat.ChatMemoryService;
+import io.memoryos.chat.streaming.AssistantChange;
 import io.memoryos.chat.streaming.ChatStreamEvent;
 import io.memoryos.chat.streaming.ToolProgress;
 import io.memoryos.connector.DocumentSourceMetadata;
@@ -156,6 +157,7 @@ import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
 import com.embabel.common.ai.model.PricingModel;
 import com.embabel.chat.UserMessage;
@@ -171,6 +173,7 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
+import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
 import org.springframework.ai.chat.metadata.ChatResponseMetadata;
 import org.springframework.ai.chat.metadata.DefaultUsage;
@@ -2759,6 +2762,92 @@ class ChatSessionApiIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON).content(share.toString())).andExpect(status().isOk());
         assertEquals("CHAT_UNAVAILABLE", sendDraft(other, testSession(other, personaId, true), draft, 404)
                 .path("code").asText());
+    }
+
+    /**
+     * MEM-280: the Agent Builder edits the unsaved form through its own tools only, each change checked as Save checks
+     * it, and saves nothing; the turn runs on its task model and is counted on its own usage flow.
+     */
+    @Test
+    void anAgentBuilderTurnProposesCheckedChangesWithOnlyItsToolsAndSavesNothing() throws Exception {
+        var offered = new CopyOnWriteArrayList<List<String>>();
+        var answered = new AtomicReference<String>();
+        String missing = UUID.randomUUID().toString();
+        when(model.stream(any(Prompt.class))).thenAnswer(call -> {
+            Prompt prompt = call.getArgument(0);
+            if (prompt.getOptions() instanceof ToolCallingChatOptions options)
+                offered.add(options.getToolCallbacks().stream().map(tool -> tool.getToolDefinition().name()).sorted().toList());
+            if (prompt.getInstructions().stream().anyMatch(m -> m instanceof ToolResponseMessage)) {
+                answered.set(prompt.getInstructions().stream().filter(m -> m instanceof ToolResponseMessage)
+                        .flatMap(m -> ((ToolResponseMessage) m).getResponses().stream()).map(ToolResponseMessage.ToolResponse::responseData)
+                        .collect(Collectors.joining(" | ")));
+                return Flux.just(response("Đã đổi tên trợ lý; bấm Lưu để áp dụng.", "stop", 6));
+            }
+            assertTrue(prompt.getContents().contains("You are the Agent Builder"), "the builder runs as itself");
+            assertTrue(prompt.getContents().contains("DRAFT INSTRUCTIONS"), "it reads the unsaved form");
+            return Flux.just(toolCalls(
+                    new AssistantMessage.ToolCall("rename", "function", "update_assistant",
+                            "{\"name\":\"Trợ lý thuế\",\"starterPrompts\":[\"Hạn nộp tờ khai quý 3?\"]}"),
+                    new AssistantMessage.ToolCall("attach", "function", "update_assistant",
+                            "{\"sourceIds\":[\"" + missing + "\"]}")));
+        });
+        grantCapability("AGENTS_CREATE");
+        var persona = Json.mapper().readTree(mockMvc.perform(post("/api/chat/personas").with(authentication(actor)).with(csrf())
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("""
+                                {"name":"Kế toán thuế","description":"","instructions":"SAVED INSTRUCTIONS",
+                                 "starterPrompts":[],"sourceIds":[],"tools":["search"]}
+                                """))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+        String personaId = persona.path("id").asText();
+        var draft = Json.mapper().createObjectNode().put("name", "Kế toán thuế").put("description", "")
+                .put("instructions", "DRAFT INSTRUCTIONS");
+        draft.putArray("starterPrompts");
+        draft.putArray("sourceIds");
+        draft.putArray("tools").add("search");
+        jdbc.sql("DELETE FROM ai_usage WHERE tenant_id=:tenant AND flow='AGENT_BUILDER'").param("tenant", TENANT).update();
+
+        var sent = sendBuilder(actor, testSession(actor, personaId, true), draft, 202);
+        String id = sent.path("assistantMessageId").asText();
+        awaitOutcome(id, "COMPLETED");
+        assertEquals(List.of("find_options", "update_assistant", "write_instructions"), offered.getFirst(),
+                "no search, Web, file, memory or MCP tool is offered");
+        var changes = replay(UUID.fromString(id)).stream().filter(AssistantChange.class::isInstance)
+                .map(AssistantChange.class::cast).toList();
+        assertEquals(1, changes.size(), "the refused proposal changes nothing");
+        assertEquals("rename", changes.getFirst().toolCallId());
+        assertEquals("Trợ lý thuế", changes.getFirst().change().name());
+        assertEquals(List.of("Hạn nộp tờ khai quý 3?"), changes.getFirst().change().starterPrompts());
+        assertNull(changes.getFirst().change().instructions());
+        assertTrue(answered.get().contains("A selected source is unavailable."), answered.get());
+        mockMvc.perform(get("/api/chat/personas/" + personaId).with(authentication(actor))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Kế toán thuế"))
+                .andExpect(jsonPath("$.revision").value(persona.path("revision").asLong()));
+        assertTrue(jdbc.sql("SELECT COALESCE(SUM(calls), 0) FROM ai_usage WHERE tenant_id=:tenant AND flow='AGENT_BUILDER'")
+                .param("tenant", TENANT).query(Long.class).single() > 0, "usage lands on the builder's flow");
+
+        // The builder needs the unsaved form, a temporary conversation and an editor; it takes no Web or files.
+        assertEquals("CHAT_INVALID_REQUEST", sendBuilder(actor, testSession(actor, personaId, true), null, 400)
+                .path("code").asText());
+        sendBuilder(actor, testSession(actor, personaId, false), draft, 400);
+        var share = Json.mapper().createObjectNode();
+        share.putArray("users").addObject().put("actorId", other.getPrincipal().actorId().value().toString())
+                .put("permission", "VIEWER");
+        share.putArray("groups");
+        mockMvc.perform(put("/api/chat/personas/" + personaId + "/sharing").param("revision", persona.path("revision").asText())
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(share.toString())).andExpect(status().isOk());
+        assertEquals("CHAT_UNAVAILABLE", sendBuilder(other, testSession(other, personaId, true), draft, 404)
+                .path("code").asText());
+    }
+
+    private JsonNode sendBuilder(ActorAuthenticationToken who, JsonNode session, @Nullable JsonNode draft, int expectedStatus)
+            throws Exception {
+        var body = Json.mapper().createObjectNode().put("parentMessageId", session.path("rootMessageId").asText())
+                .put("clientRequestId", UUID.randomUUID().toString()).put("text", "Đổi tên thành Trợ lý thuế").put("builder", true);
+        if (draft != null) body.set("draftPersona", draft);
+        return Json.mapper().readTree(mockMvc.perform(post("/api/chat/sessions/" + session.path("id").asText() + "/messages")
+                .with(authentication(who)).with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                .content(body.toString())).andExpect(status().is(expectedStatus)).andReturn().getResponse().getContentAsString());
     }
 
     private JsonNode testSession(ActorAuthenticationToken who, String personaId, boolean temporary) throws Exception {

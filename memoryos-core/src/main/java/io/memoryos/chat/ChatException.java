@@ -59,6 +59,12 @@ public final class ChatException extends BusinessException {
     }
 
     /** MEM-195: answers from documents only need a model that can be made to search first. */
+    /** MEM-280: the Agent Builder's task model, or the Chat model it falls back to, cannot call tools. */
+    public static ChatException builderModelUnsupported() {
+        return new ChatException("CHAT_BUILDER_MODEL_UNSUPPORTED", FailureCategory.VALIDATION,
+                "The Agent Builder's model cannot call tools.");
+    }
+
     public static ChatException groundedModelUnsupported() {
         return new ChatException("CHAT_GROUNDED_MODEL_UNSUPPORTED", FailureCategory.VALIDATION,
                 "The selected model cannot answer from the organization's documents only.");

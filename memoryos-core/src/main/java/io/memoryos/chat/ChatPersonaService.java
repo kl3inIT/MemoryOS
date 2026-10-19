@@ -12,6 +12,7 @@ import io.memoryos.chat.persona.persistence.JpaPersonaRepository;
 import io.memoryos.chat.persona.persistence.PersonaEntity;
 import io.memoryos.chat.persona.persistence.PersonaRevisions;
 import io.memoryos.connector.SourceSearchService;
+import io.memoryos.mcp.McpConnectionService;
 import io.memoryos.iam.ActorLanguageService;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
@@ -22,6 +23,7 @@ import io.memoryos.objectstorage.ObjectContent;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -35,6 +37,7 @@ import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -64,15 +67,17 @@ public class ChatPersonaService {
     private final UserFileService files;
     private final UserFileContentService content;
     private final ActorLanguageService languages;
+    private final ObjectProvider<McpConnectionService> mcpConnections;
 
     public ChatPersonaService(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
             JpaPersonaRepository settings, JdbcAgentRepository agents, PersonaRevisions revisions,
             ChatModelAccess models, SourceSearchService sources, DocumentSetService documentSets, JdbcDocumentSetRepository documentSetRows,
-            UserFileService files, UserFileContentService content, ActorLanguageService languages) {
+            UserFileService files, UserFileContentService content, ActorLanguageService languages,
+            ObjectProvider<McpConnectionService> mcpConnections) {
         this.tenants = tenants; this.authorization = authorization; this.chats = chats; this.settings = settings;
         this.agents = agents; this.revisions = revisions; this.models = models;
         this.sources = sources; this.documentSets = documentSets; this.documentSetRows = documentSetRows;
-        this.files = files; this.content = content; this.languages = languages;
+        this.files = files; this.content = content; this.languages = languages; this.mcpConnections = mcpConnections;
     }
 
     /**
@@ -514,6 +519,48 @@ public class ChatPersonaService {
                 values.sources(), documentSetIds, values.modelId(), values.reasoningEffort(),
                 entity.builtin() ? List.of() : checked.fileIds() != null ? checked.fileIds() : entity.fileIds(),
                 values.grounded());
+    }
+
+    /** A Source, Document Set or MCP server the Agent Builder may attach (MEM-280). */
+    public record BuilderOption(UUID id, String name) {}
+    /** A model the assistant may run on, as its editor's model list offers it. */
+    public record BuilderModel(UUID id, String name, boolean isDefault, boolean reasoning) {}
+    /** Everything the editing person may choose for the assistant, each list by name. */
+    public record BuilderChoices(List<BuilderModel> models, List<BuilderOption> sources,
+                                 List<BuilderOption> documentSets, List<BuilderOption> mcpServers) {
+        public BuilderChoices {
+            models = List.copyOf(models); sources = List.copyOf(sources);
+            documentSets = List.copyOf(documentSets); mcpServers = List.copyOf(mcpServers);
+        }
+    }
+
+    /**
+     * What the editor of an assistant may choose for it (MEM-280): its model list, the Sources they may read, the
+     * Document Sets they may attach and the MCP servers they may use. The same person-bound lists their editor
+     * offers, so the Agent Builder proposes nothing the person could not pick, and Save's checks still apply.
+     */
+    @Transactional(readOnly = true)
+    public BuilderChoices builderChoices(ActorId actor, UUID id) {
+        var tenant = tenant(actor);
+        var entity = settings.findByTenantIdAndId(tenant.value(), id).orElseThrow(ChatException::unavailable);
+        boolean manage = manages(actor);
+        if (entity.deleted() || !access(tenant, actor, manage, id).edits()) throw ChatException.unavailable();
+        var modelList = models.availableModelsForPersona(actor, id).stream()
+                .map(model -> new BuilderModel(model.id(), model.displayName(), model.isDefault(), model.capabilities().reasoning()))
+                .toList();
+        var sourceList = sources.names(tenant, sources.scope(actor).sources().keySet()).stream()
+                .map(option -> new BuilderOption(option.id(), option.name()))
+                .sorted(Comparator.comparing(BuilderOption::name)).toList();
+        var setList = new ArrayList<BuilderOption>();
+        for (int offset = 0; ; offset += 100) {
+            var page = documentSets.list(actor, offset, 100);
+            page.forEach(set -> setList.add(new BuilderOption(set.id(), set.name())));
+            if (page.size() < 100 || setList.size() >= 1000) break;
+        }
+        var connections = mcpConnections.getIfAvailable();
+        var serverList = entity.builtin() || connections == null ? List.<BuilderOption>of()
+                : connections.list(actor).stream().map(server -> new BuilderOption(server.id(), server.name())).toList();
+        return new BuilderChoices(modelList, sourceList, setList, serverList);
     }
 
     private void apply(ActorId actor, TenantId tenant, PersonaEntity entity, PersonaInput input, boolean creating) {

@@ -10,6 +10,8 @@ public enum ModelFlow {
     CHAT_GUARDRAIL,
     /** MEM-268: the summary that stands in for a long conversation's earlier turns, written after an answer. */
     CHAT_COMPACTION,
+    /** MEM-280: the Agent Builder, which edits an assistant through tools, so its model must call them. */
+    AGENT_BUILDER,
     /** Summary, decisions and action items for a recorded meeting. */
     MEETING_MINUTES,
     /** Proposals for the stretches of a transcript the speech provider was unsure of. */
@@ -18,6 +20,11 @@ public enum ModelFlow {
     /** Whether the task is a typed decision a System One connection can answer instead of a language model. */
     public boolean classifies() {
         return this == CHAT_GUARDRAIL;
+    }
+
+    /** Whether the task works through tool calls, so a model that cannot call tools is refused for it. */
+    public boolean callsTools() {
+        return this == AGENT_BUILDER;
     }
 
     /**

@@ -12,6 +12,9 @@ import io.memoryos.chat.session.ChatTurnPersistence;
 import io.memoryos.chat.execution.ChatCompactions;
 import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.chat.execution.ChatTurnSetup;
+import io.memoryos.chat.prompts.AgentBuilderPrompt;
+import io.memoryos.chat.session.persistence.JdbcChatRepository;
+import io.memoryos.chat.tools.AgentBuilderTools;
 import io.memoryos.ai.systemone.SystemOneConnectionService;
 import io.memoryos.chat.grounding.ChatGuardrailCheck;
 import io.memoryos.chat.grounding.CitationGate;
@@ -45,6 +48,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.Locale;
 import java.util.ArrayList;
 import java.util.concurrent.CompletableFuture;
@@ -52,6 +56,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -247,12 +252,23 @@ public final class ChatTurnService implements AutoCloseable {
      * them. Nothing of the draft is stored.
      */
     public Accepted command(ActorId actor, UUID session, ChatCommand command, ChatPersonaService.@Nullable PersonaInput draft) {
+        return command(actor, session, command, draft, false);
+    }
+
+    /**
+     * MEM-280: with {@code builder}, the turn is the Agent Builder's: on the draft's temporary conversation, for a
+     * person who may edit its assistant, it runs the builder's prompt on the {@code AGENT_BUILDER} task model with only
+     * the builder's tools, and every accepted change goes to the browser as an {@code assistant_change} event. The
+     * assistant itself is never written.
+     */
+    public Accepted command(ActorId actor, UUID session, ChatCommand command, ChatPersonaService.@Nullable PersonaInput draft,
+                            boolean builder) {
         persistence.require(actor, IamCapability.CHAT_WRITE);
         if (command.image() != ImageMode.off) persistence.require(actor, IamCapability.IMAGE_GENERATE);
         var lock = commandLock(session);
         Admission admission;
         lock.lock();
-        try { admission = admit(actor, session, command, draft); }
+        try { admission = admit(actor, session, command, draft, builder); }
         finally { lock.unlock(); }
         // The run is registered before the lock is released, so Stop, subscribe and delete see it from here on.
         var run = admission.run();
@@ -309,18 +325,26 @@ public final class ChatTurnService implements AutoCloseable {
         }
     }
 
-    private Admission admit(ActorId actor, UUID session, ChatCommand command, ChatPersonaService.@Nullable PersonaInput draft) {
+    private Admission admit(ActorId actor, UUID session, ChatCommand command, ChatPersonaService.@Nullable PersonaInput draft,
+                            boolean builder) {
         var previous = persistence.existing(actor, session, command);
         if (previous.isPresent()) return new Admission(accepted(previous.orElseThrow()));
+        if (builder && (draft == null || command.deepResearch() || command.webSearch() != WebSearchMode.off
+                || command.image() != ImageMode.off || !command.mcpServerIds().isEmpty() || !command.fileIds().isEmpty()))
+            throw ChatException.invalid("An Agent Builder turn carries the assistant's unsaved settings and nothing else.");
         // Departure from Onyx, which only hides its button: a disabled mode must not run through the public API.
         if (command.deepResearch() && (settings == null || !settings.read(actor).deepResearchEnabled()))
             throw ChatException.researchUnavailable();
         // Onyx attaches tools to the agent: a command may only use tools the session agent allows.
         var agent = draft == null ? persistence.agent(actor, session, command.channel() != null)
                 : draftAgent(actor, session, draft);
+        // MEM-280: the builder checks the draft as the test chat does, then runs as itself, never as the assistant.
+        BuilderAdmission building = builder ? builderAdmission(actor, session, Objects.requireNonNull(draft), agent) : null;
+        if (building != null) agent = building.agent();
         var tools = agent.persona();
         // MEM-195: answers from documents only are refused Deep research and, unless allowed, Web search.
-        var policy = settings == null ? ChatSettingsService.TurnPolicy.NONE : settings.turnPolicy(actor);
+        // The builder answers no question from documents, so no Tenant policy or guardrail applies to it.
+        var policy = settings == null || building != null ? ChatSettingsService.TurnPolicy.NONE : settings.turnPolicy(actor);
         boolean grounded = tools.options().grounded();
         if (grounded && command.deepResearch()) throw ChatException.researchUnavailable();
         if (grounded && command.webSearch() != WebSearchMode.off && !policy.groundedAllowWeb()) throw ChatException.webUnavailable();
@@ -336,8 +360,10 @@ public final class ChatTurnService implements AutoCloseable {
         ModelResolver.Resolved resolved = null;
         boolean transferred = false;
         try {
-            resolved = models.resolve(actor, session, command.modelConfigurationId(), agent);
+            resolved = building != null ? models.resolveFlow(actor, session, ModelFlow.AGENT_BUILDER)
+                    : models.resolve(actor, session, command.modelConfigurationId(), agent);
             var binding = resolved.binding();
+            if (building != null && !binding.toolCalling()) throw ChatException.builderModelUnsupported();
             if (grounded && !binding.toolCalling()) throw ChatException.groundedModelUnsupported();
             if (command.deepResearch()) {
                 // As Onyx: not in Project chats and at least 50,000 input tokens; research agents need tool calling.
@@ -400,6 +426,11 @@ public final class ChatTurnService implements AutoCloseable {
                     && mcp != null && tools.mcpServerIds() != null ? List.copyOf(tools.mcpServerIds()) : List.of();
             boolean opensMcp = selectsMcp || !attachedMcp.isEmpty();
             if (command.deepResearch()) setup = setup.withResearch(researchState(context, setup));
+            if (building != null) {
+                UUID reply = setup.assistantMessageId();
+                setup = setup.withBuilder(new AgentBuilderTools.Turn(building.draft(), building.choices(), building.check(),
+                        (call, patch) -> streams.assistantChange(reply, call, patch)));
+            }
             // Check 1 fails closed: a turn that needs it is not started without it.
             if (ChatGuardrailCheck.applies(setup, policy) && guardrails == null) throw ChatException.providerUnavailable();
             var run = new Active(setup, resolved, policy, question(context), earlier(context), context.uiLanguage(), actor, slot);
@@ -421,6 +452,27 @@ public final class ChatTurnService implements AutoCloseable {
                 unclaim(actor, slot);
             }
         }
+    }
+
+    /** The builder's agent for one turn, what its editor may choose and Save's check of a proposed form. */
+    private record BuilderAdmission(ChatTurnPersistence.SessionAgent agent, ChatPersonaService.PersonaInput draft,
+                                    ChatPersonaService.BuilderChoices choices, Consumer<ChatPersonaService.PersonaInput> check) {}
+
+    /**
+     * The Agent Builder as the turn's agent: its own prompt with the form and the choices, none of the assistant's
+     * documents, files, tools or MCP servers, and the saved assistant's revision so the reservation's recheck holds.
+     */
+    private BuilderAdmission builderAdmission(ActorId actor, UUID session, ChatPersonaService.PersonaInput draft,
+                                              ChatTurnPersistence.SessionAgent tested) {
+        var service = Objects.requireNonNull(personas);
+        UUID assistant = persistence.testedAssistant(actor, session);
+        var choices = service.builderChoices(actor, assistant);
+        var persona = new JdbcChatRepository.Persona(
+                AgentBuilderPrompt.system(draft, choices, AgentBuilderTools.LISTED_OPTIONS),
+                ChatTurnOptions.builder().searchEnabled(false).codeInterpreter(false).build(),
+                tested.persona().revision(), null, List.of(), Set.of(), List.of(), null);
+        return new BuilderAdmission(new ChatTurnPersistence.SessionAgent(persona, tested.agentsManage(),
+                tested.modelsManage(), tested.inProject()), draft, choices, input -> service.draft(actor, assistant, input));
     }
 
     private ChatTurnPersistence.SessionAgent draftAgent(ActorId actor, UUID session, ChatPersonaService.PersonaInput draft) {
@@ -1039,7 +1091,8 @@ public final class ChatTurnService implements AutoCloseable {
                             outcome.content(), outcome.failure(), run.setup.model(), run.accounting.shown().input(),
                             run.accounting.shown().output(), run.accounting.shown().cost(), outcome.sources(), outcome.activity(), outcome.research(),
                             outcome.refusal(), new ChatTurnPersistence.Usage(run.setup.tenant(), run.setup.actor(),
-                                    run.setup.research().enabled() ? AiUsageFlow.DEEP_RESEARCH : AiUsageFlow.CHAT,
+                                    run.setup.research().enabled() ? AiUsageFlow.DEEP_RESEARCH
+                                            : run.setup.builder() != null ? AiUsageFlow.AGENT_BUILDER : AiUsageFlow.CHAT,
                                     run.resolved.modelConfigurationId(), run.resolved.provenance(), run.setup.model(), run.accounting));
                     recordToolCalls(run);
                     var context = context(run.accounting);

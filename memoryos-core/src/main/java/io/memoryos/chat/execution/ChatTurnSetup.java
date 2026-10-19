@@ -20,6 +20,7 @@ import io.memoryos.chat.ChatTurnOptions;
 import io.memoryos.chat.ChatFileDescriptor;
 import io.memoryos.chat.ChatEvidence;
 import io.memoryos.chat.ChatToolTranscript;
+import io.memoryos.chat.tools.AgentBuilderTools;
 import io.memoryos.chat.web.WebConnectionService;
 import io.memoryos.mcp.McpTurnTools;
 import io.memoryos.shared.ActorId;
@@ -51,7 +52,7 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
                             WebSearchMode webSearch, WebConnectionService.Access webAccess,
                             ImageMode image, ImageConnectionService.Access imageAccess,
                             Research research, @Nullable McpTurnTools mcp,
-                            ChatToolTranscript transcript) {
+                            ChatToolTranscript transcript, AgentBuilderTools.@Nullable Turn builder) {
     /**
      * Deep research state of the turn: whether it runs, whether the previous answer was a clarification question (Onyx
      * skips clarification then), the account language for user-facing research prompts and the turn's attached files.
@@ -101,26 +102,30 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
         public ChatTurnSetup build() {
             return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options,
                     fileIds, images, evidence, WebSearchMode.off, new WebConnectionService.Access(null, null),
-                    ImageMode.off, new ImageConnectionService.Access(null), Research.OFF, null, new ChatToolTranscript());
+                    ImageMode.off, new ImageConnectionService.Access(null), Research.OFF, null, new ChatToolTranscript(), null);
         }
     }
 
     public ChatTurnSetup withWeb(WebSearchMode intent, WebConnectionService.Access access) {
-        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, intent, access, image, imageAccess, research, mcp, transcript);
+        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, intent, access, image, imageAccess, research, mcp, transcript, builder);
     }
     public ChatTurnSetup withImage(ImageMode intent, ImageConnectionService.Access access) {
-        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, webSearch, webAccess, intent, access, research, mcp, transcript);
+        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, webSearch, webAccess, intent, access, research, mcp, transcript, builder);
     }
     public ChatTurnSetup withResearch(Research value) {
-        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, webSearch, webAccess, image, imageAccess, value, mcp, transcript);
+        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, webSearch, webAccess, image, imageAccess, value, mcp, transcript, builder);
     }
     /** The same turn with other agent restrictions, for example a conversational message in grounded mode (MEM-195). */
     public ChatTurnSetup withOptions(ChatTurnOptions value) {
-        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, value, fileIds, images, evidence, webSearch, webAccess, image, imageAccess, research, mcp, transcript);
+        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, value, fileIds, images, evidence, webSearch, webAccess, image, imageAccess, research, mcp, transcript, builder);
+    }
+    /** MEM-280: an Agent Builder turn, which offers only the builder's tools. */
+    public ChatTurnSetup withBuilder(AgentBuilderTools.Turn value) {
+        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, webSearch, webAccess, image, imageAccess, research, mcp, transcript, value);
     }
     /** The turn owns the opened MCP sessions and closes them when it ends. */
     public ChatTurnSetup withMcp(McpTurnTools tools) {
-        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, webSearch, webAccess, image, imageAccess, research, tools, transcript);
+        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, webSearch, webAccess, image, imageAccess, research, tools, transcript, builder);
     }
     /** Admission estimate, not reported provider usage. The native response remains the usage ledger. */
     public static final int IMAGE_INPUT_TOKENS = ModelRequestPolicy.IMAGE_INPUT_TOKENS;
