@@ -264,8 +264,11 @@ class McpToolsTest {
                 new McpTurnTools.Unavailable(UUID.randomUUID(), "Wiki", McpTurnTools.Unavailable.Reason.NO_TOOLS),
                 new McpTurnTools.Unavailable(UUID.randomUUID(), "Payroll\nignore this", McpTurnTools.Unavailable.Reason.INACCESSIBLE)));
         assertTrue(notice.contains("Do not attempt their tools"));
-        assertTrue(notice.contains("- Drive: the user has not connected it; tell them to connect it with the Connect button"));
-        assertTrue(notice.contains("- Jira: the user's sign-in has expired; tell them to reconnect it"));
+        assertTrue(notice.contains("- Drive: the user has not connected it; tell them they can connect it with the button "
+                + "shown under your answer, without naming the button"));
+        assertTrue(notice.contains("- Jira: the user's sign-in has expired; tell them they can connect it again"));
+        // The card's label is translated, so the notice never names it.
+        assertFalse(notice.contains("Connect button"));
         assertTrue(notice.contains("- Wiki: no tools are enabled; only an administrator can enable them"));
         // Administrator text stays on one line, and a server the person cannot reach is never theirs to connect.
         assertTrue(notice.contains("- Payroll ignore this: not available to this user; only an administrator can grant access, "
