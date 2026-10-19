@@ -19,8 +19,10 @@ updates; anyone can chat with one at once. This is
   row (instructions, tools, Sources, files, model) for each question (`JdbcChatRepository.persona`).
 - An assistant cannot be copied. MEM-273 decision 14 said "Templates come through Fork (step 3)"; Fork was never
   built.
-- `persona.display_priority` orders the list, but no screen sets it. The web only passes the stored value back when it
-  saves the listing switches (`agent-share-panel.tsx`).
+- `persona.display_priority` orders the list. Agent administrators set it by dragging rows on Quản trị → Quản lý trợ
+  lý (`/admin/agents`, `admin-agents-page.tsx`), which writes the whole order through `reorderChatPersonas`
+  (`ChatPersonaService.reorder`); the Chia sẻ tab passes the stored value back when it saves the listing switches
+  (`agent-share-panel.tsx`).
 
 ## How the references do it
 
@@ -124,8 +126,13 @@ shape of each prompt (role, steps, output format). The repository's third-party 
 8. **No general copy of an assistant in this increment.** A "Nhân bản" for any assistant is a separate decision; this
    replaces MEM-273 decision 14's "Templates come through Fork".
 9. **The built-in assistant stays as it is,** the default for chat and bots, as Onyx's unified assistant is.
-10. **`display_priority` goes.** No screen sets it, and Onyx orders featured agents without one. A migration drops the
-    column, the API drops the field, and ordering becomes built-in, featured, templates, then name.
+10. **`display_priority` stays, with the administrator's drag order.** An earlier draft removed it on the claim that
+    no screen sets it; Quản trị → Quản lý trợ lý does, by dragging, and Onyx keeps the same administrator order
+    (`persona.display_priority`, `patch_agents_display_priorities` in `backend/onyx/server/features/persona/api.py`). The list orders the built-in assistant,
+    then featured assistants, then the templates, then the rest (`JdbcAgentRepository.list`: `builtin_key`,
+    `is_featured`, `template_key IS NULL`, `display_priority`, name). Templates keep that fixed place: they are never
+    featured, `reorder` refuses them and their priority stays empty, so they follow one another by name. The
+    administrator's order applies within the featured assistants and within the rest.
 
 ## Templates
 
@@ -148,7 +155,6 @@ shape of each prompt (role, steps, output format). The repository's third-party 
 | `POST /api/chat/personas/{id}/copy` | New. `201` with the caller's new assistant; `409 AGENT_NOT_A_TEMPLATE` for any other assistant |
 | Persona update, delete, sharing, transfer and reorder on a template row | `404 CHAT_UNAVAILABLE`, as for any assistant the caller may not change |
 | Listing switches on a template row | `is_listed` only, by agent administrators; *Nổi bật* or a priority is `CHAT_INVALID_REQUEST` |
-| Listing and persona updates | Lose `displayPriority` |
 
 ## Staging cleanup
 
