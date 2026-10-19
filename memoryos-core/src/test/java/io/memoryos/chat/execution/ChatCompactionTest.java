@@ -74,7 +74,25 @@ class ChatCompactionTest {
         assertEquals("Question 5" + FILLER, plan.older().getFirst().text(), "only messages after the cutoff are summarised");
         var request = ChatCompaction.request(plan, POLICY, 100_000).orElseThrow();
         assertTrue(request.getFirst().getContent().endsWith(ChatCompaction.PREVIOUS + "## Goal\nEarlier summary text"));
-        assertEquals(ChatCompaction.REMINDER, request.getLast().getContent());
+        assertTrue(request.getLast().getContent().startsWith(ChatCompaction.REMINDER));
+    }
+
+    @Test
+    void theReminderNamesTheLastQuestionToSummariseAndNotTheKeptTail() {
+        var plan = ChatCompaction.plan(conversation(10), null, POLICY, 2000).orElseThrow();
+        String last = plan.older().reversed().stream().filter(line -> line.role() == ChatMessage.Role.USER)
+                .findFirst().orElseThrow().text();
+
+        String reminder = ChatCompaction.request(plan, POLICY, 100_000).orElseThrow().getLast().getContent();
+
+        assertEquals(ChatCompaction.REMINDER + " The last question to summarize is: \""
+                + last.substring(0, ChatCompaction.LAST_QUESTION) + "…\".", reminder);
+        assertFalse(plan.recent().stream().map(ChatCompaction.Line::text).anyMatch(text ->
+                reminder.contains(text.substring(0, 12))), "no question of the kept tail is named");
+        var shortQuestion = new ChatCompaction.Line(UUID.randomUUID(), ChatMessage.Role.USER, " Mã hợp đồng là gì? ");
+        var answer = new ChatCompaction.Line(UUID.randomUUID(), ChatMessage.Role.ASSISTANT, "HĐ-ZX-2093");
+        assertEquals(ChatCompaction.REMINDER + " The last question to summarize is: \"Mã hợp đồng là gì?\".",
+                ChatCompaction.reminder(List.of(shortQuestion, answer)));
     }
 
     @Test

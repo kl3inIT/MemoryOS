@@ -126,9 +126,10 @@ the purge, as their messages do.
 - **A Zalo group session.** The group session `5fc7ea5c` has 16 messages and about 4,200 context tokens. It runs as the
   bot with the Tenant's default agent, whose history budget on luna is about 253,000 tokens, so the trigger is about
   190,000 tokens away and cannot be reached by hand. This check needs the owner: either a long group conversation, or a
-  small-context agent for the bot once MEM-273 lets a bot use its own agent.
+  small-context agent for the bot once MEM-273 lets a bot use its own agent. Split out as
+  [MEM-297](https://linear.app/memory-os/issue/MEM-297) on 2026-10-19.
 
-### Two findings on the summary prompt (not fixed)
+### Two findings on the summary prompt (fixed 2026-10-19, [below](#the-summary-prompt-fix-2026-10-19))
 
 - **The kept tail is summarised too.** Both summaries list, under "Questions so far", questions after their cutoff;
   `06848432` lists turns 9 and 10, which still replay verbatim. The design gives the recent messages as context only.
@@ -138,3 +139,35 @@ the purge, as their messages do.
   The model read "facts established with their sources" as document-sourced facts only. The recall still answered
   correctly, from that section, but a later roll-forward could drop them. The prompt should say that facts the person
   gave are established facts.
+
+## The summary-prompt fix (2026-10-19)
+
+**The probe.** The summary request was rebuilt from `ChatCompaction.java` (old and new) over the stored branches of the
+two acceptance sessions, split at their recorded cutoffs:
+- `465eb38b`: cutoff `b41e281e`, turn 7's answer; the kept tail is turns 8 to 10.
+- `4ba4edef`: cutoff `7a2c74a7`, turn 6's answer.
+
+It was sent to 9Router `cx/gpt-6-luna` (`stream: false`) with the benchmark key, which was read at run time and never
+printed. The staging data was only read, and the probe files were removed from zm afterwards. A summary "leaks" when its
+"Questions so far" names a question of the kept tail.
+
+| Prompt | Runs | Leaked the kept tail | Stated facts under "Established facts" |
+| --- | --- | --- | --- |
+| Before (the 2026-10-15 summary `06848432` itself) | 1 | Yes (turns 8 and 9) | No |
+| Before, rerun | 2 | 2 | 2 |
+| Sharper wording only (guideline, section text, cutoff marker) | 10 | 7 | 10 |
+| Recent tail folded into one delimited block | 5 | 1 | 5 |
+| **Sharper wording and the reminder naming the last question to summarise** | **10** | **0** | **10** |
+
+- **Finding 2, the tail.** Wording alone did not hold on luna. Naming the last question before the cutoff in the
+  closing reminder (`ChatCompaction.reminder`, the question quoted up to 200 characters) kept the tail out in all 10
+  runs. The request keeps Onyx's shape. The recent messages are still sent as context, and the trimming order is
+  unchanged.
+- **Finding 1, stated facts.** The old prompt filed the contract facts as facts in both reruns, so the original miss was
+  not stable. The section now says that what the person stated or asked to be remembered is an established fact. Every
+  new run filed the four contract facts (or the project facts of `4ba4edef`) there.
+
+**Tests.** `ChatCompactionTest.theReminderNamesTheLastQuestionToSummariseAndNotTheKeptTail` covers the quoted last
+question, the 200-character cut and that no kept-tail question is named. `aLaterCompactionRollsThePreviousSummaryForward`
+now checks that the reminder starts with the fixed text. `ChatCompactionTest` and `ChatCompactionsTest` ran on zm in a
+container limited to 3 CPUs and 4 GB, with `nice`.
