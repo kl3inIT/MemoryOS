@@ -856,6 +856,7 @@ export const zModelFlow = z.object({
         'CHAT_NAMING',
         'CHAT_GUARDRAIL',
         'CHAT_COMPACTION',
+        'AGENT_BUILDER',
         'MEETING_MINUTES',
         'MEETING_CORRECTION'
     ]),
@@ -2349,7 +2350,8 @@ export const zSend = z.object({
     ]).optional(),
     deepResearch: z.boolean().optional(),
     mcpServerIds: z.array(z.uuid()).min(0).max(8).optional(),
-    draftPersona: zPersonaInput.optional()
+    draftPersona: zPersonaInput.optional(),
+    builder: z.boolean().optional()
 });
 
 export const zAccepted = z.object({
@@ -3756,6 +3758,30 @@ export const zMcpUnavailableEvent = z.object({
     apps: z.array(zUnavailableApp)
 });
 
+export const zAssistantPatch = z.object({
+    name: z.string().optional(),
+    title: z.string().optional(),
+    description: z.string().optional(),
+    avatarSeed: z.string().optional(),
+    instructions: z.string().optional(),
+    greeting: z.string().optional(),
+    starterPrompts: z.array(z.string()).optional(),
+    tools: z.array(z.string()).optional(),
+    sourceIds: z.array(z.uuid()).optional(),
+    documentSetIds: z.array(z.uuid()).optional(),
+    mcpServerIds: z.array(z.uuid()).optional(),
+    modelConfigurationId: z.uuid().optional(),
+    reasoningEffort: z.string().optional(),
+    grounded: z.boolean().optional()
+});
+
+export const zAssistantChangeEvent = z.object({
+    assistantMessageId: z.uuid(),
+    sequence: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    toolCallId: z.string(),
+    change: zAssistantPatch
+});
+
 export const zChatBranch = z.object({
     id: z.uuid().optional(),
     parentMessageId: z.uuid().nullish(),
@@ -4978,6 +5004,7 @@ export const zSetSystemOneTaskPath = z.object({
         'CHAT_NAMING',
         'CHAT_GUARDRAIL',
         'CHAT_COMPACTION',
+        'AGENT_BUILDER',
         'MEETING_MINUTES',
         'MEETING_CORRECTION'
     ])
@@ -5497,6 +5524,7 @@ export const zSetChatModelFlowPath = z.object({
         'CHAT_NAMING',
         'CHAT_GUARDRAIL',
         'CHAT_COMPACTION',
+        'AGENT_BUILDER',
         'MEETING_MINUTES',
         'MEETING_CORRECTION'
     ])
@@ -7731,7 +7759,8 @@ export const zStreamChatMessageResponse = z.union([
     zIntermediateReportCitationsEvent,
     zWaitingEvent,
     zToolApprovalEvent,
-    zMcpUnavailableEvent
+    zMcpUnavailableEvent,
+    zAssistantChangeEvent
 ]);
 
 export const zGetChatFeedbackPath = z.object({
@@ -8355,6 +8384,7 @@ export const zGetAiCostSummaryQuery = z.object({
         'CHAT_NAMING',
         'CHAT_GUARDRAIL',
         'CHAT_COMPACTION',
+        'AGENT_BUILDER',
         'DEEP_RESEARCH',
         'EMBEDDING_QUERY',
         'EMBEDDING_INDEXING',
@@ -8423,6 +8453,7 @@ export const zListAiCostDaysQuery = z.object({
         'CHAT_NAMING',
         'CHAT_GUARDRAIL',
         'CHAT_COMPACTION',
+        'AGENT_BUILDER',
         'DEEP_RESEARCH',
         'EMBEDDING_QUERY',
         'EMBEDDING_INDEXING',
@@ -8458,6 +8489,7 @@ export const zListAiCostBreakdownQuery = z.object({
         'CHAT_NAMING',
         'CHAT_GUARDRAIL',
         'CHAT_COMPACTION',
+        'AGENT_BUILDER',
         'DEEP_RESEARCH',
         'EMBEDDING_QUERY',
         'EMBEDDING_INDEXING',

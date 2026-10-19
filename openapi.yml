@@ -2916,6 +2916,7 @@ paths:
           - CHAT_NAMING
           - CHAT_GUARDRAIL
           - CHAT_COMPACTION
+          - AGENT_BUILDER
           - MEETING_MINUTES
           - MEETING_CORRECTION
       requestBody:
@@ -5947,6 +5948,7 @@ paths:
           - CHAT_NAMING
           - CHAT_GUARDRAIL
           - CHAT_COMPACTION
+          - AGENT_BUILDER
           - MEETING_MINUTES
           - MEETING_CORRECTION
       - name: modelConfigurationId
@@ -17508,7 +17510,7 @@ paths:
       summary: Read or resume reply events; reset requires persisted history
       description: "Events: text, reasoning, tool, image, code, research_plan, top_level_branching,\
         \ research_agent_start, intermediate_report, intermediate_report_citations,\
-        \ waiting, tool_approval, mcp_unavailable, outcome, reset. Content event id\
+        \ waiting, tool_approval, mcp_unavailable, assistant_change, outcome, reset. Content event id\
         \ is assistantMessageId:sequence. Only outcome confirms a committed terminal\
         \ state. Heartbeats are comments. A reset has no event id."
       operationId: streamChatMessage
@@ -17583,6 +17585,7 @@ paths:
                 - $ref: "#/components/schemas/WaitingEvent"
                 - $ref: "#/components/schemas/ToolApprovalEvent"
                 - $ref: "#/components/schemas/McpUnavailableEvent"
+                - $ref: "#/components/schemas/AssistantChangeEvent"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -21117,6 +21120,7 @@ paths:
           - CHAT_NAMING
           - CHAT_GUARDRAIL
           - CHAT_COMPACTION
+          - AGENT_BUILDER
           - DEEP_RESEARCH
           - EMBEDDING_QUERY
           - EMBEDDING_INDEXING
@@ -21372,6 +21376,7 @@ paths:
           - CHAT_NAMING
           - CHAT_GUARDRAIL
           - CHAT_COMPACTION
+          - AGENT_BUILDER
           - DEEP_RESEARCH
           - EMBEDDING_QUERY
           - EMBEDDING_INDEXING
@@ -21463,6 +21468,7 @@ paths:
           - CHAT_NAMING
           - CHAT_GUARDRAIL
           - CHAT_COMPACTION
+          - AGENT_BUILDER
           - DEEP_RESEARCH
           - EMBEDDING_QUERY
           - EMBEDDING_INDEXING
@@ -25933,6 +25939,7 @@ components:
           - CHAT_NAMING
           - CHAT_GUARDRAIL
           - CHAT_COMPACTION
+          - AGENT_BUILDER
           - MEETING_MINUTES
           - MEETING_CORRECTION
         modelConfigurationId:
@@ -29777,6 +29784,11 @@ components:
           description: "The assistant's unsaved settings for this turn: only in a\
             \ temporary conversation, for a person who may edit its assistant; checked\
             \ as a save is, never stored"
+        builder:
+          type: boolean
+          description: "Run the Agent Builder on draftPersona instead of the assistant:\
+            \ it edits the unsaved settings through assistant_change events and stores\
+            \ nothing; absent means false"
       required:
       - clientRequestId
       - parentMessageId
@@ -33359,6 +33371,70 @@ components:
       - apps
       - assistantMessageId
       - sequence
+    AssistantChangeEvent:
+      type: object
+      properties:
+        assistantMessageId:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          format: int64
+        toolCallId:
+          type: string
+        change:
+          $ref: "#/components/schemas/AssistantPatch"
+      required:
+      - assistantMessageId
+      - change
+      - sequence
+      - toolCallId
+    AssistantPatch:
+      type: object
+      properties:
+        name:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        avatarSeed:
+          type: string
+        instructions:
+          type: string
+        greeting:
+          type: string
+        starterPrompts:
+          type: array
+          items:
+            type: string
+        tools:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+        sourceIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        documentSetIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        mcpServerIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        modelConfigurationId:
+          type: string
+          format: uuid
+        reasoningEffort:
+          type: string
+        grounded:
+          type: boolean
     ChatBranch:
       type: object
       properties:
