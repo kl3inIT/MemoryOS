@@ -1,5 +1,6 @@
 package io.memoryos.chat.persona.persistence;
 
+import io.memoryos.chat.AssistantTemplates;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.PersonaModelDefault;
 import io.memoryos.chat.PersonaSummary;
@@ -29,12 +30,20 @@ public class JdbcAgentModelRepository {
                 .query(Boolean.class).single();
     }
 
+    /** A MemoryOS template is named in the actor's account language, as every other list names it (MEM-281). */
     public List<PersonaSummary> personas(UUID tenant, UUID actor, boolean agentsManage, @Nullable UUID after, int limit) {
-        return jdbc.sql("SELECT p.id, p.name FROM persona p WHERE p.tenant_id=:tenant AND p.deleted_at IS NULL AND " + AgentAccessSql.USES
+        return jdbc.sql("SELECT p.id, p.name, p.template_key, (SELECT a.ui_language FROM actors a WHERE a.id = :actor) AS language"
+                        + " FROM persona p WHERE p.tenant_id=:tenant AND p.deleted_at IS NULL AND " + AgentAccessSql.USES
                         + (after == null ? "" : " AND p.id > :after") + " ORDER BY p.id LIMIT :limit")
                 .param("tenant", tenant).param("actor", actor).param("agentsManage", agentsManage)
                 .param("after", after, Types.OTHER).param("limit", limit)
-                .query((row, _) -> new PersonaSummary(row.getObject("id", UUID.class), row.getString("name"))).list();
+                .query((row, _) -> {
+                    String language = row.getString("language");
+                    return new PersonaSummary(row.getObject("id", UUID.class),
+                            AssistantTemplates.find(row.getString("template_key"))
+                                    .map(template -> template.text(language).name())
+                                    .orElse(row.getString("name")));
+                }).list();
     }
 
     /** Whether every id names an agent of this Tenant, deleted or not, as a provider restriction may. */

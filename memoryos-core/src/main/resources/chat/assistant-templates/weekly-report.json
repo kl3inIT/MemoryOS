@@ -1,6 +1,5 @@
 {
   "key": "weekly-report",
-  "category": "meetings-reports",
   "avatarSeed": "template-weekly",
   "tools": ["search"],
   "grounded": false,

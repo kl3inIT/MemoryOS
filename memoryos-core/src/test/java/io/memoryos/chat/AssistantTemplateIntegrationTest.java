@@ -18,6 +18,7 @@ import io.memoryos.ai.ModelSettings;
 import io.memoryos.chat.files.ChatFileAttachments;
 import io.memoryos.chat.files.persistence.JdbcChatFileAttachmentRepository;
 import io.memoryos.chat.persona.AssistantTemplateProvisioner;
+import io.memoryos.chat.persona.persistence.JdbcAgentModelRepository;
 import io.memoryos.chat.persona.persistence.JdbcAgentRepository;
 import io.memoryos.chat.persona.persistence.JdbcDocumentSetRepository;
 import io.memoryos.chat.persona.persistence.JpaPersonaRepository;
@@ -151,7 +152,7 @@ class AssistantTemplateIntegrationTest {
         // An administrator hid one; the next release changes its wording and drops another template.
         jdbc.sql("UPDATE persona SET is_listed = FALSE WHERE id = :id").param("id", policy).update();
         var policyTemplate = AssistantTemplates.find("policy-qa").orElseThrow();
-        var reworded = new AssistantTemplate(policyTemplate.key(), policyTemplate.category(), policyTemplate.avatarSeed(),
+        var reworded = new AssistantTemplate(policyTemplate.key(), policyTemplate.avatarSeed(),
                 Set.of("search", "web_search"), true,
                 new AssistantTemplate.Text("Hỏi đáp quy định", policyTemplate.vi().title(), policyTemplate.vi().description(),
                         policyTemplate.vi().greeting(), policyTemplate.vi().starters()),
@@ -180,16 +181,19 @@ class AssistantTemplateIntegrationTest {
 
         var listed = personas.list(member, AgentListFilter.ALL, null, null, 0, 30);
         assertTrue(listed.getFirst().builtin(), "The built-in assistant comes first");
-        var templates = listed.stream().filter(view -> view.template() != null).toList();
+        var templates = listed.stream().filter(view -> view.templateKey() != null).toList();
         assertEquals(AssistantTemplates.KEYS.size(), templates.size(), "Every template is on the first page");
         var view = personas.get(member, email);
-        assertEquals(new ChatPersonaService.TemplateRef("email", "writing"), view.template());
+        assertEquals("email", view.templateKey());
         assertEquals("Work email writer", view.name());
         assertEquals(AssistantTemplates.find("email").orElseThrow().en().starters(), view.starterPrompts());
+        assertTrue(tx.execute(ignored -> new JdbcAgentModelRepository(jdbc).personas(tenant, member.value(), false, null, 100))
+                        .stream().anyMatch(summary -> summary.id().equals(email) && summary.name().equals("Work email writer")),
+                "The model page names it in the reader's language too");
         assertEquals(new PersonaPermissions(false, false, false, false, false, false, false), view.permissions(),
                 "Nothing to edit, share, delete or transfer; a bot binding needs edit rights too");
         assertEquals(List.of(), personas.list(member, AgentListFilter.SHARED, null, null, 0, 30).stream()
-                .filter(shared -> shared.template() != null).toList());
+                .filter(shared -> shared.templateKey() != null).toList());
 
         var input = new ChatPersonaService.PersonaInput("Mine now", null, "", "Write badly.", null, List.of(), List.of(),
                 null, null, null, null, null, null, null, null, null, null, null);
@@ -203,6 +207,19 @@ class AssistantTemplateIntegrationTest {
         assertUnavailable(() -> personas.reorder(admin, List.of(email)));
         assertEquals("CHAT_INVALID_REQUEST", assertThrows(BusinessException.class, () -> personas.listing(admin, email,
                 view.revision(), new ChatPersonaService.ListingInput(true, true, null))).code());
+    }
+
+    @Test
+    void theListLeadsWithTheBuiltInAssistantThenFeaturedOnesThenTheTemplates() {
+        var featured = everyones("Quy trình thanh toán", true);
+        var plain = everyones("Ánh sáng", false);
+
+        var listed = personas.list(member, AgentListFilter.ALL, null, null, 0, 30);
+
+        assertTrue(listed.get(0).builtin());
+        assertEquals(featured.id(), listed.get(1).id());
+        assertTrue(listed.subList(2, 2 + AssistantTemplates.KEYS.size()).stream().allMatch(view -> view.templateKey() != null));
+        assertEquals(plain.id(), listed.getLast().id());
     }
 
     @Test
@@ -231,6 +248,9 @@ class AssistantTemplateIntegrationTest {
                 () -> tx.execute(ignored -> new JdbcChatRepository(jdbc).persona(session.id(), false, false)),
                 "The conversation cannot continue while the template is hidden");
         assertEquals(policy, personas.get(admin, policy).id(), "The administrator still opens it to show it again");
+        assertTrue(personas.list(admin, AgentListFilter.ALL, null, null, 0, 30).stream()
+                        .anyMatch(view -> view.id().equals(policy) && !view.listed()),
+                "and finds it, hidden, in the list");
 
         personas.listing(admin, policy, hidden.revision(), new ChatPersonaService.ListingInput(true, false, null));
         assertEquals(policy, personas.get(member, policy).id());
@@ -243,7 +263,7 @@ class AssistantTemplateIntegrationTest {
 
         var copy = personas.copy(member, contract);
 
-        assertNull(copy.template());
+        assertNull(copy.templateKey());
         assertEquals(template.vi().name(), copy.name());
         assertEquals(template.vi().starters(), copy.starterPrompts());
         assertEquals(template.instructions(), copy.instructions());
@@ -260,6 +280,15 @@ class AssistantTemplateIntegrationTest {
         jdbc.sql("UPDATE actors SET ui_language = 'en' WHERE id = :id").param("id", member.value()).update();
         assertEquals(template.en().name(), personas.copy(member, contract).name());
         assertEquals("AGENT_NOT_A_TEMPLATE", assertThrows(BusinessException.class, () -> personas.copy(member, copy.id())).code());
+    }
+
+    /** An administrator's assistant shared with the organization and listed, featured or not. */
+    private ChatPersonaService.PersonaView everyones(String name, boolean featured) {
+        var created = personas.create(admin, new ChatPersonaService.PersonaInput(name, null, "", "", null,
+                List.of(), List.of(), null, null, null, null, null, null, null, null, null, null, null));
+        var shared = personas.share(admin, created.id(), created.revision(),
+                new ChatPersonaService.SharingInput(List.of(), List.of(), true, AgentPermission.VIEWER));
+        return personas.listing(admin, created.id(), shared.revision(), new ChatPersonaService.ListingInput(true, featured, null));
     }
 
     private void assertUnavailable(Runnable call) {

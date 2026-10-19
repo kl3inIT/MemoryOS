@@ -1,6 +1,11 @@
 // English for the Vietnamese source keys. Natural source keys are static UI copy, never document text, filenames or API identifiers.
 // Natural source keys are static UI copy, never document text, filenames or API identifiers.
 export const vietnameseUi: Record<string, string> = {
+  // MEM-281 MemoryOS templates in the assistants list
+  "Tạo bản riêng": "Make my own copy",
+  "Ẩn với mọi người": "Hide from everyone",
+  "Đã hiện lại {{v1}}": "{{v1}} is shown again",
+  "Đã ẩn {{v1}} với mọi người": "{{v1}} is hidden from everyone",
   // MEM-273 the assistant editor's test chat
   "Chat thử": "Test chat",
   "Đang dùng bản chưa lưu": "Using unsaved changes",
@@ -1465,7 +1470,6 @@ export const vietnameseUi: Record<string, string> = {
   "Không tải được ảnh lên. Thử lại.": "Could not upload the image. Try again.",
   Xong: "Done",
   "Dùng model mặc định của tổ chức": "Use the organization's default model",
-  "Hỏi {{v1}}…": "Ask {{v1}}…",
   "Không tìm thấy nguồn.": "No sources found.",
   "Rời trang": "Leave page",
   "Tạo nhãn “{{v1}}”": "Create label “{{v1}}”",

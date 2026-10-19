@@ -38,6 +38,7 @@ export function personaOf({
   id,
   revision,
   builtin = false,
+  templateKey,
   permissions = {},
   name = "",
   title,
@@ -77,6 +78,8 @@ export function personaOf({
     id,
     revision,
     builtin,
+    /** A MemoryOS template: used as it is, copied with "Tạo bản riêng", only shown or hidden by administrators. */
+    template: Boolean(templateKey),
     permissions: {
       edit: permissions.edit ?? false,
       share: permissions.share ?? false,
@@ -141,7 +144,7 @@ function personaSourceOf({ id, name = "", type }: SourceOption) {
 
 /** The visibility shown on cards: Tenant-wide, shared with people or Groups, or private. */
 export function agentVisibility(persona: Persona) {
-  if (persona.builtin || persona.isPublic) return "public" as const;
+  if (persona.builtin || persona.template || persona.isPublic) return "public" as const;
   return persona.userShares.length > 0 || persona.groupShares.length > 0
     ? ("shared" as const)
     : ("private" as const);

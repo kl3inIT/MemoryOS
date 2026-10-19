@@ -1,6 +1,5 @@
 {
   "key": "document-summary",
-  "category": "documents-policies",
   "avatarSeed": "template-summary",
   "tools": ["search"],
   "grounded": false,

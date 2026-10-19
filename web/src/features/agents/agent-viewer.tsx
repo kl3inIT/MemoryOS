@@ -3,6 +3,7 @@ import { useState, type ReactNode } from "react";
 import {
   ArrowUp,
   ChevronDown,
+  CopyPlus,
   FileSearch,
   Globe,
   ImagePlus,
@@ -25,9 +26,10 @@ import {
 import { IconButton } from "@/components/ui/icon-button";
 import { can } from "@/lib/resource-permissions";
 import { cn } from "@/lib/utils";
-import { personLabel } from "@/features/identity/principals";
+import { useGlobalCapability } from "@/features/identity/application-session-context";
 import type { Persona } from "@/features/chat/chat-personas-api";
 import { AgentAvatar } from "./agent-avatar";
+import { useOwnerName, useTemplateActions } from "./use-agent-catalog";
 
 const toolIcons: Record<string, typeof Globe> = {
   search: FileSearch,
@@ -62,9 +64,10 @@ export function AgentViewer({
     image_generation: ui("Tạo ảnh"),
     code_interpreter: ui("Sandbox"),
   };
-  const owner = agent.builtin
-    ? ui("MemoryOS")
-    : (agent.owner.group?.name ?? (personLabel(agent.owner.actor) || ui("Chưa có chủ sở hữu")));
+  const owner = useOwnerName()(agent);
+  const templates = useTemplateActions();
+  const canCreate = useGlobalCapability("AGENTS_CREATE");
+  const canCopy = agent.template && canCreate;
   const send = () => {
     if (question.trim() && !pending) onStart(question.trim());
   };
@@ -76,6 +79,17 @@ export function AgentViewer({
             <Button size="sm" prominence="tertiary" onClick={onEdit}>
               <Pencil data-icon="inline-start" aria-hidden="true" />
               {ui("Sửa")}
+            </Button>
+          )}
+          {canCopy && (
+            <Button
+              size="sm"
+              prominence="tertiary"
+              pending={templates.copying === agent.id}
+              onClick={() => templates.copy(agent)}
+            >
+              <CopyPlus data-icon="inline-start" aria-hidden="true" />
+              {ui("Tạo bản riêng")}
             </Button>
           )}
           <DialogClose asChild>
@@ -233,7 +247,7 @@ export function AgentViewer({
               rows={1}
               maxLength={32000}
               value={question}
-              placeholder={ui("Hỏi {{v1}}…", { v1: agent.name })}
+              placeholder={ui("Nhập câu hỏi…")}
               onChange={(event) => setQuestion(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {

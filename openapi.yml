@@ -26997,8 +26997,8 @@ components:
           format: uuid
         builtin:
           type: boolean
-        template:
-          $ref: "#/components/schemas/TemplateRef"
+        templateKey:
+          type: string
         permissions:
           $ref: "#/components/schemas/PersonaPermissions"
         revision:
@@ -27105,13 +27105,6 @@ components:
         deletedAt:
           type: string
           format: date-time
-    TemplateRef:
-      type: object
-      properties:
-        key:
-          type: string
-        category:
-          type: string
     GroupShareInput:
       type: object
       properties:
