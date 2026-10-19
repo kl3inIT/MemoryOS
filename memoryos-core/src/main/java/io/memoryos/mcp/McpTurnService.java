@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
@@ -88,7 +89,10 @@ public class McpTurnService {
                         McpTurnTools.Unavailable.Reason.REAUTH_REQUIRED));
                 continue;
             }
-            targets.put(candidate.serverId(), new McpTurnTools.Target(candidate.serverId(), candidate.url(), headers));
+            Consumer<String> scopeRequired = candidate.authType() != McpAuthType.OAUTH ? null
+                    : scope -> oauth.requireScope(candidate.serverId(), candidate.ownerActorId(), scope);
+            targets.put(candidate.serverId(), new McpTurnTools.Target(candidate.serverId(), candidate.url(), headers,
+                    scopeRequired));
             bindings.addAll(candidate.bindings());
         }
         return new McpTurnTools(clients, targets, bindings, unavailable, resolved.alwaysAllowable());

@@ -335,6 +335,10 @@ public class McpServerService {
         }
         try (var session = clients.open(target.url(), headers, REFRESH_DEADLINE)) {
             return session.listTools();
+        } catch (McpException failure) {
+            if (target.oauth() && failure.requiredScope() != null)
+                oauth.requireScope(serverId, target.ownerActorId(), failure.requiredScope());
+            throw failure;
         }
     }
 

@@ -25,11 +25,13 @@ Design: [design.md](design.md).
 
 ## 3. Step-up
 
-- [ ] `McpSession.classify`: a 403 `insufficient_scope` carries the challenged scope.
-- [ ] `McpOAuthService.requireScope` stores `requested_scope` in the sealed payload; `start` requests the union;
-  issuing a token clears it.
-- [ ] Chat turn, view host and tool refresh pass the scope on.
-- [ ] Tests: classification, the union, clearing, a shared connection.
+- [x] `McpSession.classify`: a 403 `insufficient_scope` carries the challenged scope (`McpException.requiredScope`),
+  empty when it names none or an unusable one.
+- [x] `McpOAuthService.requireScope` stores `requested_scope` in the sealed payload of an active credential;
+  `start` requests the configured, granted and requested scopes; issuing a token clears it, and a refresh keeps it.
+- [x] `McpTurnTools` (tool calls and view requests) and the tool refresh hand the scope to their connection.
+- [x] Tests: `McpScopeStepUpTest`; the union and the clearing in
+  `ChatSessionApiIntegrationTest.mcpOAuthDiscoversRegistersConnectsRefreshesAndDisconnects`.
 
 ## 4. Google Drive and upstream discovery
 

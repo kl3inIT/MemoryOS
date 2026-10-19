@@ -5666,6 +5666,16 @@ class ChatSessionApiIntegrationTest {
             assertEquals("org-b-secret", tokenForms.getLast().get("client_secret"));
             assertEquals("null", tokenAuthorizations.getLast());
             assertEquals(1, jdbc.sql("SELECT count(*) FROM mcp_credential WHERE server_id=:id").param("id", knownServerId).query(Long.class).single());
+            // MEM-227: a 403 insufficient_scope is kept with the connection, and connecting again asks for the union of
+            // the configured scopes and the challenged ones; the new grant clears it.
+            mcpOAuth.requireScope(knownServerId, null, "files:write files:read");
+            var stepUp = mcpOAuth.startAdministratorAuthorization(actorId, knownServerId, clientBId, "state-step-up",
+                    McpAuthorizationSessionState.challenge(pkceVerifier("verifier-step-up")));
+            assertEquals("files:read files:write", formParameters(stepUp.authorizationUrl().getRawQuery()).get("scope"));
+            mcpOAuth.complete(actorId, stepUp.pending(), "step-up-code", pkceVerifier("verifier-step-up"), null);
+            var afterStepUp = mcpOAuth.startAdministratorAuthorization(actorId, knownServerId, clientBId, "state-after",
+                    McpAuthorizationSessionState.challenge(pkceVerifier("verifier-after")));
+            assertEquals("files:read", formParameters(afterStepUp.authorizationUrl().getRawQuery()).get("scope"));
             mockMvc.perform(delete(clientBPath).param("revision", updatedB.path("revision").asText()).with(authentication(actor))
                     .with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isNoContent());
             assertEquals(0, jdbc.sql("SELECT count(*) FROM mcp_credential WHERE server_id=:id").param("id", knownServerId).query(Long.class).single());

@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
@@ -86,7 +87,8 @@ public final class McpTurnTools implements AutoCloseable {
     /** Until a turn with a person to ask supplies one, a call that requires approval is declined. */
     private volatile Approvals approvals = (binding, callId, arguments) -> Decision.DECLINED;
 
-    record Target(UUID serverId, String url, Map<String, String> headers) {
+    /** {@code scopeRequired} records a {@code 403 insufficient_scope} on the connection; null without OAuth. */
+    record Target(UUID serverId, String url, Map<String, String> headers, @Nullable Consumer<String> scopeRequired) {
         @Override public @NonNull String toString() { return "McpTurnTarget[redacted]"; }
     }
 
@@ -133,6 +135,7 @@ public final class McpTurnTools implements AutoCloseable {
         } catch (McpException failure) {
             // The session is not reused after a transport failure; the next call opens a fresh one.
             if (failure.code().equals("MCP_TIMEOUT") || failure.code().equals("MCP_UNAVAILABLE")) discard(binding.serverId());
+            scopeRequired(binding.serverId(), failure);
             throw new CallFailure(reason(failure));
         }
     }
@@ -150,12 +153,24 @@ public final class McpTurnTools implements AutoCloseable {
         if (closed) throw McpException.unavailable(new IllegalStateException("closed"));
         var target = targets.get(serverId);
         if (target == null) throw McpException.notFound();
-        var session = sessions.get(serverId);
-        if (session == null) {
-            session = clients.open(target.url(), target.headers(), deadline);
-            sessions.put(serverId, session);
+        try {
+            var session = sessions.get(serverId);
+            if (session == null) {
+                session = clients.open(target.url(), target.headers(), deadline);
+                sessions.put(serverId, session);
+            }
+            return request.apply(session);
+        } catch (McpException failure) {
+            scopeRequired(serverId, failure);
+            throw failure;
         }
-        return request.apply(session);
+    }
+
+    /** MEM-227: a {@code 403 insufficient_scope} is recorded on the connection, so connecting again asks for it. */
+    private void scopeRequired(UUID serverId, McpException failure) {
+        var target = targets.get(serverId);
+        if (failure.requiredScope() != null && target != null && target.scopeRequired() != null)
+            target.scopeRequired().accept(failure.requiredScope());
     }
 
     private McpSession session(UUID serverId, Duration remaining) {
@@ -168,6 +183,7 @@ public final class McpTurnTools implements AutoCloseable {
             sessions.put(serverId, opened);
             return opened;
         } catch (McpException failure) {
+            scopeRequired(serverId, failure);
             throw new CallFailure(reason(failure));
         }
     }

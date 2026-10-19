@@ -2,15 +2,24 @@ package io.memoryos.mcp;
 
 import io.memoryos.BusinessException;
 import io.memoryos.FailureCategory;
+import org.jspecify.annotations.Nullable;
 
 /** Safe MCP failures; causes stay in the diagnostic chain and never reach callers or the model. */
 public final class McpException extends BusinessException {
+    private final @Nullable String requiredScope;
+
     private McpException(String code, FailureCategory category, String message) {
         super(code, category, message, message);
+        this.requiredScope = null;
     }
 
     private McpException(String code, FailureCategory category, String message, Throwable cause) {
+        this(code, category, message, cause, null);
+    }
+
+    private McpException(String code, FailureCategory category, String message, Throwable cause, @Nullable String requiredScope) {
         super(code, category, message, message, cause);
+        this.requiredScope = requiredScope;
     }
 
     public static McpException invalid(String message) {
@@ -122,6 +131,18 @@ public final class McpException extends BusinessException {
         return new McpException("MCP_AUTHORIZATION_REQUIRED", FailureCategory.CONFLICT,
                 "Connect the MCP server before using its tools.", cause);
     }
+
+    /**
+     * MEM-227: the server answered {@code 403 insufficient_scope}. It is the same failure for the person, who connects
+     * again; {@link #requiredScope} is what the next authorization must also ask for (empty when the server named none).
+     */
+    public static McpException insufficientScope(String scope, Throwable cause) {
+        return new McpException("MCP_AUTHORIZATION_REQUIRED", FailureCategory.CONFLICT,
+                "Connect the MCP server before using its tools.", cause, scope);
+    }
+
+    /** The scope a {@code 403 insufficient_scope} asked for, or null for any other failure. */
+    public @Nullable String requiredScope() { return requiredScope; }
 
     public static McpException toolListTooLarge() {
         return new McpException("MCP_TOOL_LIST_TOO_LARGE", FailureCategory.VALIDATION,
