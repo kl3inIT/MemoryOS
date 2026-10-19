@@ -139,7 +139,7 @@ class McpToolsTest {
                 events::add, new ChatToolActivity(ignored -> {}), () -> 8000,
                 Tokenizers.o200k(), meters).tools().getFirst().call("{}");
         String message = assertInstanceOf(Tool.Result.Error.class, rejectedResult).getMessage();
-        assertTrue(message.contains("connect it again with the button shown on this tool step"));
+        assertTrue(message.contains("Tell the user they can connect Drive again with the button shown on this tool step"));
         assertTrue(message.contains("Drive"));
     }
 
@@ -152,12 +152,12 @@ class McpToolsTest {
         var sharedMissing = McpTools.message(binding, new McpTurnTools.CallFailure(McpTurnTools.CallFailure.Reason.INSUFFICIENT_SCOPE, true));
 
         for (String own : List.of(expired, missing)) {
-            assertTrue(own.contains("The user can connect it again"), own);
+            assertTrue(own.contains("Tell the user they can connect Drive again"), own);
             assertFalse(own.contains("administrator"), own);
         }
         for (String shared : List.of(sharedExpired, sharedMissing)) {
-            assertTrue(shared.contains("only an administrator can connect it again"), shared);
-            assertTrue(shared.contains("do not ask the user to reconnect it"), shared);
+            assertTrue(shared.contains("Tell the user that Drive uses their organization's shared connection, so an administrator must connect it again"), shared);
+            assertTrue(shared.contains("the user cannot do it themselves"), shared);
         }
         for (String permission : List.of(missing, sharedMissing)) {
             assertTrue(permission.contains("lacks a permission this tool needs"), permission);
