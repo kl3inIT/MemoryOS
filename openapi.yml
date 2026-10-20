@@ -23451,6 +23451,196 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/channels/whatsapp:
+    post:
+      tags:
+      - Channels
+      summary: "Add a WhatsApp bot by its number, switched off; it is linked by scanning\
+        \ its code once switched on"
+      operationId: createWhatsAppChannel
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWhatsAppChannelRequest"
+        required: true
+      responses:
+        "400":
+          description: "Invalid bot, or an app the platform rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Bot unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Bot changed, or its app already serves a bot"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "The platform did not answer, or bots are not configured"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "201":
+          description: Added bot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/channels/{channelId}/pairing:
+    get:
+      tags:
+      - Channels
+      summary: "Read the code a bot being linked shows, to scan with the bot's phone;\
+        \ none while it shows none"
+      operationId: getChannelPairing
+      parameters:
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: The code shown now
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelPairingResponse"
+        "204":
+          description: No code is shown
+        "400":
+          description: "Invalid bot, or an app the platform rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Bot unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Bot changed, or its app already serves a bot"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "The platform did not answer, or bots are not configured"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - Channels
+      summary: "Link a bot linked by a code again, out of a logout or a ban, with\
+        \ a revision precondition"
+      operationId: relinkChannel
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      responses:
+        "400":
+          description: "Invalid bot, or an app the platform rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Bot unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Bot changed, or its app already serves a bot"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "The platform did not answer, or bots are not configured"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Updated bot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/channels/{channelId}:
     delete:
       tags:
@@ -33620,6 +33810,7 @@ components:
           enum:
           - LARK
           - ZALO_BOT
+          - WHATSAPP
         name:
           type: string
         botName:
@@ -34860,6 +35051,46 @@ components:
           description: The name; blank or null clears it
           maxLength: 100
           minLength: 0
+    CreateWhatsAppChannelRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          description: "The bot's name here, and its account's"
+          maxLength: 100
+          minLength: 0
+        phone:
+          type: string
+          description: The bot's WhatsApp number in international form; only this
+            number may link it
+          example: +84 912 345 678
+          maxLength: 32
+          minLength: 0
+        noticeLanguage:
+          type: string
+          description: The language of the bot's notices
+          enum:
+          - vi
+          - en
+          pattern: vi|en
+      required:
+      - name
+      - noticeLanguage
+      - phone
+    ChannelPairingResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          description: The QR code's content
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+      - code
+      - expiresAt
     ChannelResponse:
       type: object
       additionalProperties: false
@@ -34872,6 +35103,7 @@ components:
           enum:
           - LARK
           - ZALO_BOT
+          - WHATSAPP
         name:
           type: string
         region:
@@ -35076,6 +35308,7 @@ components:
           enum:
           - LARK
           - ZALO_BOT
+          - WHATSAPP
         linkedAt:
           type: string
           format: date-time

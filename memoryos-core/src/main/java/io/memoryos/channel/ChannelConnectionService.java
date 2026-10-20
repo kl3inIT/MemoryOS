@@ -8,6 +8,7 @@ import io.memoryos.chat.ChatPersonaService;
 import io.memoryos.channel.persistence.ChannelCredentialConfiguration;
 import io.memoryos.channel.persistence.JdbcChannelConnectionRepository;
 import io.memoryos.channel.persistence.JdbcChannelGroupRepository;
+import io.memoryos.channel.persistence.JdbcChannelLeaseRepository;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
 import io.memoryos.iam.ServiceAccounts;
@@ -19,6 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Semaphore;
@@ -49,13 +51,14 @@ public class ChannelConnectionService {
     private final ChatPersonaService personas;
     private final ChatChannelBindings bindings;
     private final JdbcChannelGroupRepository groups;
+    private final JdbcChannelLeaseRepository leases;
     private final Semaphore verifications = new Semaphore(CONCURRENT_VERIFICATIONS);
 
     public ChannelConnectionService(IamAuthorization authorization, JdbcChannelConnectionRepository connections,
                                     ChannelCredentialConfiguration credentials, ServiceAccounts accounts, AuditTrail audit,
                                     ChannelAdapters adapters, PlatformTransactionManager transactionManager,
                                     ChatPersonaService personas, ChatChannelBindings bindings,
-                                    JdbcChannelGroupRepository groups) {
+                                    JdbcChannelGroupRepository groups, JdbcChannelLeaseRepository leases) {
         this.authorization = authorization;
         this.connections = connections;
         this.credentials = credentials;
@@ -66,6 +69,7 @@ public class ChannelConnectionService {
         this.personas = personas;
         this.bindings = bindings;
         this.groups = groups;
+        this.leases = leases;
     }
 
     /** The Tenant's bots with what the process that holds them last wrote of each. */
@@ -98,7 +102,7 @@ public class ChannelConnectionService {
     /** Checks an app with its platform without storing anything. */
     public ChannelVerification test(ActorId actor, ChannelProvider provider, ChannelCredentials credentials) {
         Objects.requireNonNull(provider, "provider must not be null");
-        var given = given(credentials);
+        var given = given(credentials, adapters.of(provider).features().pairs());
         transactions.executeWithoutResult(_ -> reader(actor));
         return verify(provider, given);
     }
@@ -131,13 +135,14 @@ public class ChannelConnectionService {
         Objects.requireNonNull(draft.provider(), "provider must not be null");
         String name = name(draft.name());
         String language = language(draft.noticeLanguage());
-        var asked = given(draft.credentials());
-        var given = new ChannelCredentials(asked.appId(), asked.secret(),
-                adapters.of(draft.provider()).settings(asked.settings()));
+        var adapter = adapters.of(draft.provider());
+        var asked = given(draft.credentials(), adapter.features().pairs());
+        var given = new ChannelCredentials(asked.appId(), asked.secret(), adapter.settings(asked.settings()));
+        boolean pairs = adapter.features().pairs();
         transactions.executeWithoutResult(_ -> {
-            writer(actor);
+            var tenant = writer(actor);
             credentials.cipher(draft.provider());
-            if (given.appId() != null && connections.appInUse(draft.provider(), given.appId())) {
+            if (given.appId() != null && inUse(tenant, draft.provider(), given.appId(), pairs)) {
                 throw ChannelException.appInUse();
             }
         });
@@ -145,10 +150,11 @@ public class ChannelConnectionService {
         String appId = verification.appId();
         return Objects.requireNonNull(transactions.execute(_ -> {
             var tenant = writer(actor);
-            if (connections.appInUse(draft.provider(), appId)) throw ChannelException.appInUse();
+            if (inUse(tenant, draft.provider(), appId, pairs)) throw ChannelException.appInUse();
             UUID id = UUID.randomUUID();
-            var envelope = credentials.cipher(draft.provider()).encrypt(tenant, id, SECRET_PURPOSE,
-                    given.secret().getBytes(StandardCharsets.UTF_8));
+            // A bot linked by a code keeps no secret; its session is the provider bridge's (MEM-283).
+            var envelope = pairs ? null : credentials.cipher(draft.provider()).encrypt(tenant, id,
+                    SECRET_PURPOSE, given.secret().getBytes(StandardCharsets.UTF_8));
             ActorId account = accounts.create(tenant, id, name, language);
             connections.insert(tenant, id, draft.provider(), name, appId, given.settings(), envelope, language, account);
             connections.recordVerification(tenant, id, verification);
@@ -165,6 +171,9 @@ public class ChannelConnectionService {
             var tenant = writer(actor);
             var found = connections.find(tenant, id).orElseThrow(ChannelException::notFound);
             if (found.revision() != revision) throw ChannelException.changed();
+            if (adapters.of(found.provider()).features().pairs()) {
+                throw ChannelException.invalid("This bot has no secret: link it again instead.");
+            }
             credentials.cipher(found.provider());
             return found;
         }));
@@ -181,6 +190,39 @@ public class ChannelConnectionService {
             record(actor, tenant, updated, "secret");
             return updated;
         }));
+    }
+
+    /**
+     * Links a bot of a provider that pairs again (MEM-283): the revision moves on, so the process that holds it opens
+     * it again, out of a failure that waits for a change, and shows a new code while the number has no session.
+     */
+    @Transactional
+    public ChannelConnection relink(ActorId actor, UUID id, long revision) {
+        var tenant = writer(actor);
+        var current = connections.find(tenant, id).orElseThrow(ChannelException::notFound);
+        if (current.revision() != revision) throw ChannelException.changed();
+        if (!adapters.of(current.provider()).features().pairs()) throw ChannelException.invalid("This bot is not linked by a code.");
+        var updated = connections.updateSettings(tenant, id, revision, current.settings())
+                .orElseThrow(() -> missingOrChanged(tenant, id));
+        record(actor, tenant, updated, "relink");
+        return updated;
+    }
+
+    /** The code a bot being linked shows now (MEM-283); empty when it shows none. */
+    @Transactional(readOnly = true)
+    public Optional<ChannelPairing> pairing(ActorId actor, UUID id) {
+        var tenant = reader(actor);
+        connections.find(tenant, id).orElseThrow(ChannelException::notFound);
+        return leases.pairing(tenant, id, Instant.now());
+    }
+
+    /**
+     * Whether the app already serves a bot: of any Tenant, as the platform vouches for it; of this Tenant for a bot linked
+     * by a code, whose number nothing vouches for until it is linked, so that no Tenant holds another's number by adding
+     * it first (MEM-283). Linking lets a number serve one bot.
+     */
+    private boolean inUse(TenantId tenant, ChannelProvider provider, String appId, boolean pairs) {
+        return pairs ? connections.appInUse(tenant, provider, appId) : connections.appInUse(provider, appId);
     }
 
     /** At most a few checks at once, so a burst of them cannot hold the platform's connections. */
@@ -387,11 +429,15 @@ public class ChannelConnectionService {
         return stripped;
     }
 
-    /** The credentials as given, trimmed; whether they are the provider's shape is its adapter's to say. */
-    private static ChannelCredentials given(ChannelCredentials credentials) {
+    /**
+     * The credentials as given, trimmed; whether they are the provider's shape is its adapter's to say. A provider that
+     * pairs takes no secret, and its bot keeps none.
+     */
+    private static ChannelCredentials given(ChannelCredentials credentials, boolean pairs) {
         Objects.requireNonNull(credentials, "credentials must not be null");
         String appId = credentials.appId() == null || credentials.appId().isBlank() ? null : credentials.appId().strip();
-        return new ChannelCredentials(appId, secretText(credentials.secret()), credentials.settings());
+        if (pairs && !credentials.secret().isEmpty()) throw ChannelException.invalid("This bot takes no secret.");
+        return new ChannelCredentials(appId, pairs ? "" : secretText(credentials.secret()), credentials.settings());
     }
 
     private static String language(String language) {

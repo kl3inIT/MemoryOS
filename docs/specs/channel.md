@@ -3,18 +3,24 @@
 The Tenant's chat bots on messaging platforms, the Lark bot first. Design and status:
 [MEM-246](../increments/active/mem-246-lark-bot/design.md). What a bot receives, how a question becomes a Chat
 turn, the Lark adapter, the administrator's API and its page are built and run on staging. This page describes what
-exists; operating a bot is in the [runbook](../runbooks/lark-bot.md).
+exists; operating a bot is in the runbooks for [Lark](../runbooks/lark-bot.md) and
+[WhatsApp](../runbooks/whatsapp-bot.md).
 
 ## Connections
 
-A Tenant may have several bots; `channel_connections` holds one row a bot: its provider (`LARK` or `ZALO_BOT`), a
-name the administrator gives it, the provider's id of its app (a Zalo bot's is the number before its token's colon),
+A Tenant may have several bots; `channel_connections` holds one row a bot: its provider (`LARK`, `ZALO_BOT` or
+`WHATSAPP`), a name the administrator gives it, the provider's id of its app (a Zalo bot's is the number before its
+token's colon, a WhatsApp bot's its number in international form without the plus),
 the provider's public settings of it (`settings`, JSON; a Lark bot's names its region, `LARK` or `FEISHU`, a Zalo
 bot's how it receives, `WEBHOOK` or `POLLING`, each of which the database requires), the app's secret as an AES-GCM
 envelope, the language of the bot's own notices (`vi` or `en`), whether it is switched on, the service account it
 owns, a revision, and what the platform said at the last check: the bot's name and id and the scopes it refused. The
 assistant it answers with is Chat's binding ([the bot's assistant](#the-bots-assistant)). One provider app serves one
-bot across every Tenant: the provider and the app's id are unique.
+bot across every Tenant: the provider and the app's id are unique. A WhatsApp number is no app the platform vouches
+for until it is linked, so adding a bot reserves it within its Tenant only, and linking decides it across Tenants: a
+number links one bot ([the WhatsApp adapter](#the-whatsapp-adapter)), so no Tenant holds another's number by adding it
+first. A WhatsApp bot keeps no secret (`ChannelFeatures.pairs`): its row's secret columns are empty, which the database
+requires of it and refuses of any other bot, and `replaceSecret` refuses it.
 
 `ChannelConnectionService` lists, reads, adds, switches on or off, replaces the secret of, changes the settings of
 and removes a bot. Every
@@ -121,6 +127,9 @@ each change of a bot an `If-Match` of its quoted revision.
 | `POST /api/channels/lark` | Checks the app and adds its bot, switched off; `201` |
 | `POST /api/channels/zalo/test` | Checks a Zalo bot's `token` and stores nothing |
 | `POST /api/channels/zalo` | Checks the token and adds the bot (`name`, `token`, `noticeLanguage`, optional `transport`), switched off; `201` |
+| `POST /api/channels/whatsapp` | Adds a WhatsApp bot by its number (`name`, `phone` in international form, `noticeLanguage`), switched off; nothing is asked of WhatsApp; `201` |
+| `GET /api/channels/{id}/pairing` | The code a bot being linked shows (`code`, `expiresAt`), to draw as a QR code; `204` while it shows none |
+| `POST /api/channels/{id}/pairing` | Links a WhatsApp bot again: its revision moves, so its process opens it again out of a failure that waits for a change and shows a new code while the number has no session |
 | `PUT /api/channels/{id}/transport` | Changes how a Zalo bot receives (`WEBHOOK` or `POLLING`) |
 | `PUT /api/channels/{id}/secret` | Checks the new secret and replaces the old one |
 | `PUT /api/channels/{id}/enabled` | Switches the bot on or off |
@@ -236,6 +245,54 @@ address that holds the token and the cause are never kept. Zalo states no organi
   message that fails after others were sent is `ChannelReply.Incomplete`. `fail` and a notice are plain messages;
   `acknowledge` is the typing mark. Zalo's `429` is `CHANNEL_PROVIDER_QUOTA`, the bot's plan spent.
 
+## The WhatsApp adapter
+
+`WhatsAppChannelAdapter`, in `memoryos-integration-whatsapp`
+([MEM-283](../increments/active/mem-283-whatsapp-bot/design.md)), runs a bot as a WhatsApp number linked as a
+companion device, the way WhatsApp Web is, through the protocol of whatsmeow. WhatsApp states no organisations, no
+reply it rewrites and 4,096 characters; a bot pairs. No WhatsApp API vouches for a number before it is linked, so
+`verify` checks the number's form only (8 to 15 digits in international form; spaces, dots, dashes, brackets and the
+plus are dropped), and a bot has no settings.
+
+- **The bridge.** `memoryos-integration-whatsapp/bridge/` is a Go program on whatsmeow (pinned in its `go.mod`, bumped
+  by Dependabot), built static in the image's `whatsapp-bridge` stage and carried by the `channels` image only, at
+  `memoryos.whatsapp.bridge-path`. The adapter starts it when the first bot opens, with an empty environment but the
+  database's address (`MEMORYOS_WHATSAPP_DATABASE`, the process's own JDBC address with `search_path=whatsapp`) and its
+  log level, and speaks to it with one JSON object a line over its standard streams: commands with an id and their
+  replies, events numbered in the order the bridge writes them, which the adapter hands on one thread so a listener
+  may call it. It holds no port and writes nothing to disk. Its log, JSON lines on stderr, is logged as
+  `channel.whatsapp.bridge.log`. When it ends, every transport it held stops being connected and it is started again
+  with a back-off from one second to a minute; closing the adapter asks it to stop and ends it after ten seconds.
+- **Sessions.** whatsmeow keeps each device's keys in its own `whatsmeow_*` tables in the schema `whatsapp`, which
+  Flyway creates and whatsmeow migrates. `whatsapp.channel_devices` names the device each bot linked, by the bot:
+  a session is never found by its number, so a bot added later for the same number links afresh; it is removed with
+  the bot, a number links one bot (`phone` unique), and the bridge logs out a device no bot names a minute after it
+  starts and every hour, sparing those it holds open.
+- **Linking.** A bot without a session opens into pairing: the bridge hands each QR code with its expiry, which the
+  capability keeps for the bot's page (`GET /api/channels/{id}/pairing`). When the codes run out unscanned the
+  transport stops being connected and the next pass shows new ones. The number that scans must be the bot's; another
+  is logged out at once (`CHANNEL_WHATSAPP_WRONG_NUMBER`), as is a number already linked to another bot
+  (`CHANNEL_WHATSAPP_NUMBER_IN_USE`). WhatsApp logging the device out is `CHANNEL_WHATSAPP_LOGGED_OUT`, a temporary
+  ban `CHANNEL_WHATSAPP_BANNED`, the session opened elsewhere `CHANNEL_WHATSAPP_REPLACED`; each waits for the bot's
+  next revision, which "link again" moves. The device shows as "MemoryOS" among the phone's linked devices; history
+  is not downloaded and no presence is sent on connecting.
+- **A message** is handed to the capability and only then acknowledged to WhatsApp: the bridge holds whatsmeow's
+  acknowledgement (`SynchronousAck`) until the adapter's `ack`, or 20 seconds, so a message a process dies with is
+  delivered again and deduplicated by its id. A sender is known by their LID (`…@lid`), which stays when they change
+  number or hide it, through whatsmeow's LID store, and by phone JID only when no LID is known; a direct chat is the
+  sender, a group its `…@g.us`. The account's own messages, status updates, broadcasts and newsletters, reactions,
+  edits, deletions and poll votes are dropped. Text is the conversation or extended text; an image's, video's or
+  document's caption is text followed by a note that the file was not read; anything else is `OTHER`. A group message
+  addresses the bot when it mentions its phone JID or LID or replies to its message, and the mention is removed.
+- **Groups** are listed with their names (`groups`); every WhatsApp group counts as having outsiders until the
+  capability can tell everyone in it belongs to the Tenant (MEM-285), so a question there is refused.
+- **The reply** marks the question read, sends the typing mark at once and every 8 seconds for 90 at most, and ends it
+  when the answer is sent. `finish` makes the answer WhatsApp's formatting (`WhatsAppText`, on commonmark-java with
+  GitHub tables and strikethrough: `*bold*`, `_italic_`, `~strike~`, code and code blocks, lists and quotes kept; a
+  heading a bold line, a link or image its text and address, a table one `header: value` line a cell), adds the
+  sources as a numbered list of titles and bare addresses and the closing line, cuts at 4,096 characters, quotes the
+  question in the first piece and waits a random 0.5 to 1.5 seconds between pieces. A notice quotes the question.
+
 ## The Lark adapter
 
 `LarkChannelAdapter`, in `memoryos-integration-lark`, runs the bot on the SDK's `LarkChannel` (oapi-sdk 2.8.5): the
@@ -268,23 +325,44 @@ go through a `LarkTransport` of its own with a 30-second, 1 MiB budget for the c
 
 ## Holding connections
 
-`ChannelSupervisor` holds open the transport of every bot that is switched on, in the process that receives
-(`memoryos-channels`); it is not a component, so no other process opens a connection. Every 30 seconds it opens a
-bot switched on since, reopens one whose revision changed or whose transport reports it is no longer connected,
-closes one switched off or removed, and writes `channel_connection_state` (since when it is open, the typed code
-and time of the last failure, the last message, a heartbeat). A failed open, an unreadable secret among them, is
-recorded and tried again at the next pass, except a webhook the provider could not reach and a deployment without a
-public address (`CHANNEL_WEBHOOK_UNREACHABLE`, `CHANNEL_WEB_URL_MISSING`), which wait for the bot's next revision
-rather than spend the provider's daily checks. The secret is decrypted for the open only and the buffer cleared.
+`ChannelSupervisor` holds open the transport of every bot that is switched on and leased to its process, in the
+processes that receive (`memoryos-channels`); it is not a component, so no other process opens a connection. Any
+number of them share the bots, as Onyx's Slack pods share Tenants
+([MEM-283](../increments/active/mem-283-whatsapp-bot/design.md#one-holder-a-bot-several-processes)):
+
+- **A lease a bot**, in `channel_connection_state` (`holder`, `holder_address`, `holder_since`, `lease_until`,
+  `lease_epoch`), taken with one conditional upsert on the database's clock: a bot nobody holds, whose lease ended,
+  or that the process already holds. It lasts 90 seconds; a thread apart from the pass renews every lease the
+  process holds every 10 seconds. The holder is the process's address and a random id of its start.
+- **Stopping before the lease ends.** A bot whose lease another process took, or that has not been renewed for 60
+  seconds, is closed by its holder at the renewal (`CHANNEL_LEASE_LOST`), so two processes never hold one bot.
+- **Epochs.** Each change of hands starts a new epoch; the holder's writes of the bot's state and of its pairing code
+  carry its epoch and change nothing once it lost the bot.
+- **Release.** Closing a bot switched off or removed gives its lease back; stopping gives back every lease, so another
+  process takes the bots at its next pass.
+
+Every 30 seconds the supervisor takes or renews the lease of every bot switched on, opens one switched on since,
+reopens one whose revision changed, whose lease changed hands or whose transport reports it is no longer connected,
+closes one switched off, removed or held elsewhere, and writes `channel_connection_state` (since when it is open, the
+typed code and time of the last failure, the last message, a heartbeat). A failed open, an unreadable secret among
+them, is recorded and tried again at the next pass, except a webhook the provider could not reach, a deployment
+without a public address (`CHANNEL_WEBHOOK_UNREACHABLE`, `CHANNEL_WEB_URL_MISSING`), and a WhatsApp session WhatsApp
+ended (`CHANNEL_WHATSAPP_LOGGED_OUT`, `_BANNED`, `_REPLACED`, `_WRONG_NUMBER`, `_NUMBER_IN_USE`, which its transport
+reports through `stopped()`), which wait for the bot's next revision rather than spend the provider's daily checks or
+relink a number in a loop. A bot removed while its process held it is forgotten by its adapter (`forget`: WhatsApp
+logs its device out). The secret is decrypted for the open only and the buffer cleared; a bot that pairs has none.
+A code a pairing transport hands over (`ChannelReceiver.pairing`) is kept in `channel_pairings` until it is scanned,
+expires or the transport closes.
 A transport with a webhook is served before its `register()` runs, so the provider's check reaches it;
 `authorize(id, headers)` asks that webhook about the headers before the route reads a body (`UNKNOWN` when no bot
 here receives over HTTP, `REFUSED` when it is not the provider's), and `deliver(id, headers, body)` hands the
 request to it and claims each message before it returns, so the provider is answered only once its messages are
 recorded. A message a transport hands over itself, as a poll, is claimed on the transport's thread the same way,
 since a provider that polls keeps nothing once it has handed a message over. Each message is answered on a virtual
-thread of its own. Every pass also settles as `FAILED`/`INTERRUPTED` the messages claimed before this process began
-and at least ten minutes ago that were never settled, which only a process that ended while handling them leaves.
-Stopping closes every connection, then waits up to 30 seconds for the answers in progress.
+thread of its own. Every pass also settles as `FAILED`/`INTERRUPTED` the messages claimed at least ten minutes ago and
+never settled whose bot no live process has held since they were received, which only a process that ended while
+handling them leaves. Stopping closes every connection and hands its leases back, then waits up to 30 seconds for the
+answers in progress.
 
 ## The process
 
@@ -293,10 +371,14 @@ Stopping closes every connection, then waits up to 30 seconds for the answers in
 `document`, `library`, `objectstorage`, `mcp`, `usage`, `audit`, `iam`) and leaves out what serves a browser or
 another process: Keycloak administration, invitations, identity providers and sign-in, the MemoryOS MCP endpoint
 and its trusted apps, the library page's shelves; ingestion, meetings and voice are not scanned. Every external
-Source type's adapter is on its classpath, because a turn's search reaches them, and Zalo's. It runs no migration
+Source type's adapter is on its classpath, because a turn's search reaches them, and Zalo's and WhatsApp's; its image
+carries the WhatsApp bridge, which it starts as a child process. It runs no migration
 (the API does and starts first; this process validates the schema) and serves, on port 8082, `/actuator/health`
 (readiness: the database) and `POST /hooks/channels/{id}` (`ChannelWebhookController`, no session): a body over
-64 KB is `413`, else `200`, `403` or `404` as `deliver` answers. The web's nginx sends `/hooks/channels/` to
+64 KB is `413`, else `200`, `403` or `404` as `deliver` answers. A request for a bot another live process holds is
+passed once to that process's address (`memoryos.channel.address`, by default the container's host name and the
+port), which alone knows the webhook's secret of its opening, marked `X-MemoryOS-Passed`, and answered as it answered;
+one for a bot no live process holds is `503`, which the provider retries. The web's nginx sends `/hooks/channels/` to
 `memoryos-channels:8082` with a 64 KB body; where that process does not run, the name does not resolve. It runs at most 24 turns with no separate bound for one person, since every group turn is the
 bot's account. Its database pool is 5. It runs on staging only ([runbook](../runbooks/lark-bot.md)).
 

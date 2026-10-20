@@ -57,6 +57,12 @@ public class JdbcChannelConnectionRepository {
 
     public record Enabled(TenantId tenant, ChannelConnection connection) {}
 
+    /** Whether a bot, switched on or not, still exists. */
+    public boolean exists(UUID id) {
+        return jdbc.sql("SELECT EXISTS (SELECT 1 FROM channel_connections WHERE id = :id)").param("id", id)
+                .query(Boolean.class).single();
+    }
+
     /** Every bot that is switched on, of every Tenant: what the process that receives holds open. */
     public List<Enabled> listEnabled() {
         return jdbc.sql("SELECT tenant_id, " + COLUMNS + " FROM channel_connections WHERE enabled ORDER BY id")
@@ -64,33 +70,20 @@ public class JdbcChannelConnectionRepository {
                 .list();
     }
 
-    /** The stored envelope of a bot's secret; empty when the bot is gone. */
+    /** The stored envelope of a bot's secret; empty when the bot is gone or, linked by a code, has none (MEM-283). */
     public Optional<CredentialCipher.EncryptedCredential> secret(TenantId tenant, UUID id) {
         return jdbc.sql("""
                         SELECT secret_ciphertext, secret_nonce, secret_key_version FROM channel_connections
                         WHERE tenant_id = :tenant AND id = :id
                         """)
                 .param("tenant", tenant.value()).param("id", id)
-                .query((row, ignored) -> new CredentialCipher.EncryptedCredential(row.getBytes("secret_ciphertext"),
-                        row.getBytes("secret_nonce"), row.getString("secret_key_version")))
-                .optional();
-    }
-
-    /** What the supervisor saw of a bot's connection at this pass. */
-    public void recordState(UUID id, @Nullable Instant openedAt, @Nullable String failureCode, @Nullable Instant failedAt,
-                            @Nullable Instant lastMessageAt, Instant now) {
-        jdbc.sql("""
-                        INSERT INTO channel_connection_state(connection_id, opened_at, last_failure_code, last_failure_at,
-                                                             last_message_at, heartbeat_at)
-                        VALUES (:id, :opened, :failure, :failed, :message, :now)
-                        ON CONFLICT (connection_id) DO UPDATE SET opened_at = EXCLUDED.opened_at,
-                            last_failure_code = EXCLUDED.last_failure_code, last_failure_at = EXCLUDED.last_failure_at,
-                            last_message_at = EXCLUDED.last_message_at, heartbeat_at = EXCLUDED.heartbeat_at
-                        """)
-                .param("id", id).param("opened", timestamp(openedAt), Types.TIMESTAMP)
-                .param("failure", failureCode, Types.VARCHAR).param("failed", timestamp(failedAt), Types.TIMESTAMP)
-                .param("message", timestamp(lastMessageAt), Types.TIMESTAMP)
-                .param("now", Timestamp.from(now)).update();
+                .query((row, ignored) -> {
+                    byte[] ciphertext = row.getBytes("secret_ciphertext");
+                    return ciphertext == null ? Optional.<CredentialCipher.EncryptedCredential>empty()
+                            : Optional.of(new CredentialCipher.EncryptedCredential(ciphertext,
+                                    row.getBytes("secret_nonce"), row.getString("secret_key_version")));
+                })
+                .optional().flatMap(found -> found);
     }
 
     /** What the platform said of the bot's app at a check; the scopes are kept separated by spaces. */
@@ -142,8 +135,21 @@ public class JdbcChannelConnectionRepository {
                 .query(Boolean.class).single();
     }
 
+    /**
+     * Whether a bot of the Tenant already holds the app: for a provider whose app is a claim nothing verified until the
+     * bot is linked (MEM-283), where linking decides it across Tenants.
+     */
+    public boolean appInUse(TenantId tenant, ChannelProvider provider, String appId) {
+        return jdbc.sql("""
+                        SELECT EXISTS (SELECT 1 FROM channel_connections
+                                       WHERE tenant_id = :tenant AND provider = :provider AND app_id = :app)
+                        """)
+                .param("tenant", tenant.value()).param("provider", provider.name()).param("app", appId)
+                .query(Boolean.class).single();
+    }
+
     public ChannelConnection insert(TenantId tenant, UUID id, ChannelProvider provider, String name, String appId,
-                                    Map<String, String> settings, CredentialCipher.EncryptedCredential secret,
+                                    Map<String, String> settings, CredentialCipher.@Nullable EncryptedCredential secret,
                                     String noticeLanguage, ActorId serviceAccount) {
         return jdbc.sql("""
                         INSERT INTO channel_connections(tenant_id, id, provider, name, app_id, settings, secret_ciphertext,
@@ -154,8 +160,10 @@ public class JdbcChannelConnectionRepository {
                         RETURNING\s""" + COLUMNS)
                 .param("tenant", tenant.value()).param("id", id).param("provider", provider.name()).param("name", name)
                 .param("app", appId).param("settings", JSON.writeValueAsString(settings))
-                .param("ciphertext", secret.ciphertext())
-                .param("nonce", secret.nonce()).param("keyVersion", secret.keyVersion()).param("language", noticeLanguage)
+                .param("ciphertext", secret == null ? null : secret.ciphertext(), Types.BINARY)
+                .param("nonce", secret == null ? null : secret.nonce(), Types.BINARY)
+                .param("keyVersion", secret == null ? null : secret.keyVersion(), Types.VARCHAR)
+                .param("language", noticeLanguage)
                 .param("account", serviceAccount.value())
                 .query(JdbcChannelConnectionRepository::connection).single();
     }

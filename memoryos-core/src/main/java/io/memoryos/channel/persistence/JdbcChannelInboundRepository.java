@@ -124,13 +124,17 @@ public class JdbcChannelInboundRepository {
     }
 
     /**
-     * Settles as {@code FAILED}/{@code INTERRUPTED} every message claimed before {@code before} and never settled, which
-     * only a process that ended while handling it leaves; returns how many.
+     * Settles as {@code FAILED}/{@code INTERRUPTED} every message claimed before {@code before} and never settled whose
+     * bot no live process has held since it was received, which only a process that ended while handling it leaves
+     * (MEM-283); returns how many.
      */
     public int settleAbandoned(Instant before) {
         return jdbc.sql("""
-                        UPDATE channel_messages SET outcome = 'FAILED', reason = 'INTERRUPTED'
-                        WHERE outcome = 'RECEIVED' AND received_at < :before
+                        UPDATE channel_messages m SET outcome = 'FAILED', reason = 'INTERRUPTED'
+                        WHERE m.outcome = 'RECEIVED' AND m.received_at < :before
+                            AND NOT EXISTS (SELECT 1 FROM channel_connection_state s
+                                WHERE s.connection_id = m.connection_id AND s.lease_until >= now()
+                                    AND s.holder_since <= m.received_at)
                         """)
                 .param("before", Timestamp.from(before)).update();
     }

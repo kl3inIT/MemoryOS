@@ -3870,7 +3870,7 @@ export type AssistantChannelGroupResponse = {
 
 export type AssistantChannelResponse = {
     id: string;
-    provider: 'LARK' | 'ZALO_BOT';
+    provider: 'LARK' | 'ZALO_BOT' | 'WHATSAPP';
     name: string;
     /**
      * The bot the platform named at the last check
@@ -4472,9 +4472,32 @@ export type LabelChannelGroupRequest = {
     label?: string | null;
 };
 
+export type CreateWhatsAppChannelRequest = {
+    /**
+     * The bot's name here, and its account's
+     */
+    name: string;
+    /**
+     * The bot's WhatsApp number in international form; only this number may link it
+     */
+    phone: string;
+    /**
+     * The language of the bot's notices
+     */
+    noticeLanguage: 'vi' | 'en';
+};
+
+export type ChannelPairingResponse = {
+    /**
+     * The QR code's content
+     */
+    code: string;
+    expiresAt: string;
+};
+
 export type ChannelResponse = {
     id: string;
-    provider: 'LARK' | 'ZALO_BOT';
+    provider: 'LARK' | 'ZALO_BOT' | 'WHATSAPP';
     name: string;
     /**
      * Where a Lark bot's app is hosted; absent for another platform
@@ -4590,7 +4613,7 @@ export type ChannelLinkCodeResponse = {
 export type ChannelLinkResponse = {
     connectionId: string;
     botName: string;
-    provider: 'LARK' | 'ZALO_BOT';
+    provider: 'LARK' | 'ZALO_BOT' | 'WHATSAPP';
     linkedAt?: string;
 };
 
@@ -21522,6 +21545,152 @@ export type ListChannelGroupsResponses = {
 };
 
 export type ListChannelGroupsResponse = ListChannelGroupsResponses[keyof ListChannelGroupsResponses];
+
+export type CreateWhatsAppChannelData = {
+    body: CreateWhatsAppChannelRequest;
+    path?: never;
+    query?: never;
+    url: '/api/channels/whatsapp';
+};
+
+export type CreateWhatsAppChannelErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type CreateWhatsAppChannelError = CreateWhatsAppChannelErrors[keyof CreateWhatsAppChannelErrors];
+
+export type CreateWhatsAppChannelResponses = {
+    /**
+     * Added bot
+     */
+    201: ChannelResponse;
+};
+
+export type CreateWhatsAppChannelResponse = CreateWhatsAppChannelResponses[keyof CreateWhatsAppChannelResponses];
+
+export type GetChannelPairingData = {
+    body?: never;
+    path: {
+        channelId: string;
+    };
+    query?: never;
+    url: '/api/channels/{channelId}/pairing';
+};
+
+export type GetChannelPairingErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type GetChannelPairingError = GetChannelPairingErrors[keyof GetChannelPairingErrors];
+
+export type GetChannelPairingResponses = {
+    /**
+     * The code shown now
+     */
+    200: ChannelPairingResponse;
+    /**
+     * No code is shown
+     */
+    204: void;
+};
+
+export type GetChannelPairingResponse = GetChannelPairingResponses[keyof GetChannelPairingResponses];
+
+export type RelinkChannelData = {
+    body?: never;
+    headers: {
+        'If-Match': string;
+    };
+    path: {
+        channelId: string;
+    };
+    query?: never;
+    url: '/api/channels/{channelId}/pairing';
+};
+
+export type RelinkChannelErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type RelinkChannelError = RelinkChannelErrors[keyof RelinkChannelErrors];
+
+export type RelinkChannelResponses = {
+    /**
+     * Updated bot
+     */
+    200: ChannelResponse;
+};
+
+export type RelinkChannelResponse = RelinkChannelResponses[keyof RelinkChannelResponses];
 
 export type DeleteChannelData = {
     body?: never;

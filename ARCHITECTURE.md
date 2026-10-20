@@ -31,13 +31,16 @@ flowchart LR
     WORKER --> LLM
 
     LARK[Lark] <-->|long connection| CH[Channels process]
+    WA[WhatsApp] <-->|linked device| WAB[WhatsApp bridge, child process]
+    WAB <-->|stdin/stdout| CH
+    WAB --> PG
     CH --> PG
     CH --> RS
     CH --> OS
     CH --> LLM
 ```
 
-The API and worker are separate deployables. The API owns HTTP, browser sessions, authorization, business commands, Chat inference and Flyway. The worker owns durable background execution for source synchronization, ingestion, cleanup and Search projection. The web application is a separate Vite/React deployable served by Nginx. On staging, `memoryos-channels` runs the chat bots: it holds a long connection to Lark for each bot switched on and runs their Chat turns in process; it and the API never call each other and share only PostgreSQL and Redis ([channel](docs/specs/channel.md), [ADR 0028](docs/decisions/0028-chat-channels-in-their-own-process.md)).
+The API and worker are separate deployables. The API owns HTTP, browser sessions, authorization, business commands, Chat inference and Flyway. The worker owns durable background execution for source synchronization, ingestion, cleanup and Search projection. The web application is a separate Vite/React deployable served by Nginx. On staging, `memoryos-channels` runs the chat bots: it holds a connection to Lark, Zalo or WhatsApp for each bot switched on and leased to it, and runs their Chat turns in process; any number of its processes share the bots, each held by one under a lease; WhatsApp's protocol runs in a bridge it starts as a child process; it and the API never call each other and share only PostgreSQL and Redis ([channel](docs/specs/channel.md), [ADR 0028](docs/decisions/0028-chat-channels-in-their-own-process.md), [ADR 0031](docs/decisions/0031-whatsapp-bridge-and-bot-leases.md)).
 
 ## Why the system has these components
 
@@ -162,11 +165,12 @@ Arrows show allowed use of public capability contracts: a capability's arrows ar
 | --- | --- |
 | `memoryos-core` | Fifteen capability implementations, the `shared` kernel of identifier types and technical utilities, and their public contracts; no dependency on an integration, on extraction or on a deployable |
 | `memoryos-integration-lark`, `-google`, `-microsoft`, `-zalo` | One module a platform, holding everything that calls it (`io.memoryos.integration.<platform>`): Lark through the official `oapi-sdk` on a transport of the JDK client, Google Drive through Google's API clients on a guarded `google-http-client` with the account consent protocol the API's callback uses, SharePoint through the Microsoft Graph SDK on a guarded OkHttp client, the Zalo bot through an `@HttpExchange` client on `shared.OutboundHttp`, since no Zalo SDK is maintained. Each depends only on public `core` APIs and on no other platform ([ADR 0027](docs/decisions/0027-integrations-by-platform-and-memoryos-module-names.md)) |
+| `memoryos-integration-whatsapp` | The WhatsApp bot (`io.memoryos.integration.whatsapp`): the adapter and the Go bridge on whatsmeow in `bridge/`, which `memoryos-channels` starts as a child process and speaks to over its standard streams; sessions in the `whatsapp` schema ([ADR 0031](docs/decisions/0031-whatsapp-bridge-and-bot-leases.md)) |
 | `memoryos-integration-opensandbox` | The Chat sandbox's runtime (`io.memoryos.integration.opensandbox`): `OpenSandboxRuntime` implements `sandbox.SandboxRuntime` through the official OpenSandbox SDK, every call after creation through the server's proxy ([ADR 0029](docs/decisions/0029-chat-sandbox-through-opensandbox.md)) |
 | `memoryos-extraction` | Bounded content extraction (`io.memoryos.ingestion.extraction`): Tika, Docling, the OCR adapters and the spreadsheet readers; a provider's snapshot is read by the reader its integration registers for that input format, so extraction names no platform |
 | `memoryos-api` | HTTP, security, migrations and interactive Chat composition |
 | `memoryos-worker` | Redis/db-scheduler composition and durable background work |
-| `memoryos-channels` | The chat bots' process: imports `ChannelRuntimeComponents`, holds each bot's connection through `ChannelSupervisor` and runs Chat turns in process; no HTTP API, health on 8082, no migrations; deployed on staging only ([runbook](docs/runbooks/lark-bot.md), MEM-246) |
+| `memoryos-channels` | The chat bots' process: imports `ChannelRuntimeComponents`, holds each bot it leases through `ChannelSupervisor`, passes a webhook request for a bot held elsewhere to its holder, starts the WhatsApp bridge and runs Chat turns in process; no HTTP API, health on 8082, no migrations; deployed on staging only ([runbook](docs/runbooks/lark-bot.md), MEM-246, MEM-283) |
 
 | Capability | Owns | Detailed contract |
 | --- | --- | --- |
@@ -184,7 +188,7 @@ Arrows show allowed use of public capability contracts: a capability's arrows ar
 | `voice` | Tenant voice connections, batch and live transcription and speech synthesis; audio is never stored | [MEM-91 design](docs/increments/completed/mem-91-chat-voice/design.md) |
 | `mcp` | Tenant-registered remote MCP servers, their OAuth clients, tool snapshots, sealed credentials and the Streamable HTTP client; the MemoryOS MCP endpoint's switch, the apps trusted to connect to it (projected to Keycloak) and its activity log | [MEM-112 design](docs/increments/completed/mem-112-chat-mcp-client/design.md) · [MemoryOS MCP endpoint](docs/specs/mcp-endpoint.md) |
 | `meeting` | Owner-private meetings: live track recording or an uploaded recording through `voice`, stored utterances, speaker names and notes, leased minutes written by the API from the transcript through `ai`, minutes published to the owner's file library, and the library's `MeetingShelf` port listing the meetings a person may read; audio is never stored, and an uploaded recording is deleted once it has been transcribed | [Meetings](docs/specs/meeting.md) |
-| `channel` | The Tenant's chat bots on messaging platforms (the Lark bot first): their connections, each with a service account its group questions run as, the assistant it answers with by default and the group chats it answered in, each of which may have an assistant of its own, and how a received message becomes a Chat turn with the assistant its bot and group resolve to through a platform adapter (Lark, Zalo), administered through `/api/channels` | [Channel](docs/specs/channel.md) |
+| `channel` | The Tenant's chat bots on messaging platforms (the Lark bot first): their connections, each with a service account its group questions run as, the assistant it answers with by default and the group chats it answered in, each of which may have an assistant of its own, and how a received message becomes a Chat turn with the assistant its bot and group resolve to through a platform adapter (Lark, Zalo, WhatsApp), administered through `/api/channels`; each bot is held by one process under a lease | [Channel](docs/specs/channel.md) |
 | `sandbox` | One runtime sandbox a Chat conversation (MEM-270): its `sandbox_workspaces` row, found or started under the row's lock, renewed on every use, replaced when gone or past four hours, a deployment-wide running bound, its `/workspace` archived in Object Storage after each turn that used it and restored into the next sandbox, and the Worker's reconciliation | [Sandbox](docs/specs/sandbox.md) |
 | `usage` | Daily AI usage ledger for every AI flow, the AI costs report, and usage reports (a period's CSV and PDF export, built by the Worker and stored through `objectstorage`) | [AI usage and costs](docs/specs/ai-usage.md) |
 

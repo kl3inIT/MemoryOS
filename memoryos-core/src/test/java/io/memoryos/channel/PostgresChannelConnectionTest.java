@@ -18,6 +18,7 @@ import io.memoryos.TestDatabase.JpaHarness;
 import io.memoryos.channel.persistence.ChannelCredentialConfiguration;
 import io.memoryos.channel.persistence.JdbcChannelConnectionRepository;
 import io.memoryos.channel.persistence.JdbcChannelGroupRepository;
+import io.memoryos.channel.persistence.JdbcChannelLeaseRepository;
 import io.memoryos.chat.ChatChannelBindings;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatPersonaService;
@@ -76,7 +77,9 @@ class PostgresChannelConnectionTest {
     private JpaHarness jpa;
     private JdbcClient jdbc;
     private ChannelConnectionService channels;
-    private final Platform platform = new Platform();
+    private final Platform platform = new Platform(ChannelProvider.LARK, false);
+    /** A provider whose bots are linked by scanning a code, as WhatsApp's are (MEM-283). */
+    private final Platform paired = new Platform(ChannelProvider.WHATSAPP, true);
     private final ChatPersonaService personas = mock(ChatPersonaService.class);
     private ChatChannelBindings bindings;
     private JdbcChannelGroupRepository channelGroups;
@@ -120,8 +123,8 @@ class PostgresChannelConnectionTest {
                         new ChannelCredentialConfiguration(KEY, "test-1"),
                         accounts,
                         TestDatabase.audit(jdbc, jpa.transactionManager()),
-                        new ChannelAdapters(List.of(platform)),
-                        jpa.transactionManager(), personas, bindings, channelGroups),
+                        new ChannelAdapters(List.of(platform, paired)),
+                        jpa.transactionManager(), personas, bindings, channelGroups, new JdbcChannelLeaseRepository(jdbc)),
                 ChannelConnectionService.class, jpa.transactionManager());
     }
 
@@ -194,6 +197,49 @@ class PostgresChannelConnectionTest {
                 Map.of("transport", "POLLING"))));
         assertEquals(Map.of("region", "FEISHU"), channels.get(owner, bot.id()).settings());
         assertEquals("CHANNEL_NOT_FOUND", code(() -> channels.updateSettings(owner, UUID.randomUUID(), 0, Map.of())));
+    }
+
+    /** MEM-283: a bot linked by a code takes no secret, keeps an empty one, and is linked again instead of replaced. */
+    @Test
+    void aBotLinkedByACodeHasNoSecretAndIsLinkedAgain() {
+        var draft = new ChannelConnectionDraft(ChannelProvider.WHATSAPP, "Trợ lý WhatsApp",
+                new ChannelCredentials("84900000001", "", Map.of()), "vi");
+        var bot = channels.create(owner, draft);
+        assertEquals("84900000001", bot.appId());
+        assertEquals(List.of(""), paired.secrets);
+        assertEquals(Boolean.TRUE, jdbc.sql("SELECT secret_ciphertext IS NULL FROM channel_connections WHERE id = :id")
+                .param("id", bot.id()).query(Boolean.class).single(), "no secret is kept");
+        assertEquals("CHANNEL_APP_IN_USE", code(() -> channels.create(owner, draft)));
+        assertEquals("CHANNEL_INVALID", code(() -> channels.create(owner, new ChannelConnectionDraft(ChannelProvider.WHATSAPP,
+                "Khác", new ChannelCredentials("84900000002", "a-secret", Map.of()), "vi"))));
+        assertEquals("CHANNEL_INVALID", code(() -> channels.replaceSecret(owner, bot.id(), bot.revision(), "a-secret")));
+
+        var relinked = channels.relink(owner, bot.id(), bot.revision());
+        assertEquals(bot.revision() + 1, relinked.revision());
+        assertEquals("CHANNEL_CHANGED", code(() -> channels.relink(owner, bot.id(), bot.revision())));
+        var lark = channels.create(owner, draft("cli_a1b2c3d4e5f6"));
+        assertEquals("CHANNEL_INVALID", code(() -> channels.relink(owner, lark.id(), lark.revision())));
+        assertTrue(channels.pairing(owner, bot.id()).isEmpty());
+        assertEquals(List.of("channel.create", "channel.update", "channel.create"), actions());
+    }
+
+    /** MEM-283: a WhatsApp bot's row is its number in international form; the database refuses anything else. */
+    @Test
+    void theDatabaseHoldsAWhatsAppBotByItsNumber() {
+        var bot = channels.create(owner, new ChannelConnectionDraft(ChannelProvider.WHATSAPP, "Trợ lý WhatsApp",
+                new ChannelCredentials("84900000001", "", Map.of()), "vi"));
+        assertThrows(DataIntegrityViolationException.class, () -> jdbc.sql(
+                "UPDATE channel_connections SET secret_ciphertext = '\\x00', secret_nonce = '\\x00', "
+                        + "secret_key_version = 'test-1' WHERE id = :id").param("id", bot.id()).update(),
+                "a WhatsApp bot keeps no secret");
+        assertThrows(DataIntegrityViolationException.class, () -> jdbc.sql(
+                "UPDATE channel_connections SET provider = 'LARK', app_id = 'cli_a1b2c3d4e5f6' WHERE id = :id")
+                .param("id", bot.id()).update(), "any other bot keeps one");
+        for (String number : List.of("0900000001", "+84900000001", "8490", "1234567890123456")) {
+            assertThrows(DataIntegrityViolationException.class, () -> jdbc.sql(
+                    "UPDATE channel_connections SET app_id = :number WHERE id = :id")
+                    .param("number", number).param("id", bot.id()).update(), number);
+        }
     }
 
     /** MEM-263: a Zalo bot's row is its number and how it receives; the database refuses anything else. */
@@ -518,12 +564,19 @@ class PostgresChannelConnectionTest {
     /** A platform that accepts or refuses every app, and records the secrets it was shown. */
     private static final class Platform implements ChannelAdapter {
         final List<String> secrets = new ArrayList<>();
+        private final ChannelProvider provider;
+        private final boolean pairs;
         boolean refusing;
         @Nullable String answeredAppId;
 
-        @Override public ChannelProvider provider() { return ChannelProvider.LARK; }
+        Platform(ChannelProvider provider, boolean pairs) {
+            this.provider = provider;
+            this.pairs = pairs;
+        }
 
-        @Override public ChannelFeatures features() { return new ChannelFeatures(true, true, 150_000); }
+        @Override public ChannelProvider provider() { return provider; }
+
+        @Override public ChannelFeatures features() { return new ChannelFeatures(!pairs, !pairs, 150_000, pairs); }
 
         @Override
         public ChannelVerification verify(ChannelCredentials credentials) {

@@ -259,7 +259,7 @@ jobs:
             tasks: ':memoryos-api:check'
           - leg: integrations-worker
             tasks: >-
-              :memoryos-integration-lark:check :memoryos-integration-google:check :memoryos-integration-microsoft:check :memoryos-integration-zalo:check :memoryos-integration-opensandbox:check :memoryos-extraction:check :memoryos-worker:check :memoryos-channels:check
+              :memoryos-integration-lark:check :memoryos-integration-google:check :memoryos-integration-microsoft:check :memoryos-integration-zalo:check :memoryos-integration-whatsapp:check :memoryos-integration-opensandbox:check :memoryos-extraction:check :memoryos-worker:check :memoryos-channels:check
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -274,6 +274,23 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+
+      # MEM-283: the WhatsApp bridge, a Go binary the channels image carries.
+      - name: Set up Go
+        if: ${{ matrix.leg == 'integrations-worker' }}
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: memoryos-integration-whatsapp/bridge/go.mod
+          cache-dependency-path: memoryos-integration-whatsapp/bridge/go.sum
+
+      - name: Verify the WhatsApp bridge
+        if: ${{ matrix.leg == 'integrations-worker' }}
+        working-directory: memoryos-integration-whatsapp/bridge
+        run: |
+          test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+          go vet ./...
+          go test ./...
+          CGO_ENABLED=0 go build -trimpath -o /dev/null .
 
       - name: Build and verify
         env:

@@ -8,6 +8,15 @@ public interface ChannelTransport extends AutoCloseable {
     boolean connected();
 
     /**
+     * Why a transport that is no longer {@link #connected()} stopped, when opening it again cannot mend it until an
+     * administrator changes the bot (MEM-283: WhatsApp logged the device out, banned the number, or another process
+     * opened the session); empty when opening it again may.
+     */
+    default Optional<ChannelException> stopped() {
+        return Optional.empty();
+    }
+
+    /**
      * The HTTP end the provider pushes to; empty for a transport that keeps a connection of its own. The capability
      * serves it at {@code /hooks/channels/<connection id>} and then calls {@link ChannelWebhook#register()}.
      */

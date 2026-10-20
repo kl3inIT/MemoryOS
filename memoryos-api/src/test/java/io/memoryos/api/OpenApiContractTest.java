@@ -351,6 +351,8 @@ class OpenApiContractTest {
             "/api/channels/lark/test",
             "/api/channels/zalo",
             "/api/channels/zalo/test",
+            "/api/channels/whatsapp",
+            "/api/channels/{channelId}/pairing",
             "/api/channels/{channelId}",
             "/api/channels/{channelId}/enabled",
             "/api/channels/{channelId}/persona",

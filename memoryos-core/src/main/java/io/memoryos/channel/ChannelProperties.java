@@ -15,12 +15,14 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param webUrl the address of the web MemoryOS, with which a direct answer links to its session; empty for no link
  * @param groupConversationIdle how long after its last message a group of a provider that cannot quote still continues
  *        the group's one conversation, as OpenClaw resets an idle session
+ * @param address the host and port at which another channel process reaches this one's webhook route (MEM-283), to
+ *        pass on a provider's request for a bot this one holds; empty where only one process receives
  */
 @ConfigurationProperties("memoryos.channel")
 public record ChannelProperties(@DefaultValue("1h") Duration conversationIdle, @DefaultValue("1h") Duration identityTtl,
                                 @DefaultValue("90d") Duration messageRetention, @DefaultValue("10") int senderRate,
                                 @DefaultValue("5m") Duration orderWait, @DefaultValue("") String webUrl,
-                                @DefaultValue("4h") Duration groupConversationIdle) {
+                                @DefaultValue("4h") Duration groupConversationIdle, @DefaultValue("") String address) {
     public ChannelProperties {
         if (conversationIdle.isNegative() || conversationIdle.isZero() || identityTtl.isNegative()
                 || messageRetention.compareTo(Duration.ofDays(1)) < 0 || senderRate < 1 || orderWait.isNegative()
@@ -28,6 +30,10 @@ public record ChannelProperties(@DefaultValue("1h") Duration conversationIdle, @
             throw new IllegalArgumentException("Invalid channel configuration");
         }
         webUrl = webUrl.strip().replaceAll("/+$", "");
+        address = address.strip();
+        if (!address.isEmpty() && !address.matches("[A-Za-z0-9.-]+:[0-9]{1,5}")) {
+            throw new IllegalArgumentException("Invalid channel configuration: memoryos.channel.address");
+        }
         if (!webUrl.isEmpty() && !webUrl.matches("https?://[^\\s/?#]+(/[^\\s?#]*)?")) {
             throw new IllegalArgumentException("Invalid channel configuration: memoryos.channel.web-url");
         }

@@ -65,7 +65,7 @@ public final class LarkChannelAdapter implements ChannelAdapter, AutoCloseable {
     private static final String WAITING = "Get";
     private static final Pattern APP_ID = Pattern.compile("^cli_[0-9a-z]{8,40}$");
     /** A card's text may be far longer than an answer; the card is rewritten as the answer is written. */
-    private static final ChannelFeatures FEATURES = new ChannelFeatures(true, true, 150_000);
+    private static final ChannelFeatures FEATURES = new ChannelFeatures(true, true, 150_000, false);
     /** Lark's largest page of a bot's chats, and how many pages are read before the list is taken as unreadable. */
     private static final int CHAT_PAGE = 100;
     private static final int CHAT_PAGES = 50;

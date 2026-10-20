@@ -69,6 +69,39 @@ public final class ChannelException extends BusinessException {
                 "Channel binding needs edit rights on the assistant");
     }
 
+    /** WhatsApp logged the bot's device out: it was removed on the phone, or the number was banned for good. */
+    public static ChannelException whatsappLoggedOut() {
+        return new ChannelException("CHANNEL_WHATSAPP_LOGGED_OUT", FailureCategory.SERVICE_UNAVAILABLE,
+                "WhatsApp logged the bot out. Link it again with the bot's phone.", "WhatsApp logged the device out");
+    }
+
+    /** WhatsApp banned the bot's number for a while. */
+    public static ChannelException whatsappBanned() {
+        return new ChannelException("CHANNEL_WHATSAPP_BANNED", FailureCategory.SERVICE_UNAVAILABLE,
+                "WhatsApp has temporarily banned the bot's number.", "WhatsApp banned the number temporarily");
+    }
+
+    /** Another client opened the bot's session, so WhatsApp closed this one. */
+    public static ChannelException whatsappReplaced() {
+        return new ChannelException("CHANNEL_WHATSAPP_REPLACED", FailureCategory.CONFLICT,
+                "Another process opened the bot's WhatsApp session. Link it again if that was not expected.",
+                "WhatsApp session was opened elsewhere");
+    }
+
+    /** A number other than the bot's scanned its code; it was logged out again. */
+    public static ChannelException whatsappWrongNumber() {
+        return new ChannelException("CHANNEL_WHATSAPP_WRONG_NUMBER", FailureCategory.VALIDATION,
+                "The code was scanned by another number. Scan it with the bot's own phone.",
+                "WhatsApp pairing came from another number");
+    }
+
+    /** The number already links another bot, of this Tenant or another; it was logged out of this one. */
+    public static ChannelException whatsappNumberInUse() {
+        return new ChannelException("CHANNEL_WHATSAPP_NUMBER_IN_USE", FailureCategory.CONFLICT,
+                "This number is already linked to another bot. Remove it there first.",
+                "WhatsApp number already links another bot");
+    }
+
     public static ChannelException appInUse() {
         return new ChannelException("CHANNEL_APP_IN_USE", FailureCategory.CONFLICT,
                 "Another bot already uses this app. Each bot needs an app of its own.", "Channel app is already connected");

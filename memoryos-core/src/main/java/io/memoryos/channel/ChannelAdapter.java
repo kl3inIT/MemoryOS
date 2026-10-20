@@ -56,6 +56,12 @@ public interface ChannelAdapter {
     /** Sends one short message in answer to another: a refusal, a notice. */
     void notice(ChannelConnection connection, ChannelMessage message, String text);
 
+    /**
+     * The bot was removed while this process held it: the provider forgets it, as WhatsApp logs its device out and
+     * deletes its session (MEM-283). Nothing for a provider whose app outlives the bot.
+     */
+    default void forget(ChannelConnection connection) {}
+
     /** What the provider says of a sender; {@link ChannelSender#UNKNOWN} when it says nothing. */
     ChannelSender sender(ChannelConnection connection, String senderId);
 

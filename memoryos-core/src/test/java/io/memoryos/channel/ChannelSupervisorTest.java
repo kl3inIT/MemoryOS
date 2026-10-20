@@ -10,7 +10,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.after;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -19,15 +21,21 @@ import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.channel.persistence.ChannelCredentialConfiguration;
 import io.memoryos.channel.persistence.JdbcChannelConnectionRepository;
+import io.memoryos.channel.persistence.JdbcChannelLeaseRepository;
 import io.memoryos.shared.TenantId;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
+import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -52,6 +60,9 @@ class ChannelSupervisorTest {
     private final ChannelInboundService inbound = mock(ChannelInboundService.class);
     private final ChannelGroupRoster roster = mock(ChannelGroupRoster.class);
     private ChannelSupervisor supervisor;
+    private ChannelCredentialConfiguration credentials;
+    private final MovingClock clock = new MovingClock();
+    private final List<ChannelSupervisor> others = new ArrayList<>();
 
     @BeforeEach
     void setUp() throws Exception {
@@ -64,7 +75,7 @@ class ChannelSupervisorTest {
         jdbc.sql("INSERT INTO actors(id) VALUES (:id)").param("id", bot).update();
         jdbc.sql("INSERT INTO tenant_memberships(tenant_id,actor_id,role,status) VALUES(:tenant,:actor,'MEMBER','ACTIVE')")
                 .param("tenant", tenant.value()).param("actor", bot).update();
-        var credentials = new ChannelCredentialConfiguration(Base64.getEncoder().encodeToString(new byte[32]), "test-1");
+        credentials = new ChannelCredentialConfiguration(Base64.getEncoder().encodeToString(new byte[32]), "test-1");
         connection = UUID.randomUUID();
         var envelope = credentials.cipher(ChannelProvider.LARK).encrypt(tenant, connection, "app-secret",
                 SECRET.getBytes(StandardCharsets.UTF_8));
@@ -74,12 +85,20 @@ class ChannelSupervisorTest {
                 VALUES (:tenant, :id, 'LARK', 'Bot', '{"region": "LARK"}', 'cli_a1b2c3d4e5f6', :secret, :nonce, :version, 'vi', TRUE, :account)
                 """).param("tenant", tenant.value()).param("id", connection).param("secret", envelope.ciphertext())
                 .param("nonce", envelope.nonce()).param("version", envelope.keyVersion()).param("account", bot).update();
-        supervisor = new ChannelSupervisor(new JdbcChannelConnectionRepository(jdbc), credentials,
-                new ChannelAdapters(List.of(adapter)), inbound, roster);
+        supervisor = supervisor(adapter, new JdbcChannelLeaseRepository(jdbc), "channels-a:8082");
+    }
+
+    /** A process that receives, at {@code address}, sharing the database with every other one of the test. */
+    private ChannelSupervisor supervisor(FakeAdapter platform, JdbcChannelLeaseRepository leases, String address) {
+        var properties = new ChannelProperties(Duration.ofHours(1), Duration.ofHours(1), Duration.ofDays(90), 10,
+                Duration.ofSeconds(3), "", Duration.ofHours(4), address);
+        return new ChannelSupervisor(new JdbcChannelConnectionRepository(jdbc), leases, credentials,
+                new ChannelAdapters(List.of(platform)), inbound, roster, properties, clock);
     }
 
     @AfterEach
     void close() {
+        others.forEach(ChannelSupervisor::stop);
         supervisor.stop();
         if (dataSource != null) dataSource.close();
     }
@@ -232,6 +251,145 @@ class ChannelSupervisorTest {
         assertTrue(adapter.opened.stream().allMatch(transport -> transport.closed));
     }
 
+    /** MEM-283: two processes share the bots; one holds each, and stopping hands it to the other at once. */
+    @Test
+    void twoProcessesNeverHoldOneBotAndAStoppingOneHandsItOver() {
+        var second = new FakeAdapter();
+        var other = supervisor(second, new JdbcChannelLeaseRepository(jdbc), "channels-b:8082");
+        others.add(other);
+
+        supervisor.pass();
+        other.pass();
+        assertEquals(1, adapter.opened.size());
+        assertTrue(second.opened.isEmpty(), "the bot another process holds is not opened");
+        assertEquals(Optional.of("channels-a:8082"), other.holderAddress(connection),
+                "a webhook request reaching the other process is passed to the holder");
+        assertEquals(Optional.empty(), supervisor.holderAddress(connection));
+
+        supervisor.start();
+        supervisor.stop();
+        other.pass();
+        assertEquals(1, second.opened.size(), "a lease handed back is taken at the next pass");
+        assertNotNull(state().openedAt());
+    }
+
+    /** MEM-283: a holder whose lease another process took closes the bot at its next renewal. */
+    @Test
+    void aLeaseTakenElsewhereClosesTheBotAtTheNextRenewal() {
+        supervisor.pass();
+        jdbc.sql("""
+                UPDATE channel_connection_state SET holder = 'elsewhere', holder_address = 'channels-b:8082',
+                    lease_epoch = lease_epoch + 1, lease_until = now() + INTERVAL '90 seconds'
+                """).update();
+
+        supervisor.renew();
+        assertTrue(adapter.opened.getFirst().closed);
+        supervisor.pass();
+        assertEquals(1, adapter.opened.size(), "a bot another process holds is not opened again");
+        assertEquals(Optional.of("channels-b:8082"), supervisor.holderAddress(connection));
+    }
+
+    /** MEM-283: a holder that cannot renew stops before its lease can end. */
+    @Test
+    void aHolderThatCannotRenewClosesTheBotBeforeItsLeaseEnds() {
+        var leases = spy(new JdbcChannelLeaseRepository(jdbc));
+        var fenced = supervisor(adapter, leases, "channels-c:8082");
+        others.add(fenced);
+        fenced.pass();
+        doThrow(new IllegalStateException("database unreachable")).when(leases).renew(any(), any(), any());
+
+        clock.advance(ChannelSupervisor.FENCE.minusSeconds(1));
+        fenced.renew();
+        assertFalse(adapter.opened.getFirst().closed, "still within the fence");
+        clock.advance(Duration.ofSeconds(1));
+        fenced.renew();
+        assertTrue(adapter.opened.getFirst().closed, "closed before the lease can end");
+    }
+
+    /** MEM-283: a write of an epoch that lost the bot changes nothing. */
+    @Test
+    void aStaleEpochCannotOverwriteItsSuccessor() {
+        var leases = new JdbcChannelLeaseRepository(jdbc);
+        long first = leases.hold(connection, "a", "channels-a:8082", Duration.ofSeconds(90)).orElseThrow();
+        assertTrue(leases.hold(connection, "b", "channels-b:8082", Duration.ofSeconds(90)).isEmpty(),
+                "a live lease is not taken");
+        jdbc.sql("UPDATE channel_connection_state SET lease_until = now() - INTERVAL '1 second'").update();
+        long second = leases.hold(connection, "b", "channels-b:8082", Duration.ofSeconds(90)).orElseThrow();
+        assertEquals(first + 1, second, "a change of hands starts a new epoch");
+
+        assertFalse(leases.recordState(connection, "a", first, Instant.now(), null, null, null, Instant.now()));
+        assertTrue(leases.recordState(connection, "b", second, Instant.now(), null, null, null, Instant.now()));
+        leases.recordPairing(connection, "a", first, "stale", Instant.now().plusSeconds(60), Instant.now());
+        assertEquals(0, pairings());
+        assertEquals(Set.of(), leases.renew("a", List.of(connection), Duration.ofSeconds(90)));
+        assertEquals(Set.of(connection), leases.renew("b", List.of(connection), Duration.ofSeconds(90)));
+        assertEquals(second, leases.hold(connection, "b", "channels-b:8082", Duration.ofSeconds(90)).orElseThrow(),
+                "the holder keeps its epoch");
+    }
+
+    /** MEM-283: a transport stopped for a reason only an administrator can mend waits for the bot to change. */
+    @Test
+    void aSessionWhatsAppEndedWaitsForTheBotToChange() {
+        supervisor.pass();
+        var first = adapter.opened.getFirst();
+        first.stopped = ChannelException.whatsappLoggedOut();
+        first.connected = false;
+
+        supervisor.pass();
+        assertEquals("CHANNEL_WHATSAPP_LOGGED_OUT", state().failureCode());
+        assertNull(state().openedAt());
+        supervisor.pass();
+        assertEquals(1, adapter.opened.size(), "relinking in a loop would not mend it");
+
+        jdbc.sql("UPDATE channel_connections SET revision = revision + 1").update();
+        supervisor.pass();
+        assertEquals(2, adapter.opened.size());
+    }
+
+    /** MEM-283: the code a bot being linked shows is kept for its page and cleared once scanned. */
+    @Test
+    void aPairingCodeIsKeptUntilItIsScanned() {
+        adapter.pairs = true;
+        supervisor.pass();
+        var expires = Instant.now().plusSeconds(60);
+
+        adapter.receivers.getFirst().pairing("2@abc", expires);
+        awaitPairings(1);
+        var shown = new JdbcChannelLeaseRepository(jdbc).pairing(tenant, connection, Instant.now()).orElseThrow();
+        assertEquals("2@abc", shown.code());
+        assertEquals(expires.getEpochSecond(), shown.expiresAt().getEpochSecond());
+
+        adapter.receivers.getFirst().paired();
+        awaitPairings(0);
+    }
+
+    /** MEM-283: a bot removed while it is held is forgotten by its provider, as WhatsApp logs the device out. */
+    @Test
+    void aRemovedBotIsForgottenAndASwitchedOffOneIsNot() {
+        supervisor.pass();
+        jdbc.sql("UPDATE channel_connections SET enabled = FALSE").update();
+        supervisor.pass();
+        assertTrue(adapter.forgotten.isEmpty());
+
+        jdbc.sql("UPDATE channel_connections SET enabled = TRUE").update();
+        supervisor.pass();
+        jdbc.sql("DELETE FROM channel_connections").update();
+        supervisor.pass();
+        assertEquals(List.of(connection), adapter.forgotten);
+    }
+
+    private int pairings() {
+        return jdbc.sql("SELECT count(*) FROM channel_pairings").query(Integer.class).single();
+    }
+
+    private void awaitPairings(int expected) {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (pairings() != expected) {
+            if (System.nanoTime() > deadline) throw new AssertionError("expected " + expected + " pairing codes");
+            Thread.onSpinWait();
+        }
+    }
+
     private State state() {
         return jdbc.sql("SELECT opened_at, last_failure_code FROM channel_connection_state WHERE connection_id = :id")
                 .param("id", connection)
@@ -251,6 +409,8 @@ class ChannelSupervisorTest {
         volatile boolean pushes;
         volatile Runnable onRegister = () -> { };
         volatile Optional<List<ChannelGroupPresence>> listing = Optional.empty();
+        volatile boolean pairs;
+        final List<UUID> forgotten = new CopyOnWriteArrayList<>();
 
         @Override public ChannelProvider provider() { return ChannelProvider.LARK; }
 
@@ -270,7 +430,9 @@ class ChannelSupervisorTest {
 
         @Override public void acknowledge(ChannelConnection connection, ChannelMessage message) {}
 
-        @Override public ChannelFeatures features() { return new ChannelFeatures(true, true, 150_000); }
+        @Override public ChannelFeatures features() { return new ChannelFeatures(true, true, 150_000, pairs); }
+
+        @Override public void forget(ChannelConnection connection) { forgotten.add(connection.id()); }
 
         @Override public ChannelSender sender(ChannelConnection connection, String senderId) { return ChannelSender.UNKNOWN; }
 
@@ -287,14 +449,30 @@ class ChannelSupervisorTest {
         private final @Nullable ChannelWebhook webhook;
         volatile boolean connected = true;
         volatile boolean closed;
+        volatile @Nullable ChannelException stopped;
 
         FakeTransport(@Nullable ChannelWebhook webhook) { this.webhook = webhook; }
 
         @Override public boolean connected() { return connected && !closed; }
 
+        @Override public Optional<ChannelException> stopped() { return Optional.ofNullable(stopped); }
+
         @Override public Optional<ChannelWebhook> webhook() { return Optional.ofNullable(webhook); }
 
         @Override public void close() { closed = true; }
+    }
+
+    /** The wall clock, moved on by a test to reach the fence without waiting for it. */
+    private static final class MovingClock extends Clock {
+        private volatile Duration offset = Duration.ZERO;
+
+        void advance(Duration by) { offset = offset.plus(by); }
+
+        @Override public ZoneOffset getZone() { return ZoneOffset.UTC; }
+
+        @Override public Clock withZone(ZoneId zone) { throw new UnsupportedOperationException(); }
+
+        @Override public Instant instant() { return Instant.now().plus(offset); }
     }
 
     /** Accepts a request whose {@code secret} header is {@code s}; its body is one message's text. */

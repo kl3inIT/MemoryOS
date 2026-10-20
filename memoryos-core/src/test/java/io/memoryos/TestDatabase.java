@@ -91,7 +91,15 @@ public final class TestDatabase {
         var dataSource = pool(container, container.getDatabaseName());
         try {
             try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
-                statement.execute("DROP SCHEMA public CASCADE");
+                // Every schema the migrations create, not public alone: V192 adds the WhatsApp bridge's.
+                var schemas = new ArrayList<String>();
+                try (var found = statement.executeQuery("""
+                        SELECT nspname FROM pg_namespace
+                        WHERE nspname NOT LIKE 'pg\\_%' AND nspname <> 'information_schema'
+                        """)) {
+                    while (found.next()) schemas.add(found.getString(1));
+                }
+                for (String schema : schemas) statement.execute("DROP SCHEMA \"" + schema + "\" CASCADE");
                 statement.execute("CREATE SCHEMA public");
             }
             Flyway.configure().dataSource(dataSource).locations("classpath:db/migration")
