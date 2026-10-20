@@ -324,6 +324,29 @@ class ChannelInboundServiceTest {
                 adapter.notices.getLast());
     }
 
+    /** MEM-285: a linked member cannot bring the bot into a group where someone who is not linked reads its answers. */
+    @Test
+    void onAPlatformWithoutOrganisationsAGroupIsAnsweredOnlyWhenEveryoneInItIsLinked() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, 2_000, false);
+        service.receive(zalo("z1", "wa_ha", links.code(ha, connection).code()));
+        assertEquals("ANSWERED:LINKED", outcome("z1") + ":" + reason("z1"));
+
+        // Everyone but the bot is known by every id the platform gives them; a link names any one of them.
+        adapter.participants.put(GROUP_CHAT, List.of(new ChannelChat.Person(List.of("wa_ha", "84900000001")),
+                new ChannelChat.Person(List.of("wa_stranger"))));
+        service.receive(new ChannelMessage(connection, "g1", GROUP_CHAT, ChannelMessage.Kind.GROUP, "wa_ha", null, null,
+                true, ChannelMessage.Type.TEXT, "How many leave days?", null));
+        assertEquals("REFUSED:UNLINKED_IN_GROUP", outcome("g1") + ":" + reason("g1"));
+        assertEquals("The assistant does not answer in a group with people outside the organisation. Send it a direct message.",
+                adapter.notices.getLast());
+        verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+
+        adapter.participants.put(GROUP_CHAT, List.of(new ChannelChat.Person(List.of("wa_other", "wa_ha"))));
+        service.receive(new ChannelMessage(connection, "g2", GROUP_CHAT, ChannelMessage.Kind.GROUP, "wa_ha", null, null,
+                true, ChannelMessage.Type.TEXT, "How many leave days?", null));
+        assertEquals("ANSWERED", outcome("g2"));
+    }
+
     @Test
     void anExpiredCodeOrOneSentInAGroupDoesNotLink() throws Exception {
         adapter.features = new ChannelFeatures(false, false, 2_000, false);
@@ -738,6 +761,7 @@ class ChannelInboundServiceTest {
         final Map<String, String> emails = new HashMap<>();
         final Set<String> externalChats = new HashSet<>();
         final Map<String, String> names = new HashMap<>();
+        final Map<String, List<ChannelChat.Person>> participants = new HashMap<>();
         final List<String> replies = new ArrayList<>();
         final List<String> replyIds = new ArrayList<>();
         final List<String> notices = new ArrayList<>();
@@ -792,7 +816,7 @@ class ChannelInboundServiceTest {
 
         @Override
         public ChannelChat chat(ChannelConnection connection, String chatId) {
-            return new ChannelChat(externalChats.contains(chatId), names.get(chatId));
+            return new ChannelChat(externalChats.contains(chatId), names.get(chatId), participants.get(chatId));
         }
 
         @Override public ChannelVerification verify(ChannelCredentials credentials) { throw new UnsupportedOperationException(); }

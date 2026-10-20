@@ -4,8 +4,11 @@ import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -91,6 +94,18 @@ public class JdbcChannelLinkRepository {
                         """)
                 .param("connection", connection).param("user", externalUserId)
                 .query((row, ignored) -> new ActorId(row.getObject("actor_id", UUID.class))).optional();
+    }
+
+    /** Which of the platform users are linked on this bot to an active member. */
+    public Set<String> linkedAmong(UUID connection, Collection<String> externalUserIds) {
+        if (externalUserIds.isEmpty()) return Set.of();
+        return Set.copyOf(jdbc.sql("""
+                        SELECT l.external_user_id FROM channel_account_links l
+                        JOIN tenant_memberships m ON m.tenant_id = l.tenant_id AND m.actor_id = l.actor_id
+                        WHERE l.connection_id = :connection AND l.external_user_id IN (:users) AND m.status = 'ACTIVE'
+                        """)
+                .param("connection", connection).param("users", List.copyOf(externalUserIds))
+                .query(String.class).list());
     }
 
     /** When the member linked an account on each bot they did. */

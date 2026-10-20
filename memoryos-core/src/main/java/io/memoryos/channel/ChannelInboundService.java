@@ -178,8 +178,14 @@ public class ChannelInboundService {
         if (message.type() != ChannelMessage.Type.TEXT || message.text().isBlank()) {
             return new Refusal("NOT_TEXT", ChannelNotice.TEXT_ONLY);
         }
-        if (message.kind() == ChannelMessage.Kind.GROUP && adapter.chat(connection, message.chatId()).external()) {
-            return new Refusal("EXTERNAL_GROUP", ChannelNotice.EXTERNAL_GROUP);
+        if (message.kind() == ChannelMessage.Kind.GROUP) {
+            var chat = adapter.chat(connection, message.chatId());
+            if (chat.external()) return new Refusal("EXTERNAL_GROUP", ChannelNotice.EXTERNAL_GROUP);
+            // Without organisations, a group is the Tenant's only when everyone in it linked an account (MEM-285).
+            var participants = chat.participants();
+            if (participants != null && !links.allLinked(connection.id(), participants)) {
+                return new Refusal("UNLINKED_IN_GROUP", ChannelNotice.EXTERNAL_GROUP);
+            }
         }
         return null;
     }
