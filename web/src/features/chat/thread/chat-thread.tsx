@@ -26,6 +26,7 @@ export function ChatThread({
   afterComposer,
   readOnly = false,
   sendDisabled = false,
+  placeholder,
 }: {
   /** Left of the composer toolbar: the `+` menu for files and tools. */
   composerMenu?: ReactNode;
@@ -46,6 +47,8 @@ export function ChatThread({
   readOnly?: boolean;
   /** Blocks Send while the conversation's agent and its tool policy are still unknown. */
   sendDisabled?: boolean;
+  /** The composer's hint in place of "Nhập câu hỏi…". */
+  placeholder?: string;
 }) {
   const ui = useAppTranslation();
 
@@ -98,6 +101,7 @@ export function ChatThread({
                 checking={checking}
                 sendDisabled={sendDisabled}
                 isEmpty={isEmpty}
+                placeholder={placeholder}
               />
             )}
             {isEmpty && afterComposer && (

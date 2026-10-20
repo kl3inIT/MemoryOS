@@ -1,4 +1,4 @@
-import { use, type ReactNode } from "react";
+import { createElement, use, type ReactNode } from "react";
 import { TooltipIconButton } from "@/components/composites/tooltip-icon-button";
 import { Link } from "@tanstack/react-router";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -36,6 +36,7 @@ import type { ResearchState } from "@/features/chat/research/chat-research";
 import { ChatMessageActions, ChatUserMessageContent } from "./chat-message-actions";
 import { ChatFilePart, ChatSharedFilePart, ChatMessageAttachment } from "./chat-attachments";
 import { ChatArtifactCards } from "./chat-artifact-view";
+import { ChatReplyAddon } from "./chat-reply-addon";
 import { ChatMessageTiming } from "./chat-message-timing";
 import { ChatUserMessageQuote, ChatUserText } from "./chat-quote";
 
@@ -157,6 +158,7 @@ export function AssistantMessage({ readOnly }: { readOnly: boolean }) {
     (state) =>
       state.message.status?.type === "incomplete" && state.message.status.reason === "cancelled",
   );
+  const Addon = use(ChatReplyAddon);
   return (
     <MessagePrimitive.Root className="group/message min-w-0 wrap-anywhere">
       <ChatSourcesProvider>
@@ -204,6 +206,7 @@ export function AssistantMessage({ readOnly }: { readOnly: boolean }) {
         <ChatImages />
         <ChatGeneratedFiles />
         {!readOnly && <ChatMcpUnavailable />}
+        {Addon && createElement(Addon)}
         {refusalReason && (
           <p className="mt-2 flex items-center gap-1.5 font-secondary-body text-content-muted">
             {refusalReason === "blocked_topic" ? (

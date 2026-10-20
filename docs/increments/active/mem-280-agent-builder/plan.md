@@ -22,15 +22,18 @@ Design: [design.md](design.md). Three pull requests, each accepted when CI is gr
 
 ## 2. *Agent Builder* (web)
 
-- [ ] The test chat panel's two tabs (*Chat thử*, *✦ Agent Builder*), on desktop and in the phone drawer, the last tab
+- [x] The test chat panel's two tabs (*Chat thử*, *✦ Agent Builder*), on desktop and in the phone drawer, the last tab
   remembered per browser.
-- [ ] The builder thread: its own temporary conversation, `builder: true`, the change card (before → after, the
-  instructions as a line count) and *Hoàn tác*, field by field, skipping fields edited since; the two answer buttons
-  for a change that asks first.
-- [ ] The create dialog: a filled *Mô tả* opens the editor on *Agent Builder* and sends it to the builder.
-- [ ] Tests: the card applies to the form and *Hoàn tác* restores; *Hủy* drops builder changes; a viewer has no tab;
-  e2e of a description becoming a filled form.
-- [ ] Screenshots light, dark and phone; chat spec.
+- [x] The builder thread: its own temporary conversation, `builder: true`, the change card (before → after, the
+  instructions as a line count) and *Hoàn tác*, field by field, skipping fields edited since. The two answer buttons
+  for a change that asks first are dropped: the server marks no question, so the person answers in the composer
+  ([design, decision 5](design.md#decisions)).
+- [x] The create dialog: a filled *Mô tả* opens the editor on *Agent Builder* and sends it to the builder.
+- [x] Tests: `BuilderChanges` takes a change once and *Hoàn tác* restores all but a field edited since; the transport
+  sends a builder turn without the assistant's tools and hands each change on once; the panel's tabs and a viewer
+  without them; e2e of a description becoming a filled form, then *Hoàn tác*. *Hủy* leaves the page as before, so
+  the builder's unsaved changes go with the rest of the form.
+- [x] Screenshots light, dark and phone; chat spec.
 
 ## 3. Acceptance on staging
 

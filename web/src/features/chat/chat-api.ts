@@ -54,6 +54,8 @@ export type ChatUiMessage = UIMessage<
     generatedFiles?: GeneratedFile[];
     /** MEM-273: the reply's apps the person must connect first. */
     unavailableApps?: UnavailableApp[];
+    /** MEM-280: the Agent Builder's changes to the editor's form during this reply, by tool call. */
+    assistantChanges?: string[];
   },
   { research: ResearchState }
 >;
