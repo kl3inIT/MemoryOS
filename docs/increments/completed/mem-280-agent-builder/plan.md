@@ -18,7 +18,7 @@ Design: [design.md](design.md). Three pull requests, each accepted when CI is gr
   an unreadable Source or a malformed ID is refused with its reason and changes nothing; accepted fields come back and
   the next call builds on them; no search, web or MCP tool is offered; usage lands on the flow; a message that trips a
   guardrail is blocked like any turn; the task model must call tools.
-- [ ] `openapi.yml`, Hey API client; chat and chat-models specs, test matrix.
+- [x] `openapi.yml`, Hey API client; chat and chat-models specs, test matrix.
 
 ## 2. *Agent Builder* (web)
 
@@ -37,7 +37,9 @@ Design: [design.md](design.md). Three pull requests, each accepted when CI is gr
 
 ## 3. Acceptance on staging
 
-- [ ] A new assistant from a description: title, instructions, greeting, starters and tools filled; *Chat thử* answers
+- [x] A new assistant from a description: title, instructions, greeting, starters and tools filled; *Chat thử* answers
   with them; *Lưu* publishes.
-- [ ] "Trả lời ngắn hơn", "thêm tìm web", "đổi sang model rẻ hơn" (asks first), a refused Source; *Hoàn tác*.
-- [ ] Close MEM-276 as merged into MEM-280; `verification.md`; roadmap.
+- [x] "Trả lời ngắn hơn", "thêm tìm web", "đổi sang model rẻ hơn" (asks first), a refused Source; *Hoàn tác*.
+- [x] Close MEM-276 as merged into MEM-280; `verification.md`; roadmap.
+- [x] *As accepted:* two prompt fixes came out of acceptance, #802 and #804 ([design, decision 6](design.md#decisions));
+  the results are in [verification.md](verification.md).
