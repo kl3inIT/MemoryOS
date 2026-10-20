@@ -88,13 +88,17 @@ public class ChannelConnectionService {
         }).toList();
     }
 
-    /** What the administrator is shown of a bot: switched off, held by no process, open, failing, or opening. */
+    /**
+     * What the administrator is shown of a bot: switched off, held by no process, showing a code to scan, open,
+     * failing, or opening.
+     */
     static Listed.Status status(ChannelConnection connection, ChannelConnectionState state, Instant now) {
         if (!connection.enabled()) return Listed.Status.OFF;
         // A supervisor writes every pass; three passes missed mean no process holds the bot.
         if (state.heartbeatAt() == null || state.heartbeatAt().plus(ChannelSupervisor.PASS.multipliedBy(3)).isBefore(now)) {
             return Listed.Status.NOT_RUNNING;
         }
+        if (state.pairing()) return Listed.Status.PAIRING;
         if (state.openedAt() != null) return Listed.Status.CONNECTED;
         return state.failureCode() != null ? Listed.Status.FAILED : Listed.Status.CONNECTING;
     }
@@ -113,7 +117,7 @@ public class ChannelConnectionService {
      */
     public record Listed(ChannelConnection connection, ChannelConnectionState state, Status status,
                          @Nullable UUID assistantId, @Nullable String assistant) {
-        public enum Status { OFF, NOT_RUNNING, CONNECTING, CONNECTED, FAILED }
+        public enum Status { OFF, NOT_RUNNING, CONNECTING, PAIRING, CONNECTED, FAILED }
     }
 
     @Transactional(readOnly = true)

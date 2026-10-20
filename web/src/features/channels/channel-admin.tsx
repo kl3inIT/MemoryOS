@@ -87,13 +87,17 @@ export function useChannelAdmin({ onRemoved }: { onRemoved?: () => void } = {}) 
           open
           title={ui("Xóa bot {{name}}?", { name: removing.name })}
           description={
-            removing.provider === "ZALO_BOT"
+            removing.provider === "WHATSAPP"
               ? ui(
-                  "Bot ngừng trả lời trên Zalo, các liên kết tài khoản bị xóa và tài khoản của bot bị vô hiệu hóa; các hội thoại cũ vẫn giữ tên bot. Không hoàn tác được.",
+                  "Bot ngừng trả lời trên WhatsApp, thiết bị bị đăng xuất khỏi số của bot, các liên kết tài khoản bị xóa và tài khoản của bot bị vô hiệu hóa; các hội thoại cũ vẫn giữ tên bot. Không hoàn tác được.",
                 )
-              : ui(
-                  "Bot ngừng trả lời trên Lark và tài khoản của bot bị vô hiệu hóa; các hội thoại cũ vẫn giữ tên bot. Không hoàn tác được.",
-                )
+              : removing.provider === "ZALO_BOT"
+                ? ui(
+                    "Bot ngừng trả lời trên Zalo, các liên kết tài khoản bị xóa và tài khoản của bot bị vô hiệu hóa; các hội thoại cũ vẫn giữ tên bot. Không hoàn tác được.",
+                  )
+                : ui(
+                    "Bot ngừng trả lời trên Lark và tài khoản của bot bị vô hiệu hóa; các hội thoại cũ vẫn giữ tên bot. Không hoàn tác được.",
+                  )
           }
           confirmLabel={ui("Xóa")}
           pendingLabel={ui("Đang xóa")}

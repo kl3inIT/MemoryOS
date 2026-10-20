@@ -11,10 +11,12 @@ import {
 import { IconButton } from "@/components/ui/icon-button";
 import { Switch } from "@/components/ui/switch";
 import { LarkIcon } from "@/components/lark-icon";
+import { WhatsAppIcon } from "@/components/whatsapp-icon";
 import { ZaloIcon } from "@/components/zalo-icon";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import type { ChannelResponse } from "@/lib/hey-api/types.gen";
 import type { ChannelAdmin } from "./channel-admin";
+import { linksAccounts } from "./channel-provider";
 
 /** Switches a bot on or off; saved on change. */
 export function ChannelSwitch({
@@ -51,11 +53,14 @@ export function ChannelMenu({ channel, admin }: { channel: ChannelResponse; admi
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-44">
         <DropdownMenuGroup>
-          <DropdownMenuItem onSelect={() => admin.replaceSecret(channel)}>
-            <KeyRound />{" "}
-            {channel.provider === "ZALO_BOT" ? ui("Thay token") : ui("Thay App Secret")}
-          </DropdownMenuItem>
-          {channel.provider === "ZALO_BOT" ? (
+          {/* A WhatsApp bot keeps no secret: it is linked by scanning its code. */}
+          {channel.provider === "WHATSAPP" ? null : (
+            <DropdownMenuItem onSelect={() => admin.replaceSecret(channel)}>
+              <KeyRound />{" "}
+              {channel.provider === "ZALO_BOT" ? ui("Thay token") : ui("Thay App Secret")}
+            </DropdownMenuItem>
+          )}
+          {linksAccounts(channel.provider) ? (
             <DropdownMenuItem asChild>
               <Link to="/settings/chat">
                 <Link2 /> {ui("Liên kết tài khoản của bạn")}
@@ -81,7 +86,13 @@ export function ChannelMark({ provider }: { provider: ChannelResponse["provider"
       className="grid size-10 shrink-0 place-items-center rounded-xl bg-white ring-1 ring-black/10"
       aria-hidden="true"
     >
-      {provider === "ZALO_BOT" ? <ZaloIcon className="size-7" /> : <LarkIcon className="size-6" />}
+      {provider === "ZALO_BOT" ? (
+        <ZaloIcon className="size-7" />
+      ) : provider === "WHATSAPP" ? (
+        <WhatsAppIcon className="size-6" />
+      ) : (
+        <LarkIcon className="size-6" />
+      )}
     </span>
   );
 }

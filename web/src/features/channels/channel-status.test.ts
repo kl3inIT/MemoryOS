@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ChannelResponse } from "@/lib/hey-api/types.gen";
-import { channelFailure, channelLine, settling } from "./channel-status";
+import { channelFailure, channelLine, needsRelink, settling } from "./channel-status";
 
 const bot = (overrides: Partial<ChannelResponse>): ChannelResponse => ({
   id: "b1",
@@ -65,6 +65,32 @@ describe("channelLine for a Zalo bot", () => {
     expect(
       channelLine(bot({ status: "FAILED", failureCode: "CHANNEL_WEBHOOK_UNREACHABLE" })).line,
     ).toBe("Không kết nối được tới Lark");
+  });
+});
+
+describe("a WhatsApp bot", () => {
+  const whatsapp = (overrides: Partial<ChannelResponse>) =>
+    bot({ provider: "WHATSAPP", region: undefined, appId: "84912345678", ...overrides });
+
+  it("asks for its code to be scanned while it shows one", () => {
+    expect(channelLine(whatsapp({ status: "PAIRING" }))).toEqual({
+      line: "Chờ quét mã QR",
+      tone: "warning",
+    });
+    expect(settling([whatsapp({ status: "PAIRING" })])).toBe(true);
+  });
+
+  it("names what WhatsApp ended, and only those wait to be linked again", () => {
+    const loggedOut = whatsapp({ status: "FAILED", failureCode: "CHANNEL_WHATSAPP_LOGGED_OUT" });
+    expect(channelLine(loggedOut)).toEqual({
+      line: "WhatsApp đã đăng xuất thiết bị",
+      tone: "danger",
+    });
+    expect(needsRelink(loggedOut)).toBe(true);
+    expect(needsRelink({ ...loggedOut, enabled: false, status: "OFF" })).toBe(false);
+    expect(
+      needsRelink(whatsapp({ status: "FAILED", failureCode: "CHANNEL_PROVIDER_UNAVAILABLE" })),
+    ).toBe(false);
   });
 });
 

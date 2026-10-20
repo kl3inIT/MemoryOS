@@ -329,6 +329,19 @@ class PostgresChannelConnectionTest {
         var listed = channels.listWithState(owner).getFirst();
         assertEquals(bot.id(), listed.connection().id());
         assertTrue(listed.state().openedAt() != null && listed.state().heartbeatAt() != null);
+        assertEquals(ChannelConnectionService.Listed.Status.OFF, listed.status());
+
+        // A bot that shows a code to scan is pairing, not answering, until the code expires.
+        jdbc.sql("UPDATE channel_connections SET enabled = true WHERE id = :id").param("id", bot.id()).update();
+        assertEquals(ChannelConnectionService.Listed.Status.CONNECTED, channels.listWithState(owner).getFirst().status());
+        jdbc.sql("""
+                        INSERT INTO channel_pairings (connection_id, code, expires_at, updated_at)
+                        VALUES (:id, '2@code', now() + interval '20 seconds', now())
+                        """).param("id", bot.id()).update();
+        assertEquals(ChannelConnectionService.Listed.Status.PAIRING, channels.listWithState(owner).getFirst().status());
+        jdbc.sql("UPDATE channel_pairings SET expires_at = now() - interval '1 second' WHERE connection_id = :id")
+                .param("id", bot.id()).update();
+        assertEquals(ChannelConnectionService.Listed.Status.CONNECTED, channels.listWithState(owner).getFirst().status());
     }
 
     @Test

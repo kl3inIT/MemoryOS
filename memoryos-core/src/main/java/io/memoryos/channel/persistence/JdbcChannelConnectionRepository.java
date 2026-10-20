@@ -102,15 +102,16 @@ public class JdbcChannelConnectionRepository {
         var states = new HashMap<UUID, ChannelConnectionState>();
         jdbc.sql("""
                         SELECT s.connection_id, s.opened_at, s.last_failure_code, s.last_failure_at, s.last_message_at,
-                               s.heartbeat_at
+                               s.heartbeat_at, p.expires_at > CURRENT_TIMESTAMP AS pairing
                         FROM channel_connection_state s JOIN channel_connections c ON c.id = s.connection_id
+                        LEFT JOIN channel_pairings p ON p.connection_id = s.connection_id
                         WHERE c.tenant_id = :tenant
                         """)
                 .param("tenant", tenant.value())
                 .query((row, ignored) -> states.put(row.getObject("connection_id", UUID.class), new ChannelConnectionState(
                         instant(row.getTimestamp("opened_at")), row.getString("last_failure_code"),
                         instant(row.getTimestamp("last_failure_at")), instant(row.getTimestamp("last_message_at")),
-                        instant(row.getTimestamp("heartbeat_at"))))).list();
+                        instant(row.getTimestamp("heartbeat_at")), row.getBoolean("pairing")))).list();
         return states;
     }
 

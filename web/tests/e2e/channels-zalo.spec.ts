@@ -225,7 +225,7 @@ test("a member gets a code for a Zalo bot, sees it link, and unlinks another", a
   const calls = await stubChatSettings(page, links);
   await page.goto("/settings/chat");
 
-  const section = page.getByRole("region", { name: "Liên kết Zalo" });
+  const section = page.getByRole("region", { name: "Liên kết tài khoản chat" });
   await expect(section).toBeVisible({ timeout: 30_000 });
   await expect(section.getByText("Chưa liên kết")).toBeVisible();
 
@@ -278,7 +278,7 @@ for (const theme of ["light", "dark"] as const) {
       await page.unrouteAll({ behavior: "ignoreErrors" });
       await stubChatSettings(page, memberLinks());
       await page.goto("/settings/chat");
-      const section = page.getByRole("region", { name: "Liên kết Zalo" });
+      const section = page.getByRole("region", { name: "Liên kết tài khoản chat" });
       await expect(section).toBeVisible({ timeout: 30_000 });
       await section.scrollIntoViewIfNeeded();
       await section.screenshot({ path: `${OUTPUT}/links-${theme}-${width}.png` });

@@ -43,21 +43,29 @@ import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { isUnauthenticated } from "@/lib/api";
 import { getCurrentIdentityQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
-import { createLarkChannel, createZaloChannel, replaceChannelSecret } from "@/lib/hey-api/sdk.gen";
+import {
+  createLarkChannel,
+  createWhatsAppChannel,
+  createZaloChannel,
+  replaceChannelSecret,
+} from "@/lib/hey-api/sdk.gen";
 import type { ChannelResponse } from "@/lib/hey-api/types.gen";
 import { zCreateChannelRequest } from "@/lib/hey-api/zod.gen";
 import { presentProblem } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import { ChannelMark } from "./channel-actions";
 import { channelError } from "./channel-errors";
+import { providerWords } from "./channel-provider";
 
 const APP_ID = /^cli_[0-9a-z]{8,40}$/;
 const MAX_SECRET_LENGTH = 256;
 const REGIONS = ["LARK", "FEISHU"] as const;
 const LANGUAGES = ["vi", "en"] as const;
-const PROVIDERS = ["LARK", "ZALO_BOT"] as const;
+const PROVIDERS = ["LARK", "ZALO_BOT", "WHATSAPP"] as const;
 const TRANSPORTS = ["WEBHOOK", "POLLING"] as const;
 const MAX_TOKEN_LENGTH = 256;
+/** A number in international form, as the backend reads it: 8 to 15 digits once spaces and signs are dropped. */
+const PHONE = /^[1-9][0-9]{7,14}$/;
 
 type Provider = ChannelResponse["provider"];
 
@@ -72,7 +80,7 @@ type ChannelDialogProps = {
   onSaved: () => Promise<void>;
 };
 
-/** Adds a Lark or Zalo bot, or replaces its secret, once the platform accepts it. */
+/** Adds a Lark, Zalo or WhatsApp bot, or replaces a Lark or Zalo bot's secret, once the platform accepts it. */
 export function ChannelDialog(props: ChannelDialogProps) {
   const ui = useAppTranslation();
   const [busy, setBusy] = useState(false);
@@ -129,15 +137,17 @@ function ProviderForms(props: FormProps) {
           <RadioGroup
             value={provider}
             disabled={busy}
-            onValueChange={(value) => setProvider(value === "ZALO_BOT" ? "ZALO_BOT" : "LARK")}
+            onValueChange={(value) =>
+              setProvider(PROVIDERS.find((candidate) => candidate === value) ?? "LARK")
+            }
           >
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 sm:grid-cols-3">
               {PROVIDERS.map((value) => (
                 <FieldLabel key={value} htmlFor={`${id}-${value}`}>
                   <Field orientation="horizontal" className="items-center">
                     <RadioGroupItem id={`${id}-${value}`} value={value} />
                     <ChannelMark provider={value} />
-                    <FieldTitle>{value === "ZALO_BOT" ? ui("Zalo") : ui("Lark")}</FieldTitle>
+                    <FieldTitle>{ui(providerWords(value).name)}</FieldTitle>
                   </Field>
                 </FieldLabel>
               ))}
@@ -147,6 +157,8 @@ function ProviderForms(props: FormProps) {
       )}
       {provider === "ZALO_BOT" ? (
         <ZaloForm {...props} onBusyChange={busyChange} />
+      ) : provider === "WHATSAPP" ? (
+        <WhatsAppForm {...props} onBusyChange={busyChange} />
       ) : (
         <ChannelForm {...props} onBusyChange={busyChange} />
       )}
@@ -614,6 +626,177 @@ function ZaloForm({ replacing, onSaved, onBusyChange }: FormProps) {
         </Button>
       </DialogFooter>
     </form>
+  );
+}
+
+/** Adds a WhatsApp bot by its number; it is linked afterwards by scanning the code its page shows. */
+function WhatsAppForm({ onSaved, onBusyChange }: FormProps) {
+  const ui = useAppTranslation();
+  const problem = useProblemMessage();
+  const id = useId();
+  const queryClient = useQueryClient();
+  const notify = useActionNotifications();
+  const active = useRef(true);
+  const [language, setLanguage] = useState<(typeof LANGUAGES)[number]>("vi");
+  const [error, setError] = useState<string | null>(null);
+  const form = useAppForm({
+    defaultValues: { botName: "", phone: "" },
+    validationLogic: revalidateLogic(),
+    validators: {
+      onDynamic: z.object({
+        botName: zCreateChannelRequest.shape.name,
+        phone: z
+          .string()
+          .transform((value) => value.replace(/[\s.()+-]/g, ""))
+          .pipe(
+            z
+              .string()
+              .regex(
+                PHONE,
+                ui("Nhập số điện thoại của bot theo dạng quốc tế, ví dụ +84 912 345 678."),
+              ),
+          ),
+      }),
+    },
+    onSubmit: ({ value }) => save(value),
+  });
+  const saving = useStore(form.store, (state) => state.isSubmitting);
+
+  useLayoutEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    onBusyChange(saving);
+    return () => onBusyChange(false);
+  }, [saving, onBusyChange]);
+
+  async function save(value: { botName: string; phone: string }) {
+    setError(null);
+    try {
+      await createWhatsAppChannel({
+        body: { name: value.botName.trim(), phone: value.phone.trim(), noticeLanguage: language },
+      });
+      if (!active.current) return;
+      notify({
+        title: "Đã thêm bot",
+        description: appText("{{v1}} đang tắt. Bật bot rồi quét mã QR trên trang của bot.", {
+          v1: value.botName.trim(),
+        }),
+        tone: "success",
+      });
+      await onSaved();
+    } catch (cause) {
+      if (!active.current) return;
+      if (isUnauthenticated(cause))
+        void queryClient.resetQueries({ queryKey: getCurrentIdentityQueryKey(), exact: true });
+      setError(
+        channelError(cause, "WHATSAPP") ?? problem(presentProblem(cause, "mutation").message),
+      );
+    }
+  }
+
+  return (
+    <form
+      className="flex flex-col gap-5"
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault();
+        void form.handleSubmit();
+      }}
+    >
+      <div className="grid min-w-0 gap-5 lg:grid-cols-5">
+        <aside className="h-fit rounded-xl border border-border-subtle bg-surface-base p-4 lg:col-span-2">
+          <div className="mb-3 flex items-center gap-2">
+            <span className="grid size-8 place-items-center text-content-muted">
+              <BotMessageSquare className="size-4" aria-hidden="true" />
+            </span>
+            <h3 className="font-main-ui-action text-content-primary">
+              {ui("Chuẩn bị số WhatsApp")}
+            </h3>
+          </div>
+          <WhatsAppGuide />
+        </aside>
+        <FieldGroup className="min-w-0 lg:col-span-3">
+          <form.AppField name="botName">
+            {(field) => (
+              <field.TextField
+                label={ui("Tên bot")}
+                maxLength={100}
+                disabled={saving}
+                placeholder={ui("ví dụ: Trợ lý MemoryOS")}
+                autoComplete="off"
+              />
+            )}
+          </form.AppField>
+          <form.AppField name="phone">
+            {(field) => (
+              <field.TextField
+                label={ui("Số điện thoại của bot")}
+                type="tel"
+                inputMode="tel"
+                maxLength={24}
+                disabled={saving}
+                placeholder={ui("+84 912 345 678")}
+                autoComplete="off"
+                spellCheck={false}
+              />
+            )}
+          </form.AppField>
+          <Field>
+            <FieldTitle>{ui("Ngôn ngữ thông báo của bot")}</FieldTitle>
+            <RadioGroup
+              value={language}
+              disabled={saving}
+              onValueChange={(value) => setLanguage(value === "en" ? "en" : "vi")}
+            >
+              <div className="flex flex-wrap gap-3">
+                {LANGUAGES.map((value) => (
+                  <FieldLabel key={value} htmlFor={`${id}-${value}`} className="min-w-40 flex-1">
+                    <Field orientation="horizontal">
+                      <RadioGroupItem id={`${id}-${value}`} value={value} />
+                      <FieldTitle>{value === "vi" ? ui("Tiếng Việt") : ui("English")}</FieldTitle>
+                    </Field>
+                  </FieldLabel>
+                ))}
+              </div>
+            </RadioGroup>
+          </Field>
+        </FieldGroup>
+      </div>
+      {error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{ui(error)}</AlertDescription>
+        </Alert>
+      ) : null}
+      <DialogFooter>
+        <DialogClose asChild>
+          <Button prominence="secondary" disabled={saving}>
+            {ui("Hủy")}
+          </Button>
+        </DialogClose>
+        <Button type="submit" pending={saving} disabled={saving}>
+          {ui("Thêm bot")}
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
+/** What a WhatsApp bot needs before it is added, and how it is linked after. */
+function WhatsAppGuide() {
+  const ui = useAppTranslation();
+  return (
+    <ol className="flex list-decimal flex-col gap-2 pl-5 font-secondary-body text-content-secondary">
+      <li>
+        {ui("Dùng một số riêng cho bot, đã cài WhatsApp hoặc WhatsApp Business trên điện thoại.")}
+      </li>
+      <li>{ui("Thêm bot với số đó, rồi bật bot.")}</li>
+      <li>{ui("Trên trang của bot, quét mã QR bằng WhatsApp của số đó.")}</li>
+    </ol>
   );
 }
 

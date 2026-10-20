@@ -4526,9 +4526,9 @@ export type ChannelResponse = {
      */
     missingScopes: Array<string>;
     /**
-     * OFF when switched off; NOT_RUNNING when no process holds it; else CONNECTING, CONNECTED or FAILED
+     * OFF when switched off; NOT_RUNNING when no process holds it; PAIRING while it shows a code to scan; else CONNECTING, CONNECTED or FAILED
      */
-    status: 'OFF' | 'NOT_RUNNING' | 'CONNECTING' | 'CONNECTED' | 'FAILED';
+    status: 'OFF' | 'NOT_RUNNING' | 'CONNECTING' | 'PAIRING' | 'CONNECTED' | 'FAILED';
     /**
      * The typed code of the last failure to open the connection
      */
