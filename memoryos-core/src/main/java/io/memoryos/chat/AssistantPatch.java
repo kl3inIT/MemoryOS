@@ -1,5 +1,6 @@
 package io.memoryos.chat;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -9,8 +10,10 @@ import org.jspecify.annotations.Nullable;
  * The fields of an assistant's unsaved form that one Agent Builder call changed (MEM-280), each the field's whole new
  * value; a null field is unchanged. An empty {@code title}, {@code greeting} or {@code reasoningEffort} clears it, so
  * the browser can tell "cleared" from "untouched". The browser applies it to the form and draws the before → after
- * card from the values it replaced; nothing is saved.
+ * card from the values it replaced; nothing is saved. An unchanged field is left out of the JSON, as the published
+ * contract declares every field optional and not nullable.
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record AssistantPatch(@Nullable String name, @Nullable String title, @Nullable String description,
                              @Nullable String avatarSeed, @Nullable String instructions, @Nullable String greeting,
                              @Nullable List<String> starterPrompts, @Nullable Set<String> tools,

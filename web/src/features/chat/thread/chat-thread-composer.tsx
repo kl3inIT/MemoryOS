@@ -50,6 +50,7 @@ export function ChatThreadComposer({
   checking,
   sendDisabled,
   isEmpty,
+  placeholder,
 }: {
   composerMenu?: ReactNode;
   modelPicker: ReactNode;
@@ -63,6 +64,8 @@ export function ChatThreadComposer({
   sendDisabled: boolean;
   /** An empty thread centres the composer; a conversation keeps it at the bottom. */
   isEmpty: boolean;
+  /** The field's hint in place of "Nhập câu hỏi…". */
+  placeholder?: string;
 }) {
   const ui = useAppTranslation();
   const { t } = useTranslation("chatStatus");
@@ -120,7 +123,7 @@ export function ChatThreadComposer({
                   ? ui("Đang nghe…")
                   : reading
                     ? ui("MemoryOS đang đọc…")
-                    : ui("Nhập câu hỏi…")
+                    : (placeholder ?? ui("Nhập câu hỏi…"))
               }
               rows={1}
               maxLength={32000}

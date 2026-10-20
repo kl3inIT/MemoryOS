@@ -49,7 +49,9 @@ import {
   outcomeSchema,
   pause,
   waitingSchema,
+  assistantChangeSchema,
   mcpUnavailableSchema,
+  type AssistantChange,
   textSchema,
   toolApprovalSchema,
 } from "./chat-stream-events";
@@ -156,6 +158,12 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
    * of the saved ones. Only a temporary conversation may carry them.
    */
   draftPersona?: () => PersonaInput;
+  /**
+   * MEM-280: each turn runs the Agent Builder on {@link draftPersona} instead of the assistant, with no search, web,
+   * image or MCP tool, and its changes to the form come to {@link onAssistantChange}.
+   */
+  builder = false;
+  onAssistantChange?: (change: AssistantChange) => void;
   onSessionCreated?: (session: ChatSession) => void;
   /** Any failure before the first session exists, so thread initialization can be retried. */
   onSessionFailed?: (error: unknown) => void;
@@ -338,11 +346,17 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
         clientRequestId: message.id,
         text,
         modelConfigurationId,
-        webSearch,
-        deepResearch,
         fileIds: fileIds as string[],
-        mcpServerIds,
-        image,
+        // The builder has only its own tools; the server refuses a builder turn that asks for others.
+        ...(this.builder
+          ? {
+              webSearch: "off" as const,
+              deepResearch: false,
+              mcpServerIds: [],
+              image: "off" as const,
+              builder: true,
+            }
+          : { webSearch, deepResearch, mcpServerIds, image }),
         ...(draftPersona && { draftPersona }),
       };
       const { data } = await sendChatMessage({
@@ -450,6 +464,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     let codeRuns: Record<string, CodeRun> = {};
     let generatedFiles: GeneratedFile[] = [];
     let unavailableApps: UnavailableApp[] = [];
+    let assistantChanges: string[] = [];
     let outcome: "COMPLETED" | "CANCELED" | "FAILED" | undefined;
     let failureCode: string | undefined;
     let context: { tokens: number; limit: number } | undefined;
@@ -608,6 +623,15 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
                   approvalId: approval.toolCallId,
                   approved: approval.decision === "APPROVED",
                 };
+            } else if (envelope.event === "assistant_change") {
+              // A builder turn is temporary, so a change arrives only live: the form takes it once, by its call,
+              // even when a reconnect replays the event.
+              const change = assistantChangeSchema.parse(data);
+              if (!assistantChanges.includes(change.toolCallId)) {
+                this.onAssistantChange?.(change);
+                assistantChanges = [...assistantChanges, change.toolCallId];
+                yield { type: "message-metadata", messageMetadata: { assistantChanges } };
+              }
             } else if (envelope.event === "mcp_unavailable") {
               unavailableApps = mcpUnavailableSchema.parse(data).apps;
               yield { type: "message-metadata", messageMetadata: { unavailableApps } };
@@ -692,6 +716,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
           codeRuns,
           generatedFiles,
           ...(unavailableApps.length > 0 && { unavailableApps }),
+          ...(assistantChanges.length > 0 && { assistantChanges }),
         },
       };
       yield* research.finish(committedResearch);

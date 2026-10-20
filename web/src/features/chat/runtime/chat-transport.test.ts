@@ -220,6 +220,81 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
       draftPersona: { instructions: "Ghi rõ số hiệu văn bản." },
     });
   });
+  it("runs the Agent Builder with no tool of the assistant, whatever the defaults", async () => {
+    const fetch = fixture(() => sse(delta + terminal()));
+    const transport = new MemoryOsChatTransport(session);
+    transport.defaultTools({ web: "auto", image: "auto", mcpServerIds: [crypto.randomUUID()] });
+    transport.builder = true;
+    transport.draftPersona = () => ({
+      name: "Chính sách nhân sự",
+      description: "",
+      instructions: "",
+      starterPrompts: [],
+      sourceIds: [],
+    });
+    await collect(await send(transport));
+    expect(await submitted(fetch)).toMatchObject({
+      builder: true,
+      webSearch: "off",
+      image: "off",
+      mcpServerIds: [],
+      deepResearch: false,
+      draftPersona: { name: "Chính sách nhân sự" },
+    });
+  });
+  it("hands each builder change to the editor once and lists it on the reply", async () => {
+    const change = { toolCallId: "call_1", change: { title: "Chuyên viên chính sách nhân sự" } };
+    fixture(() =>
+      sse(
+        packet(1, "assistant_change", change) +
+          // A reconnect may replay the event; the form takes it once.
+          packet(2, "assistant_change", change) +
+          packet(3, "text", { text: "Đã đặt chức danh." }) +
+          packet(4, "outcome", { status: "COMPLETED", failureCode: null }),
+      ),
+    );
+    const transport = new MemoryOsChatTransport(session);
+    const taken = vi.fn();
+    transport.onAssistantChange = taken;
+    const chunks = await collect(await send(transport));
+    expect(taken).toHaveBeenCalledOnce();
+    expect(taken).toHaveBeenCalledWith(expect.objectContaining(change));
+    const listed = chunks.filter(
+      (chunk) =>
+        chunk.type === "message-metadata" &&
+        (chunk as { messageMetadata: { assistantChanges?: string[] } }).messageMetadata
+          .assistantChanges !== undefined,
+    );
+    expect(listed[0]).toEqual({
+      type: "message-metadata",
+      messageMetadata: { assistantChanges: ["call_1"] },
+    });
+    expect(listed.at(-1)).toMatchObject({ messageMetadata: { assistantChanges: ["call_1"] } });
+  });
+  it("takes a builder change shaped as the server sends it, unchanged fields left out", async () => {
+    // As staging sent it (MEM-280 acceptance), with the unchanged fields omitted as the contract declares.
+    const change = {
+      toolCallId: "call_85298b2a493b446c9427f480a17d08c5",
+      change: {
+        title: "Chuyên viên nhân sự",
+        greeting: "",
+        starterPrompts: ["Nghỉ phép năm bao nhiêu ngày?"],
+        grounded: true,
+      },
+    };
+    fixture(() =>
+      sse(
+        packet(1, "assistant_change", change) +
+          packet(2, "text", { text: "Đã dựng trợ lý trong biểu mẫu chưa lưu." }) +
+          packet(3, "outcome", { status: "COMPLETED", failureCode: null }),
+      ),
+    );
+    const transport = new MemoryOsChatTransport(session);
+    const taken = vi.fn();
+    transport.onAssistantChange = taken;
+    await collect(await send(transport));
+    expect(taken).toHaveBeenCalledWith(expect.objectContaining(change));
+  });
   it("loads committed artifact metadata once after outcome without a second inference and restores it on reload", async () => {
     const artifacts = [
       {

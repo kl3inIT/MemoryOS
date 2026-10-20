@@ -846,6 +846,33 @@ export async function handleChatFixture(
       202,
     );
     const grounded = state.mode.startsWith("grounded");
+    // MEM-280: an Agent Builder turn changes the editor's form through assistant_change events, then says what it did.
+    const builder = input.builder === true;
+    if (builder) {
+      const instructions = [
+        "Bạn là trợ lý chính sách nhân sự của công ty.",
+        "- Chỉ trả lời từ tài liệu nội bộ, kèm nguồn.",
+        "- Không tìm thấy thì nói rõ và gợi ý hỏi phòng Nhân sự.",
+        "- Trả lời ngắn, tối đa 5 gạch đầu dòng.",
+      ].join("\n");
+      emit(run, "assistant_change", {
+        toolCallId: "builder-identity",
+        change: {
+          title: "Chuyên viên chính sách nhân sự",
+          greeting: "Chào bạn, mình giải đáp về nghỉ phép, công tác phí và bảo hiểm.",
+          starterPrompts: [
+            "Nghỉ phép năm bao nhiêu ngày?",
+            "Thanh toán công tác phí thế nào?",
+            "Đóng bảo hiểm ở đâu?",
+          ],
+          grounded: true,
+        },
+      });
+      emit(run, "assistant_change", {
+        toolCallId: "builder-instructions",
+        change: { instructions },
+      });
+    }
     if (state.mode === "mcp-unavailable") {
       // MEM-273: the assistant's Linear is not connected yet, so the reply offers Connect under the answer.
       const apps = [
@@ -945,11 +972,14 @@ export async function handleChatFixture(
               ).join("\n\n")
             : grounded
               ? "## Annual leave\n\nEmployees receive **17 days** of annual leave [1].\n\nUnverified [99] remains plain text. Inline code `[1]` is not a citation.\n\n```text\n[1] in a code block\n```"
-              : state.mode === "mcp-unavailable"
-                ? "Mình chưa xem được issue trên Linear vì bạn chưa kết nối Linear. Bấm **Kết nối** bên dưới rồi hỏi lại nhé."
-                : state.mode === "renderers"
-                  ? answer + "\n\n```mermaid\ngraph TD\n  Upload --> Parse\n  Parse --> Answer\n```"
-                  : answer;
+              : builder
+                ? "Mình đã sửa bản nháp: đặt chức danh, lời chào, ba câu gợi ý, bật chỉ trả lời có căn cứ và viết hướng dẫn. Bấm **Lưu** ở trên để áp dụng."
+                : state.mode === "mcp-unavailable"
+                  ? "Mình chưa xem được issue trên Linear vì bạn chưa kết nối Linear. Bấm **Kết nối** bên dưới rồi hỏi lại nhé."
+                  : state.mode === "renderers"
+                    ? answer +
+                      "\n\n```mermaid\ngraph TD\n  Upload --> Parse\n  Parse --> Answer\n```"
+                    : answer;
         if (state.mode === "renderers")
           state.messages.at(-1)!.artifacts = [
             {
