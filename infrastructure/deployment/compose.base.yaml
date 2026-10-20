@@ -588,7 +588,7 @@ services:
 
   docling:
     <<: *service-defaults
-    image: ${MEMORYOS_DOCLING_IMAGE:-quay.io/docling-project/docling-serve-cpu:v1.36.0@sha256:225c8586e20d5d0fc6811a9e0e044fa602bcc4393f00389009bad42d6787b58f}
+    image: ${MEMORYOS_DOCLING_IMAGE:-quay.io/docling-project/docling-serve-cpu:v1.37.0@sha256:6eda9c524992147c1b0b06a1a9be4894bd68b1f43c86d92c32f996c4c60d18a3}
     environment:
       UVICORN_WORKERS: ${UVICORN_WORKERS:-1}
       DOCLING_SERVE_ENG_LOC_NUM_WORKERS: ${DOCLING_SERVE_ENG_LOC_NUM_WORKERS:-1}
