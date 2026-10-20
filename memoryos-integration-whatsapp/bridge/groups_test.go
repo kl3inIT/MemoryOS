@@ -14,6 +14,8 @@ func TestAGroupListsEveryoneButTheBotByLIDAndPhone(t *testing.T) {
 	info := &types.GroupInfo{
 		JID:       types.NewJID("120363000000000001", types.GroupServer),
 		GroupName: types.GroupName{Name: "Nhân sự"},
+		// The bot and the two people below.
+		ParticipantCount: 3,
 		Participants: []types.GroupParticipant{
 			// The bot, by its LID with its number beside it.
 			{JID: ownLID, LID: ownLID, PhoneNumber: types.NewJID("84900000001", types.DefaultUserServer)},
@@ -31,28 +33,51 @@ func TestAGroupListsEveryoneButTheBotByLIDAndPhone(t *testing.T) {
 		{ID: "222222222222222@lid", Phone: "84911111111@s.whatsapp.net"},
 		{ID: "84922222222@s.whatsapp.net"},
 	}
-	if got.Name != "Nhân sự" || !reflect.DeepEqual(got.Participants, want) {
+	if got.Name != "Nhân sự" || !got.Complete || !reflect.DeepEqual(got.Participants, want) {
 		t.Fatalf("got %+v, want participants %+v", got, want)
+	}
+
+	// A list shorter than WhatsApp's count, or a community's parent, is not everyone.
+	info.ParticipantCount = 4
+	if groupOf(info, &own, ownLID).Complete {
+		t.Fatal("a list WhatsApp counts more people than is not complete")
+	}
+	info.ParticipantCount = 3
+	info.IsParent = true
+	if groupOf(info, &own, ownLID).Complete {
+		t.Fatal("a community's parent is not complete")
 	}
 }
 
 func TestAGroupIsKeptAMinuteUntilWhatsAppChangesItsPeople(t *testing.T) {
 	held := &bot{groups: map[string]cachedGroup{}}
 	chat := "120363000000000001@g.us"
-	if _, ok := held.cached(chat); ok {
+	if _, ok, _ := held.cached(chat); ok {
 		t.Fatal("a group never read is not kept")
 	}
-	held.keep(chat, group{Chat: chat, Name: "Nhân sự"})
-	if got, ok := held.cached(chat); !ok || got.Name != "Nhân sự" {
+	_, _, epoch := held.cached(chat)
+	held.keep(chat, group{Chat: chat, Name: "Nhân sự"}, epoch)
+	if got, ok, _ := held.cached(chat); !ok || got.Name != "Nhân sự" {
 		t.Fatalf("a group just read is kept, got %+v %v", got, ok)
 	}
 	held.groups[chat] = cachedGroup{group: group{Chat: chat}, at: time.Now().Add(-groupFresh)}
-	if _, ok := held.cached(chat); ok {
+	if _, ok, _ := held.cached(chat); ok {
 		t.Fatal("a group read a minute ago is read again")
 	}
-	held.keep(chat, group{Chat: chat})
+
+	// A read begun before WhatsApp reported a change is not kept after it.
+	_, _, before := held.cached(chat)
 	held.forgetGroup(chat)
-	if _, ok := held.cached(chat); ok {
-		t.Fatal("a group whose people changed is read again")
+	held.keep(chat, group{Chat: chat}, before)
+	if _, ok, _ := held.cached(chat); ok {
+		t.Fatal("a group read before its people changed is read again")
+	}
+
+	// A reconnection forgets every group.
+	_, _, epoch = held.cached(chat)
+	held.keep(chat, group{Chat: chat}, epoch)
+	held.forgetGroups()
+	if _, ok, _ := held.cached(chat); ok {
+		t.Fatal("a group kept before a reconnection is read again")
 	}
 }

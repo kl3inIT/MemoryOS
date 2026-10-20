@@ -225,6 +225,8 @@ class WhatsAppChannelAdapterTest {
         // A group that cannot be read, or someone in it WhatsApp names by nothing, counts as having outsiders.
         assertTrue(adapter.chat(connection, "404@g.us").external());
         assertTrue(adapter.chat(connection, "nameless@g.us").external());
+        // A list that is not everyone by WhatsApp's own count tells nothing of who else reads the group.
+        assertTrue(adapter.chat(connection, "partial@g.us").external());
     }
 
     @Test

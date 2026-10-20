@@ -66,7 +66,8 @@ public class FakeBridge {
                     if (chat.startsWith("404")) {
                         fail(id, "UNAVAILABLE");
                     } else {
-                        var group = JSON.createObjectNode().put("chat", chat).put("name", "Phòng Kế toán");
+                        var group = JSON.createObjectNode().put("chat", chat).put("name", "Phòng Kế toán")
+                                .put("complete", !chat.startsWith("partial"));
                         var people = group.putArray("participants");
                         people.addObject().put("id", "222222222222222@lid").put("phone", "84911111111@s.whatsapp.net");
                         if (chat.startsWith("nameless")) people.addObject();

@@ -178,8 +178,8 @@ public final class WhatsAppChannelAdapter implements ChannelAdapter, AutoCloseab
 
     /**
      * A group with its name and everyone in it but the bot, each by their LID and number, so the capability answers it
-     * only when all of them linked an account in the Tenant (MEM-285). A group that cannot be read counts as having
-     * outsiders, as Lark's does.
+     * only when all of them linked an account in the Tenant (MEM-285). A group that cannot be read, or whose list is not
+     * everyone by WhatsApp's own count, counts as having outsiders, as Lark's does.
      */
     @Override
     public ChannelChat chat(ChannelConnection connection, String chatId) {
@@ -187,6 +187,9 @@ public final class WhatsAppChannelAdapter implements ChannelAdapter, AutoCloseab
         try {
             group = bridge.call("group", Map.of("bot", connection.id().toString(), "chat", chatId), CALL);
         } catch (WhatsAppBridge.Failure unread) {
+            return new ChannelChat(true, null);
+        }
+        if (!group.path("complete").asBoolean(false) || !group.path("participants").isArray()) {
             return new ChannelChat(true, null);
         }
         var people = new ArrayList<ChannelChat.Person>();

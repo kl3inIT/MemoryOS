@@ -291,12 +291,14 @@ plus are dropped), and a bot has no settings.
   document's caption is text followed by a note that the file was not read; anything else is `OTHER`. A group message
   addresses the bot when it mentions its phone JID or LID or replies to its message, and the mention is removed.
 - **Groups** are listed with their names (`groups`). `chat` gives a group's name and everyone in it but the bot,
-  each by their LID and their number where WhatsApp gives it; a group the bridge cannot read, or with someone
-  WhatsApp names by nothing, counts as having outsiders. The capability answers a group of a provider without
+  each by their LID and their number where WhatsApp gives it; a group the bridge cannot read, whose list is not
+  everyone by WhatsApp's own count (`size`) or is a community's parent, or with someone WhatsApp names by nothing,
+  counts as having outsiders. The capability answers a group of a provider without
   organisations only when every one of them linked an account on the bot to an active member of the Tenant
   (`ChannelChat.participants`, MEM-285); otherwise the question is refused as `UNLINKED_IN_GROUP` with the
   external-group notice, so a linked member cannot bring the bot into a group where an outsider reads its answers.
-  The bridge keeps a group's people a minute and forgets them as soon as WhatsApp reports the group changed.
+  The bridge keeps a group's people a minute, forgets them as soon as WhatsApp reports the group changed and every
+  group on reconnecting, and keeps no read begun before a forgetting.
   Zalo lists no one, so its groups keep MEM-285's open question.
 - **The reply** marks the question read, sends the typing mark at once and every 8 seconds for 90 at most, and ends it
   when the answer is sent. `finish` makes the answer WhatsApp's formatting (`WhatsAppText`, on commonmark-java with
