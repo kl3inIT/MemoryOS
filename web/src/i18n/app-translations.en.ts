@@ -2324,6 +2324,7 @@ Object.assign(vietnameseUi, {
     "Go to Settings › Linked devices › Link a device.",
   "Quét mã này. Mã tự đổi sau vài giây.": "Scan this code. It changes every few seconds.",
   "Liên kết lại": "Link again",
+  "Không hiện được mã QR. Hãy tải lại trang.": "The QR code could not be shown. Reload the page.",
   "Agent Builder": "Agent Builder",
   "Thử và chỉnh trợ lý": "Try and tune the assistant",
   "Đã sửa bản nháp": "Draft changed",

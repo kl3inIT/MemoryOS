@@ -100,26 +100,40 @@ export function ChannelPairingSection({ channel }: { channel: ChannelResponse })
   );
 }
 
-/** The code drawn as a QR code; the library loads only when a bot shows one. */
+/**
+ * The code drawn as a QR code; the library loads only when a bot shows one. A library that fails to load stays failed
+ * until the page is loaded again, so a failure says so rather than wait; the code as text would not help, since
+ * WhatsApp links only by scanning.
+ */
 function PairingCode({ code, label }: { code: string; label: string }) {
+  const ui = useAppTranslation();
   const canvas = useRef<HTMLCanvasElement>(null);
-  const [drawn, setDrawn] = useState(false);
+  const [state, setState] = useState<"drawing" | "drawn" | "failed">("drawing");
   useEffect(() => {
     let current = true;
-    void import("qrcode").then(({ toCanvas }) => {
-      if (!current || !canvas.current) return;
-      return toCanvas(canvas.current, code, { width: QR_SIZE, margin: 1 }).then(() => {
-        if (current) setDrawn(true);
+    import("qrcode")
+      .then(({ toCanvas }) => {
+        if (!current || !canvas.current) return;
+        return toCanvas(canvas.current, code, { width: QR_SIZE, margin: 1 }).then(() => {
+          if (current) setState("drawn");
+        });
+      })
+      .catch(() => {
+        if (current) setState("failed");
       });
-    });
     return () => {
       current = false;
     };
   }, [code]);
   return (
     <>
-      <canvas ref={canvas} role="img" aria-label={label} hidden={!drawn} />
-      {drawn ? null : <Skeleton className="size-56" />}
+      <canvas ref={canvas} role="img" aria-label={label} hidden={state !== "drawn"} />
+      {state === "drawing" ? <Skeleton className="size-56" /> : null}
+      {state === "failed" ? (
+        <p role="alert" className="px-4 text-center font-secondary-body text-status-danger-content">
+          {ui("Không hiện được mã QR. Hãy tải lại trang.")}
+        </p>
+      ) : null}
     </>
   );
 }
