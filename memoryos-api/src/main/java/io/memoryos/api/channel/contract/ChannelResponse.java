@@ -31,7 +31,8 @@ public record ChannelResponse(
                 description = "Scopes the bot needs that the platform refused at the last check")
         List<String> missingScopes,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
-                description = "OFF when switched off; NOT_RUNNING when no process holds it; else CONNECTING, CONNECTED or FAILED")
+                description = "OFF when switched off; NOT_RUNNING when no process holds it; PAIRING while it shows "
+                        + "a code to scan; else CONNECTING, CONNECTED or FAILED")
         Listed.Status status,
         @Schema(description = "The typed code of the last failure to open the connection") @Nullable String failureCode,
         @Schema(description = "When that failure happened") @Nullable Instant failedAt,

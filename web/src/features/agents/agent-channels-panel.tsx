@@ -8,6 +8,7 @@ import { SectionHeader } from "@/components/composites/section-header";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { Persona } from "@/features/chat/chat-personas-api";
 import { ChannelMark } from "@/features/channels/channel-actions";
+import { providerWords } from "@/features/channels/channel-provider";
 import { useGlobalCapability } from "@/features/identity/application-session-context";
 import { actionErrorText } from "@/lib/action-errors";
 import { listAssistantChannelsOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
@@ -31,7 +32,6 @@ export function AgentChannelsPanel({ agent }: { agent: Persona }) {
   const botsHeading = useId();
   const groupsHeading = useId();
   const bound = useQuery(listAssistantChannelsOptions({ path: { personaId: agent.id } }));
-  const zalo = (bot: AssistantChannelResponse) => bot.provider === "ZALO_BOT";
   const bots: Place[] = (bound.data ?? [])
     .filter((bot) => bot.byDefault)
     .map((bot) => ({
@@ -39,7 +39,7 @@ export function AgentChannelsPanel({ agent }: { agent: Persona }) {
       bot,
       title: bot.name,
       line: [
-        zalo(bot) ? ui("Bot Zalo") : ui("Bot Lark"),
+        ui(providerWords(bot.provider).bot),
         ui("mặc định"),
         bot.enabled ? null : ui("Đang tắt"),
       ]
@@ -48,7 +48,7 @@ export function AgentChannelsPanel({ agent }: { agent: Persona }) {
     }));
   const groups: Place[] = (bound.data ?? []).flatMap((bot) =>
     bot.groups.map((group) => {
-      const kind = zalo(bot) ? ui("Nhóm Zalo") : ui("Nhóm Lark");
+      const kind = ui(providerWords(bot.provider).group);
       return {
         key: `${bot.id}:${group.id}`,
         bot,

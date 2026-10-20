@@ -4408,6 +4408,7 @@ export const zChannelResponse = z.object({
         'OFF',
         'NOT_RUNNING',
         'CONNECTING',
+        'PAIRING',
         'CONNECTED',
         'FAILED'
     ]),

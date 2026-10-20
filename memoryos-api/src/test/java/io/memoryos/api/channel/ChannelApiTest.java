@@ -215,7 +215,7 @@ class ChannelApiTest {
                 Map.of(ChannelRegion.SETTING, "LARK"), "vi",
                 enabled, new ActorId(UUID.randomUUID()), 3, Instant.now(), Instant.now(), null, "MemoryOS Bot", "ou_bot",
                 List.of("contact:user.email:readonly"));
-        var state = new ChannelConnectionState(Instant.now(), null, null, null, Instant.now());
+        var state = new ChannelConnectionState(Instant.now(), null, null, null, Instant.now(), false);
         return new Listed(bot, state, status, null, null);
     }
 

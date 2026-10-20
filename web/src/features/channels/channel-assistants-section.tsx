@@ -41,6 +41,7 @@ import { can } from "@/lib/resource-permissions";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import { ChannelMark } from "./channel-actions";
 import { channelError } from "./channel-errors";
+import { providerWords } from "./channel-provider";
 
 /** The picker's value for the built-in assistant as the bot's default, which the API writes as no assistant. */
 const BUILT_IN = "built-in";
@@ -95,7 +96,7 @@ export function ChannelAssistantsSection({ channel }: { channel: ChannelResponse
   const groupTitle = (group: ChannelGroupResponse) =>
     group.label ||
     group.name ||
-    `${channel.provider === "ZALO_BOT" ? ui("Nhóm Zalo") : ui("Nhóm Lark")} ${group.id.slice(-4)}`;
+    `${ui(providerWords(channel.provider).group)} ${group.id.slice(-4)}`;
   const busy = bindDefault.isPending || bindGroup.isPending;
 
   return (
@@ -147,7 +148,7 @@ export function ChannelAssistantsSection({ channel }: { channel: ChannelResponse
                     </span>
                     <span className="truncate font-secondary-body text-content-muted">
                       {[
-                        channel.provider === "ZALO_BOT" ? ui("Nhóm Zalo") : ui("Nhóm Lark"),
+                        ui(providerWords(channel.provider).group),
                         group.lastMessageAt
                           ? ui("hỏi {{v1}}", {
                               // Mid-sentence, so "Hôm qua" reads "hôm qua".

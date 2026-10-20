@@ -57,6 +57,8 @@ type group struct {
 	Chat         string        `json:"chat"`
 	Name         string        `json:"name,omitempty"`
 	Participants []participant `json:"participants"`
+	// Whether Participants is everyone in the group, by WhatsApp's own count.
+	Complete bool `json:"complete"`
 }
 
 // A person in a group, known by their LID where WhatsApp gives one.

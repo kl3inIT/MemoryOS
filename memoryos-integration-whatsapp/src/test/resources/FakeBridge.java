@@ -61,8 +61,20 @@ public class FakeBridge {
                     groups.addObject().put("chat", "120363000000000002@g.us").put("name", "").putArray("participants");
                     ok(id, groups);
                 }
-                case "group" -> ok(id, JSON.createObjectNode().put("chat", command.path("chat").asString())
-                        .put("name", "Phòng Kế toán"));
+                case "group" -> {
+                    String chat = command.path("chat").asString();
+                    if (chat.startsWith("404")) {
+                        fail(id, "UNAVAILABLE");
+                    } else {
+                        var group = JSON.createObjectNode().put("chat", chat).put("name", "Phòng Kế toán")
+                                .put("complete", !chat.startsWith("partial"));
+                        var people = group.putArray("participants");
+                        people.addObject().put("id", "222222222222222@lid").put("phone", "84911111111@s.whatsapp.net");
+                        if (chat.startsWith("nameless")) people.addObject();
+                        else people.addObject().put("id", "84922222222@s.whatsapp.net");
+                        ok(id, group);
+                    }
+                }
                 case "refuse" -> fail(id, "NOT_LINKED");
                 default -> ok(id, null);
             }

@@ -52,14 +52,14 @@ and the administration page with the group rule (steps 5 and 6). Each is accepte
 
 - [x] `POST /api/channels/whatsapp` (name, phone, language), `GET /api/channels/{id}/pairing`,
   `POST /api/channels/{id}/pairing` (link again); contract records; `openapi.yml` and the web client.
-- [ ] Web: WhatsApp in the add dialog (number), its mark, the QR on the bot's page read every two seconds, the
+- [x] Web: WhatsApp in the add dialog (number), its mark, the QR on the bot's page read every two seconds, the
   states and "Liên kết lại", every place that branches on the provider; vi and en copy; Playwright spec.
 
 ## 6. Groups (MEM-285)
 
-- [ ] `ChannelChat` carries the participants for a provider without organisations; the capability answers a group
+- [x] `ChannelChat` carries the participants for a provider without organisations; the capability answers a group
   only when every participant has linked an account in the Tenant; WhatsApp's `chat` reads the participants
-  (cached a minute); `ChannelInboundServiceTest` proves a linked member cannot bring the bot into a group with an
+  (kept a minute in the bridge, forgotten when WhatsApp reports the group changed); `ChannelInboundServiceTest` proves a linked member cannot bring the bot into a group with an
   outsider. Close MEM-285 for WhatsApp; Zalo keeps its open question.
 - [ ] Staging: a group of linked members gets answers when the bot is named; a group with an outsider is refused;
   a group's own assistant.

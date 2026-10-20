@@ -2269,7 +2269,6 @@ Object.assign(vietnameseUi, {
     "Zalo did not answer. Try again in a few minutes.",
   "Bot ngừng trả lời trên Zalo, các liên kết tài khoản bị xóa và tài khoản của bot bị vô hiệu hóa; các hội thoại cũ vẫn giữ tên bot. Không hoàn tác được.":
     "The bot stops answering in Zalo, its account links are removed and its account is deactivated; past conversations keep its name. This cannot be undone.",
-  "Liên kết Zalo": "Zalo links",
   "Đã liên kết · {{time}}": "Linked · {{time}}",
   "Chưa liên kết": "Not linked",
   "Lấy mã": "Get a code",
@@ -2284,6 +2283,48 @@ Object.assign(vietnameseUi, {
   "Bot sẽ không trả lời tài khoản Zalo này nữa cho tới khi bạn liên kết lại.":
     "The bot stops answering this Zalo account until you link it again.",
   "Đang bỏ liên kết…": "Unlinking…",
+  // MEM-283 WhatsApp bot
+  "Bot WhatsApp": "WhatsApp bot",
+  "Nhóm WhatsApp": "WhatsApp group",
+  "Không kết nối được tới WhatsApp": "Cannot connect to WhatsApp",
+  "Đang kết nối tới WhatsApp…": "Connecting to WhatsApp…",
+  "Đang trả lời trên WhatsApp": "Answering in WhatsApp",
+  "Chờ quét mã QR": "Waiting for the QR code to be scanned",
+  "Chờ liên kết": "Waiting to be linked",
+  "WhatsApp đã đăng xuất thiết bị": "WhatsApp logged the device out",
+  "WhatsApp đang tạm khóa số này": "WhatsApp has suspended this number for now",
+  "Phiên WhatsApp đã mở ở nơi khác": "The WhatsApp session was opened elsewhere",
+  "Mã được quét bằng một số khác": "The code was scanned by another number",
+  "Số này đã liên kết với bot khác": "This number is linked to another bot",
+  "Số này đã được thêm làm bot.": "This number has already been added as a bot.",
+  "Nhập số điện thoại của bot theo dạng quốc tế, ví dụ +84 912 345 678.":
+    "Enter the bot's phone number in international form, such as +84 912 345 678.",
+  "WhatsApp không phản hồi. Hãy thử lại sau ít phút.":
+    "WhatsApp is not responding. Try again in a few minutes.",
+  "Bot ngừng trả lời trên WhatsApp, thiết bị bị đăng xuất khỏi số của bot, các liên kết tài khoản bị xóa và tài khoản của bot bị vô hiệu hóa; các hội thoại cũ vẫn giữ tên bot. Không hoàn tác được.":
+    "The bot stops answering in WhatsApp, its device is logged out of the bot's number, account links are removed and the bot's account is deactivated; past conversations keep the bot's name. This cannot be undone.",
+  "Bot trên {{provider}}": "Bot in {{provider}}",
+  "Số điện thoại": "Phone number",
+  "{{v1}} đang tắt. Bật bot rồi quét mã QR trên trang của bot.":
+    "{{v1}} is off. Switch the bot on, then scan the QR code on its page.",
+  "Chuẩn bị số WhatsApp": "Prepare a WhatsApp number",
+  "Số điện thoại của bot": "Bot's phone number",
+  "Dùng một số riêng cho bot, đã cài WhatsApp hoặc WhatsApp Business trên điện thoại.":
+    "Use a number of the bot's own, with WhatsApp or WhatsApp Business installed on a phone.",
+  "Thêm bot với số đó, rồi bật bot.": "Add the bot with that number, then switch it on.",
+  "Trên trang của bot, quét mã QR bằng WhatsApp của số đó.":
+    "On the bot's page, scan the QR code with that number's WhatsApp.",
+  "Liên kết tài khoản chat": "Chat account links",
+  "Bot sẽ không trả lời tài khoản {{provider}} này nữa cho tới khi bạn liên kết lại.":
+    "The bot stops answering this {{provider}} account until you link it again.",
+  "Liên kết WhatsApp": "Link WhatsApp",
+  "Mã QR liên kết WhatsApp": "WhatsApp link QR code",
+  "Mở WhatsApp trên điện thoại của số +{{phone}}.": "Open WhatsApp on the phone of +{{phone}}.",
+  "Vào Cài đặt › Thiết bị liên kết › Liên kết thiết bị.":
+    "Go to Settings › Linked devices › Link a device.",
+  "Quét mã này. Mã tự đổi sau vài giây.": "Scan this code. It changes every few seconds.",
+  "Liên kết lại": "Link again",
+  "Không hiện được mã QR. Hãy tải lại trang.": "The QR code could not be shown. Reload the page.",
   "Agent Builder": "Agent Builder",
   "Thử và chỉnh trợ lý": "Try and tune the assistant",
   "Đã sửa bản nháp": "Draft changed",

@@ -168,9 +168,10 @@ A group turn runs as the bot's service account, which reads what every member ma
 people, so MEM-285 found that a linked member can bring the bot into a group with outsiders. WhatsApp lists them:
 `chat(connection, chatId)` answers the group's participants, and the capability answers a group only when every
 participant other than the bot has linked an account in the bot's Tenant (OpenClaw's `groupPolicy` allowlist is the
-manual form of the same rule). `ChannelChat` carries the participants' ids for a provider without organisations; a
-group whose list cannot be read counts as external, as Lark's does. Until this is built, a WhatsApp group question is
-refused with the existing external-group notice.
+manual form of the same rule). `ChannelChat` carries the participants for a provider without organisations, each
+by every id the provider knows them by (LID and number, since a sender with no LID known when they linked was
+recorded by number); a group whose list cannot be read counts as external, as Lark's does. A group with someone not
+linked is refused as `UNLINKED_IN_GROUP` with the external-group notice.
 
 ### One holder a bot, several processes
 

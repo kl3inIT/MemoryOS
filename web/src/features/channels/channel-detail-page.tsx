@@ -22,11 +22,13 @@ import { cn } from "@/lib/utils";
 import { ChannelMark, ChannelMenu, ChannelSwitch } from "./channel-actions";
 import { type ChannelAdmin, useChannelAdmin, useChannels } from "./channel-admin";
 import { ChannelAssistantsSection } from "./channel-assistants-section";
+import { ChannelPairingSection } from "./channel-pairing-section";
+import { providerWords } from "./channel-provider";
 import { channelFailure, channelLine, channelState } from "./channel-status";
 
 /**
- * One bot's page: its name, line and switch at the top, then its facts, which assistant answers where and the scopes
- * Lark still refuses.
+ * One bot's page: its name, line and switch at the top, then the code a WhatsApp bot shows to be linked, its facts,
+ * which assistant answers where and the scopes Lark still refuses.
  */
 export function ChannelDetailPage() {
   const ui = useAppTranslation();
@@ -65,22 +67,31 @@ function ChannelDetail({ channel, admin }: { channel: ChannelResponse; admin: Ch
   const ui = useAppTranslation();
   const { line, tone } = channelLine(channel);
   const when = (value?: string) => (value ? formatUiMoment(value) : ui("Chưa có"));
-  const zalo = channel.provider === "ZALO_BOT";
   const facts: [string, ReactNode][] = [
     [ui("Trạng thái"), ui(channelState(channel.status))],
-    [zalo ? ui("Bot trên Zalo") : ui("Bot trên Lark"), channel.botName ?? ui("Chưa rõ")],
-    ...(zalo
-      ? ([
-          [ui("Bot ID"), channel.appId],
-          [
-            ui("Cách nhận tin"),
-            <TransportSelect key="transport" channel={channel} admin={admin} />,
-          ],
-        ] as [string, ReactNode][])
+    // WhatsApp names only a business account, so a WhatsApp bot without a name has no row for it.
+    ...(channel.provider === "WHATSAPP" && !channel.botName
+      ? []
       : ([
-          [ui("Khu vực"), channel.region === "FEISHU" ? ui("Feishu") : ui("Lark")],
-          [ui("App ID"), channel.appId],
+          [
+            ui("Bot trên {{provider}}", { provider: providerWords(channel.provider).name }),
+            channel.botName ?? ui("Chưa rõ"),
+          ],
         ] as [string, ReactNode][])),
+    ...(channel.provider === "WHATSAPP"
+      ? ([[ui("Số điện thoại"), `+${channel.appId}`]] as [string, ReactNode][])
+      : channel.provider === "ZALO_BOT"
+        ? ([
+            [ui("Bot ID"), channel.appId],
+            [
+              ui("Cách nhận tin"),
+              <TransportSelect key="transport" channel={channel} admin={admin} />,
+            ],
+          ] as [string, ReactNode][])
+        : ([
+            [ui("Khu vực"), channel.region === "FEISHU" ? ui("Feishu") : ui("Lark")],
+            [ui("App ID"), channel.appId],
+          ] as [string, ReactNode][])),
     [ui("Ngôn ngữ thông báo"), channel.noticeLanguage === "en" ? ui("English") : ui("Tiếng Việt")],
     [ui("Kết nối từ"), when(channel.connectedAt)],
     [ui("Tin nhắn gần nhất"), when(channel.lastMessageAt)],
@@ -121,6 +132,8 @@ function ChannelDetail({ channel, admin }: { channel: ChannelResponse; admin: Ch
           <AlertDescription>{ui(admin.changeError)}</AlertDescription>
         </Alert>
       ) : null}
+
+      <ChannelPairingSection channel={channel} />
 
       <section className="flex flex-col gap-3">
         <SectionHeader level="group" title={ui("Thông tin")} />

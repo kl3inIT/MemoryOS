@@ -20,6 +20,9 @@ import (
 // How long a message waits for the JVM to claim it before WhatsApp is acknowledged anyway.
 const ackWait = 20 * time.Second
 
+// How long a group's people are kept between questions; WhatsApp's own change of them forgets them at once.
+const groupFresh = time.Minute
+
 // A failure the JVM can act on, by code.
 type failure string
 
@@ -53,6 +56,49 @@ type bot struct {
 	phone  string
 	client *whatsmeow.Client
 	cancel context.CancelFunc
+
+	groupsMu sync.Mutex
+	groups   map[string]cachedGroup
+	// Moves with every forgetting, so a read begun before one is not kept after it.
+	groupsEpoch uint64
+}
+
+// A group as WhatsApp last listed it, and when.
+type cachedGroup struct {
+	group group
+	at    time.Time
+}
+
+// The group kept fresh, if any, and the epoch a read begun now must still find to be kept.
+func (h *bot) cached(chat string) (group, bool, uint64) {
+	h.groupsMu.Lock()
+	defer h.groupsMu.Unlock()
+	entry, ok := h.groups[chat]
+	return entry.group, ok && time.Since(entry.at) < groupFresh, h.groupsEpoch
+}
+
+// Keeps a group read since epoch, unless something was forgotten meanwhile.
+func (h *bot) keep(chat string, g group, epoch uint64) {
+	h.groupsMu.Lock()
+	defer h.groupsMu.Unlock()
+	if epoch == h.groupsEpoch {
+		h.groups[chat] = cachedGroup{group: g, at: time.Now()}
+	}
+}
+
+func (h *bot) forgetGroup(chat string) {
+	h.groupsMu.Lock()
+	defer h.groupsMu.Unlock()
+	h.groupsEpoch++
+	delete(h.groups, chat)
+}
+
+// Forgets every group, as after a reconnection, when changes WhatsApp sent meanwhile may have been missed.
+func (h *bot) forgetGroups() {
+	h.groupsMu.Lock()
+	defer h.groupsMu.Unlock()
+	h.groupsEpoch++
+	clear(h.groups)
 }
 
 func newBots(container *sqlstore.Container, sessions sessions, out *output, log waLog.Logger) *bots {
@@ -81,7 +127,7 @@ func (b *bots) open(ctx context.Context, id, phone string) (map[string]any, erro
 	client.ManualHistorySyncDownload = true
 	client.EnableAutoReconnect = true
 	botCtx, cancel := context.WithCancel(context.Background())
-	held := &bot{id: id, phone: phone, client: client, cancel: cancel}
+	held := &bot{id: id, phone: phone, client: client, cancel: cancel, groups: map[string]cachedGroup{}}
 	client.AddEventHandler(func(evt any) { b.handle(botCtx, held, evt) })
 	pairing := device.ID == nil
 	if pairing {
@@ -178,6 +224,7 @@ func (b *bots) handle(ctx context.Context, held *bot, evt any) {
 		b.emit(event{Event: "paired", Bot: held.id, JID: e.ID.ToNonAD().String(), LID: e.LID.ToNonAD().String(),
 			Name: e.BusinessName})
 	case *events.Connected:
+		held.forgetGroups()
 		b.emit(event{Event: "connected", Bot: held.id, JID: jid(client.Store.ID), LID: client.Store.GetLID().String(),
 			Name: client.Store.PushName})
 	case *events.Disconnected:
@@ -195,7 +242,11 @@ func (b *bots) handle(ctx context.Context, held *bot, evt any) {
 	case *events.ClientOutdated:
 		b.emit(event{Event: "outdated", Bot: held.id})
 	case *events.JoinedGroup:
+		held.forgetGroup(e.JID.String())
 		b.emit(event{Event: "joined", Bot: held.id, Chat: e.JID.String(), Name: e.Name})
+	case *events.GroupInfo:
+		// Someone joined, left or was added: the next question reads the group's people again.
+		held.forgetGroup(e.JID.String())
 	case *events.Message:
 		me := self{phone: phoneJID(client.Store.ID), lid: client.Store.GetLID()}
 		message, ok := convert(e, me, func(phone types.JID) (types.JID, bool) {
@@ -420,7 +471,7 @@ func (b *bots) groups(ctx context.Context, id string) ([]group, error) {
 	}
 	result := make([]group, 0, len(joined))
 	for _, info := range joined {
-		result = append(result, groupOf(info))
+		result = append(result, groupOf(info, held.client.Store.ID, held.client.Store.LID))
 	}
 	return result, nil
 }
@@ -434,27 +485,46 @@ func (b *bots) group(ctx context.Context, id, chat string) (group, error) {
 	if err != nil || jid.Server != types.GroupServer {
 		return group{}, errInvalid
 	}
+	cached, fresh, epoch := held.cached(jid.String())
+	if fresh {
+		return cached, nil
+	}
 	info, err := held.client.GetGroupInfo(ctx, jid)
 	if err != nil {
 		return group{}, sendFailure(err)
 	}
-	return groupOf(info), nil
+	result := groupOf(info, held.client.Store.ID, held.client.Store.LID)
+	held.keep(jid.String(), result, epoch)
+	return result, nil
 }
 
-func groupOf(info *types.GroupInfo) group {
+// A group and everyone in it but the bot, whose number and LID are its own.
+func groupOf(info *types.GroupInfo, own *types.JID, ownLID types.JID) group {
 	people := make([]participant, 0, len(info.Participants))
 	for _, person := range info.Participants {
+		if (own != nil && (person.JID.User == own.User || person.PhoneNumber.User == own.User)) ||
+			(!ownLID.IsEmpty() && (person.JID.User == ownLID.User || person.LID.User == ownLID.User)) {
+			continue
+		}
 		id := person.JID
 		if !person.LID.IsEmpty() {
 			id = person.LID
 		}
 		entry := participant{ID: id.ToNonAD().String()}
-		if !person.PhoneNumber.IsEmpty() {
-			entry.Phone = person.PhoneNumber.ToNonAD().String()
+		// The number too, which a sender with no LID known when they linked was recorded by.
+		phone := person.PhoneNumber
+		if phone.IsEmpty() && person.JID.Server == types.DefaultUserServer && id != person.JID {
+			phone = person.JID
+		}
+		if !phone.IsEmpty() {
+			entry.Phone = phone.ToNonAD().String()
 		}
 		people = append(people, entry)
 	}
-	return group{Chat: info.JID.String(), Name: info.Name, Participants: people}
+	// The list is everyone only when WhatsApp's own count of the group agrees with it; a community's parent lists
+	// its admins alone.
+	complete := !info.IsParent && len(info.Participants) > 0 && info.ParticipantCount == len(info.Participants)
+	return group{Chat: info.JID.String(), Name: info.Name, Participants: people, Complete: complete}
 }
 
 // Disconnects every bot, keeping their sessions.

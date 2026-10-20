@@ -1,44 +1,52 @@
 import type { ChannelResponse } from "@/lib/hey-api/types.gen";
+import { providerWords } from "./channel-provider";
 
 type Line = { line: string; tone: "muted" | "warning" | "danger" };
 
-const LARK = {
-  failed: "Không kết nối được tới Lark",
-  connecting: "Đang kết nối tới Lark…",
-  answering: "Đang trả lời trên Lark",
+/** Why a bot failed, when the failure has a line of its own; otherwise the bot cannot connect. */
+const FAILURES: Readonly<Partial<Record<ChannelResponse["provider"], Record<string, string>>>> = {
+  ZALO_BOT: {
+    CHANNEL_WEBHOOK_UNREACHABLE: "Zalo không gọi được tới webhook",
+    CHANNEL_WEB_URL_MISSING: "Máy chủ chưa có địa chỉ công khai cho webhook",
+    CHANNEL_APP_REJECTED: "Zalo từ chối token của bot",
+  },
+  WHATSAPP: {
+    CHANNEL_WHATSAPP_LOGGED_OUT: "WhatsApp đã đăng xuất thiết bị",
+    CHANNEL_WHATSAPP_BANNED: "WhatsApp đang tạm khóa số này",
+    CHANNEL_WHATSAPP_REPLACED: "Phiên WhatsApp đã mở ở nơi khác",
+    CHANNEL_WHATSAPP_WRONG_NUMBER: "Mã được quét bằng một số khác",
+    CHANNEL_WHATSAPP_NUMBER_IN_USE: "Số này đã liên kết với bot khác",
+  },
 };
 
-const ZALO = {
-  failed: "Không kết nối được tới Zalo",
-  connecting: "Đang kết nối tới Zalo…",
-  answering: "Đang trả lời trên Zalo",
-};
+/** A failure that waits for the bot to be linked again rather than another try. */
+const RELINK = new Set([
+  "CHANNEL_WHATSAPP_LOGGED_OUT",
+  "CHANNEL_WHATSAPP_BANNED",
+  "CHANNEL_WHATSAPP_REPLACED",
+  "CHANNEL_WHATSAPP_WRONG_NUMBER",
+  "CHANNEL_WHATSAPP_NUMBER_IN_USE",
+]);
 
-/** Why a Zalo bot failed, when the failure has a line of its own; otherwise the bot cannot connect. */
-const ZALO_FAILURES: Readonly<Record<string, string>> = {
-  CHANNEL_WEBHOOK_UNREACHABLE: "Zalo không gọi được tới webhook",
-  CHANNEL_WEB_URL_MISSING: "Máy chủ chưa có địa chỉ công khai cho webhook",
-  CHANNEL_APP_REJECTED: "Zalo từ chối token của bot",
-};
+function reason(channel: ChannelResponse) {
+  return channel.failureCode ? FAILURES[channel.provider]?.[channel.failureCode] : undefined;
+}
 
 /**
  * A bot's one line, as an MCP server's: what is wrong when something is, else what it is doing. A connection that
  * fails says so before a missing scope, which only limits what an open connection can read.
  */
 export function channelLine(channel: ChannelResponse): Line {
-  const words = channel.provider === "ZALO_BOT" ? ZALO : LARK;
+  const words = providerWords(channel.provider);
   switch (channel.status) {
-    case "FAILED": {
-      const reason =
-        channel.provider === "ZALO_BOT" && channel.failureCode
-          ? ZALO_FAILURES[channel.failureCode]
-          : undefined;
-      return { line: reason ?? words.failed, tone: "danger" };
-    }
+    case "FAILED":
+      return { line: reason(channel) ?? words.failed, tone: "danger" };
     case "NOT_RUNNING":
       return { line: "Dịch vụ bot đang không chạy", tone: "warning" };
     case "CONNECTING":
       return { line: words.connecting, tone: "muted" };
+    case "PAIRING":
+      return { line: "Chờ quét mã QR", tone: "warning" };
     case "OFF":
       return { line: "Đang tắt", tone: "muted" };
     case "CONNECTED":
@@ -51,9 +59,15 @@ export function channelLine(channel: ChannelResponse): Line {
 /** The last failure in words where it has its own, else its code. */
 export function channelFailure(channel: ChannelResponse): string | undefined {
   if (!channel.failureCode) return undefined;
+  return reason(channel) ?? channel.failureCode;
+}
+
+/** Whether the bot stopped until it is linked again: its number was logged out, banned, replaced or refused. */
+export function needsRelink(channel: ChannelResponse) {
   return (
-    (channel.provider === "ZALO_BOT" ? ZALO_FAILURES[channel.failureCode] : undefined) ??
-    channel.failureCode
+    channel.enabled &&
+    channel.status === "FAILED" &&
+    Boolean(channel.failureCode && RELINK.has(channel.failureCode))
   );
 }
 
@@ -64,6 +78,8 @@ export function channelState(status: ChannelResponse["status"]): string {
       return "Đã kết nối";
     case "CONNECTING":
       return "Đang kết nối";
+    case "PAIRING":
+      return "Chờ liên kết";
     case "FAILED":
       return "Không kết nối được";
     case "NOT_RUNNING":

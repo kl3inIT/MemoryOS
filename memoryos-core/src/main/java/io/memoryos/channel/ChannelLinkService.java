@@ -22,6 +22,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -109,6 +110,16 @@ public class ChannelLinkService {
     /** The active member the platform user linked on this bot. */
     Optional<ActorId> linked(UUID connection, String externalUserId) {
         return links.linkedActor(connection, externalUserId);
+    }
+
+    /**
+     * Whether everyone in a group has linked an account on this bot to an active member, so nobody outside the Tenant
+     * reads what the bot answers there (MEM-285).
+     */
+    boolean allLinked(UUID connection, List<ChannelChat.Person> people) {
+        var linked = links.linkedAmong(connection,
+                people.stream().flatMap(person -> person.ids().stream()).collect(Collectors.toSet()));
+        return people.stream().allMatch(person -> person.ids().stream().anyMatch(linked::contains));
     }
 
     /** What sending a code did. */

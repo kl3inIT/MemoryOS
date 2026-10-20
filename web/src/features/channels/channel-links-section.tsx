@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { IconButton } from "@/components/ui/icon-button";
+import { WhatsAppIcon } from "@/components/whatsapp-icon";
 import { ZaloIcon } from "@/components/zalo-icon";
 import { formatUiMoment } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -27,13 +28,14 @@ import type { ChannelLinkCodeResponse, ChannelLinkResponse } from "@/lib/hey-api
 import { presentProblem } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import { channelError } from "./channel-errors";
+import { linksAccounts, providerWords } from "./channel-provider";
 
 /** While a code is shown, the links are read again so the dialog closes once the bot took the code. */
 const WAITING_POLL_MS = 3_000;
 
 /**
- * A member's Zalo accounts, one row a bot of the Tenant: a code made here and sent to the bot links the Zalo account
- * that sends it (MEM-263). Shown only when the Tenant has such a bot.
+ * A member's accounts on the platforms without organisations (Zalo, WhatsApp), one row a bot of the Tenant: a code
+ * made here and sent to the bot links the account that sends it (MEM-263). Shown only when the Tenant has such a bot.
  */
 export function ChannelLinksSection() {
   const ui = useAppTranslation();
@@ -71,19 +73,20 @@ export function ChannelLinksSection() {
       </Alert>
     );
   }
-  const rows = links.data?.filter((link) => link.provider === "ZALO_BOT") ?? [];
+  const rows = links.data?.filter((link) => linksAccounts(link.provider)) ?? [];
   if (rows.length === 0) return null;
+  const codeFor = rows.find((link) => link.connectionId === makeCode.variables?.body.connectionId);
 
   return (
     <section aria-labelledby="channel-links-heading" className="flex max-w-2xl flex-col gap-3">
       <h2 id="channel-links-heading" className="font-heading-h3 text-content-primary">
-        {ui("Liên kết Zalo")}
+        {ui("Liên kết tài khoản chat")}
       </h2>
       {makeCode.error ? (
         <Alert variant="destructive" role="alert">
           <AlertDescription>
             {ui(
-              channelError(makeCode.error, "ZALO_BOT") ??
+              channelError(makeCode.error, codeFor?.provider) ??
                 problem(presentProblem(makeCode.error, "mutation").message),
             )}
           </AlertDescription>
@@ -93,7 +96,7 @@ export function ChannelLinksSection() {
         {rows.map((link) => (
           <SettingRow
             key={link.connectionId}
-            icon={<ZaloIcon />}
+            icon={link.provider === "WHATSAPP" ? <WhatsAppIcon /> : <ZaloIcon />}
             title={link.botName}
             description={
               link.linkedAt
@@ -106,7 +109,8 @@ export function ChannelLinksSection() {
                   trigger={<Button prominence="secondary">{ui("Bỏ liên kết")}</Button>}
                   title={ui("Bỏ liên kết với {{name}}?", { name: link.botName })}
                   description={ui(
-                    "Bot sẽ không trả lời tài khoản Zalo này nữa cho tới khi bạn liên kết lại.",
+                    "Bot sẽ không trả lời tài khoản {{provider}} này nữa cho tới khi bạn liên kết lại.",
+                    { provider: providerWords(link.provider).name },
                   )}
                   confirmLabel={ui("Bỏ liên kết")}
                   pendingLabel={ui("Đang bỏ liên kết…")}
@@ -115,7 +119,8 @@ export function ChannelLinksSection() {
                     await unlink.mutateAsync({ path: { connectionId: link.connectionId } });
                   }}
                   errorMessage={(failure) =>
-                    channelError(failure, "ZALO_BOT") ?? presentProblem(failure, "mutation").message
+                    channelError(failure, link.provider) ??
+                    presentProblem(failure, "mutation").message
                   }
                 />
               ) : (

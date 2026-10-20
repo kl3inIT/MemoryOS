@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
+import io.memoryos.channel.ChannelChat;
 import io.memoryos.channel.ChannelConnection;
 import io.memoryos.channel.ChannelCredentials;
 import io.memoryos.channel.ChannelException;
@@ -212,14 +213,20 @@ class WhatsAppChannelAdapterTest {
     }
 
     @Test
-    void groupsAreListedAndCountAsHavingOutsidersUntilTheTenantRuleExists() {
+    void groupsAreListedAndAGroupCarriesEveryoneInItByLidAndNumber() {
         var connection = bot("84900000001");
         adapter.open(connection, "", received);
         assertEquals(Optional.of(List.of(new ChannelGroupPresence("120363000000000001@g.us", "Phòng Kế toán"),
                 new ChannelGroupPresence("120363000000000002@g.us", null))), adapter.groups(connection));
-        var chat = adapter.chat(connection, "120363000000000001@g.us");
-        assertTrue(chat.external());
-        assertEquals("Phòng Kế toán", chat.name());
+        assertEquals(new ChannelChat(false, "Phòng Kế toán", List.of(
+                        new ChannelChat.Person(List.of("222222222222222@lid", "84911111111@s.whatsapp.net")),
+                        new ChannelChat.Person(List.of("84922222222@s.whatsapp.net")))),
+                adapter.chat(connection, "120363000000000001@g.us"));
+        // A group that cannot be read, or someone in it WhatsApp names by nothing, counts as having outsiders.
+        assertTrue(adapter.chat(connection, "404@g.us").external());
+        assertTrue(adapter.chat(connection, "nameless@g.us").external());
+        // A list that is not everyone by WhatsApp's own count tells nothing of who else reads the group.
+        assertTrue(adapter.chat(connection, "partial@g.us").external());
     }
 
     @Test

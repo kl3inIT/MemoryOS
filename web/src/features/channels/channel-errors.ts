@@ -27,9 +27,21 @@ const zaloMessages: Readonly<Record<string, string>> = {
   CHANNEL_PROVIDER_UNAVAILABLE: "Zalo không phản hồi. Hãy thử lại sau ít phút.",
 };
 
+/** WhatsApp's own words where Lark's would be wrong. */
+const whatsappMessages: Readonly<Record<string, string>> = {
+  CHANNEL_APP_IN_USE: "Số này đã được thêm làm bot.",
+  CHANNEL_INVALID: "Nhập số điện thoại của bot theo dạng quốc tế, ví dụ +84 912 345 678.",
+  CHANNEL_PROVIDER_UNAVAILABLE: "WhatsApp không phản hồi. Hãy thử lại sau ít phút.",
+};
+
+const byProvider: Readonly<Partial<Record<Provider, Readonly<Record<string, string>>>>> = {
+  ZALO_BOT: zaloMessages,
+  WHATSAPP: whatsappMessages,
+};
+
 /** Safe copy for a failed bot change, read from the problem's code; never the backend's text. */
 export function channelError(failure: unknown, provider: Provider = "LARK"): string | undefined {
   const code = failure instanceof ApiError ? problemCode(failure) : undefined;
   if (!code) return undefined;
-  return (provider === "ZALO_BOT" ? zaloMessages[code] : undefined) ?? messages[code];
+  return byProvider[provider]?.[code] ?? messages[code];
 }

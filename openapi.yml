@@ -35141,12 +35141,12 @@ components:
             type: string
         status:
           type: string
-          description: "OFF when switched off; NOT_RUNNING when no process holds it;\
-            \ else CONNECTING, CONNECTED or FAILED"
+          description: "OFF when switched off; NOT_RUNNING when no process holds it; PAIRING while it shows a code to scan; else CONNECTING, CONNECTED or FAILED"
           enum:
           - "OFF"
           - NOT_RUNNING
           - CONNECTING
+          - PAIRING
           - CONNECTED
           - FAILED
         failureCode:

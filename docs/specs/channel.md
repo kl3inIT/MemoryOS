@@ -142,7 +142,8 @@ each change of a bot an `If-Match` of its quoted revision.
 | `GET /api/chat/personas/{id}/channels` | Where an assistant answers (`id`, `provider`, `name`, `botName`, `enabled`, `byDefault`, `groups`), for anyone who may use it |
 
 A bot's `status` is `OFF` when switched off; `NOT_RUNNING` when its supervisor has not written for three passes
-(90 seconds), so no process holds it; else `CONNECTED` while its connection is open, `FAILED` after a failure to open
+(90 seconds), so no process holds it; `PAIRING` while it shows a code to scan that has not expired; else `CONNECTED`
+while its connection is open, `FAILED` after a failure to open
 it, with the failure's typed code and time, or `CONNECTING`. A bot carries `region` for Lark and `transport` for
 Zalo, each absent for the other, and `assistant` (`id`, `name`) when it answers with a custom assistant. No response
 carries the secret or the token, and the request records redact them.
@@ -167,10 +168,15 @@ rename it (*Đổi tên nhóm chat*, blank clears the label) or forget it after 
 apart from MemoryOS's own Groups of people. Each choice saves on change; a refusal such as
 `CHANNEL_ASSISTANT_NOT_EDITABLE` shows above the section. With no group yet, one muted line says *Chưa có nhóm chat nào*. Each row of
 the list ends its line with the bot's assistant. Adding a bot is a dialog that asks the platform first, then shows that platform's form beside its setup
-steps: Lark's App ID and App Secret with the console steps and scopes, or Zalo's token and way of receiving with the
-Zalo Bot Creator steps. A secret or token stays in a ref, never in query state or storage, and is cleared once sent.
+steps: Lark's App ID and App Secret with the console steps and scopes, Zalo's token and way of receiving with the
+Zalo Bot Creator steps, or WhatsApp's number in international form with the steps to link it. A WhatsApp bot's page
+shows, while it is `PAIRING`, its QR code (read every two seconds, drawn by `qrcode`, which loads only then) beside
+the three steps on the phone; once WhatsApp ended its session it shows the reason and *Liên kết lại*
+(`POST /api/channels/{id}/pairing`). Its facts are its number, and its WhatsApp name when WhatsApp gives one; its
+menu has no secret to replace. Each platform's words (its name, bot, group, connecting, answering) come from
+`channel-provider.ts`. A secret or token stays in a ref, never in query state or storage, and is cleared once sent.
 
-Settings › Chat shows "Liên kết Zalo" to a member when the Tenant has a Zalo bot: one row a bot, linked (with when)
+Settings › Chat shows "Liên kết tài khoản chat" to a member when the Tenant has a Zalo or WhatsApp bot: one row a bot, linked (with when)
 or not. "Lấy mã" makes a code and shows it large and copyable with the time it has left; while it is shown the links
 are read every three seconds, and the dialog closes once the bot took the code. "Bỏ liên kết" removes a link after a
 confirmation. The route composes the section into the chat settings page, since `chat` does not import `channels`.
@@ -284,8 +290,16 @@ plus are dropped), and a bot has no settings.
   edits, deletions and poll votes are dropped. Text is the conversation or extended text; an image's, video's or
   document's caption is text followed by a note that the file was not read; anything else is `OTHER`. A group message
   addresses the bot when it mentions its phone JID or LID or replies to its message, and the mention is removed.
-- **Groups** are listed with their names (`groups`); every WhatsApp group counts as having outsiders until the
-  capability can tell everyone in it belongs to the Tenant (MEM-285), so a question there is refused.
+- **Groups** are listed with their names (`groups`). `chat` gives a group's name and everyone in it but the bot,
+  each by their LID and their number where WhatsApp gives it; a group the bridge cannot read, whose list is not
+  everyone by WhatsApp's own count (`size`) or is a community's parent, or with someone WhatsApp names by nothing,
+  counts as having outsiders. The capability answers a group of a provider without
+  organisations only when every one of them linked an account on the bot to an active member of the Tenant
+  (`ChannelChat.participants`, MEM-285); otherwise the question is refused as `UNLINKED_IN_GROUP` with the
+  external-group notice, so a linked member cannot bring the bot into a group where an outsider reads its answers.
+  The bridge keeps a group's people a minute, forgets them as soon as WhatsApp reports the group changed and every
+  group on reconnecting, and keeps no read begun before a forgetting.
+  Zalo lists no one, so its groups keep MEM-285's open question.
 - **The reply** marks the question read, sends the typing mark at once and every 8 seconds for 90 at most, and ends it
   when the answer is sent. `finish` makes the answer WhatsApp's formatting (`WhatsAppText`, on commonmark-java with
   GitHub tables and strikethrough: `*bold*`, `_italic_`, `~strike~`, code and code blocks, lists and quotes kept; a
