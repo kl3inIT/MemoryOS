@@ -128,6 +128,14 @@ the purge, as their messages do.
   190,000 tokens away and cannot be reached by hand. This check needs the owner: either a long group conversation, or a
   small-context agent for the bot once MEM-273 lets a bot use its own agent. Split out as
   [MEM-297](https://linear.app/memory-os/issue/MEM-297) on 2026-10-19.
+  **Closed on 2026-10-20 as equivalent to the web.** A channel turn runs the web's code: `ChannelInboundService`
+  hands it to `ChannelTurns`, which starts it with `ChatTurnService.command` like a web message, and the end of every
+  ordinary turn calls `ChatCompactions.after` whatever started it. `ChatCompactions` is built inside the
+  `chatTurnService` bean (`ChatExecutionConfiguration`), which the channels process loads (`ChannelsApplicationTest`).
+  The threshold, the kept tail and the `CHAT_COMPACTION` model are per session and Tenant, not per channel. Not run on
+  staging: no channel session had reached the threshold (both summaries on staging were web sessions), so the bot
+  account reading its group's history and the compaction running in the channels process are covered by the code
+  path, not by a run. A group conversation that crosses the threshold later shows up in `chat_session_summary`.
 
 ### Two findings on the summary prompt (fixed 2026-10-19, [below](#the-summary-prompt-fix-2026-10-19))
 
