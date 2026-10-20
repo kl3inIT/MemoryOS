@@ -56,8 +56,8 @@ public final class AgentBuilderTools {
     public String updateAssistant(
             @LlmTool.Param(description = "The assistant's name, at most 200 characters", required = false) @Nullable String name,
             @LlmTool.Param(description = "The role it plays, at most 80 characters; empty to clear", required = false) @Nullable String title,
-            @LlmTool.Param(description = "One or two sentences on what it helps with and for whom, at most 2000 characters", required = false) @Nullable String description,
-            @LlmTool.Param(description = "First message of a new conversation, at most 500 characters; empty to clear", required = false) @Nullable String greeting,
+            @LlmTool.Param(description = "One or two sentences on what it helps with and for whom, shown on the assistant's card, at most 2000 characters; it does not change how it answers", required = false) @Nullable String description,
+            @LlmTool.Param(description = "First message of a new conversation, shown once at the start, at most 500 characters; empty to clear; it does not change how it answers", required = false) @Nullable String greeting,
             @LlmTool.Param(description = "At most 4 suggested first questions, each at most 1000 characters", required = false) @Nullable List<String> starterPrompts,
             @LlmTool.Param(description = "Enabled tools, any of: search (internal documents), web_search, image_generation, code_interpreter", required = false) @Nullable List<String> tools,
             @LlmTool.Param(description = "IDs of the Sources to search, from the options; empty for every document the reader may open", required = false) @Nullable List<String> sourceIds,
@@ -80,8 +80,9 @@ public final class AgentBuilderTools {
     }
 
     @LlmTool(name = "write_instructions", description = "Replace the assistant's instructions in the user's unsaved form "
-            + "with the whole new text. Write them after the name, tools and sources are settled, so they can refer to "
-            + "the tools that are on. Nothing is saved by this call.")
+            + "with the whole new text. Instructions decide how the assistant behaves and answers: scope, use of "
+            + "documents, tone, answer length and format. To change part of them, send the whole text with only that "
+            + "part changed; keep the rest, its structure and language as they are. Nothing is saved by this call.")
     public String writeInstructions(
             @LlmTool.Param(description = "The complete instructions, at most 32000 characters") String instructions) {
         checkActive.run();
@@ -132,7 +133,8 @@ public final class AgentBuilderTools {
         var call = activity.current();
         turn.changes().accept(call == null ? "" : call.id(), patch);
         return "Changed in the unsaved form: " + changedFields(patch)
-                + ". Tell the user what changed, before and after, and that Lưu saves it.";
+                + ". The user sees it as a before → after card; tell them in one or two sentences what you changed and "
+                + "why, and that Lưu saves it.";
     }
 
     /** The form with the patch applied, as the browser will hold it. */

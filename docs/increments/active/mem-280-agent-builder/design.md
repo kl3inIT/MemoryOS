@@ -81,12 +81,29 @@ MemoryOS's editor: whether the AI's change is saved at once.
 6. **Two tools, like LobeHub: `update_assistant` and `write_instructions`.** `update_assistant` takes any subset of
    the fields of decision 4 in one call (LobeHub batches related edits in one `updateConfig`); `write_instructions`
    takes the whole new instructions, written last so they can name the tools now on (LobeHub's order: identity, then
-   model and tools, then the prompt). As LobeHub describes `updatePrompt` as "the core instruction that defines agent
-   behavior", the prompt says a request about how the assistant answers (shorter, more formal) changes the
-   instructions, and a new assistant is not left without them; staging showed the model shortening the greeting
-   instead. The server checks every proposal with the `draftPersona` rules and answers the tool with what was
-   accepted or why not, so the model can explain a refused Source; it never writes the assistant.
+   model and tools, then the prompt). The server checks every proposal with the `draftPersona` rules and answers the
+   tool with what was accepted or why not, so the model can explain a refused Source; it never writes the assistant.
    The browser applies the accepted change to the form and draws the card.
+   **The prompt, after staging acceptance (2026-10-20).** Staging showed "trả lời ngắn hơn nữa" shortening the
+   greeting and description instead of the instructions, and a new assistant left without instructions. The prompt was
+   rewritten from the other builders' prompts, read in full: LobeHub's two prompts, Langflow's flow builder, Dify's
+   prompt generator and editor, n8n's workflow builder, the leaked GPT builder prompt, OpenAI's and Anthropic's
+   published meta-prompts, and the Microsoft, Copilot Studio and Glean docs. It keeps LobeHub's layout and takes:
+   edit the instructions as little as the request needs, keeping their structure, language and the user's own lines
+   (Dify "change the original prompt as little as possible", OpenAI "without altering the original structure", n8n
+   "preserving all other existing parameters exactly"); finish a new assistant with its instructions (Langflow "An
+   empty system prompt produces a generic agent"); a one- or two-sentence reply, since the card shows the values
+   (Langflow, the GPT builder); rename only a new assistant (LobeHub); never claim a change without the tool call
+   (Langflow); an operating-guide shape for the instructions (OpenAI's first-line task, Glean's SOP); and eight
+   canonical examples (LobeHub, Anthropic "diverse, canonical examples"). The tool descriptions say the same: the
+   instructions decide how the assistant answers, and the description and greeting do not. A probe ran each variant
+   against the builder's model (`cx/gpt-6-luna`) on twelve requests, three to six times each, grading the fields
+   each turn changed: the prompt before the fix passed 17 of 36 and the fix in #802 31 of 36; a field glossary with a
+   request-to-field table and examples 35 of 36 (once it claimed an instructions change it had not made); the same
+   without the examples 33 of 36; examples without the glossary and table 72 of 72, and the final text with a scope
+   example 48 of 48. Dify's use of the last test-chat turn when editing is left for later; it needs the test chat
+   handed to the builder.
+
 7. **The builder reads the form, not the saved assistant.** As LobeHub injects `<current_agent_context>`, each turn
    sends the form as `draftPersona` (the test chat already does) and the server gives the builder the current values
    with the choices the person has: model list, the Sources, Document Sets and MCP servers they may add (names and
