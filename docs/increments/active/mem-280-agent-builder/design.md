@@ -81,8 +81,11 @@ MemoryOS's editor: whether the AI's change is saved at once.
 6. **Two tools, like LobeHub: `update_assistant` and `write_instructions`.** `update_assistant` takes any subset of
    the fields of decision 4 in one call (LobeHub batches related edits in one `updateConfig`); `write_instructions`
    takes the whole new instructions, written last so they can name the tools now on (LobeHub's order: identity, then
-   model and tools, then the prompt). The server checks every proposal with the `draftPersona` rules and answers the
-   tool with what was accepted or why not, so the model can explain a refused Source; it never writes the assistant.
+   model and tools, then the prompt). As LobeHub describes `updatePrompt` as "the core instruction that defines agent
+   behavior", the prompt says a request about how the assistant answers (shorter, more formal) changes the
+   instructions, and a new assistant is not left without them; staging showed the model shortening the greeting
+   instead. The server checks every proposal with the `draftPersona` rules and answers the tool with what was
+   accepted or why not, so the model can explain a refused Source; it never writes the assistant.
    The browser applies the accepted change to the form and draws the card.
 7. **The builder reads the form, not the saved assistant.** As LobeHub injects `<current_agent_context>`, each turn
    sends the form as `draftPersona` (the test chat already does) and the server gives the builder the current values

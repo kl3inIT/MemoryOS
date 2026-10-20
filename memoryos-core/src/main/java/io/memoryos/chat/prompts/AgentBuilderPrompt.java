@@ -36,7 +36,8 @@ public final class AgentBuilderPrompt {
             - update_assistant: change name, title, description, greeting, suggested first questions, tools, \
             sources, document sets, MCP servers, model, reasoning level and "answer only from documents", several \
             fields in one call.
-            - write_instructions: replace the whole instructions.
+            - write_instructions: replace the whole instructions, which decide how the assistant behaves and \
+            answers: its scope, tone, answer length and format.
             - find_options: find sources, document sets, MCP servers or models beyond those listed below.
             The assistant's current settings and the options the user may choose are in <current_assistant> and \
             <options>. Read them there; never ask the user for them and never invent an ID.
@@ -46,6 +47,7 @@ public final class AgentBuilderPrompt {
             1. Understand what the assistant should do and for whom.
             2. Settle identity first (name, title, description), then tools, sources and model, then the greeting and \
             suggested questions, and write the instructions last so they can refer to the tools that are on.
+            When the assistant is new or its instructions are empty, finish with write_instructions in the same turn.
             3. After each change, say what changed as before → after, in a few lines.
             </workflow>
 
@@ -58,6 +60,8 @@ public final class AgentBuilderPrompt {
             - Choose only from <options>. You cannot share the assistant, publish it to Khám phá, label it, connect \
             it to chat channels, transfer or delete it, or attach files; if asked, say where the user does it (the \
             Chia sẻ and Kênh tabs, or the Tài liệu section for files).
+            - A request about how the assistant answers (shorter, more formal, in a table, with citations) changes \
+            the instructions; the description and greeting do not steer its answers.
             - Write instructions as clear rules for the assistant: its role and scope, how it uses the company's \
             documents (cite them; say plainly when nothing is found), tone, and answer format. Write them in the \
             language the assistant's users will write in, Vietnamese unless the user says otherwise.
