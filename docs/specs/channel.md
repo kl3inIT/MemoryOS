@@ -55,7 +55,7 @@ the Tenant's exclusive authority lock and checks the revision it was given (`CHA
   affected. No view carries the secret.
 - Each change is audited as `channel.create`, `channel.update` (`change`: `enabled`, `disabled`, `secret`,
   `settings`, `assistant`, `assistant-removed`, and with the group chat's id in `group`: `group-assistant`,
-  `group-assistant-removed`, `group-label`, `group-forgotten`) or `channel.delete`.
+  `group-assistant-removed`, `group-label`, `group-forgotten`, `group-allowed`, `group-disallowed`) or `channel.delete`.
 
 ### The bot's assistant
 
@@ -94,7 +94,8 @@ OpenClaw binds one group to an agent (MEM-273, [design](../increments/completed/
 Direct messages always answer with the default.
 
 - **The groups** are those the bot has answered in (`channel_groups`, the channel's): `ChannelInboundService` records
-  a group when it accepts a group's addressed question that is not external, with the name the provider gives
+  a group when it accepts a group's addressed question that is not external, or refuses one only for want of
+  permission (MEM-285), with the name the provider gives
   (`ChannelAdapter.chat`: Lark's from the `im/v1/chat get` the external check already makes, cached an hour; Zalo
   gives none), and moves its last message on each one. A Lark bot's groups are also known before anyone asks there
   (`ChannelGroupRoster`, MEM-273 5d): the adapter passes the `im.chat.member.bot.added_v1` event as
@@ -114,6 +115,26 @@ Direct messages always answer with the default.
   group's own assistant in place of a custom default. `null` returns the group to the default. Labelling
   (`labelGroup`) takes `CHANNELS_MANAGE`; forgetting (`forgetGroup`) takes it and, as it removes the group's
   assistant, the edit rights leaving it takes. The bot and its groups check the assistant they leave in one place.
+
+### A group that needs permission
+
+A provider that neither names organisations nor lists a group's people (`ChannelFeatures.groupsNeedPermission`: Zalo)
+gives the capability no way to tell that an outsider reads a group, so its groups are answered only once an
+administrator allows each one, as OpenClaw's `groupPolicy: "allowlist"` and Onyx's Discord channels are closed until
+enabled (MEM-285, [design](../increments/active/mem-285-group-admission/design.md)). Lark keeps its outsider check and
+WhatsApp its every-member-linked check, and neither needs it.
+
+- **A question in a group not allowed**, from a linked sender, is refused as `GROUP_NOT_ALLOWED` with "Nhóm này chưa
+  được quản trị viên cho phép dùng trợ lý." / "An administrator has not allowed the assistant in this group yet.",
+  after the sender checks, so an unlinked sender is still only told to link. The group is recorded with no last
+  message, so it is listed on the bot's page, first while it waits.
+- **Permission** is `channel_groups.allowed_at` (V193), null until allowed; no group known before V193 is allowed.
+  `allowGroup` (`PUT /api/channels/{channelId}/groups/{groupId}/permission`, `{"allowed": boolean}`) takes
+  `CHANNELS_MANAGE`, is `CHANNEL_INVALID` for a bot whose provider needs none and `CHANNEL_GROUP_NOT_FOUND` for an
+  unknown group, and is audited (`group-allowed`, `group-disallowed`) once a change. Withdrawing refuses the group's
+  next question; forgetting the group drops its permission, so a group that returns waits again.
+- **The list** gives each group `permission`: `NOT_NEEDED`, `WAITING` or `ALLOWED`; the bot's page shows a *Cho phép
+  trả lời* switch, saved on change, on a group that needs it.
 
 ### The administrator's API
 
@@ -299,7 +320,7 @@ plus are dropped), and a bot has no settings.
   external-group notice, so a linked member cannot bring the bot into a group where an outsider reads its answers.
   The bridge keeps a group's people a minute, forgets them as soon as WhatsApp reports the group changed and every
   group on reconnecting, and keeps no read begun before a forgetting.
-  Zalo lists no one, so its groups keep MEM-285's open question.
+  Zalo lists no one, so a Zalo group waits for an administrator's permission ([below](#a-group-that-needs-permission)).
 - **The reply** marks the question read, sends the typing mark at once and every 8 seconds for 90 at most, and ends it
   when the answer is sent. `finish` makes the answer WhatsApp's formatting (`WhatsAppText`, on commonmark-java with
   GitHub tables and strikethrough: `*bold*`, `_italic_`, `~strike~`, code and code blocks, lists and quotes kept; a

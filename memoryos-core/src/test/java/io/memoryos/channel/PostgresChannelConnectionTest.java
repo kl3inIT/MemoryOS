@@ -3,6 +3,7 @@ package io.memoryos.channel;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -467,6 +468,46 @@ class PostgresChannelConnectionTest {
     }
 
     /**
+     * MEM-285: on a platform that can tell neither an outsider nor who is in a group, a group waits for permission,
+     * listed first; whoever manages bots allows it or withdraws it, audited; a platform that can tell refuses the call,
+     * and forgetting the group drops its permission.
+     */
+    @Test
+    void aGroupOfAPlatformThatCannotListItsPeopleWaitsForAnAdministratorsPermission() {
+        var bot = channels.create(owner, draft("cli_a1b2c3d4e5f6"));
+        Instant first = Instant.parse("2026-10-20T02:00:00Z");
+        channelGroups.seen(TENANT, bot.id(), "oc_hr", null, first);
+        assertEquals("CHANNEL_INVALID", code(() -> channels.allowGroup(owner, bot.id(), "oc_hr", true)),
+                "a platform that tells outsiders needs no permission");
+        assertFalse(channels.groups(owner, bot.id()).getFirst().needsPermission());
+
+        platform.features = new ChannelFeatures(false, false, 2_000, false);
+        channelGroups.present(TENANT, bot.id(), "oc_new", null, first.plusSeconds(60));
+        var listed = channels.groups(owner, bot.id());
+        assertEquals(List.of("oc_hr", "oc_new"), listed.stream().map(group -> group.group().chatId()).toList());
+        assertTrue(listed.stream().allMatch(group -> group.needsPermission() && group.group().allowedAt() == null));
+
+        channels.allowGroup(owner, bot.id(), "oc_new", true);
+        assertNotNull(channelGroups.find(TENANT, bot.id(), "oc_new").orElseThrow().allowedAt());
+        assertEquals(List.of("oc_hr", "oc_new"), channels.groups(owner, bot.id()).stream()
+                .map(group -> group.group().chatId()).toList(), "a group waiting for permission is listed first");
+        channels.allowGroup(owner, bot.id(), "oc_new", true);
+        channels.allowGroup(owner, bot.id(), "oc_new", false);
+        assertNull(channelGroups.find(TENANT, bot.id(), "oc_new").orElseThrow().allowedAt());
+
+        assertEquals("CHANNEL_GROUP_NOT_FOUND", code(() -> channels.allowGroup(owner, bot.id(), "oc_unknown", true)));
+        assertThrows(BusinessException.class, () -> channels.allowGroup(member, bot.id(), "oc_new", true));
+
+        channels.allowGroup(owner, bot.id(), "oc_hr", true);
+        channels.forgetGroup(owner, bot.id(), "oc_hr");
+        channelGroups.seen(TENANT, bot.id(), "oc_hr", null, first.plusSeconds(120));
+        assertNull(channelGroups.find(TENANT, bot.id(), "oc_hr").orElseThrow().allowedAt(), "a group that returns waits again");
+        // Allowing twice is one change: created, allowed, withdrawn, allowed, forgotten.
+        assertEquals(List.of("channel.create", "channel.update", "channel.update", "channel.update", "channel.update"),
+                actions());
+    }
+
+    /**
      * MEM-273 5d: a Lark group is known as soon as the bot is in it, nobody having asked there, after those asked in;
      * Lark's whole list removes the groups the bot left, and with them their own assistants.
      */
@@ -581,6 +622,8 @@ class PostgresChannelConnectionTest {
         private final boolean pairs;
         boolean refusing;
         @Nullable String answeredAppId;
+        /** What the platform's chats can do, when a test makes it another kind of platform. */
+        @Nullable ChannelFeatures features;
 
         Platform(ChannelProvider provider, boolean pairs) {
             this.provider = provider;
@@ -589,7 +632,10 @@ class PostgresChannelConnectionTest {
 
         @Override public ChannelProvider provider() { return provider; }
 
-        @Override public ChannelFeatures features() { return new ChannelFeatures(!pairs, !pairs, 150_000, pairs); }
+        @Override
+        public ChannelFeatures features() {
+            return features != null ? features : new ChannelFeatures(!pairs, !pairs, 150_000, pairs, pairs);
+        }
 
         @Override
         public ChannelVerification verify(ChannelCredentials credentials) {

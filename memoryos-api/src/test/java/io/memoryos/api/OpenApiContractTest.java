@@ -360,6 +360,7 @@ class OpenApiContractTest {
             "/api/channels/{channelId}/groups/{groupId}",
             "/api/channels/{channelId}/groups/{groupId}/persona",
             "/api/channels/{channelId}/groups/{groupId}/label",
+            "/api/channels/{channelId}/groups/{groupId}/permission",
             "/api/channels/{channelId}/secret",
             "/api/channels/{channelId}/transport",
             "/api/channel-links",

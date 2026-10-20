@@ -1,6 +1,10 @@
 // English for the Vietnamese source keys. Natural source keys are static UI copy, never document text, filenames or API identifiers.
 // Natural source keys are static UI copy, never document text, filenames or API identifiers.
 export const vietnameseUi: Record<string, string> = {
+  // MEM-285 a Zalo group answers only once an administrator allows it
+  "Cho phép trả lời": "Allow answers",
+  "Cho phép trả lời trong {{v1}}": "Allow answers in {{v1}}",
+  "chờ cho phép": "waiting for permission",
   // MEM-281 MemoryOS templates in the assistants list
   "Tạo bản riêng": "Make my own copy",
   "Ẩn với mọi người": "Hide from everyone",

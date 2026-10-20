@@ -83,23 +83,23 @@ public class JdbcChannelGroupRepository {
     /** A bot's groups, the most recently asked first and those nobody has asked in last. */
     public List<ChannelGroup> list(TenantId tenant, UUID connection) {
         return jdbc.sql("""
-                        SELECT external_chat_id, name, label, first_seen_at, last_message_at FROM channel_groups
+                        SELECT external_chat_id, name, label, first_seen_at, last_message_at, allowed_at FROM channel_groups
                         WHERE tenant_id = :tenant AND connection_id = :connection
                         ORDER BY last_message_at DESC NULLS LAST, COALESCE(label, name), external_chat_id
                         """)
                 .param("tenant", tenant.value()).param("connection", connection)
                 .query((row, ignored) -> group(row.getString(1), row.getString(2), row.getString(3),
-                        row.getTimestamp(4), row.getTimestamp(5))).list();
+                        row.getTimestamp(4), row.getTimestamp(5), row.getTimestamp(6))).list();
     }
 
     public Optional<ChannelGroup> find(TenantId tenant, UUID connection, String chatId) {
         return jdbc.sql("""
-                        SELECT external_chat_id, name, label, first_seen_at, last_message_at FROM channel_groups
+                        SELECT external_chat_id, name, label, first_seen_at, last_message_at, allowed_at FROM channel_groups
                         WHERE tenant_id = :tenant AND connection_id = :connection AND external_chat_id = :chat
                         """)
                 .param("tenant", tenant.value()).param("connection", connection).param("chat", chatId)
                 .query((row, ignored) -> group(row.getString(1), row.getString(2), row.getString(3),
-                        row.getTimestamp(4), row.getTimestamp(5))).optional();
+                        row.getTimestamp(4), row.getTimestamp(5), row.getTimestamp(6))).optional();
     }
 
     /** Names a group, or clears the name with null; false when the bot has no such group. */
@@ -121,8 +121,29 @@ public class JdbcChannelGroupRepository {
                 .param("tenant", tenant.value()).param("connection", connection).param("chat", chatId).update() > 0;
     }
 
+    /** Allows the bot to answer in a group, or withdraws it with null; false when the bot has no such group. */
+    public boolean allow(TenantId tenant, UUID connection, String chatId, @Nullable Instant allowedAt) {
+        return jdbc.sql("""
+                        UPDATE channel_groups SET allowed_at = :allowed
+                        WHERE tenant_id = :tenant AND connection_id = :connection AND external_chat_id = :chat
+                        """)
+                .param("allowed", allowedAt == null ? null : Timestamp.from(allowedAt), Types.TIMESTAMP)
+                .param("tenant", tenant.value()).param("connection", connection).param("chat", chatId).update() > 0;
+    }
+
+    /** Whether an administrator allowed the bot to answer in a group it knows. */
+    public boolean allowed(TenantId tenant, UUID connection, String chatId) {
+        return jdbc.sql("""
+                        SELECT allowed_at IS NOT NULL FROM channel_groups
+                        WHERE tenant_id = :tenant AND connection_id = :connection AND external_chat_id = :chat
+                        """)
+                .param("tenant", tenant.value()).param("connection", connection).param("chat", chatId)
+                .query(Boolean.class).optional().orElse(false);
+    }
+
     private static ChannelGroup group(String chatId, @Nullable String name, @Nullable String label, Timestamp first,
-                                      @Nullable Timestamp last) {
-        return new ChannelGroup(chatId, name, label, first.toInstant(), last == null ? null : last.toInstant());
+                                      @Nullable Timestamp last, @Nullable Timestamp allowed) {
+        return new ChannelGroup(chatId, name, label, first.toInstant(), last == null ? null : last.toInstant(),
+                allowed == null ? null : allowed.toInstant());
     }
 }

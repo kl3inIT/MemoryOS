@@ -23142,6 +23142,81 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/channels/{channelId}/groups/{groupId}/permission:
+    put:
+      tags:
+      - Channels
+      summary: "Allow the bot to answer in a group chat, or withdraw it; only a group\
+        \ of a platform that cannot tell who is in it (Zalo) needs it"
+      operationId: allowChannelGroup
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: groupId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AllowChannelGroupRequest"
+        required: true
+      responses:
+        "400":
+          description: "Invalid bot, or an app the platform rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Bot unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Bot changed, or its app already serves a bot"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "The platform did not answer, or bots are not configured"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Updated group chat
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelGroupResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/channels/{channelId}/enabled:
     put:
       tags:
@@ -23397,8 +23472,8 @@ paths:
     get:
       tags:
       - Channels
-      summary: "List the group chats a bot has answered in, each with the assistant\
-        \ it is given"
+      summary: "List the group chats a bot is known in, each with the assistant it\
+        \ is given and whether it may answer there"
       operationId: listChannelGroups
       parameters:
       - name: channelId
@@ -23909,6 +23984,15 @@ paths:
       - browserSession: []
 components:
   schemas:
+    AllowChannelGroupRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        allowed:
+          type: boolean
+          description: "True allows the bot to answer there, false withdraws it"
+      required:
+      - allowed
     ReplaceSharePointScopeRequest:
       type: object
       additionalProperties: false
@@ -35037,9 +35121,18 @@ components:
           $ref: "#/components/schemas/ChannelAssistantResponse"
           description: The assistant the group answers with; absent when it answers
             with the bot's default
+        permission:
+          type: string
+          description: "Whether the bot answers there only once an administrator allows\
+            \ it, as on Zalo, which cannot tell who is in a group (MEM-285)"
+          enum:
+          - NOT_NEEDED
+          - ALLOWED
+          - WAITING
       required:
       - firstMessageAt
       - id
+      - permission
     LabelChannelGroupRequest:
       type: object
       additionalProperties: false

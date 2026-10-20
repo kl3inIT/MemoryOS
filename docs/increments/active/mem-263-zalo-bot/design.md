@@ -110,6 +110,8 @@ For a provider without organisations: a direct message from an unlinked sender i
 a message that is a live code links its sender; a group question is answered only when its sender is linked, from
 what the bot's account may read, as in Lark, and an unlinked sender in a group gets the linking notice. Every
 answer is thus paid for by a member of the Tenant, and a stranger who adds the bot to a group gets nothing.
+*Superseded by [MEM-285](../mem-285-group-admission/design.md):* a linked member could still bring the bot into a
+group with outsiders, who would read its answers; a Zalo group is now answered only once an administrator allows it.
 
 The linking notice goes at most once a minute in each chat, not for each sender: on staging (2026-10-15) a group
 notice at 19:04:30 silenced the same person's direct message at 19:04:37, and the direct chat is where the

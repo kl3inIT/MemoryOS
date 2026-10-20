@@ -4,6 +4,13 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+export type AllowChannelGroupRequest = {
+    /**
+     * True allows the bot to answer there, false withdraws it
+     */
+    allowed: boolean;
+};
+
 export type ReplaceSharePointScopeRequest = {
     requestId: string;
     /**
@@ -4463,6 +4470,10 @@ export type ChannelGroupResponse = {
      * The assistant the group answers with; absent when it answers with the bot's default
      */
     assistant?: ChannelAssistantResponse;
+    /**
+     * Whether the bot answers there only once an administrator allows it, as on Zalo, which cannot tell who is in a group (MEM-285)
+     */
+    permission: 'NOT_NEEDED' | 'ALLOWED' | 'WAITING';
 };
 
 export type LabelChannelGroupRequest = {
@@ -21313,6 +21324,54 @@ export type LabelChannelGroupResponses = {
 };
 
 export type LabelChannelGroupResponse = LabelChannelGroupResponses[keyof LabelChannelGroupResponses];
+
+export type AllowChannelGroupData = {
+    body: AllowChannelGroupRequest;
+    path: {
+        channelId: string;
+        groupId: string;
+    };
+    query?: never;
+    url: '/api/channels/{channelId}/groups/{groupId}/permission';
+};
+
+export type AllowChannelGroupErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type AllowChannelGroupError = AllowChannelGroupErrors[keyof AllowChannelGroupErrors];
+
+export type AllowChannelGroupResponses = {
+    /**
+     * Updated group chat
+     */
+    200: ChannelGroupResponse;
+};
+
+export type AllowChannelGroupResponse = AllowChannelGroupResponses[keyof AllowChannelGroupResponses];
 
 export type UpdateChannelEnabledData = {
     body: UpdateChannelEnabledRequest;

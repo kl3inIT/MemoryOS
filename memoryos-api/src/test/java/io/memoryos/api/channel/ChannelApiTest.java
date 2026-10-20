@@ -260,7 +260,7 @@ class ChannelApiTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("CHANNEL_ASSISTANT_NOT_EDITABLE"));
 
-        var group = new ChannelGroup("oc_hr", "Phòng Nhân sự", null, Instant.now(), Instant.now());
+        var group = new ChannelGroup("oc_hr", "Phòng Nhân sự", null, Instant.now(), Instant.now(), null);
         when(channels.boundTo(any(), eq(hr))).thenReturn(List.of(new Answering(bot, false, List.of(group))));
         mockMvc.perform(get("/api/chat/personas/{id}/channels", hr).with(authentication(member)))
                 .andExpect(status().isOk())
@@ -280,8 +280,8 @@ class ChannelApiTest {
         var id = UUID.randomUUID();
         var hr = UUID.randomUUID();
         var seen = Instant.parse("2026-10-17T02:00:00Z");
-        var group = new ChannelGroup("oc_hr", "Phòng Nhân sự", "Nhân sự HN", seen, seen.plusSeconds(60));
-        when(channels.groups(any(), eq(id))).thenReturn(List.of(new Group(group, hr, "Nhân sự")));
+        var group = new ChannelGroup("oc_hr", "Phòng Nhân sự", "Nhân sự HN", seen, seen.plusSeconds(60), null);
+        when(channels.groups(any(), eq(id))).thenReturn(List.of(new Group(group, hr, "Nhân sự", false)));
         mockMvc.perform(get("/api/channels/{id}/groups", id).with(authentication(owner)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value("oc_hr"))
@@ -289,7 +289,8 @@ class ChannelApiTest {
                 .andExpect(jsonPath("$[0].name").value("Phòng Nhân sự"))
                 .andExpect(jsonPath("$[0].lastMessageAt").value("2026-10-17T02:01:00Z"))
                 .andExpect(jsonPath("$[0].assistant.id").value(hr.toString()))
-                .andExpect(jsonPath("$[0].assistant.name").value("Nhân sự"));
+                .andExpect(jsonPath("$[0].assistant.name").value("Nhân sự"))
+                .andExpect(jsonPath("$[0].permission").value("NOT_NEEDED"));
 
         mockMvc.perform(put("/api/channels/{id}/groups/{group}/persona", id, "oc_hr").with(authentication(owner))
                         .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
@@ -319,6 +320,33 @@ class ChannelApiTest {
                         .header("X-MemoryOS-CSRF", "1"))
                 .andExpect(status().isNoContent());
         verify(channels).forgetGroup(any(), eq(id), eq("oc_hr"));
+    }
+
+    /** MEM-285: a Zalo group waits for permission, is allowed through the API, and a Lark group refuses the call. */
+    @Test
+    void aGroupThatNeedsPermissionIsAllowedThroughTheApi() throws Exception {
+        var id = UUID.randomUUID();
+        var seen = Instant.parse("2026-10-20T02:00:00Z");
+        var waiting = new ChannelGroup("zg_1", null, null, seen, null, null);
+        var allowed = new ChannelGroup("zg_1", null, null, seen, null, seen.plusSeconds(60));
+        when(channels.groups(any(), eq(id))).thenReturn(List.of(new Group(waiting, null, null, true)),
+                List.of(new Group(allowed, null, null, true)));
+        mockMvc.perform(get("/api/channels/{id}/groups", id).with(authentication(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].permission").value("WAITING"));
+
+        mockMvc.perform(put("/api/channels/{id}/groups/{group}/permission", id, "zg_1").with(authentication(owner))
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("{\"allowed\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.permission").value("ALLOWED"));
+        verify(channels).allowGroup(any(), eq(id), eq("zg_1"), eq(true));
+
+        doThrow(ChannelException.invalid("This bot answers in a group without an administrator's permission."))
+                .when(channels).allowGroup(any(), eq(id), eq("oc_hr"), eq(true));
+        mockMvc.perform(put("/api/channels/{id}/groups/{group}/permission", id, "oc_hr").with(authentication(owner))
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("{\"allowed\":true}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("CHANNEL_INVALID"));
     }
 
     @Test

@@ -15,6 +15,7 @@ import {
 import { Field, FieldLabel } from "@/components/ui/field";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -27,6 +28,7 @@ import { personasOptions, type Persona } from "@/features/chat/chat-personas-api
 import { formatUiDay, formatUiRelative, uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
+  allowChannelGroupMutation,
   bindChannelAssistantMutation,
   bindChannelGroupAssistantMutation,
   forgetChannelGroupMutation,
@@ -50,7 +52,8 @@ const BY_DEFAULT = "by-default";
 
 /**
  * Which assistant answers where (MEM-273, as Onyx's Slack bot sets one per channel): the bot's default, and the group
- * chats it has answered in, each of which may take an assistant of its own. Every choice saves on change.
+ * chats it has answered in, each of which may take an assistant of its own. A group of a platform that cannot tell who
+ * is in it (Zalo) answers only once allowed here (MEM-285, as OpenClaw's group allowlist). Every choice saves on change.
  */
 export function ChannelAssistantsSection({ channel }: { channel: ChannelResponse }) {
   const ui = useAppTranslation();
@@ -70,6 +73,7 @@ export function ChannelAssistantsSection({ channel }: { channel: ChannelResponse
   const bindGroup = useMutation({ ...bindChannelGroupAssistantMutation(), onSettled: reread });
   const label = useMutation({ ...labelChannelGroupMutation(), onSettled: reread });
   const forget = useMutation({ ...forgetChannelGroupMutation(), onSettled: reread });
+  const allow = useMutation({ ...allowChannelGroupMutation(), onSettled: reread });
   const [renaming, setRenaming] = useState<ChannelGroupResponse | null>(null);
   const [name, setName] = useState("");
   const [forgetting, setForgetting] = useState<ChannelGroupResponse | null>(null);
@@ -77,10 +81,11 @@ export function ChannelAssistantsSection({ channel }: { channel: ChannelResponse
 
   const message = (failure: unknown) =>
     channelError(failure, channel.provider) ?? problem(presentProblem(failure, "mutation").message);
-  const failure = bindDefault.error ?? bindGroup.error;
+  const failure = bindDefault.error ?? bindGroup.error ?? allow.error;
   const resetChoices = () => {
     bindDefault.reset();
     bindGroup.reset();
+    allow.reset();
   };
 
   const all = personas.data ?? [];
@@ -97,7 +102,7 @@ export function ChannelAssistantsSection({ channel }: { channel: ChannelResponse
     group.label ||
     group.name ||
     `${ui(providerWords(channel.provider).group)} ${group.id.slice(-4)}`;
-  const busy = bindDefault.isPending || bindGroup.isPending;
+  const busy = bindDefault.isPending || bindGroup.isPending || allow.isPending;
 
   return (
     <section className="flex flex-col gap-3">
@@ -149,20 +154,39 @@ export function ChannelAssistantsSection({ channel }: { channel: ChannelResponse
                     <span className="truncate font-secondary-body text-content-muted">
                       {[
                         ui(providerWords(channel.provider).group),
-                        group.lastMessageAt
-                          ? ui("hỏi {{v1}}", {
-                              // Mid-sentence, so "Hôm qua" reads "hôm qua".
-                              v1: (
-                                formatUiRelative(group.lastMessageAt) ??
-                                formatUiDay(group.lastMessageAt)
-                              ).toLocaleLowerCase(uiLocale()),
-                            })
-                          : ui("chưa có ai hỏi"),
+                        group.permission === "WAITING"
+                          ? ui("chờ cho phép")
+                          : group.lastMessageAt
+                            ? ui("hỏi {{v1}}", {
+                                // Mid-sentence, so "Hôm qua" reads "hôm qua".
+                                v1: (
+                                  formatUiRelative(group.lastMessageAt) ??
+                                  formatUiDay(group.lastMessageAt)
+                                ).toLocaleLowerCase(uiLocale()),
+                              })
+                            : ui("chưa có ai hỏi"),
                       ].join(" · ")}
                     </span>
                   </span>
                 </span>
                 <span className="ml-auto flex items-center gap-2">
+                  {group.permission !== "NOT_NEEDED" ? (
+                    <label className="flex items-center gap-2 font-secondary-body text-content-muted">
+                      <Switch
+                        checked={group.permission === "ALLOWED"}
+                        disabled={busy}
+                        aria-label={ui("Cho phép trả lời trong {{v1}}", { v1: title })}
+                        onCheckedChange={(allowed) => {
+                          resetChoices();
+                          allow.mutate({
+                            path: { channelId, groupId: group.id },
+                            body: { allowed },
+                          });
+                        }}
+                      />
+                      {ui("Cho phép trả lời")}
+                    </label>
+                  ) : null}
                   <AssistantSelect
                     label={ui("Trợ lý của {{v1}}", { v1: title })}
                     value={current ?? BY_DEFAULT}

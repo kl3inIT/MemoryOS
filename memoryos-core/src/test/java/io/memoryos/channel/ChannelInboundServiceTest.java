@@ -327,7 +327,8 @@ class ChannelInboundServiceTest {
     /** MEM-285: a linked member cannot bring the bot into a group where someone who is not linked reads its answers. */
     @Test
     void onAPlatformWithoutOrganisationsAGroupIsAnsweredOnlyWhenEveryoneInItIsLinked() throws Exception {
-        adapter.features = new ChannelFeatures(false, false, 2_000, false);
+        // WhatsApp's features: no organisations, a group's people listed.
+        adapter.features = new ChannelFeatures(false, false, 2_000, false, true);
         service.receive(zalo("z1", "wa_ha", links.code(ha, connection).code()));
         assertEquals("ANSWERED:LINKED", outcome("z1") + ":" + reason("z1"));
 
@@ -345,6 +346,41 @@ class ChannelInboundServiceTest {
         service.receive(new ChannelMessage(connection, "g2", GROUP_CHAT, ChannelMessage.Kind.GROUP, "wa_ha", null, null,
                 true, ChannelMessage.Type.TEXT, "How many leave days?", null));
         assertEquals("ANSWERED", outcome("g2"));
+    }
+
+    /**
+     * MEM-285: on a platform that can tell neither an outsider nor who is in a group (Zalo), a linked member's question
+     * in a group nobody allowed is refused with a notice, and the group waits on the bot's page until an administrator
+     * allows it; withdrawn, it is refused again.
+     */
+    @Test
+    void onAPlatformThatCannotListAGroupsPeopleAGroupIsAnsweredOnlyOnceAllowed() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, 2_000, false);
+        service.receive(zalo("z1", "zu_ha", links.code(ha, connection).code()));
+
+        service.receive(new ChannelMessage(connection, "g1", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_ha", "Hà", null, true,
+                ChannelMessage.Type.TEXT, "Leave policy?", null));
+        assertEquals("REFUSED:GROUP_NOT_ALLOWED", outcome("g1") + ":" + reason("g1"));
+        assertEquals("An administrator has not allowed the assistant in this group yet.", adapter.notices.getLast());
+        verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+        // Listed for the administrator, as a group nobody was answered in.
+        assertEquals(Boolean.TRUE, jdbc.sql("""
+                        SELECT allowed_at IS NULL AND last_message_at IS NULL FROM channel_groups
+                        WHERE connection_id = :connection AND external_chat_id = :chat
+                        """).param("connection", connection).param("chat", GROUP_CHAT).query(Boolean.class).single());
+
+        assertTrue(new JdbcChannelGroupRepository(jdbc).allow(tenant, connection, GROUP_CHAT, Instant.now()));
+        service.receive(new ChannelMessage(connection, "g2", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_ha", "Hà", null, true,
+                ChannelMessage.Type.TEXT, "Leave policy?", null));
+        assertEquals("ANSWERED", outcome("g2"));
+
+        assertTrue(new JdbcChannelGroupRepository(jdbc).allow(tenant, connection, GROUP_CHAT, null));
+        service.receive(new ChannelMessage(connection, "g3", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_ha", "Hà", null, true,
+                ChannelMessage.Type.TEXT, "Leave policy?", null));
+        assertEquals("REFUSED:GROUP_NOT_ALLOWED", outcome("g3") + ":" + reason("g3"));
+        // A direct message is the sender's own and needs no permission.
+        service.receive(zalo("z2", "zu_ha", "My own leave?"));
+        assertEquals("ANSWERED", outcome("z2"));
     }
 
     @Test
@@ -377,6 +413,7 @@ class ChannelInboundServiceTest {
     void aLinkedSenderInAGroupIsAnsweredAsTheBotAndAStrangerIsToldHowToLink() throws Exception {
         adapter.features = new ChannelFeatures(false, false, 2_000, false);
         service.receive(zalo("z1", "zu_ha", links.code(ha, connection).code()));
+        allow(GROUP_CHAT);
 
         service.receive(new ChannelMessage(connection, "g1", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_ha", "Hà", null, true,
                 ChannelMessage.Type.TEXT, "Leave policy?", null));
@@ -401,6 +438,7 @@ class ChannelInboundServiceTest {
         service.receive(zalo("z3", "zu_guest", "How many leave days?"));
         assertEquals("REFUSED:LINK_REQUIRED", outcome("z3") + ":" + reason("z3"));
 
+        allow(GROUP_CHAT);
         service.receive(new ChannelMessage(connection, "g1", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_ha", "Hà", null, true,
                 ChannelMessage.Type.TEXT, "Leave policy?", null));
         assertEquals("finish:Answer|footer=null", adapter.replies.getLast());
@@ -581,6 +619,7 @@ class ChannelInboundServiceTest {
         service.receive(zalo("z1", "zu_ha", links.code(ha, connection).code()));
         service.receive(new ChannelMessage(connection, "l2", "zu_an", ChannelMessage.Kind.DIRECT, "zu_an", null, null, true,
                 ChannelMessage.Type.TEXT, links.code(other, connection).code(), null));
+        allow(GROUP_CHAT);
 
         // Two people's questions share the group's conversation, which runs as the bot, each labelled with its asker.
         service.receive(new ChannelMessage(connection, "g1", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_ha", "Hà", null, true,
@@ -735,6 +774,15 @@ class ChannelInboundServiceTest {
         jdbc.sql("INSERT INTO tenant_memberships(tenant_id,actor_id,role,status) VALUES(:tenant,:actor,'MEMBER','ACTIVE')")
                 .param("tenant", tenant.value()).param("actor", actor.value()).update();
         return actor;
+    }
+
+    /** An administrator allows the bot to answer in a group (MEM-285). */
+    private void allow(String chat) {
+        jdbc.sql("""
+                        INSERT INTO channel_groups(tenant_id, connection_id, external_chat_id, first_seen_at, allowed_at)
+                        VALUES (:tenant, :connection, :chat, now(), now())
+                        ON CONFLICT (connection_id, external_chat_id) DO UPDATE SET allowed_at = now()
+                        """).param("tenant", tenant.value()).param("connection", connection).param("chat", chat).update();
     }
 
     private String outcome(String message) {

@@ -92,6 +92,7 @@ class WhatsAppChannelAdapterTest {
         assertThrows(ChannelException.class, () -> adapter.settings(Map.of("transport", "POLLING")));
         assertTrue(adapter.features().pairs());
         assertFalse(adapter.features().organisations());
+        assertTrue(adapter.features().groupMembers());
     }
 
     @Test

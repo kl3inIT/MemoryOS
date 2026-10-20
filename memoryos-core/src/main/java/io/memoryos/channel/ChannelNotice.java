@@ -9,6 +9,8 @@ enum ChannelNotice {
             "This assistant serves members of the organisation only."),
     EXTERNAL_GROUP("Trợ lý không trả lời trong nhóm có người ngoài tổ chức. Hãy nhắn riêng cho trợ lý.",
             "The assistant does not answer in a group with people outside the organisation. Send it a direct message."),
+    GROUP_NOT_ALLOWED("Nhóm này chưa được quản trị viên cho phép dùng trợ lý.",
+            "An administrator has not allowed the assistant in this group yet."),
     LINK_REQUIRED("Để hỏi trợ lý, hãy liên kết tài khoản MemoryOS: mở Cài đặt › Chat trên MemoryOS, lấy mã liên kết rồi nhắn riêng mã đó cho trợ lý.",
             "To ask the assistant, link your MemoryOS account: open Settings › Chat in MemoryOS, get a linking code and send it to the assistant in a direct message."),
     LINK_IN_DIRECT("Nhắn riêng cho trợ lý để liên kết tài khoản.", "Message the assistant directly to link your account."),

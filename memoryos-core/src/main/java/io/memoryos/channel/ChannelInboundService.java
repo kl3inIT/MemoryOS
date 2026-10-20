@@ -120,7 +120,7 @@ public class ChannelInboundService {
                 var linking = step("link", () -> linking(connection, adapter, message));
                 if (linking != null) return linking;
             }
-            var refusal = step("refusal", () -> refusal(connection, adapter, message));
+            var refusal = step("refusal", () -> refusal(tenant, connection, adapter, message));
             if (refusal != null) {
                 refuse(connection, adapter, message, refusal);
                 return "REFUSED";
@@ -164,7 +164,8 @@ public class ChannelInboundService {
     }
 
     /** Why the message is not answered at all, or null. */
-    private @Nullable Refusal refusal(ChannelConnection connection, ChannelAdapter adapter, ChannelMessage message) {
+    private @Nullable Refusal refusal(TenantId tenant, ChannelConnection connection, ChannelAdapter adapter,
+                                      ChannelMessage message) {
         if (!member(connection, adapter, message)) return new Refusal("OUTSIDER", ChannelNotice.OUTSIDER);
         // This message is already claimed, so it is counted with the minute's others.
         if (inbound.receivedFrom(connection.id(), message.senderId(), clock.instant().minus(Duration.ofMinutes(1)))
@@ -185,6 +186,12 @@ public class ChannelInboundService {
             var participants = chat.participants();
             if (participants != null && !links.allLinked(connection.id(), participants)) {
                 return new Refusal("UNLINKED_IN_GROUP", ChannelNotice.EXTERNAL_GROUP);
+            }
+            // A provider that can tell neither (Zalo) answers only in a group an administrator allowed, as OpenClaw's
+            // group allowlist; the group is listed on the bot's page, unanswered, for them to allow (MEM-285).
+            if (adapter.features().groupsNeedPermission() && !groups.allowed(tenant, connection.id(), message.chatId())) {
+                groups.present(tenant, connection.id(), message.chatId(), chat.name(), clock.instant());
+                return new Refusal("GROUP_NOT_ALLOWED", ChannelNotice.GROUP_NOT_ALLOWED);
             }
         }
         return null;

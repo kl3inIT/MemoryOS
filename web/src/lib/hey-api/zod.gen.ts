@@ -2,6 +2,10 @@
 
 import * as z from 'zod';
 
+export const zAllowChannelGroupRequest = z.object({
+    allowed: z.boolean()
+});
+
 export const zSharePointScopeRequest = z.object({
     scopeMode: z.enum(['ALL_SITES', 'SPECIFIC']),
     siteUrls: z.array(z.string().min(0).max(2048)).min(0).max(1000).optional(),
@@ -4370,7 +4374,12 @@ export const zChannelGroupResponse = z.object({
     name: z.string().optional(),
     firstMessageAt: z.iso.datetime(),
     lastMessageAt: z.iso.datetime().optional(),
-    assistant: zChannelAssistantResponse.optional()
+    assistant: zChannelAssistantResponse.optional(),
+    permission: z.enum([
+        'NOT_NEEDED',
+        'ALLOWED',
+        'WAITING'
+    ])
 });
 
 export const zLabelChannelGroupRequest = z.object({
@@ -8817,6 +8826,18 @@ export const zLabelChannelGroupPath = z.object({
  * Updated group chat
  */
 export const zLabelChannelGroupResponse = zChannelGroupResponse;
+
+export const zAllowChannelGroupBody = zAllowChannelGroupRequest;
+
+export const zAllowChannelGroupPath = z.object({
+    channelId: z.uuid(),
+    groupId: z.string()
+});
+
+/**
+ * Updated group chat
+ */
+export const zAllowChannelGroupResponse = zChannelGroupResponse;
 
 export const zUpdateChannelEnabledBody = zUpdateChannelEnabledRequest;
 
