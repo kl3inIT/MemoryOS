@@ -1,6 +1,7 @@
 package io.memoryos.api.channel;
 
 import io.memoryos.api.channel.contract.BindChannelAssistantRequest;
+import io.memoryos.api.channel.contract.AllowChannelGroupRequest;
 import io.memoryos.api.channel.contract.BindChannelGroupAssistantRequest;
 import io.memoryos.api.channel.contract.ChannelAppCheckResponse;
 import io.memoryos.api.channel.contract.ChannelAppRequest;
@@ -187,7 +188,8 @@ final class ChannelController {
     }
 
     @Operation(operationId = "listChannelGroups",
-            summary = "List the group chats a bot has answered in, each with the assistant it is given")
+            summary = "List the group chats a bot is known in, each with the assistant it is given and whether it "
+                    + "may answer there")
     @ApiResponse(responseCode = "200", description = "Group chats", useReturnTypeSchema = true)
     @GetMapping("/{channelId}/groups")
     ResponseEntity<List<ChannelGroupResponse>> groups(@CurrentActor IdentityContext identity, @PathVariable UUID channelId) {
@@ -213,6 +215,17 @@ final class ChannelController {
     ResponseEntity<ChannelGroupResponse> labelGroup(@CurrentActor IdentityContext identity, @PathVariable UUID channelId,
             @PathVariable String groupId, @Valid @RequestBody LabelChannelGroupRequest body) {
         channels.labelGroup(identity.actorId(), channelId, groupId, body.label());
+        return ResponseEntity.ok().body(group(identity, channelId, groupId));
+    }
+
+    @Operation(operationId = "allowChannelGroup",
+            summary = "Allow the bot to answer in a group chat, or withdraw it; only a group of a platform that cannot "
+                    + "tell who is in it (Zalo) needs it")
+    @ApiResponse(responseCode = "200", description = "Updated group chat", useReturnTypeSchema = true)
+    @PutMapping(value = "/{channelId}/groups/{groupId}/permission", consumes = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ChannelGroupResponse> allowGroup(@CurrentActor IdentityContext identity, @PathVariable UUID channelId,
+            @PathVariable String groupId, @Valid @RequestBody AllowChannelGroupRequest body) {
+        channels.allowGroup(identity.actorId(), channelId, groupId, body.allowed());
         return ResponseEntity.ok().body(group(identity, channelId, groupId));
     }
 

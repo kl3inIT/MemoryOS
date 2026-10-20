@@ -43,7 +43,7 @@ import tools.jackson.databind.JsonNode;
 public final class WhatsAppChannelAdapter implements ChannelAdapter, AutoCloseable {
     private static final Logger LOG = LoggerFactory.getLogger(WhatsAppChannelAdapter.class);
     static final int MAX_TEXT = 4_096;
-    private static final ChannelFeatures FEATURES = new ChannelFeatures(false, false, MAX_TEXT, true);
+    private static final ChannelFeatures FEATURES = new ChannelFeatures(false, false, MAX_TEXT, true, true);
     /** A number in international form, written with or without its plus, spaces, dots, dashes or brackets. */
     private static final Pattern NUMBER = Pattern.compile("^\\+?[1-9][0-9]{7,14}$");
     private static final Pattern SEPARATORS = Pattern.compile("[\\s.()\\-]");

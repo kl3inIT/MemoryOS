@@ -5,6 +5,7 @@ import { HttpResponse } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
 import { i18n } from "@/i18n/index";
 import {
+  handleAllowChannelGroup,
   handleForgetChannelGroup,
   handleLabelChannelGroup,
   handleListChannelGroups,
@@ -40,6 +41,7 @@ const group = (overrides: Partial<ChannelGroupResponse>): ChannelGroupResponse =
   id: "oc_a1b2c3d4e5f60718293a4b5c6d7e8f90",
   firstMessageAt: "2026-10-10T02:00:00Z",
   lastMessageAt: new Date(Date.now() - 10 * 60_000).toISOString(),
+  permission: "NOT_NEEDED",
   ...overrides,
 });
 
@@ -88,6 +90,30 @@ describe("ChannelAssistantsSection", () => {
     await user.click(screen.getByRole("button", { name: "Thao tác với Phòng Nhân sự" }));
     expect(screen.getByRole("menuitem", { name: "Đổi tên" })).toBeVisible();
     expect(screen.queryByRole("menuitem", { name: "Quên nhóm" })).toBeNull();
+  });
+
+  it("lets an administrator allow a Zalo group waiting for permission, and a Lark group has no switch", async () => {
+    const sent: unknown[] = [];
+    server.use(
+      handleAllowChannelGroup(async ({ request }) => {
+        sent.push(await request.json());
+        return HttpResponse.json(group({ id: "2468013579", permission: "ALLOWED" }));
+      }),
+    );
+    renderSection("ZALO_BOT", [
+      group({ id: "2468013579", lastMessageAt: undefined, permission: "WAITING" }),
+    ]);
+    expect(await screen.findByText("Nhóm Zalo · chờ cho phép")).toBeVisible();
+    const allowed = screen.getByRole("switch", { name: "Cho phép trả lời trong Nhóm Zalo 3579" });
+    expect(allowed).not.toBeChecked();
+    await userEvent.setup().click(allowed);
+    await expect.poll(() => sent).toEqual([{ allowed: true }]);
+  });
+
+  it("shows no permission switch for a group that needs none", async () => {
+    renderSection("LARK", [group({ name: "Phòng Nhân sự" })]);
+    expect(await screen.findByText("Phòng Nhân sự")).toBeVisible();
+    expect(screen.queryByRole("switch")).toBeNull();
   });
 
   it("says so when the bot is in no group chat yet", async () => {

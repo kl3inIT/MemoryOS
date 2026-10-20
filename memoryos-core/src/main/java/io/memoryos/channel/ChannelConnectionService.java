@@ -16,6 +16,7 @@ import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -315,21 +316,46 @@ public class ChannelConnectionService {
     /** A bot an assistant answers with: by default, and in which of its group chats. */
     public record Answering(ChannelConnection connection, boolean byDefault, List<ChannelGroup> groups) {}
 
-    /** A group chat of a bot with the assistant it is given, both null when it answers with the bot's default. */
-    public record Group(ChannelGroup group, @Nullable UUID assistantId, @Nullable String assistant) {}
+    /**
+     * A group chat of a bot with the assistant it is given, both null when it answers with the bot's default, and
+     * whether the bot answers there only once an administrator allows it (MEM-285).
+     */
+    public record Group(ChannelGroup group, @Nullable UUID assistantId, @Nullable String assistant,
+                        boolean needsPermission) {}
 
-    /** The group chats a bot has answered in, the most recently asked first, each with its own assistant. */
+    /**
+     * The group chats a bot is known in, each with its own assistant: those waiting for permission first, then the most
+     * recently asked.
+     */
     @Transactional(readOnly = true)
     public List<Group> groups(ActorId actor, UUID id) {
         var tenant = reader(actor);
-        connections.find(tenant, id).orElseThrow(ChannelException::notFound);
+        var bot = connections.find(tenant, id).orElseThrow(ChannelException::notFound);
+        boolean needsPermission = adapters.of(bot.provider()).features().groupsNeedPermission();
         var given = bindings.groups(tenant, id);
         var names = personas.names(actor, given.values());
         return groups.list(tenant, id).stream().map(group -> {
             UUID assistant = given.get(group.chatId());
             String name = assistant == null ? null : names.get(assistant);
-            return new Group(group, name == null ? null : assistant, name);
-        }).toList();
+            return new Group(group, name == null ? null : assistant, name, needsPermission);
+        }).sorted(Comparator.comparing(group -> !group.needsPermission() || group.group().allowedAt() != null)).toList();
+    }
+
+    /**
+     * Allows a bot to answer in a group chat, or withdraws it (MEM-285). Only a group of a provider that can tell
+     * neither an outsider nor who is in it needs it; the next question there is answered or refused accordingly.
+     */
+    @Transactional
+    public void allowGroup(ActorId actor, UUID id, String chatId, boolean allowed) {
+        var tenant = writer(actor);
+        var current = connections.find(tenant, id).orElseThrow(ChannelException::notFound);
+        if (!adapters.of(current.provider()).features().groupsNeedPermission()) {
+            throw ChannelException.invalid("This bot answers in a group without an administrator's permission.");
+        }
+        var group = groups.find(tenant, id, chatId).orElseThrow(ChannelException::groupNotFound);
+        if ((group.allowedAt() != null) == allowed) return;
+        if (!groups.allow(tenant, id, chatId, allowed ? Instant.now() : null)) throw ChannelException.groupNotFound();
+        record(actor, tenant, current, allowed ? "group-allowed" : "group-disallowed", chatId);
     }
 
     /**
