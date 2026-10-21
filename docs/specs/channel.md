@@ -136,6 +136,33 @@ WhatsApp its every-member-linked check, and neither needs it.
 - **The list** gives each group `permission`: `NOT_NEEDED`, `WAITING` or `ALLOWED`; the bot's page shows a *Cho phép
   trả lời* switch, saved on change, on a group that needs it.
 
+### A public bot
+
+A bot an administrator makes public answers anyone who addresses it, with no account, as Copilot Studio's agent with
+"No authentication" and a customer-facing agent such as Intercom Fin answer from what they are given (MEM-298,
+[design](../increments/active/mem-298-public-bot/design.md)). `channel_connections.public_access` (V194) is false for
+every bot until switched.
+
+- **Switching** (`setPublic`, `PUT /api/channels/{channelId}/public`, `{"publicAccess": boolean}`) takes
+  `CHANNELS_MANAGE` and the bot's revision, moves it so its process opens the bot again, and is audited (`public`,
+  `private`). Making a bot public hands its assistants and what they are given to anyone, so, as binding does, it
+  takes edit rights on the bot's assistant and on each of its groups' own (`CHANNEL_ASSISTANT_NOT_EDITABLE`); a
+  deleted one answers as none and takes nothing, and making it private takes nothing.
+- **Who is answered**: whoever addresses it, in a direct message or a group. No linking, no organisation check and no
+  group refusal (`OUTSIDER`, `EXTERNAL_GROUP`, `UNLINKED_IN_GROUP`, `GROUP_NOT_ALLOWED`) applies; the per-sender rate,
+  the addressed-only rule, text-only and the guardrails do. A group is still recorded, so it may be given its own
+  assistant.
+- **As whom**: every turn runs as the bot's account, a linked member's direct message included, the question labelled
+  with the asker's name. No answer carries a closing line, and citations name the document without its address at the
+  provider.
+- **What it reads**: a conversation started through a public bot is marked `chat_session.channel_public` and searches
+  only the Sources its assistant is given and those of every Document Set it is given, whoever may use the set: a
+  Public or Private Source whole, an Auto Sync one as far as the bot's account reads each document, nothing when there
+  are none ([chat](chat.md)). The code interpreter is not offered; a channel turn offers no Web search, image
+  generation or MCP server in any case.
+- **Conversations** are continued only in the mode they were started in (`ChannelTurns.continues`), so switching a bot
+  starts every conversation over, both ways, and a reply to an older answer does not reach its conversation.
+
 ### The administrator's API
 
 `/api/channels` (`ChannelController`, tag `Channels`) exposes the service; each mutation needs the CSRF header and
@@ -154,13 +181,14 @@ each change of a bot an `If-Match` of its quoted revision.
 | `PUT /api/channels/{id}/transport` | Changes how a Zalo bot receives (`WEBHOOK` or `POLLING`) |
 | `PUT /api/channels/{id}/secret` | Checks the new secret and replaces the old one |
 | `PUT /api/channels/{id}/enabled` | Switches the bot on or off |
+| `PUT /api/channels/{id}/public` | Makes the bot answer anyone (`publicAccess`), or only the organisation's people ([a public bot](#a-public-bot)) |
 | `PUT /api/channels/{id}/persona` | Binds the bot to an assistant (`personaId`), moving it from another, or to none (`null`); no `If-Match` |
 | `GET /api/channels/{id}/groups` | The bot's group chats, the most recently asked first and those nobody has asked in last: `id`, `label`, `name`, `firstMessageAt`, `lastMessageAt` (absent before a question), `assistant` |
 | `PUT /api/channels/{id}/groups/{groupId}/persona` | Gives a group chat its own assistant (`personaId`) or returns it to the bot's default (`null`) |
 | `PUT /api/channels/{id}/groups/{groupId}/label` | Labels a group chat (`label`); blank or null clears it |
 | `DELETE /api/channels/{id}/groups/{groupId}` | Forgets a group chat and its assistant; `204` |
 | `DELETE /api/channels/{id}` | Removes the bot and retires its account; `204` |
-| `GET /api/chat/personas/{id}/channels` | Where an assistant answers (`id`, `provider`, `name`, `botName`, `enabled`, `byDefault`, `groups`), for anyone who may use it |
+| `GET /api/chat/personas/{id}/channels` | Where an assistant answers (`id`, `provider`, `name`, `botName`, `enabled`, `publicAccess`, `byDefault`, `groups`), for anyone who may use it |
 
 A bot's `status` is `OFF` when switched off; `NOT_RUNNING` when its supervisor has not written for three passes
 (90 seconds), so no process holds it; `PAIRING` while it shows a code to scan that has not expired; else `CONNECTED`
@@ -432,7 +460,8 @@ acknowledged it to the provider:
    nobody), when it is not text (`NOT_TEXT`) or when the group has people outside the organisation
    (`EXTERNAL_GROUP`). A group message that only names the bot, empty once the mention is removed, is refused without
    a notice (`EMPTY`). A provider without organisations admits only a linked sender instead
-   ([linked accounts](#linked-accounts)).
+   ([linked accounts](#linked-accounts)). A public bot skips the sender and group checks ([a public
+   bot](#a-public-bot)).
 4. The sender's account is the one they linked on this bot; else the one active person whose verified e-mail
    equals the e-mail the provider holds ([identity](identity.md#account-classification-and-group-authority)),
    remembered in `channel_identities` for `memoryos.channel.identity-ttl` (1 hour); a sender without one is
