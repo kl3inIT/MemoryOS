@@ -26,15 +26,16 @@ public class JdbcChatFileAttachmentRepository {
     public JdbcChatFileAttachmentRepository(JdbcClient jdbc) { this.jdbc = jdbc; }
 
     /**
-     * An agent a bot answers with, in a conversation the actor (the bot's account) holds through that bot: the group's
-     * own live assistant, else the bot's, as Chat runs the conversation's turns (MEM-273). It grants its knowledge
-     * files to that conversation's owner as it grants its instructions, so a bot answers from the files of an assistant
-     * its account may not use elsewhere (MEM-298).
+     * An agent a public bot answers with, in a conversation the actor holds through that bot: the group's own live
+     * assistant, else the bot's, as Chat runs the conversation's turns (MEM-273). It grants its knowledge files to the
+     * conversation's owner as it grants its instructions, so a public bot answers from the files of an assistant its
+     * account may not use elsewhere (MEM-298). Only a public bot's conversation counts: it runs as the bot's service
+     * account, which nobody signs in as, so the grant never reaches a person's library or downloads.
      */
     private static final String HELD_IN_CHANNEL = """
             EXISTS (SELECT 1 FROM chat_session s
                     WHERE s.tenant_id = p.tenant_id AND s.owner_actor_id = :actor AND s.surface = 'CHANNEL'
-                      AND s.deleted_at IS NULL AND s.persona_id = p.id
+                      AND s.channel_public AND s.deleted_at IS NULL AND s.persona_id = p.id
                       AND p.id = COALESCE(
                           (SELECT group_binding.persona_id FROM chat_channel_group_binding group_binding
                            JOIN persona group_persona ON group_persona.tenant_id = group_binding.tenant_id
@@ -47,7 +48,7 @@ public class JdbcChatFileAttachmentRepository {
 
     /**
      * The files among {@code files} that a non-deleted agent the actor can use attaches or shows as its avatar, and the
-     * knowledge files of an agent a bot answers with in a conversation the actor holds through it.
+     * knowledge files of an agent a public bot answers with in a conversation the actor holds through it.
      */
     public Set<UUID> usableThroughAgents(TenantId tenant, ActorId actor, Collection<UUID> files) {
         if (files.isEmpty()) return Set.of();

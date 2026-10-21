@@ -69,10 +69,12 @@ the user turned off.
    and those of its Document Sets, and the assistant's files; an assistant that is given none searches nothing, where
    today it would search every readable Source. A Source the Tenant is deleting or a Document Set deleted stays out.
    - A **Public or Private** Source (MEM-105) is read whole, whatever Groups it is restricted to (Intercom, Dify).
-   - The assistant's **files** are granted to the bot's account while it holds a conversation through the bot with the
-     assistant, as the assistant's instructions are (`JdbcChatFileAttachmentRepository.usableThroughAgents`). Before,
-     only someone who may use the assistant read them, so a bot's group turn with a private assistant's files failed;
-     found while building this.
+   - The assistant's **files** are granted to a public bot's account while it holds a conversation through the bot with
+     the assistant, as the assistant's instructions are (`JdbcChatFileAttachmentRepository.usableThroughAgents`). Only a
+     public bot's conversation counts: it is the service account's, which nobody signs in as, whereas a member linked
+     to a bot that is not public owns their own direct conversations and must not gain the files in their library. A
+     bot that is not public still reads only files of an assistant its account may use; its group turn with a private
+     assistant's files fails, as before (candidate work).
    - An **Auto Sync** Source keeps each document's own access from the provider, which nobody granted to the bot: its
      documents are read only as far as the bot's account reads them, those every member may read (Copilot Studio does
      not search a source that needs the user's sign-in).

@@ -20,7 +20,7 @@ bot page and the editor's warning. Acceptance on staging follows the second.
 - [x] Connector and retrieval: `attachedScope` (Public and Private Sources whole, Auto Sync ones the account may read),
   `SourceSearchScope.wholeSources`, `readableSourceMetadata` for the recheck, and the index's access filter admitting
   an origin in a whole Source.
-- [x] The assistant's files granted to the bot's account through a conversation it holds with the assistant.
+- [x] The assistant's files granted to a public bot's account through a conversation it holds with the assistant.
 - [x] API: `PUT /api/channels/{channelId}/public` (`UpdateChannelPublicRequest{publicAccess}`), `publicAccess` on
   `ChannelResponse` and `AssistantChannelResponse`; `openapi.yml`, the contract test, the Hey API client and the web
   fixtures.

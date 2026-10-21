@@ -1522,13 +1522,16 @@ class ChatPersistenceIntegrationTest {
         assertTrue(new JdbcUserFileRepository(jdbc).readable(scope, viewer, unrelated, granted, false).isEmpty());
         // Someone it is not shared with is granted nothing.
         assertEquals(Set.of(), attachments.usableThroughAgents(scope, stranger, all));
-        // MEM-298: a bot's account is granted the knowledge files of the assistant its bot answers with, while it holds a
-        // conversation through the bot with it, though the assistant is not shared with it; not the avatar, and not
-        // once the bot is moved.
+        // MEM-298: a public bot's account is granted the knowledge files of the assistant its bot answers with, while it
+        // holds a conversation through the bot with it, though the assistant is not shared with it; not the avatar, not
+        // through a conversation of a bot that is not public, where a linked person may own it, and not once the bot is
+        // moved.
         assertEquals(Set.of(), attachments.usableThroughAgents(scope, other, all));
         var bindings = new ChatChannelBindings(new JdbcChatRepository(jdbc));
         UUID bot = UUID.randomUUID();
         tx.executeWithoutResult(_ -> bindings.bind(scope, bot, agent.id()));
+        sessions.createInChannel(other, "Tài liệu từ Zalo", bot, null, false);
+        assertEquals(Set.of(), attachments.usableThroughAgents(scope, other, all));
         sessions.createInChannel(other, "Tài liệu từ Zalo", bot, null, true);
         assertEquals(Set.of(attached), attachments.usableThroughAgents(scope, other, all));
         tx.executeWithoutResult(_ -> bindings.bind(scope, bot, null));
