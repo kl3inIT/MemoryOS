@@ -39,11 +39,15 @@ class ChannelTurns {
     /**
      * Whether the session is the actor's to continue: another person's, or a deleted one, is not, and neither is one
      * held with another assistant than the bot answers with now in its group chat ({@code group}, null for a direct
-     * message), so moving a bot or giving a group another assistant starts its conversations over.
+     * message), so moving a bot or giving a group another assistant starts its conversations over; nor one started
+     * while the bot was public and it no longer is, or the other way round ({@code publicBot}, MEM-298), whose history
+     * was written for other readers.
      */
-    boolean continues(ActorId actor, UUID session, UUID connection, @Nullable String group) {
+    boolean continues(ActorId actor, UUID session, UUID connection, @Nullable String group, boolean publicBot) {
         try {
-            return sessions.get(actor, session).personaId().equals(sessions.channelPersona(actor, connection, group));
+            var held = sessions.get(actor, session);
+            return held.channelPublic() == publicBot
+                    && held.personaId().equals(sessions.channelPersona(actor, connection, group));
         } catch (RuntimeException unavailable) {
             return false;
         }
@@ -65,7 +69,8 @@ class ChannelTurns {
                UUID connection, @Nullable String group, Duration wait, Runnable onWaiting,
                Supplier<Consumer<String>> onAccepted)
             throws InterruptedException {
-        UUID conversation = session != null ? session : sessions.createInChannel(actor, title, connection, group).id();
+        UUID conversation = session != null ? session
+                : sessions.createInChannel(actor, title, connection, group, channel.publicBot()).id();
         var accepted = accept(actor, conversation, request, text, channel, wait, onWaiting);
         Consumer<String> onText = onAccepted.get();
         try (var reader = turns.subscribe(actor, conversation, accepted.assistantMessageId(), 0).get()) {

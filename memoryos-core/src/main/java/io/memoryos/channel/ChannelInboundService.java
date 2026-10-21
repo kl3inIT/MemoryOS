@@ -31,8 +31,10 @@ import org.springframework.stereotype.Service;
 
 /**
  * What a bot does with a message it receives (MEM-246): answers it once, only for a member of its organisation or,
- * on a platform without organisations, a member who linked their account (MEM-263), only when it was addressed, as the sender in a direct message when the sender has an account here and as the
- * bot's own account otherwise, in the conversation the message continues.
+ * on a platform without organisations, a member who linked their account (MEM-263), only when it was addressed, as the
+ * sender in a direct message when the sender has an account here and as the bot's own account otherwise, in the
+ * conversation the message continues. A public bot (MEM-298) answers anyone who addresses it, always as its own
+ * account, from its assistant's attachments only.
  *
  * <p>A reply to a message continues that message's conversation; a new message in a group starts one; a new direct
  * message continues the last one while it is recent; {@code /new} in a direct message starts over. Every refusal
@@ -116,7 +118,8 @@ public class ChannelInboundService {
     private String handle(TenantId tenant, ChannelConnection connection, ChannelMessage message) {
         var adapter = adapters.of(connection.provider());
         try {
-            if (!adapter.features().organisations()) {
+            // A public bot answers whoever addresses it, so nobody needs to link (MEM-298).
+            if (!connection.publicAccess() && !adapter.features().organisations()) {
                 var linking = step("link", () -> linking(connection, adapter, message));
                 if (linking != null) return linking;
             }
@@ -166,7 +169,7 @@ public class ChannelInboundService {
     /** Why the message is not answered at all, or null. */
     private @Nullable Refusal refusal(TenantId tenant, ChannelConnection connection, ChannelAdapter adapter,
                                       ChannelMessage message) {
-        if (!member(connection, adapter, message)) return new Refusal("OUTSIDER", ChannelNotice.OUTSIDER);
+        if (!connection.publicAccess() && !member(connection, adapter, message)) return new Refusal("OUTSIDER", ChannelNotice.OUTSIDER);
         // This message is already claimed, so it is counted with the minute's others.
         if (inbound.receivedFrom(connection.id(), message.senderId(), clock.instant().minus(Duration.ofMinutes(1)))
                 > properties.senderRate()) {
@@ -179,7 +182,8 @@ public class ChannelInboundService {
         if (message.type() != ChannelMessage.Type.TEXT || message.text().isBlank()) {
             return new Refusal("NOT_TEXT", ChannelNotice.TEXT_ONLY);
         }
-        if (message.kind() == ChannelMessage.Kind.GROUP) {
+        // A public bot's group checks are its administrator's choice: whoever is in the group may ask (MEM-298).
+        if (message.kind() == ChannelMessage.Kind.GROUP && !connection.publicAccess()) {
             var chat = adapter.chat(connection, message.chatId());
             if (chat.external()) return new Refusal("EXTERNAL_GROUP", ChannelNotice.EXTERNAL_GROUP);
             // Without organisations, a group is the Tenant's only when everyone in it linked an account (MEM-285).
@@ -290,10 +294,12 @@ public class ChannelInboundService {
     private boolean answer(TenantId tenant, ChannelConnection connection, ChannelAdapter adapter, ChannelMessage message)
             throws InterruptedException {
         Instant now = clock.instant();
-        ActorId sender = step("sender", () -> sender(tenant, connection, adapter, message.senderId(), now));
+        boolean open = connection.publicAccess();
+        // A public bot answers everyone alike, as itself, and never with a person's own access (MEM-298).
+        ActorId sender = open ? null : step("sender", () -> sender(tenant, connection, adapter, message.senderId(), now));
         boolean direct = message.kind() == ChannelMessage.Kind.DIRECT;
         // A link removed since it was checked: the sender is no longer anyone here, and is not answered as the bot.
-        if (sender == null && !adapter.features().organisations()) {
+        if (!open && sender == null && !adapter.features().organisations()) {
             refuseUnlinked(connection, adapter, message);
             return false;
         }
@@ -311,7 +317,7 @@ public class ChannelInboundService {
         ChannelTurns.Answer answer;
         try {
             answer = step("turn", () -> turns.ask(actor, session, title(message.text()), request(connection, message),
-                    question, new ChatChannel(connection.provider().platform(), !direct), connection.id(), group,
+                    question, new ChatChannel(connection.provider().platform(), !direct, open), connection.id(), group,
                     properties.orderWait(),
                     () -> adapter.acknowledge(connection, message), () -> {
                         var reply = step("reply", () -> adapter.reply(connection, message,
@@ -351,7 +357,8 @@ public class ChannelInboundService {
                 return false;
             }
             var pieces = features.editsReply() ? List.of(answered.text()) : ChannelText.pieces(answered.text(), features.maxText());
-            var sources = sources(answered.sources());
+            // A public bot's citations name the document only: its address at the provider is the company's (MEM-298).
+            var sources = sources(answered.sources(), !open);
             var footer = footer(connection, direct, sender, answered.session());
             String replyId;
             try {
@@ -424,9 +431,11 @@ public class ChannelInboundService {
         }
         // A conversation is continued only by whoever it belongs to: a sender who gained or lost an account since
         // starts over, a reply to another person's direct conversation never opens it, and a bot moved to another
-        // assistant, or a group given another, starts its conversations over with it.
+        // assistant, or a group given another, starts its conversations over with it, and so does a bot switched to
+        // public or back (MEM-298).
         String group = message.kind() == ChannelMessage.Kind.GROUP ? message.chatId() : null;
-        return session != null && turns.continues(actor, session, connection.id(), group) ? session : null;
+        return session != null && turns.continues(actor, session, connection.id(), group, connection.publicAccess())
+                ? session : null;
     }
 
     private void refuse(ChannelConnection connection, ChannelAdapter adapter, ChannelMessage message, Refusal refusal) {
@@ -483,15 +492,17 @@ public class ChannelInboundService {
      * own conversation, the link that opens it in MemoryOS, where it continues.
      */
     private @Nullable String footer(ChannelConnection connection, boolean direct, @Nullable ActorId sender, UUID session) {
-        // A group answer has no closing line: its conversation continues by itself, and no reference bot adds one.
-        if (!direct) return null;
+        // A group answer has no closing line: its conversation continues by itself, and no reference bot adds one. A
+        // public bot's has none either: its conversations are nobody's to continue on the web or to link (MEM-298).
+        if (!direct || connection.publicAccess()) return null;
         if (sender == null) return ChannelNotice.UNMAPPED_FOOTER.in(connection.noticeLanguage());
         String url = properties.sessionUrl(session);
         return url == null ? null : "[" + ChannelNotice.CONTINUE_ON_WEB.in(connection.noticeLanguage()) + "](" + url + ")";
     }
 
-    private static List<ChannelReply.Source> sources(List<ChatSource> sources) {
-        return sources.stream().map(source -> new ChannelReply.Source(source.title(), source.providerUrl())).distinct().toList();
+    private static List<ChannelReply.Source> sources(List<ChatSource> sources, boolean linked) {
+        return sources.stream().map(source -> new ChannelReply.Source(source.title(), linked ? source.providerUrl() : null))
+                .distinct().toList();
     }
 
     /**

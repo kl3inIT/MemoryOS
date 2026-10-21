@@ -214,7 +214,7 @@ class ChannelApiTest {
         var bot = new ChannelConnection(id, ChannelProvider.LARK, "Trợ lý", "cli_a1b2c3d4e5f6",
                 Map.of(ChannelRegion.SETTING, "LARK"), "vi",
                 enabled, new ActorId(UUID.randomUUID()), 3, Instant.now(), Instant.now(), null, "MemoryOS Bot", "ou_bot",
-                List.of("contact:user.email:readonly"));
+                List.of("contact:user.email:readonly"), false);
         var state = new ChannelConnectionState(Instant.now(), null, null, null, Instant.now(), false);
         return new Listed(bot, state, status, null, null);
     }
@@ -245,7 +245,7 @@ class ChannelApiTest {
         var plain = listed(id, true, Listed.Status.CONNECTED);
         var bot = new ChannelConnection(id, ChannelProvider.LARK, "Trợ lý", "cli_a1b2c3d4e5f6",
                 Map.of(ChannelRegion.SETTING, "LARK"), "vi", true, new ActorId(UUID.randomUUID()), 3, Instant.now(),
-                Instant.now(), null, "MemoryOS Bot", "ou_bot", List.of());
+                Instant.now(), null, "MemoryOS Bot", "ou_bot", List.of(), false);
         when(channels.bindPersona(any(), eq(id), eq(hr))).thenReturn(bot);
         when(channels.listWithState(any())).thenReturn(List.of(new Listed(bot, plain.state(), Listed.Status.CONNECTED, hr, "Nhân sự")));
         mockMvc.perform(put("/api/channels/{id}/persona", id).with(authentication(owner)).header("X-MemoryOS-CSRF", "1")
@@ -403,7 +403,7 @@ class ChannelApiTest {
         var id = UUID.randomUUID();
         var bot = new ChannelConnection(id, ChannelProvider.WHATSAPP, "Bot WhatsApp", "84912345678", Map.of(), "vi", false,
                 new ActorId(UUID.randomUUID()), 1, Instant.now(), Instant.now(), null, "+84912345678",
-                "84912345678@s.whatsapp.net", List.of());
+                "84912345678@s.whatsapp.net", List.of(), false);
         when(channels.create(any(), any())).thenReturn(bot);
         when(channels.relink(any(), eq(id), eq(1L))).thenReturn(bot);
         when(channels.listWithState(any())).thenReturn(List.of(new Listed(bot, ChannelConnectionState.NONE,
@@ -448,7 +448,7 @@ class ChannelApiTest {
         var id = UUID.randomUUID();
         var bot = new ChannelConnection(id, ChannelProvider.ZALO_BOT, "Bot Zalo", "1234567890",
                 Map.of(ChannelDelivery.SETTING, "WEBHOOK"), "vi", false, new ActorId(UUID.randomUUID()), 1, Instant.now(),
-                Instant.now(), null, "Bot MemoryOS", "1234567890", List.of());
+                Instant.now(), null, "Bot MemoryOS", "1234567890", List.of(), false);
         var created = new Listed(bot, ChannelConnectionState.NONE, Listed.Status.OFF, null, null);
         when(channels.create(any(), any())).thenReturn(bot);
         when(channels.listWithState(any())).thenReturn(List.of(created));
@@ -529,6 +529,36 @@ class ChannelApiTest {
                         .header("If-Match", "\"3\""))
                 .andExpect(status().isNoContent());
         verify(channels).delete(any(), eq(id), eq(3L));
+    }
+
+    /** MEM-298: a bot is made public on its revision, and its assistant's page says it answers anyone. */
+    @Test
+    void aBotIsMadePublicOnItsRevisionAndItsAssistantSaysSo() throws Exception {
+        var id = UUID.randomUUID();
+        var plain = listed(id, true, Listed.Status.CONNECTED);
+        var open = new ChannelConnection(id, ChannelProvider.LARK, "Trợ lý", "cli_a1b2c3d4e5f6",
+                Map.of(ChannelRegion.SETTING, "LARK"), "vi", true, new ActorId(UUID.randomUUID()), 4, Instant.now(),
+                Instant.now(), null, "MemoryOS Bot", "ou_bot", List.of(), true);
+        when(channels.listWithState(any())).thenReturn(List.of(new Listed(open, plain.state(), Listed.Status.CONNECTED, null, null)));
+        mockMvc.perform(put("/api/channels/{id}/public", id).with(authentication(owner)).header("X-MemoryOS-CSRF", "1")
+                        .header("If-Match", "\"3\"")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"publicAccess\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.publicAccess").value(true));
+        verify(channels).setPublic(any(), eq(id), eq(3L), eq(true));
+
+        when(channels.setPublic(any(), eq(id), eq(2L), eq(false))).thenThrow(ChannelException.changed());
+        mockMvc.perform(put("/api/channels/{id}/public", id).with(authentication(owner)).header("X-MemoryOS-CSRF", "1")
+                        .header("If-Match", "\"2\"")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"publicAccess\":false}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CHANNEL_CHANGED"));
+
+        var hr = UUID.randomUUID();
+        when(channels.boundTo(any(), eq(hr))).thenReturn(List.of(new Answering(open, true, List.of())));
+        mockMvc.perform(get("/api/chat/personas/{id}/channels", hr).with(authentication(member)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].publicAccess").value(true));
     }
 
     @Test

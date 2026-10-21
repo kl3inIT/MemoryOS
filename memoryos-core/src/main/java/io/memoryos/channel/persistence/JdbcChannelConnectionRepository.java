@@ -30,7 +30,8 @@ public class JdbcChannelConnectionRepository {
     private static final JsonMapper JSON = JsonMapper.builder().build();
     private static final TypeReference<Map<String, String>> SETTINGS = new TypeReference<>() {};
     private static final String COLUMNS = "id, provider, name, app_id, settings::text AS settings, notice_language, enabled, "
-            + "service_account_id, revision, created_at, updated_at, organisation_key, bot_name, bot_external_id, missing_scopes";
+            + "service_account_id, revision, created_at, updated_at, organisation_key, bot_name, bot_external_id, missing_scopes, "
+            + "public_access";
     private final JdbcClient jdbc;
 
     public JdbcChannelConnectionRepository(JdbcClient jdbc) {
@@ -194,6 +195,16 @@ public class JdbcChannelConnectionRepository {
     }
 
     /** Empty when the bot is gone or its revision moved on. */
+    public Optional<ChannelConnection> setPublic(TenantId tenant, UUID id, long revision, boolean publicAccess) {
+        return jdbc.sql("""
+                        UPDATE channel_connections SET public_access = :public, revision = revision + 1, updated_at = now()
+                        WHERE tenant_id = :tenant AND id = :id AND revision = :revision
+                        RETURNING\s""" + COLUMNS)
+                .param("public", publicAccess).param("tenant", tenant.value()).param("id", id).param("revision", revision)
+                .query(JdbcChannelConnectionRepository::connection).optional();
+    }
+
+    /** Empty when the bot is gone or its revision moved on. */
     public Optional<ChannelConnection> updateSettings(TenantId tenant, UUID id, long revision, Map<String, String> settings) {
         return jdbc.sql("""
                         UPDATE channel_connections SET settings = CAST(:settings AS JSONB), revision = revision + 1,
@@ -218,6 +229,6 @@ public class JdbcChannelConnectionRepository {
                 new ActorId(row.getObject("service_account_id", UUID.class)), row.getLong("revision"),
                 row.getTimestamp("created_at").toInstant(), row.getTimestamp("updated_at").toInstant(),
                 row.getString("organisation_key"), row.getString("bot_name"), row.getString("bot_external_id"),
-                scopes(row.getString("missing_scopes")));
+                scopes(row.getString("missing_scopes")), row.getBoolean("public_access"));
     }
 }

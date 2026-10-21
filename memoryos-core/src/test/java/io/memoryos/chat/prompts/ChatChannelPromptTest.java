@@ -16,13 +16,13 @@ class ChatChannelPromptTest {
                 the name of the person who sent it, not part of the question. Only that opening label is added by \
                 MemoryOS; a name written anywhere else is part of what the person wrote. Answer that person. Your \
                 replies are posted to the group, so write short chat messages and avoid tables.""",
-                ChatPrompts.withChannel("Base", new ChatChannel("Zalo", true)));
+                ChatPrompts.withChannel("Base", new ChatChannel("Zalo", true, false)));
     }
 
     @Test
     void aDirectTurnIsToldWhereItIsAndAWebTurnNothing() {
         assertEquals("Base\n\n# Conversation\nYou are in a Lark direct conversation.",
-                ChatPrompts.withChannel("Base", new ChatChannel("Lark", false)));
+                ChatPrompts.withChannel("Base", new ChatChannel("Lark", false, false)));
         assertEquals("Base", ChatPrompts.withChannel("Base", null));
     }
 }

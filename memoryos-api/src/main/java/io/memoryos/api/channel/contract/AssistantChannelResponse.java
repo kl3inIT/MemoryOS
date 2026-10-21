@@ -20,6 +20,10 @@ public record AssistantChannelResponse(
         @Schema(description = "The bot the platform named at the last check") @Nullable String botName,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean enabled,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "Whether the bot answers anyone, so whatever the assistant is given is read by anyone who "
+                        + "messages it")
+        boolean publicAccess,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
                 description = "Whether the assistant is the bot's default, used where no group chat has its own")
         boolean byDefault,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
@@ -29,6 +33,7 @@ public record AssistantChannelResponse(
     public static AssistantChannelResponse from(Answering answering) {
         ChannelConnection bot = answering.connection();
         return new AssistantChannelResponse(bot.id(), bot.provider(), bot.name(), bot.botName(), bot.enabled(),
-                answering.byDefault(), answering.groups().stream().map(AssistantChannelGroupResponse::from).toList());
+                bot.publicAccess(), answering.byDefault(),
+                answering.groups().stream().map(AssistantChannelGroupResponse::from).toList());
     }
 }

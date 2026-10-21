@@ -230,6 +230,7 @@ public final class ChatModelExecutor {
             searchTool = new SearchTool(search, setup.actor(), selectionRunner, selected.policy().tokens(), searchLimits, active,
                     agent.guard()::availableContextTokens, agent.events(), cancellation, List.of(new UserMessage(agent.task())),
                     timings, setup.options().sourceAllowlist(), agent.evidence(), agent.activity());
+            if (setup.options().wholeSources()) searchTool.withWholeSources();
             tools.addAll(Tool.fromInstance(searchTool));
         }
         if (setup.webSearch() != WebSearchMode.off && web != null && setup.webAccess().search() != null) {
@@ -351,6 +352,7 @@ public final class ChatModelExecutor {
                 searchTool = new SearchTool(search, setup.actor(), selectionRunner, selected.policy().tokens(), searchLimits,
                         guard::checkActive, guard::availableContextTokens, events::accept, cancellation, setup.messages(), timings, setup.options().sourceAllowlist(), setup.evidence(), activity);
                 if (sandbox != null) searchTool.withSandbox(sandbox);
+                if (setup.options().wholeSources()) searchTool.withWholeSources();
                 runner = runner.withTools(Tool.fromInstance(searchTool));
             }
             if (selected.toolCalling() && setup.image() != ImageMode.off && setup.imageAccess().generate() != null) {

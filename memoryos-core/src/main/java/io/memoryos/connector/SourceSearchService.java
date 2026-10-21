@@ -9,6 +9,7 @@ import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +35,28 @@ public class SourceSearchService {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(SourceException::notFound);
         return new SourceSearchScope(tenant, actor, documents.searchableSources(tenant, actor), documents.actorAccessTokens(tenant, actor));
     }
+
+    /**
+     * The scope of a public bot's turn over its assistant's {@code attached} Sources (MEM-298): those still searchable,
+     * a Public or Private one read whole whatever the actor may read of it, an Auto Sync one only when the actor may
+     * read it, and each of its documents only as far as the actor may, since each keeps its provider's own access.
+     */
+    public SourceSearchScope attachedScope(ActorId actor, Set<UUID> attached) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(SourceException::notFound);
+        if (attached.isEmpty()) return new SourceSearchScope(tenant, actor, Map.of(), Set.of());
+        var readable = documents.searchableSources(tenant, actor);
+        var sources = new LinkedHashMap<UUID, SourceType>();
+        var whole = new HashSet<UUID>();
+        for (var source : documents.attachedSources(tenant, attached)) {
+            if (!source.synced()) whole.add(source.id());
+            else if (!readable.containsKey(source.id())) continue;
+            sources.put(source.id(), source.type());
+        }
+        return new SourceSearchScope(tenant, actor, sources, documents.actorAccessTokens(tenant, actor), whole);
+    }
+
+    /** A Source a public bot's assistant is given, still searchable; {@code synced} for an Auto Sync one. */
+    public record AttachedSource(UUID id, SourceType type, boolean synced) {}
 
     public DocumentAccess indexAccess(TenantId tenant, DocumentId document) {
         return documents.documentAccess(tenant, document.value());
@@ -72,7 +95,7 @@ public class SourceSearchService {
     public Map<UUID, List<DocumentSourceMetadata>> readableMetadata(SourceSearchScope scope, List<UUID> ids) {
         if (tenants.findActiveTenant(scope.actor()).filter(scope.tenant()::equals).isEmpty()) return Map.of();
         var metadata = new LinkedHashMap<UUID, List<DocumentSourceMetadata>>();
-        documents.sourceMetadata(scope.tenant(), ids, scope.actor(), null, adapters::documentUrl).forEach((document, origins) -> {
+        documents.sourceMetadata(scope.tenant(), ids, scope.actor(), scope.wholeSources(), adapters::documentUrl).forEach((document, origins) -> {
             var visible = origins.stream().filter(origin -> scope.sources().containsKey(origin.sourceId())).toList();
             if (!visible.isEmpty()) metadata.put(document, visible);
         });

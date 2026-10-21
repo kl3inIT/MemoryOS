@@ -249,6 +249,19 @@ public class ChannelConnectionService {
     }
 
     /**
+     * Makes a bot answer anyone who addresses it, from its assistant's attachments only, or only the Tenant's people
+     * again (MEM-298). The revision moves on, so the process that holds the bot opens it again; conversations are
+     * continued only in the mode they were started in, so each one starts over.
+     */
+    @Transactional
+    public ChannelConnection setPublic(ActorId actor, UUID id, long revision, boolean publicAccess) {
+        var tenant = writer(actor);
+        var updated = connections.setPublic(tenant, id, revision, publicAccess).orElseThrow(() -> missingOrChanged(tenant, id));
+        record(actor, tenant, updated, publicAccess ? "public" : "private");
+        return updated;
+    }
+
+    /**
      * Changes some of a bot's public settings, such as how a Zalo bot receives; the provider checks the result. The
      * revision moves on, so the process that holds the bot opens it again with them.
      */

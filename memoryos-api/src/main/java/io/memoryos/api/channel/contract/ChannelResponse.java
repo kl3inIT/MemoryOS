@@ -24,6 +24,10 @@ public record ChannelResponse(
         String appId,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String noticeLanguage,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean enabled,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "Whether the bot answers anyone who addresses it, as its own account, from its "
+                        + "assistant's attachments only")
+        boolean publicAccess,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The account a group question runs as")
         UUID serviceAccountId,
         @Schema(description = "The bot the platform named at the last check") @Nullable String botName,
@@ -49,7 +53,8 @@ public record ChannelResponse(
         var state = listed.state();
         return new ChannelResponse(bot.id(), bot.provider(), bot.name(), ChannelRegion.of(bot.settings()).orElse(null),
                 ChannelDelivery.of(bot.settings()).orElse(null), bot.appId(), bot.noticeLanguage(),
-                bot.enabled(), bot.serviceAccount().value(), bot.botName(), bot.missingScopes(), listed.status(),
+                bot.enabled(), bot.publicAccess(), bot.serviceAccount().value(), bot.botName(), bot.missingScopes(),
+                listed.status(),
                 state.failureCode(), state.failedAt(), state.openedAt(), state.lastMessageAt(),
                 listed.assistantId() == null || listed.assistant() == null ? null
                         : new ChannelAssistantResponse(listed.assistantId(), listed.assistant()), bot.revision(),

@@ -1071,7 +1071,7 @@ class ChatPersistenceIntegrationTest {
         assertEquals(builtin, sessions.channelPersona(other, bot, null), "a bot bound to nothing answers with the built-in one");
 
         tx.executeWithoutResult(_ -> bindings.bind(tenantId, bot, agent.id()));
-        var held = sessions.createInChannel(other, "Nghỉ phép từ Zalo", bot, null);
+        var held = sessions.createInChannel(other, "Nghỉ phép từ Zalo", bot, null, false);
         assertEquals(agent.id(), held.personaId());
         // While the bot is bound to it, a question asked through the bot runs with the assistant.
         assertTrue(snapshot(held.id()).instructions().contains("Trả lời theo quy chế."));
@@ -1082,15 +1082,47 @@ class ChatPersistenceIntegrationTest {
         // Moving the bot ends the old conversation's use of the assistant, instructions and files alike.
         tx.executeWithoutResult(_ -> bindings.bind(tenantId, bot, finance.id()));
         assertEquals("CHAT_UNAVAILABLE", assertThrows(ChatException.class, () -> snapshot(held.id())).code());
-        assertEquals(finance.id(), sessions.createInChannel(other, "Sau khi chuyển", bot, null).personaId());
+        assertEquals(finance.id(), sessions.createInChannel(other, "Sau khi chuyển", bot, null, false).personaId());
         // So does unbinding it, and a deleted assistant is the built-in one.
-        var onFinance = sessions.createInChannel(other, "Tài chính từ Zalo", bot, null);
+        var onFinance = sessions.createInChannel(other, "Tài chính từ Zalo", bot, null, false);
         tx.executeWithoutResult(_ -> bindings.bind(tenantId, bot, null));
         assertEquals("CHAT_UNAVAILABLE", assertThrows(ChatException.class, () -> snapshot(onFinance.id())).code());
         tx.executeWithoutResult(_ -> bindings.bind(tenantId, bot, agent.id()));
         personas.delete(owner, agent.id(), personas.get(owner, agent.id()).revision());
         assertEquals(builtin, sessions.channelPersona(other, bot, null));
-        assertEquals(builtin, sessions.createInChannel(other, "Sau khi xoá", bot, null).personaId());
+        assertEquals(builtin, sessions.createInChannel(other, "Sau khi xoá", bot, null, false).personaId());
+    }
+
+    /**
+     * MEM-298: a conversation started through a public bot reads what its assistant is given, a Document Set the bot's
+     * account cannot use included, searches nothing when the assistant is given nothing, and offers no code interpreter;
+     * one started while the bot answered members keeps the bot account's own reach.
+     */
+    @Test
+    void aPublicBotsConversationReadsItsAssistantsAttachmentsOnlyAndRunsNoCode() {
+        source(sourceId);
+        when(authorization.effectiveCapabilities(other)).thenReturn(Set.of(IamCapability.CHAT_READ, IamCapability.CHAT_WRITE));
+        var set = documentSets.create(owner, new DocumentSetService.Input("Bảng giá", "", List.of(sourceId), false));
+        var care = personas.create(owner, new ChatPersonaService.PersonaInput("Chăm sóc khách hàng", null, "", "Trả lời khách.",
+                null, List.of(), List.of(), List.of(set.id()), Set.of("search", "code_interpreter"), null, null, null, List.of(),
+                null, null, null, null, null));
+        var bindings = new ChatChannelBindings(new JdbcChatRepository(jdbc));
+        UUID bot = UUID.randomUUID();
+        tx.executeWithoutResult(_ -> bindings.bind(new TenantId(tenant), bot, care.id()));
+
+        var open = snapshot(sessions.createInChannel(other, "Giá từ Zalo", bot, null, true).id()).options();
+        assertTrue(open.wholeSources());
+        assertEquals(List.of(sourceId), open.sourceAllowlist(), "the Set's Sources count though the bot cannot use it");
+        assertFalse(open.codeInterpreter());
+
+        var members = snapshot(sessions.createInChannel(other, "Giá từ Zalo", bot, null, false).id()).options();
+        assertFalse(members.wholeSources());
+        assertEquals(List.of(), members.sourceAllowlist());
+        assertTrue(members.codeInterpreter());
+
+        UUID builtinBot = UUID.randomUUID();
+        var nothing = snapshot(sessions.createInChannel(other, "Giá", builtinBot, null, true).id()).options();
+        assertEquals(List.of(), nothing.sourceAllowlist(), "an assistant given nothing searches nothing, never everything");
     }
 
     @Test
@@ -1112,10 +1144,10 @@ class ChatPersistenceIntegrationTest {
         assertEquals(finance.id(), sessions.channelPersona(other, bot, "oc_board"), "another group keeps the default");
         assertEquals(finance.id(), sessions.channelPersona(other, bot, null), "a direct message keeps the default");
 
-        var inGroup = sessions.createInChannel(other, "Nghỉ phép trong nhóm", bot, "oc_hr");
+        var inGroup = sessions.createInChannel(other, "Nghỉ phép trong nhóm", bot, "oc_hr", false);
         assertEquals(hr.id(), inGroup.personaId());
         assertTrue(snapshot(inGroup.id()).instructions().contains("Trả lời theo quy chế."));
-        var inBoard = sessions.createInChannel(other, "Doanh thu trong nhóm", bot, "oc_board");
+        var inBoard = sessions.createInChannel(other, "Doanh thu trong nhóm", bot, "oc_board", false);
         assertTrue(snapshot(inBoard.id()).instructions().contains("Trả lời theo báo cáo."));
         assertEquals("CHAT_UNAVAILABLE", assertThrows(ChatException.class, () -> turns.agent(other, inGroup.id(), false)).code(),
                 "a group's conversation continued from the web needs the owner to be able to use the assistant");
@@ -1123,7 +1155,7 @@ class ChatPersistenceIntegrationTest {
         // Giving the group another assistant ends the old conversation's use of it at once.
         tx.executeWithoutResult(_ -> bindings.bindGroup(tenantId, bot, "oc_hr", finance.id()));
         assertEquals("CHAT_UNAVAILABLE", assertThrows(ChatException.class, () -> snapshot(inGroup.id())).code());
-        var onFinance = sessions.createInChannel(other, "Sau khi đổi", bot, "oc_hr");
+        var onFinance = sessions.createInChannel(other, "Sau khi đổi", bot, "oc_hr", false);
         assertEquals(finance.id(), onFinance.personaId());
         // Returning the group to the default leaves a conversation held with the default usable, and the default's
         // move ends it.

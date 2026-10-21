@@ -303,6 +303,22 @@ public class JdbcSourceDocumentRepository {
         return Map.copyOf(result);
     }
 
+    /** The given Sources that are still searchable, whatever any reader may read of them (MEM-298). */
+    public List<SourceSearchService.AttachedSource> attachedSources(TenantId tenant, Collection<UUID> ids) {
+        if (ids.isEmpty()) return List.of();
+        if (ids.size() > 500) throw new IllegalArgumentException("source batch exceeds 500");
+        return jdbcClient.sql("""
+                SELECT p.id,c.connector_type,p.access_type FROM connector_credential_pairs p
+                JOIN connectors c ON c.tenant_id=p.tenant_id AND c.id=p.connector_id
+                WHERE p.tenant_id=:tenant AND p.id IN (:ids) AND p.status IN ('ACTIVE','INDEXING')
+                    AND c.status='ACTIVE' AND %s
+                ORDER BY p.id
+                """.formatted(SEARCHABLE_SOURCE)).param("tenant", tenant.value()).param("ids", ids)
+                .query((rs, _) -> new SourceSearchService.AttachedSource(rs.getObject("id", UUID.class),
+                        SourceType.valueOf(rs.getString("connector_type")), "SYNC".equals(rs.getString("access_type"))))
+                .list();
+    }
+
     /**
      * Index-time access over the same mappings that index metadata uses; no mapping means no access. PUBLIC admits
      * everyone, PRIVATE its Group tokens and SYNC the provider grants of the mapped file.
@@ -396,7 +412,16 @@ public class JdbcSourceDocumentRepository {
 
     public Map<UUID, List<DocumentSourceMetadata>> sourceMetadata(TenantId tenant, List<UUID> ids,
             @Nullable ActorId actor, @Nullable UUID generation, DocumentLinks links) {
-        return sourceMetadata(tenant, ids, actor, generation, null, links);
+        return sourceMetadata(tenant, ids, actor, generation, null, Set.of(), links);
+    }
+
+    /**
+     * The origins the actor may read, as above, and also every origin in one of {@code wholeSources} that is not Auto
+     * Sync: a public bot reads its assistant's Public and Private Sources whole (MEM-298).
+     */
+    public Map<UUID, List<DocumentSourceMetadata>> sourceMetadata(TenantId tenant, List<UUID> ids, ActorId actor,
+            Set<UUID> wholeSources, DocumentLinks links) {
+        return sourceMetadata(tenant, ids, actor, null, null, wholeSources, links);
     }
 
     /**
@@ -405,12 +430,12 @@ public class JdbcSourceDocumentRepository {
      */
     public Map<UUID, List<DocumentSourceMetadata>> indexMetadata(TenantId tenant, Map<UUID, UUID> generations,
             DocumentLinks links) {
-        return sourceMetadata(tenant, List.copyOf(generations.keySet()), null, null, generations, links);
+        return sourceMetadata(tenant, List.copyOf(generations.keySet()), null, null, generations, Set.of(), links);
     }
 
     private Map<UUID, List<DocumentSourceMetadata>> sourceMetadata(TenantId tenant, List<UUID> ids,
             @Nullable ActorId actor, @Nullable UUID generation, @Nullable Map<UUID, UUID> generations,
-            DocumentLinks links) {
+            Set<UUID> wholeSources, DocumentLinks links) {
         if (ids.isEmpty()) return Map.of();
         if (ids.size() > 1000) throw new IllegalArgumentException("document batch exceeds 1000");
         var result = new LinkedHashMap<UUID, List<DocumentSourceMetadata>>();
@@ -428,9 +453,12 @@ public class JdbcSourceDocumentRepository {
                 WHERE m.tenant_id=:tenant AND m.document_id IN (:documents) AND m.retrieval_eligible=TRUE
                     AND d.status='ELIGIBLE' AND (:anyGeneration OR d.content_generation=:generation OR d.searchable_generation=:generation)
                     AND c.status='ACTIVE' AND %s AND p.status<>'DELETING'
-                    AND (:indexing OR (p.status IN ('ACTIVE','INDEXING') AND %s))
+                    AND (:indexing OR (p.status IN ('ACTIVE','INDEXING') AND (%s%s)))
                 ORDER BY m.document_id,p.id,i.id
-                """.formatted(SEARCHABLE_SOURCE, DOCUMENT_READ_SCOPE)).param("tenant", tenant.value()).param("documents", ids).param("indexing", actor == null)
+                """.formatted(SEARCHABLE_SOURCE, DOCUMENT_READ_SCOPE,
+                        wholeSources.isEmpty() ? "" : " OR (p.id IN (:whole) AND p.access_type<>'SYNC')"))
+                .param("tenant", tenant.value()).param("documents", ids).param("indexing", actor == null)
+                .param("whole", wholeSources.isEmpty() ? List.of(new UUID(0, 0)) : List.copyOf(wholeSources))
                 .param("actor", actor == null ? null : actor.value(), Types.OTHER)
                 .param("anyGeneration", generation == null).param("generation", generation, Types.OTHER)
                 .query((rs, _) -> {

@@ -96,10 +96,20 @@ public final class SearchTool implements AutoCloseable {
             Pattern.compile("^-?\\s*P\\s*(\\d+)\\s*([DWMY])$", Pattern.CASE_INSENSITIVE);
 
     private @Nullable SandboxDocuments sandbox;
+    private boolean wholeSources;
 
     /** Stages the source file behind each returned hit for run_python and says so in its evidence, as Onyx does. */
     public SearchTool withSandbox(SandboxDocuments sandbox) {
         this.sandbox = sandbox;
+        return this;
+    }
+
+    /**
+     * Searches the allowed Sources as a public bot reads its assistant's (MEM-298): a Public or Private one whole, an
+     * Auto Sync one as far as the reader may, and nothing else.
+     */
+    public SearchTool withWholeSources() {
+        this.wholeSources = true;
         return this;
     }
 
@@ -180,8 +190,9 @@ public final class SearchTool implements AutoCloseable {
             queries.forEach(q -> new SearchQuery(q, false, .7));
         } catch (SearchRequestException invalid) { return "Invalid search query. Each query must contain 1-2000 characters."; }
         try {
-            var scope = search.scope(actor);
-            if (allowedSourceIds != null) scope = new SourceSearchScope(scope.tenant(), scope.actor(), scope.sources().entrySet().stream()
+            var scope = wholeSources ? search.attachedScope(actor, allowedSourceIds == null ? Set.of() : allowedSourceIds)
+                    : search.scope(actor);
+            if (!wholeSources && allowedSourceIds != null) scope = new SourceSearchScope(scope.tenant(), scope.actor(), scope.sources().entrySet().stream()
                     .filter(entry -> allowedSourceIds.contains(entry.getKey()))
                     .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue)),
                     scope.accessTokens());

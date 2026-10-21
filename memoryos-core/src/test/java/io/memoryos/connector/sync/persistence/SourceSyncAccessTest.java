@@ -215,23 +215,9 @@ class SourceSyncAccessTest {
 
     @Test
     void aBotsServiceAccountReadsWhatEveryMemberMayReadAndNoPrivateGroupsDocument() {
-        // MEM-246: a channel's bot, a SERVICE account with no e-mail in the protected Basic Group only, which no Source
-        // can be granted to.
-        var bot = new ActorId(UUID.randomUUID());
-        jdbc.sql("INSERT INTO actors(id,account_type) VALUES(:id,'SERVICE')").param("id", bot.value()).update();
-        jdbc.sql("INSERT INTO tenant_memberships(tenant_id,actor_id,role,status) VALUES(:tenant,:actor,'MEMBER','ACTIVE')")
-                .param("tenant", tenant.value()).param("actor", bot.value()).update();
-        jdbc.sql("INSERT INTO external_identity_bindings(issuer,subject,actor_id) VALUES('urn:memoryos:service',CAST(:actor AS TEXT),:actor)")
-                .param("actor", bot.value()).update();
-        jdbc.sql("""
-                INSERT INTO actor_profiles(actor_id,issuer,subject,email,email_verified,observed_at)
-                VALUES(:actor,'urn:memoryos:service',CAST(:actor AS TEXT),NULL,FALSE,CURRENT_TIMESTAMP)
-                """).param("actor", bot.value()).update();
-        UUID basic = UUID.randomUUID();
-        jdbc.sql("INSERT INTO iam_groups(tenant_id,id,name,system_key) VALUES(:tenant,:id,'Basic','BASIC')")
-                .param("tenant", tenant.value()).param("id", basic).update();
-        jdbc.sql("INSERT INTO iam_group_memberships(tenant_id,group_id,actor_id) VALUES(:tenant,:group,:actor)")
-                .param("tenant", tenant.value()).param("group", basic).param("actor", bot.value()).update();
+        var bot = botAccount();
+        UUID basic = jdbc.sql("SELECT id FROM iam_groups WHERE tenant_id=:tenant AND system_key='BASIC'")
+                .param("tenant", tenant.value()).query(UUID.class).single();
 
         var everyoneSource = pair("FILE", "PUBLIC");
         var readersSource = pair("FILE", "PRIVATE");
@@ -259,6 +245,63 @@ class SourceSyncAccessTest {
             assertEquals(readable.contains(entry.getValue()), filtered, "index filter for " + entry.getKey());
             assertEquals(filtered, access.canRead(bot, new DocumentId(entry.getValue())), "recheck for " + entry.getKey());
         }
+    }
+
+    /**
+     * MEM-246: a channel's bot, a SERVICE account with no e-mail in the protected Basic Group only, which no Source can
+     * be granted to.
+     */
+    private ActorId botAccount() {
+        var bot = new ActorId(UUID.randomUUID());
+        jdbc.sql("INSERT INTO actors(id,account_type) VALUES(:id,'SERVICE')").param("id", bot.value()).update();
+        jdbc.sql("INSERT INTO tenant_memberships(tenant_id,actor_id,role,status) VALUES(:tenant,:actor,'MEMBER','ACTIVE')")
+                .param("tenant", tenant.value()).param("actor", bot.value()).update();
+        jdbc.sql("INSERT INTO external_identity_bindings(issuer,subject,actor_id) VALUES('urn:memoryos:service',CAST(:actor AS TEXT),:actor)")
+                .param("actor", bot.value()).update();
+        jdbc.sql("""
+                INSERT INTO actor_profiles(actor_id,issuer,subject,email,email_verified,observed_at)
+                VALUES(:actor,'urn:memoryos:service',CAST(:actor AS TEXT),NULL,FALSE,CURRENT_TIMESTAMP)
+                """).param("actor", bot.value()).update();
+        UUID basic = UUID.randomUUID();
+        jdbc.sql("INSERT INTO iam_groups(tenant_id,id,name,system_key) VALUES(:tenant,:id,'Basic','BASIC')")
+                .param("tenant", tenant.value()).param("id", basic).update();
+        jdbc.sql("INSERT INTO iam_group_memberships(tenant_id,group_id,actor_id) VALUES(:tenant,:group,:actor)")
+                .param("tenant", tenant.value()).param("group", basic).param("actor", bot.value()).update();
+        return bot;
+    }
+
+    /**
+     * MEM-298: a public bot's turn searches only its assistant's Sources: a Public or Private one whole, though no Group
+     * the bot is in is granted it, and an Auto Sync one only as far as the bot's account reads its documents. An
+     * unattached Source and one being deleted stay out.
+     */
+    @Test
+    void aPublicBotReadsItsAssistantsPublicAndPrivateSourcesWholeAndAutoSyncAsItsAccount() {
+        var bot = botAccount();
+        var everyoneSource = pair("FILE", "PUBLIC");
+        var readersSource = pair("FILE", "PRIVATE");
+        grant(readersSource, jdbc.sql("SELECT id FROM iam_groups WHERE tenant_id=:tenant AND name='Readers'")
+                .param("tenant", tenant.value()).query(UUID.class).single());
+        var unattached = pair("FILE", "PRIVATE");
+        var leaving = pair("FILE", "PUBLIC");
+        var cases = new LinkedHashMap<String, UUID>();
+        cases.put("public Source", fileDocument(everyoneSource, "public"));
+        cases.put("private Group's Source", fileDocument(readersSource, "readers"));
+        cases.put("Source not attached", fileDocument(unattached, "elsewhere"));
+        cases.put("Source being deleted", fileDocument(leaving, "leaving"));
+        cases.put("Drive link open to anyone", document("anyone", List.of(anyone(false))));
+        cases.put("Drive shared with a person", document("person", List.of(user("owner@example.test", null, null))));
+        jdbc.sql("UPDATE connector_credential_pairs SET status='DELETING' WHERE id=:id").param("id", leaving).update();
+        var ids = List.copyOf(cases.values());
+
+        var scope = search.attachedScope(bot, Set.of(everyoneSource, readersSource, drive, leaving));
+        assertEquals(Set.of(everyoneSource, readersSource, drive), scope.sources().keySet());
+        assertEquals(Set.of(everyoneSource, readersSource), scope.wholeSources(), "an Auto Sync Source is not read whole");
+        assertEquals(Set.of(cases.get("public Source"), cases.get("private Group's Source"), cases.get("Drive link open to anyone")),
+                search.readableMetadata(scope, ids).keySet());
+        // The bot's own scope, as in a group of a bot that is not public, still does not read the private Group's Source.
+        assertFalse(search.readableMetadata(search.scope(bot), ids).containsKey(cases.get("private Group's Source")));
+        assertTrue(search.attachedScope(bot, Set.of()).sources().isEmpty(), "an assistant given nothing searches nothing");
     }
 
     private void grant(UUID source, UUID group) {

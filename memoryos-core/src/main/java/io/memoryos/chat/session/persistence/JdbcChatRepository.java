@@ -227,21 +227,24 @@ public class JdbcChatRepository {
 
     public ChatSession create(TenantId tenant, ActorId actor, UUID personaId, String title, boolean temporary,
                               ChatSurface surface) {
-        return create(tenant, actor, personaId, title, temporary, surface, null, null);
+        return create(tenant, actor, personaId, title, temporary, surface, null, null, false);
     }
 
     public ChatSession create(TenantId tenant, ActorId actor, UUID personaId, String title, boolean temporary,
-                              ChatSurface surface, @Nullable UUID connection, @Nullable String groupChat) {
+                              ChatSurface surface, @Nullable UUID connection, @Nullable String groupChat,
+                              boolean channelPublic) {
         UUID id = UUID.randomUUID();
         UUID root = UUID.randomUUID();
         var session = jdbc.sql("""
                         INSERT INTO chat_session(id, tenant_id, owner_actor_id, persona_id, root_message_id, title,
-                                                 temporary, surface, channel_connection_id, channel_chat_id)
-                        VALUES (:id, :tenant, :actor, :persona, :root, :title, :temporary, :surface, :connection, :chat)
+                                                 temporary, surface, channel_connection_id, channel_chat_id,
+                                                 channel_public)
+                        VALUES (:id, :tenant, :actor, :persona, :root, :title, :temporary, :surface, :connection, :chat,
+                                :public)
                         RETURNING *, FALSE AS reply_running
                         """).param("id", id).param("tenant", tenant.value()).param("actor", actor.value())
                 .param("surface", surface.name()).param("connection", connection, Types.OTHER)
-                .param("chat", groupChat, Types.VARCHAR)
+                .param("chat", groupChat, Types.VARCHAR).param("public", channelPublic)
                 .param("persona", personaId).param("root", root).param("title", title).param("temporary", temporary)
                 .query(JdbcChatRepository::session).single();
         jdbc.sql("""
@@ -671,7 +674,15 @@ public class JdbcChatRepository {
                                   JOIN document_set d ON d.tenant_id = attachment.tenant_id AND d.id = attachment.document_set_id
                                   JOIN document_set_source source ON source.tenant_id = d.tenant_id AND source.document_set_id = d.id
                                   WHERE attachment.persona_id = p.id AND d.deleted_at IS NULL AND %s
-                                  ORDER BY 1) AS sources
+                                  ORDER BY 1) AS sources,
+                            s.channel_public,
+                            ARRAY(SELECT direct.source_id FROM persona_source direct WHERE direct.persona_id = p.id
+                                  UNION
+                                  SELECT source.source_id FROM persona_document_set attachment
+                                  JOIN document_set d ON d.tenant_id = attachment.tenant_id AND d.id = attachment.document_set_id
+                                  JOIN document_set_source source ON source.tenant_id = d.tenant_id AND source.document_set_id = d.id
+                                  WHERE attachment.persona_id = p.id AND d.deleted_at IS NULL
+                                  ORDER BY 1) AS attached_sources
                         """.formatted(REVISION, DocumentSetAccessSql.USES.replace(":actor", "s.owner_actor_id"))
                         + SESSION_AGENT + (lock ? " FOR SHARE OF p" : ""))
                 .param("session", session).param("base", ChatPrompts.DEFAULT_SYSTEM)
@@ -680,14 +691,18 @@ public class JdbcChatRepository {
                     boolean builtin = row.getString("builtin_key") != null;
                     var tools = Set.copyOf(List.of((String[]) row.getArray("tools").getArray()));
                     String effort = row.getString("reasoning_effort");
-                    return new Persona(row.getString("instructions"),
-                            ChatTurnOptions.builder()
-                                    .searchEnabled(tools.contains("search"))
-                                    .sourceIds(List.of((UUID[]) row.getArray("sources").getArray()))
-                                    .sourcesRestricted(row.getBoolean("restricts_sources"))
-                                    .codeInterpreter(tools.contains("code_interpreter"))
-                                    .grounded(row.getBoolean("grounded"))
-                                    .build(),
+                    var options = ChatTurnOptions.builder()
+                            .searchEnabled(tools.contains("search"))
+                            .sourceIds(List.of((UUID[]) row.getArray("sources").getArray()))
+                            .sourcesRestricted(row.getBoolean("restricts_sources"))
+                            .codeInterpreter(tools.contains("code_interpreter"))
+                            .grounded(row.getBoolean("grounded"))
+                            .build();
+                    // MEM-298: a public bot's conversation reads what its assistant is given, every Document Set
+                    // included, not what the bot's account may use of them.
+                    if (row.getBoolean("channel_public"))
+                        options = options.forPublicBot(List.of((UUID[]) row.getArray("attached_sources").getArray()));
+                    return new Persona(row.getString("instructions"), options,
                             row.getString("revision"), row.getObject("model_configuration_id", UUID.class),
                             files(builtin, tools, List.of(JSON.readValue(row.getString("file_ids"), UUID[].class))), tools,
                             builtin ? null : List.of((UUID[]) row.getArray("mcp_servers").getArray()),
@@ -1042,7 +1057,7 @@ public class JdbcChatRepository {
                 effort == null ? null : ReasoningEffort.valueOf(effort),
                 archived == null ? null : archived.toInstant(), row.getObject("branched_from_session_id", UUID.class),
                 row.getObject("branched_from_message_id", UUID.class), row.getBoolean("temporary"),
-                row.getBoolean("reply_running"));
+                row.getBoolean("reply_running"), row.getBoolean("channel_public"));
     }
 
     private static ChatMessage message(ResultSet row, int ignored) throws SQLException {
