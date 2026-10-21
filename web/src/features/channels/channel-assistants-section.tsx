@@ -154,7 +154,7 @@ export function ChannelAssistantsSection({ channel }: { channel: ChannelResponse
                     <span className="truncate font-secondary-body text-content-muted">
                       {[
                         ui(providerWords(channel.provider).group),
-                        group.permission === "WAITING"
+                        group.permission === "WAITING" && !channel.publicAccess
                           ? ui("chờ cho phép")
                           : group.lastMessageAt
                             ? ui("hỏi {{v1}}", {
@@ -170,7 +170,8 @@ export function ChannelAssistantsSection({ channel }: { channel: ChannelResponse
                   </span>
                 </span>
                 <span className="ml-auto flex items-center gap-2">
-                  {group.permission !== "NOT_NEEDED" ? (
+                  {/* A public bot answers in every group, so permission has nothing to decide (MEM-298). */}
+                  {group.permission !== "NOT_NEEDED" && !channel.publicAccess ? (
                     <label className="flex items-center gap-2 font-secondary-body text-content-muted">
                       <Switch
                         checked={group.permission === "ALLOWED"}

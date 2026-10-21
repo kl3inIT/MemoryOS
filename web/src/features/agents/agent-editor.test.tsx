@@ -148,6 +148,7 @@ beforeEach(() => {
     handleListChatPersonaModels({ body: [] }),
     handleListChatPersonaLabels({ body: [] }),
     handleListMcpConnections({ body: [] }),
+    handleListAssistantChannels({ body: [] }),
   );
 });
 
@@ -191,6 +192,32 @@ describe("AgentEditorPage", () => {
     expect(within(bots).queryByText("HR team")).not.toBeInTheDocument();
     expect(within(panel).queryByRole("link")).not.toBeInTheDocument();
     expect(within(panel).queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("warns beside its documents that anyone who messages a public bot answering with it reads them", async () => {
+    server.use(
+      handleListAssistantChannels({
+        body: [
+          {
+            id: "80000000-0000-4000-8000-000000000003",
+            provider: "ZALO_BOT",
+            name: "Tasco customer care",
+            enabled: true,
+            publicAccess: true,
+            byDefault: true,
+            groups: [],
+          },
+        ],
+      }),
+    );
+    const user = await renderEditor();
+    expect(
+      await screen.findByText(
+        "Anyone who messages Tasco customer care can read the documents here.",
+      ),
+    ).toBeVisible();
+    await user.click(screen.getByRole("tab", { name: "Channels" }));
+    expect(await screen.findByText("Zalo bot · default · public")).toBeVisible();
   });
 
   it("gives the built-in assistant no Kênh tab", async () => {

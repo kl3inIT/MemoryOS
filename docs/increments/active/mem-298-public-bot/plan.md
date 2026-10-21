@@ -30,15 +30,17 @@ bot page and the editor's warning. Acceptance on staging follows the second.
 
 ## PR 2: web
 
-- [ ] *Công khai* switch on the bot page. Switching on opens a dialog naming the bot's assistant and each group's own
-  assistant with their Sources, Document Sets and files; confirming saves. Switching off saves at once.
-- [ ] The assistant editor's warning beside its knowledge section while a public bot answers with the assistant,
-  naming the bots, from the channel listing.
-- [ ] i18n (vi, en), component tests, screenshots at desktop and phone width, light and dark.
+- [x] *Công khai* switch among the bot page's facts. Switching on opens a dialog naming the bot's assistant (the
+  built-in one when it has none) and each group's own with their Sources, Document Sets and file count; confirming
+  saves. Switching off saves at once. A public bot's groups show no permission switch.
+- [x] The assistant editor's warning under *Tài liệu* while a public bot answers with it, naming the bots, from the
+  channel listing; *Kênh* marks the bot *công khai*. The built-in assistant has no listing, so it gets no warning.
+- [x] i18n (vi, en), component tests, screenshots at desktop and phone width, light and dark.
+- [x] `ConfirmDialog` takes children under its description, for the list.
 
 ## Docs
 
-- [ ] PR 2: the bot page and the editor in the channel and chat specs; the runbooks' bot pages; roadmap.
+- [x] PR 2: the bot page and the editor in the channel and chat specs and test matrices.
 
 ## Acceptance on staging
 

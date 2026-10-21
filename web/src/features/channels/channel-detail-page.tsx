@@ -23,6 +23,7 @@ import { ChannelMark, ChannelMenu, ChannelSwitch } from "./channel-actions";
 import { type ChannelAdmin, useChannelAdmin, useChannels } from "./channel-admin";
 import { ChannelAssistantsSection } from "./channel-assistants-section";
 import { ChannelPairingSection } from "./channel-pairing-section";
+import { ChannelPublicSwitch } from "./channel-public";
 import { providerWords } from "./channel-provider";
 import { channelFailure, channelLine, channelState } from "./channel-status";
 
@@ -69,6 +70,7 @@ function ChannelDetail({ channel, admin }: { channel: ChannelResponse; admin: Ch
   const when = (value?: string) => (value ? formatUiMoment(value) : ui("Chưa có"));
   const facts: [string, ReactNode][] = [
     [ui("Trạng thái"), ui(channelState(channel.status))],
+    [ui("Công khai"), <ChannelPublicSwitch key="public" channel={channel} admin={admin} />],
     // WhatsApp names only a business account, so a WhatsApp bot without a name has no row for it.
     ...(channel.provider === "WHATSAPP" && !channel.botName
       ? []
