@@ -1,5 +1,7 @@
+import { useQuery } from "@tanstack/react-query";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { Plug } from "lucide-react";
+import { Plug, TriangleAlert } from "lucide-react";
+import { listAssistantChannelsOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import {
   ModelSelectorContent,
   ModelSelectorEffort,
@@ -176,6 +178,12 @@ export function OpeningSection({ form, editable }: SectionProps) {
 export function DocumentsSection({ form, agent, choices, editable }: SectionProps) {
   const ui = useAppTranslation();
   const { sources, documentSets } = choices;
+  // MEM-298: whoever messages a public bot that answers with this assistant reads what it is given.
+  const channels = useQuery({
+    ...listAssistantChannelsOptions({ path: { personaId: agent.id } }),
+    enabled: !agent.builtin,
+  });
+  const publicBots = (channels.data ?? []).filter((bot) => bot.publicAccess).map((bot) => bot.name);
   return (
     <form.AppField name="tools">
       {(tools) => {
@@ -195,6 +203,14 @@ export function DocumentsSection({ form, agent, choices, editable }: SectionProp
               />
             }
           >
+            {publicBots.length > 0 && (
+              <p className="flex items-start gap-2 font-secondary-body text-status-warning-content">
+                <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+                {ui("Ai nhắn bot {{bots}} cũng đọc được tài liệu ở đây.", {
+                  bots: publicBots.join(", "),
+                })}
+              </p>
+            )}
             <fieldset
               disabled={!editable || !searching}
               className="flex min-w-0 flex-col gap-4 disabled:opacity-60"

@@ -2350,4 +2350,14 @@ Object.assign(vietnameseUi, {
   "Viết hướng dẫn từ mô tả": "Write the instructions from the description",
   "Thêm câu hỏi gợi ý": "Add suggested questions",
   "Trả lời ngắn gọn hơn": "Answer more briefly",
+  "Cho mọi người hỏi {{name}}": "Let anyone ask {{name}}",
+  "Cho mọi người hỏi {{name}}?": "Let anyone ask {{name}}?",
+  "Ai nhắn bot cũng được trả lời, không cần tài khoản, và đọc được tài liệu của các trợ lý dưới đây.":
+    "Anyone who messages the bot gets an answer without an account, and can read the documents of the assistants below.",
+  "Nguồn ẩn": "Hidden source",
+  "Bộ tài liệu ẩn": "Hidden document set",
+  "Không có tài liệu": "No documents",
+  "công khai": "public",
+  "Ai nhắn bot {{bots}} cũng đọc được tài liệu ở đây.":
+    "Anyone who messages {{bots}} can read the documents here.",
 });
