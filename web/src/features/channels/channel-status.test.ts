@@ -10,6 +10,7 @@ const bot = (overrides: Partial<ChannelResponse>): ChannelResponse => ({
   appId: "cli_a1b2c3d4e5f6",
   noticeLanguage: "vi",
   enabled: true,
+  publicAccess: false,
   serviceAccountId: "s1",
   missingScopes: [],
   status: "CONNECTED",

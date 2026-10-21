@@ -398,7 +398,8 @@ class ChannelInboundServiceTest {
         adapter.features = new ChannelFeatures(false, false, 2_000, false);
         service.receive(zalo("z1", "zu_ha", links.code(ha, connection).code()));
         setPublic(true);
-        answerSources = List.of(ChatSource.document(1, UUID.randomUUID(), UUID.randomUUID(), "Bảng giá 2026", 0, 0, List.of())
+        answerSources = List.of(ChatSource.document(1, UUID.randomUUID(), UUID.randomUUID(), "Bảng giá 2026", 0, 0,
+                        List.of(new ChatSource.Provenance(0, "[]")))
                 .described(null, List.of(), "https://drive.google.com/file/d/price"));
 
         service.receive(zalo("z2", "zu_guest", "Giá gói cơ bản?"));

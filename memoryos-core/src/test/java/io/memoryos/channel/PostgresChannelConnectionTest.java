@@ -640,7 +640,7 @@ class PostgresChannelConnectionTest {
         doAnswer(call -> {
             var names = new HashMap<UUID, String>();
             for (UUID candidate : call.<Collection<UUID>>getArgument(1)) {
-                jdbc.sql("SELECT name FROM persona WHERE id = :id AND builtin_key IS NULL").param("id", candidate)
+                jdbc.sql("SELECT name FROM persona WHERE id = :id AND builtin_key IS NULL AND deleted_at IS NULL").param("id", candidate)
                         .query(String.class).optional().ifPresent(found -> names.put(candidate, found));
             }
             return names;
