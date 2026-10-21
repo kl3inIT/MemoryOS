@@ -5,51 +5,28 @@ bot page and the editor's warning. Acceptance on staging follows the second.
 
 ## PR 1: core and API
 
-Storage and the switch:
-
-- [ ] Migration V194: `channel_connections.public_access boolean NOT NULL DEFAULT false`.
-- [ ] `ChannelConnection.publicAccess`, read by the connection repository and the bot's view.
-- [ ] `ChannelConnectionService.setPublic(actor, channel, revision, boolean)`: `CHANNELS_MANAGE`, the exclusive lock,
-  the revision check (`CHANNEL_CHANGED`), audited `public` / `private`, the revision moved; the bot's recent
-  conversations (`JdbcChannelInboundRepository`, every chat of the bot) are dropped in the same transaction, so the
-  next message starts over (decision 1).
-
-What a message gets (`ChannelInboundService`):
-
-- [ ] A public bot skips the linking step and the sender and group refusals (`OUTSIDER`, `EXTERNAL_GROUP`,
-  `UNLINKED_IN_GROUP`, `GROUP_NOT_ALLOWED`); the per-sender rate, empty, text-only and the guardrails stay. A Zalo
-  group is still recorded on the bot's page.
-- [ ] The turn runs as the bot's account in a direct message too, the question labelled with the asker's name
-  (`asked`); no closing line; citations without their link (decision 3, 4).
-
-What the turn may read and use (Chat, connector):
-
-- [ ] `ChatChannel` carries whether the bot is public. For such a turn `ChatTurnService` restricts search to the
-  assistant's attachments even when it has none, and turns the code interpreter off.
-- [ ] Connector: `SourceSearchService.attachedScope(actor, sourceIds)`, the scope of a public bot's turn: the given
-  Sources that are not being deleted; a Public or Private one with every document, an Auto Sync one with the bot
-  account's own access tokens. `SearchTool` uses it for such a turn, and the citation read and the reply's sources go
-  through the same check, so a document found is also one the turn may cite.
-- [ ] Check that the assistant's files are read on the bot account's turn, as they are in a group today.
-
-API:
-
-- [ ] `PUT /api/channels/{channelId}/public` (`setChannelPublic`, `UpdateChannelPublicRequest{boolean public}`, the
-  revision checked as `enabled` checks it), `public` on `ChannelResponse` and on `AssistantChannelResponse`;
-  `openapi.yml`, the contract test's path list and the Hey API client.
-
-Tests:
-
-- [ ] `ChannelInboundServiceTest`: a public bot answers an unlinked Zalo and WhatsApp sender and a Lark outsider, in a
-  direct message and in a group, as the bot, without a footer or citation links; a Zalo group needs no permission; a
-  linked member's direct question runs as the bot; once private, the same senders are told to link or refused.
-- [ ] `PostgresChannelConnectionTest`: switching takes the capability and the revision, is audited and drops the bot's
-  conversations.
-- [ ] Search: a public bot's turn finds a Private Source attached to its assistant that the bot account cannot read
-  otherwise; not an unattached Source; not an Auto Sync document the account cannot read; nothing when the assistant
-  has no attachment; a Document Set's Sources count as attached.
-- [ ] Chat: the code interpreter is not offered on a public bot's turn.
-- [ ] `ChannelApiTest`, `OpenApiContractTest`.
+- [x] Migration V194: `channel_connections.public_access` and Chat's `chat_session.channel_public`, false everywhere.
+- [x] `ChannelConnection.publicAccess`; `ChannelConnectionService.setPublic`: `CHANNELS_MANAGE`, the exclusive lock, the
+  revision (`CHANNEL_CHANGED`), edit rights on the bot's and each group's assistant when making it public, audited
+  `public` / `private`, the revision moved.
+- [x] `ChannelInboundService`: a public bot skips linking and the sender and group refusals; the per-sender rate,
+  empty, text-only and the guardrails stay; the turn runs as the bot, labelled with the asker's name, with no closing
+  line and citations without links; a group is still recorded.
+- [x] Conversations: `createInChannel` records the mode, `ChannelTurns.continues` continues one only in the bot's mode
+  now, so switching starts over without dropping rows, and a reply to an older answer starts over too.
+- [x] Chat: `JdbcChatRepository.persona` gives a public bot's conversation `ChatTurnOptions.forPublicBot`: the
+  assistant's direct and Document Set Sources whoever may use the set, restricted even when empty, whole, no code
+  interpreter. `SearchTool.withWholeSources` asks `SourceSearchService.attachedScope`.
+- [x] Connector and retrieval: `attachedScope` (Public and Private Sources whole, Auto Sync ones the account may read),
+  `SourceSearchScope.wholeSources`, `readableSourceMetadata` for the recheck, and the index's access filter admitting
+  an origin in a whole Source.
+- [x] The assistant's files granted to a public bot's account through a conversation it holds with the assistant.
+- [x] API: `PUT /api/channels/{channelId}/public` (`UpdateChannelPublicRequest{publicAccess}`), `publicAccess` on
+  `ChannelResponse` and `AssistantChannelResponse`; `openapi.yml`, the contract test, the Hey API client and the web
+  fixtures.
+- [x] Tests: `ChannelInboundServiceTest` (2), `ChannelTurnsTest`, `PostgresChannelConnectionTest`,
+  `SourceSyncAccessTest`, `OpenSearchRetrievalIntegrationTest`, `ChatPersistenceIntegrationTest` (2), `ChannelApiTest`.
+- [x] Docs: channel, chat and identity specs; channel, chat and search test matrices.
 
 ## PR 2: web
 
@@ -61,8 +38,7 @@ Tests:
 
 ## Docs
 
-- [ ] Channel spec (a public bot), identity spec (what the bot account reads on a public bot), chat spec (the turn's
-  restrictions), the channel and chat test matrices, the runbooks' bot pages, roadmap. Done in each PR for its part.
+- [ ] PR 2: the bot page and the editor in the channel and chat specs; the runbooks' bot pages; roadmap.
 
 ## Acceptance on staging
 

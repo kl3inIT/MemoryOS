@@ -14,6 +14,7 @@ import io.memoryos.api.channel.contract.CreateZaloChannelRequest;
 import io.memoryos.api.channel.contract.LabelChannelGroupRequest;
 import io.memoryos.api.channel.contract.ReplaceChannelSecretRequest;
 import io.memoryos.api.channel.contract.UpdateChannelEnabledRequest;
+import io.memoryos.api.channel.contract.UpdateChannelPublicRequest;
 import io.memoryos.api.channel.contract.UpdateChannelTransportRequest;
 import io.memoryos.api.channel.contract.ZaloBotRequest;
 import io.memoryos.api.security.CurrentActor;
@@ -174,6 +175,17 @@ final class ChannelController {
     ResponseEntity<ChannelResponse> setEnabled(@CurrentActor IdentityContext identity, @PathVariable UUID channelId,
             @RequestHeader("If-Match") String ifMatch, @Valid @RequestBody UpdateChannelEnabledRequest body) {
         channels.setEnabled(identity.actorId(), channelId, revision(ifMatch), body.enabled());
+        return ResponseEntity.ok().body(find(identity, channelId));
+    }
+
+    @Operation(operationId = "updateChannelPublic",
+            summary = "Make a bot answer anyone who addresses it, from its assistant's attachments only, or only the "
+                    + "organisation's people, with a revision precondition")
+    @ApiResponse(responseCode = "200", description = "Updated bot", useReturnTypeSchema = true)
+    @PutMapping(value = "/{channelId}/public", consumes = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ChannelResponse> setPublic(@CurrentActor IdentityContext identity, @PathVariable UUID channelId,
+            @RequestHeader("If-Match") String ifMatch, @Valid @RequestBody UpdateChannelPublicRequest body) {
+        channels.setPublic(identity.actorId(), channelId, revision(ifMatch), body.publicAccess());
         return ResponseEntity.ok().body(find(identity, channelId));
     }
 

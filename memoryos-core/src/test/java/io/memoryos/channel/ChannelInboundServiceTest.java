@@ -5,7 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -22,6 +24,7 @@ import io.memoryos.channel.persistence.JdbcChannelLinkRepository;
 import io.memoryos.chat.ChatChannel;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatMessage;
+import io.memoryos.chat.ChatSource;
 import io.memoryos.chat.ChatSurface;
 import io.memoryos.chat.session.persistence.JdbcChatRepository;
 import io.memoryos.iam.Authority;
@@ -77,6 +80,8 @@ class ChannelInboundServiceTest {
     private ActorId bot;
     private ActorId ha;
     private final List<String> spans = new CopyOnWriteArrayList<>();
+    /** What the answer cites. */
+    private List<ChatSource> answerSources = List.of();
 
     @BeforeEach
     void setUp() throws Exception {
@@ -105,9 +110,9 @@ class ChannelInboundServiceTest {
             UUID session = call.getArgument(1);
             if (session == null) session = newSession(actor, call.getArgument(2));
             call.<Supplier<Consumer<String>>>getArgument(10).get().accept("An");
-            return new ChannelTurns.Answer(session, UUID.randomUUID(), ChatMessage.Status.COMPLETED, "Answer", List.of(), null);
+            return new ChannelTurns.Answer(session, UUID.randomUUID(), ChatMessage.Status.COMPLETED, "Answer", answerSources, null);
         });
-        when(turns.continues(any(), any(), any(), any())).thenAnswer(call -> jdbc.sql(
+        when(turns.continues(any(), any(), any(), any(), anyBoolean())).thenAnswer(call -> jdbc.sql(
                         "SELECT EXISTS (SELECT 1 FROM chat_session WHERE id = :id AND owner_actor_id = :actor)")
                 .param("id", call.<UUID>getArgument(1)).param("actor", call.<ActorId>getArgument(0).value())
                 .query(Boolean.class).single());
@@ -147,7 +152,7 @@ class ChannelInboundServiceTest {
         // Lark pushes a message again when its handler was slow; it is the same message.
         service.receive(message);
 
-        verify(turns, times(1)).ask(eq(ha), any(), eq("How many leave days?"), any(), eq("How many leave days?"), eq(new ChatChannel("Lark", false)), any(), any(), any(), any(), any());
+        verify(turns, times(1)).ask(eq(ha), any(), eq("How many leave days?"), any(), eq("How many leave days?"), eq(new ChatChannel("Lark", false, false)), any(), any(), any(), any(), any());
         // A sender's own direct answer links to its session on the web, where it continues.
         assertEquals(List.of("append:An", "finish:Answer|footer=[Continue in MemoryOS](https://memoryos.example/chat/"
                 + session("m1") + ")"), adapter.replies);
@@ -166,7 +171,7 @@ class ChannelInboundServiceTest {
         service.receive(direct("m1", "ou_ha", "Leave policy?", null));
         service.receive(direct("m2", "ou_ha", "And for interns?", null));
         verify(turns).ask(eq(ha), any(), eq("Leave policy?"), any(), any(), any(), eq(connection), any(), any(), any(), any());
-        verify(turns).continues(eq(ha), eq(session("m1")), eq(connection), any());
+        verify(turns).continues(eq(ha), eq(session("m1")), eq(connection), any(), eq(false));
     }
 
     @Test
@@ -314,7 +319,7 @@ class ChannelInboundServiceTest {
         assertEquals("Your MemoryOS account is linked. You can ask the assistant now.", adapter.notices.getLast());
 
         service.receive(zalo("z2", "zu_ha", "How many leave days?"));
-        verify(turns).ask(eq(ha), any(), any(), any(), eq("How many leave days?"), eq(new ChatChannel("Lark", false)), any(), any(), any(), any(), any());
+        verify(turns).ask(eq(ha), any(), any(), any(), eq("How many leave days?"), eq(new ChatChannel("Lark", false, false)), any(), any(), any(), any(), any());
         assertEquals(ha.value(), owner(session("z2")));
 
         // The code is used up: another account sending it is told it is wrong.
@@ -383,6 +388,78 @@ class ChannelInboundServiceTest {
         assertEquals("ANSWERED", outcome("z2"));
     }
 
+    /**
+     * MEM-298: a public bot answers whoever addresses it, in a direct message or a group nobody allowed, as its own
+     * account, a linked member included, with no closing line and no citation link; once private, a stranger is told
+     * to link again.
+     */
+    @Test
+    void aPublicBotAnswersAnyoneAsItselfWithoutAClosingLineOrCitationLinks() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, 2_000, false);
+        service.receive(zalo("z1", "zu_ha", links.code(ha, connection).code()));
+        setPublic(true);
+        answerSources = List.of(ChatSource.document(1, UUID.randomUUID(), UUID.randomUUID(), "Bảng giá 2026", 0, 0,
+                        List.of(new ChatSource.Provenance(0, "[]")))
+                .described(null, List.of(), "https://drive.google.com/file/d/price"));
+
+        service.receive(zalo("z2", "zu_guest", "Giá gói cơ bản?"));
+        assertEquals("ANSWERED", outcome("z2"));
+        verify(turns).ask(eq(bot), any(), any(), any(), eq("Giá gói cơ bản?"), eq(new ChatChannel("Lark", false, true)),
+                any(), any(), any(), any(), any());
+        assertEquals("finish:Answer|footer=null", adapter.replies.getLast());
+        assertEquals(List.of(new ChannelReply.Source("Bảng giá 2026", null)), adapter.cited);
+
+        // A linked member's direct question runs as the bot too: the bot answers everyone alike.
+        service.receive(zalo("z3", "zu_ha", "Giá gói cơ bản?"));
+        assertEquals(bot.value(), owner(session("z3")));
+
+        // A Zalo group nobody allowed is answered, and is listed on the bot's page.
+        service.receive(new ChannelMessage(connection, "g1", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_lan", "Lan", null,
+                true, ChannelMessage.Type.TEXT, "Giá gói cơ bản?", null));
+        assertEquals("ANSWERED", outcome("g1"));
+        verify(turns).ask(eq(bot), any(), any(), any(), eq("[Lan]: Giá gói cơ bản?"), eq(new ChatChannel("Lark", true, true)),
+                any(), any(), any(), any(), any());
+        assertEquals(1L, jdbc.sql("SELECT count(*) FROM channel_groups WHERE connection_id = :connection")
+                .param("connection", connection).query(Long.class).single());
+
+        setPublic(false);
+        service.receive(zalo("z4", "zu_guest", "Giá gói cơ bản?"));
+        assertEquals("REFUSED:LINK_REQUIRED", outcome("z4") + ":" + reason("z4"));
+        service.receive(new ChannelMessage(connection, "g2", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_ha", "Hà", null,
+                true, ChannelMessage.Type.TEXT, "Giá gói cơ bản?", null));
+        assertEquals("REFUSED:GROUP_NOT_ALLOWED", outcome("g2") + ":" + reason("g2"));
+    }
+
+    /** MEM-298: a public bot answers an outsider of Lark, in a group with outsiders, and a WhatsApp group not all linked. */
+    @Test
+    void aPublicBotAnswersOutsidersAndGroupsWithPeopleOutsideTheOrganisation() throws Exception {
+        setPublic(true);
+        var outsider = new ChannelMessage.Organisations(ORGANISATION, "org-customer");
+        service.receive(new ChannelMessage(connection, "m1", DIRECT_CHAT, ChannelMessage.Kind.DIRECT, "ou_customer", null,
+                outsider, true, ChannelMessage.Type.TEXT, "Giá?", null));
+        assertEquals("ANSWERED", outcome("m1"));
+        assertEquals(bot.value(), owner(session("m1")));
+
+        adapter.externalChats.add(GROUP_CHAT);
+        service.receive(new ChannelMessage(connection, "m2", GROUP_CHAT, ChannelMessage.Kind.GROUP, "ou_customer", null,
+                outsider, true, ChannelMessage.Type.TEXT, "Giá?", null));
+        assertEquals("ANSWERED", outcome("m2"));
+
+        adapter.features = new ChannelFeatures(false, false, 2_000, false, true);
+        adapter.participants.put("wa_group", List.of(new ChannelChat.Person(List.of("wa_stranger"))));
+        service.receive(new ChannelMessage(connection, "m3", "wa_group", ChannelMessage.Kind.GROUP, "wa_stranger", null, null,
+                true, ChannelMessage.Type.TEXT, "Giá?", null));
+        assertEquals("ANSWERED", outcome("m3"));
+
+        // The minute's rate still holds for a stranger.
+        for (int i = 0; i <= 10; i++) service.receive(new ChannelMessage(connection, "r" + i, DIRECT_CHAT,
+                ChannelMessage.Kind.DIRECT, "wa_spam", null, null, true, ChannelMessage.Type.TEXT, "Giá?", null));
+        assertEquals("REFUSED:RATE_LIMITED", outcome("r10") + ":" + reason("r10"));
+
+        // A conversation is asked to continue only in the mode the bot is in now.
+        verify(turns, atLeastOnce()).continues(any(), any(), any(), any(), eq(true));
+    }
+
     @Test
     void anExpiredCodeOrOneSentInAGroupDoesNotLink() throws Exception {
         adapter.features = new ChannelFeatures(false, false, 2_000, false);
@@ -417,7 +494,7 @@ class ChannelInboundServiceTest {
 
         service.receive(new ChannelMessage(connection, "g1", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_ha", "Hà", null, true,
                 ChannelMessage.Type.TEXT, "Leave policy?", null));
-        verify(turns).ask(eq(bot), any(), any(), any(), eq("[Hà]: Leave policy?"), eq(new ChatChannel("Lark", true)), any(), any(), any(), any(), any());
+        verify(turns).ask(eq(bot), any(), any(), any(), eq("[Hà]: Leave policy?"), eq(new ChatChannel("Lark", true, false)), any(), any(), any(), any(), any());
 
         service.receive(new ChannelMessage(connection, "g2", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_guest", null, null, true,
                 ChannelMessage.Type.TEXT, "Leave policy?", null));
@@ -776,6 +853,12 @@ class ChannelInboundServiceTest {
         return actor;
     }
 
+    /** An administrator switches the bot public or back (MEM-298). */
+    private void setPublic(boolean value) {
+        jdbc.sql("UPDATE channel_connections SET public_access = :value WHERE id = :id")
+                .param("value", value).param("id", connection).update();
+    }
+
     /** An administrator allows the bot to answer in a group (MEM-285). */
     private void allow(String chat) {
         jdbc.sql("""
@@ -814,6 +897,8 @@ class ChannelInboundServiceTest {
         final List<String> replyIds = new ArrayList<>();
         final List<String> notices = new ArrayList<>();
         final List<String> acknowledged = new ArrayList<>();
+        /** The sources each finished reply was sent with. */
+        final List<ChannelReply.Source> cited = new ArrayList<>();
         int emailLookups;
         ChannelFeatures features = new ChannelFeatures(true, true, 150_000, false);
         /** What finishing the reply throws, when a test makes it fail. */
@@ -837,6 +922,7 @@ class ChannelInboundServiceTest {
                 public String finish(List<String> pieces, List<Source> sources, @Nullable String footer) {
                     if (finishFailure != null) throw finishFailure;
                     replies.add("finish:" + String.join("|", pieces) + "|footer=" + footer);
+                    cited.addAll(sources);
                     String id = "reply-to-" + message.messageId();
                     replyIds.add(id);
                     return id;

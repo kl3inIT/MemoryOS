@@ -30,7 +30,7 @@ class ChannelTurnsTest {
     private final ChannelTurns turns = new ChannelTurns(sessions, chat);
     private final ActorId actor = new ActorId(UUID.randomUUID());
     private final UUID session = UUID.randomUUID();
-    private static final ChatChannel GROUP = new ChatChannel("Zalo", true);
+    private static final ChatChannel GROUP = new ChatChannel("Zalo", true, false);
 
     @Test
     void aQuestionWaitsForTheTurnItsConversationIsRunningAndAsksAtTheNewLeaf() throws Exception {
@@ -68,14 +68,21 @@ class ChannelTurnsTest {
         UUID bound = UUID.randomUUID();
         UUID moved = UUID.randomUUID();
         var held = new ChatSession(session, hr, UUID.randomUUID(), "Leave", Instant.now(), Instant.now(), null, null, null,
-                null, null, false, false);
+                null, null, false, false, false);
         when(sessions.get(actor, session)).thenReturn(held);
         when(sessions.channelPersona(actor, bound, null)).thenReturn(hr);
         when(sessions.channelPersona(actor, moved, null)).thenReturn(UUID.randomUUID());
 
-        assertTrue(turns.continues(actor, session, bound, null));
-        assertFalse(turns.continues(actor, session, moved, null), "a bot moved to another assistant starts over");
+        assertTrue(turns.continues(actor, session, bound, null, false));
+        assertFalse(turns.continues(actor, session, moved, null, false), "a bot moved to another assistant starts over");
+        // MEM-298: a conversation held while the bot answered members is not continued once it is public, nor the other
+        // way round, whatever the assistant.
+        assertFalse(turns.continues(actor, session, bound, null, true), "a bot switched to public starts over");
+        when(sessions.get(actor, session)).thenReturn(new ChatSession(session, hr, UUID.randomUUID(), "Giá", Instant.now(),
+                Instant.now(), null, null, null, null, null, false, false, true));
+        assertTrue(turns.continues(actor, session, bound, null, true));
+        assertFalse(turns.continues(actor, session, bound, null, false), "a bot switched back to private starts over");
         when(sessions.get(actor, session)).thenThrow(ChatException.unavailable());
-        assertFalse(turns.continues(actor, session, bound, null), "another person's or a deleted conversation is not continued");
+        assertFalse(turns.continues(actor, session, bound, null, false), "another person's or a deleted conversation is not continued");
     }
 }

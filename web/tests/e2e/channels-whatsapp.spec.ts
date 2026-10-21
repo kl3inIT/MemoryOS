@@ -25,6 +25,7 @@ const whatsapp = (overrides: Partial<ChannelResponse>): ChannelResponse => ({
   appId: "84912345678",
   noticeLanguage: "vi",
   enabled: true,
+  publicAccess: false,
   serviceAccountId: "2b3c4d5e-6f70-4812-9a3b-4c5d6e7f8091",
   missingScopes: [],
   status: "CONNECTED",

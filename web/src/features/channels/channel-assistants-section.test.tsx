@@ -23,6 +23,7 @@ const channel = (provider: ChannelResponse["provider"]): ChannelResponse => ({
   appId: provider === "LARK" ? "cli_b7c3e9f1a2d4c6e8" : "1234567890",
   noticeLanguage: "vi",
   enabled: true,
+  publicAccess: false,
   serviceAccountId: "9e8d7c6b-5a49-4382-9a1b-c0d1e2f3a4b5",
   missingScopes: [],
   status: "CONNECTED",

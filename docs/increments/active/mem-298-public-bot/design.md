@@ -44,9 +44,13 @@ the user turned off.
 
 1. **A bot is public or not** (`channel_connections.public_access`, false for every bot, new and existing), switched
    on the bot's page (*Công khai*) with `CHANNELS_MANAGE`, audited as `channel.update` with `change` `public` or
-   `private`. Switching moves the revision, so the process holding the bot opens it again, and starts every
-   conversation of the bot over, both ways: a conversation held while the bot answered members may hold what they
-   could read, in its history or its summary, which must not reach a stranger's turn. Switching on asks first in a
+   `private`. Making a bot public decides who may ask its assistants, as binding does, so it takes edit rights on the
+   bot's assistant and on each of its groups' own (`CHANNEL_ASSISTANT_NOT_EDITABLE`); a deleted one answers as none and
+   takes nothing (found by the commit's security review). Switching moves the revision, so the process holding the bot
+   opens it again, and starts every conversation of the bot over, both ways: a conversation held while the bot
+   answered members may hold what they could read, in its history or its summary, which must not reach a stranger's
+   turn. A conversation records the mode it was started in (`chat_session.channel_public`) and is continued only in
+   that mode, so a reply to an older answer does not reach it either. Switching on asks first in a
    dialog that says anyone who messages the bot reads what its assistants are given, and names those assistants and
    their Sources, Document Sets and files (Copilot Studio's Caution and pre-publish scan; OpenClaw's critical audit
    finding).
@@ -65,6 +69,12 @@ the user turned off.
    and those of its Document Sets, and the assistant's files; an assistant that is given none searches nothing, where
    today it would search every readable Source. A Source the Tenant is deleting or a Document Set deleted stays out.
    - A **Public or Private** Source (MEM-105) is read whole, whatever Groups it is restricted to (Intercom, Dify).
+   - The assistant's **files** are granted to a public bot's account while it holds a conversation through the bot with
+     the assistant, as the assistant's instructions are (`JdbcChatFileAttachmentRepository.usableThroughAgents`). Only a
+     public bot's conversation counts: it is the service account's, which nobody signs in as, whereas a member linked
+     to a bot that is not public owns their own direct conversations and must not gain the files in their library. A
+     bot that is not public still reads only files of an assistant its account may use; its group turn with a private
+     assistant's files fails, as before (candidate work).
    - An **Auto Sync** Source keeps each document's own access from the provider, which nobody granted to the bot: its
      documents are read only as far as the bot's account reads them, those every member may read (Copilot Studio does
      not search a source that needs the user's sign-in).
@@ -81,8 +91,9 @@ the user turned off.
    asks for (OpenClaw's audit of open rooms with exec tools; Copilot Studio's no user-credential tools). A channel turn
    already offers no Web search, no image generation and no MCP server (`ChatCommand` leaves both modes off;
    `ChatTurnService` attaches no MCP server to a channel), and that stays.
-7. **The API** adds `PUT /api/channels/{channelId}/public` (`setChannelPublic`, body `{"public": boolean}`) and
-   `public` on the bot's response, and `public` on each bot in the assistant's channel listing
+7. **The API** adds `PUT /api/channels/{channelId}/public` (`updateChannelPublic`, body `{"publicAccess": boolean}`,
+   since `public` is no Java name) and `publicAccess` on the bot's response, and on each bot in the assistant's channel
+   listing
    (`GET /api/chat/personas/{personaId}/channels`), which the editor's warning reads.
 
 ## Not in scope

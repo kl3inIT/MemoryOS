@@ -3885,6 +3885,10 @@ export type AssistantChannelResponse = {
     botName?: string;
     enabled: boolean;
     /**
+     * Whether the bot answers anyone, so whatever the assistant is given is read by anyone who messages it
+     */
+    publicAccess: boolean;
+    /**
      * Whether the assistant is the bot's default, used where no group chat has its own
      */
     byDefault: boolean;
@@ -4431,6 +4435,10 @@ export type ReplaceChannelSecretRequest = {
     appSecret: string;
 };
 
+export type UpdateChannelPublicRequest = {
+    publicAccess: boolean;
+};
+
 export type BindChannelAssistantRequest = {
     /**
      * The assistant; null answers with the built-in one, and a bot bound elsewhere moves
@@ -4524,6 +4532,10 @@ export type ChannelResponse = {
     appId: string;
     noticeLanguage: string;
     enabled: boolean;
+    /**
+     * Whether the bot answers anyone who addresses it, as its own account, from its assistant's attachments only
+     */
+    publicAccess: boolean;
     /**
      * The account a group question runs as
      */
@@ -21181,6 +21193,56 @@ export type ReplaceChannelSecretResponses = {
 };
 
 export type ReplaceChannelSecretResponse = ReplaceChannelSecretResponses[keyof ReplaceChannelSecretResponses];
+
+export type UpdateChannelPublicData = {
+    body: UpdateChannelPublicRequest;
+    headers: {
+        'If-Match': string;
+    };
+    path: {
+        channelId: string;
+    };
+    query?: never;
+    url: '/api/channels/{channelId}/public';
+};
+
+export type UpdateChannelPublicErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type UpdateChannelPublicError = UpdateChannelPublicErrors[keyof UpdateChannelPublicErrors];
+
+export type UpdateChannelPublicResponses = {
+    /**
+     * Updated bot
+     */
+    200: ChannelResponse;
+};
+
+export type UpdateChannelPublicResponse = UpdateChannelPublicResponses[keyof UpdateChannelPublicResponses];
 
 export type BindChannelAssistantData = {
     body: BindChannelAssistantRequest;

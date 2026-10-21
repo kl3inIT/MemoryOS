@@ -3861,6 +3861,7 @@ export const zAssistantChannelResponse = z.object({
     name: z.string(),
     botName: z.string().optional(),
     enabled: z.boolean(),
+    publicAccess: z.boolean(),
     byDefault: z.boolean(),
     groups: z.array(zAssistantChannelGroupResponse)
 });
@@ -4360,6 +4361,10 @@ export const zReplaceChannelSecretRequest = z.object({
     appSecret: z.string().min(0).max(256)
 });
 
+export const zUpdateChannelPublicRequest = z.object({
+    publicAccess: z.boolean()
+});
+
 export const zBindChannelAssistantRequest = z.object({
     personaId: z.uuid().nullish()
 });
@@ -4410,6 +4415,7 @@ export const zChannelResponse = z.object({
     appId: z.string(),
     noticeLanguage: z.string(),
     enabled: z.boolean(),
+    publicAccess: z.boolean(),
     serviceAccountId: z.uuid(),
     botName: z.string().optional(),
     missingScopes: z.array(z.string()),
@@ -8791,6 +8797,21 @@ export const zReplaceChannelSecretPath = z.object({
  * Updated bot
  */
 export const zReplaceChannelSecretResponse = zChannelResponse;
+
+export const zUpdateChannelPublicBody = zUpdateChannelPublicRequest;
+
+export const zUpdateChannelPublicHeaders = z.object({
+    'If-Match': z.string()
+});
+
+export const zUpdateChannelPublicPath = z.object({
+    channelId: z.uuid()
+});
+
+/**
+ * Updated bot
+ */
+export const zUpdateChannelPublicResponse = zChannelResponse;
 
 export const zBindChannelAssistantBody = zBindChannelAssistantRequest;
 

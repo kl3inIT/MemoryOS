@@ -221,6 +221,21 @@ class OpenSearchRetrievalIntegrationTest {
             var fileOnly = new SourceSearchScope(tenant, actor, Map.of(fileSource, SourceType.FILE));
             assertTrue(index.batch(fileOnly, queries, new SearchFilters(Set.of(), null, wrongSourceDate.updated()), () -> {})
                     .stream().allMatch(List::isEmpty), "Inaccessible origins cannot satisfy a time filter");
+            // MEM-298: a public bot reads its assistant's Public and Private Sources whole: a chunk granted to no token it
+            // holds matches through an origin in one of them, and through no other Source.
+            accessOf.put(leave.documentId(), new DocumentAccess(false, Set.of(group)));
+            index.updateAccess(tenant, leave.documentId(), leave.generation());
+            assertTrue(index.batch(scope, queries, SearchFilters.NONE, () -> {}).stream().allMatch(List::isEmpty));
+            var whole = new SourceSearchScope(tenant, actor, Map.of(fileSource, SourceType.FILE, driveSource,
+                    SourceType.GOOGLE_DRIVE), Set.of(), Set.of(fileSource));
+            assertTrue(index.batch(whole, queries, SearchFilters.NONE, () -> {}).stream()
+                    .allMatch(h -> h.size() == 1 && h.getFirst().documentId().equals(leave.documentId().value())));
+            UUID elsewhere = UUID.randomUUID();
+            var wholeElsewhere = new SourceSearchScope(tenant, actor, Map.of(driveSource, SourceType.GOOGLE_DRIVE,
+                    elsewhere, SourceType.FILE), Set.of(), Set.of(elsewhere));
+            assertTrue(index.batch(wholeElsewhere, queries, SearchFilters.NONE, () -> {}).stream().allMatch(List::isEmpty));
+            accessOf.remove(leave.documentId());
+            index.updateAccess(tenant, leave.documentId(), leave.generation());
 
             gateway.json("POST", "/" + index.identity() + "/_update/" + leave.chunkId(0), Map.of("refresh", "true"),
                     Map.of("script", Map.of("source", "ctx._source.remove('metadata_hash')")));

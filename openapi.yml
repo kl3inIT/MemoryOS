@@ -22923,6 +22923,81 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/channels/{channelId}/public:
+    put:
+      tags:
+      - Channels
+      summary: "Make a bot answer anyone who addresses it, from its assistant's attachments\
+        \ only, or only the organisation's people, with a revision precondition"
+      operationId: updateChannelPublic
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateChannelPublicRequest"
+        required: true
+      responses:
+        "400":
+          description: "Invalid bot, or an app the platform rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Bot unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Bot changed, or its app already serves a bot"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "The platform did not answer, or bots are not configured"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Updated bot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/channels/{channelId}/persona:
     put:
       tags:
@@ -33902,6 +33977,10 @@ components:
           description: The bot the platform named at the last check
         enabled:
           type: boolean
+        publicAccess:
+          type: boolean
+          description: "Whether the bot answers anyone, so whatever the assistant\
+            \ is given is read by anyone who messages it"
         byDefault:
           type: boolean
           description: "Whether the assistant is the bot's default, used where no\
@@ -33918,6 +33997,7 @@ components:
       - id
       - name
       - provider
+      - publicAccess
     SourceOption:
       type: object
       properties:
@@ -35070,6 +35150,14 @@ components:
           minLength: 0
       required:
       - appSecret
+    UpdateChannelPublicRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        publicAccess:
+          type: boolean
+      required:
+      - publicAccess
     BindChannelAssistantRequest:
       type: object
       additionalProperties: false
@@ -35219,6 +35307,10 @@ components:
           type: string
         enabled:
           type: boolean
+        publicAccess:
+          type: boolean
+          description: "Whether the bot answers anyone who addresses it, as its own\
+            \ account, from its assistant's attachments only"
         serviceAccountId:
           type: string
           format: uuid
@@ -35279,6 +35371,7 @@ components:
       - name
       - noticeLanguage
       - provider
+      - publicAccess
       - revision
       - serviceAccountId
       - status

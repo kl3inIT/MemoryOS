@@ -23,9 +23,11 @@ public interface ChatSessionService {
      * A conversation held in a channel, asked through the bot {@code connection} in the group chat {@code groupChat}
      * (null for a direct message), with the assistant they answer with ({@link #channelPersona}). While the bot and the
      * group still resolve to that assistant, questions asked through the bot may use it even if the owner may not
-     * elsewhere; the documents a turn reads are still the owner's own (MEM-273).
+     * elsewhere; the documents a turn reads are still the owner's own (MEM-273). One started through a public bot
+     * ({@code publicBot}) reads the assistant's attachments only (MEM-298).
      */
-    ChatSession createInChannel(ActorId actor, String title, UUID connection, @Nullable String groupChat);
+    ChatSession createInChannel(ActorId actor, String title, UUID connection, @Nullable String groupChat,
+                                boolean publicBot);
 
     /**
      * The assistant the bot {@code connection} answers with in the group chat {@code groupChat} (null for a direct

@@ -74,7 +74,7 @@ class WhatsAppChannelAdapterTest {
     private static ChannelConnection bot(String number) {
         return new ChannelConnection(UUID.randomUUID(), ChannelProvider.WHATSAPP, "Trợ lý", number, Map.of(), "vi", true,
                 new ActorId(UUID.randomUUID()), 3, Instant.now(), Instant.now(), null, "+" + number, number + "@s.whatsapp.net",
-                List.of());
+                List.of(), false);
     }
 
     @Test

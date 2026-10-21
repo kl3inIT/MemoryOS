@@ -356,6 +356,7 @@ class OpenApiContractTest {
             "/api/channels/{channelId}",
             "/api/channels/{channelId}/enabled",
             "/api/channels/{channelId}/persona",
+            "/api/channels/{channelId}/public",
             "/api/channels/{channelId}/groups",
             "/api/channels/{channelId}/groups/{groupId}",
             "/api/channels/{channelId}/groups/{groupId}/persona",

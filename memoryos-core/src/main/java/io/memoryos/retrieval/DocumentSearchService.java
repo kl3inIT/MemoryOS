@@ -266,6 +266,11 @@ public class DocumentSearchService {
     /** Rank authorization-filtered chunks from bounded queries; no LLM is used by Retrieval. */
     public SourceSearchScope scope(ActorId actor) { return timings.measure(SearchTimings.Stage.PREFETCH, () -> sourceSearch.scope(actor)); }
 
+    /** A public bot's scope over its assistant's {@code attached} Sources (MEM-298); see {@link SourceSearchService#attachedScope}. */
+    public SourceSearchScope attachedScope(ActorId actor, Set<UUID> attached) {
+        return timings.measure(SearchTimings.Stage.PREFETCH, () -> sourceSearch.attachedScope(actor, attached));
+    }
+
     public SearchResults ranked(SourceSearchScope scope, List<SearchQuery> queries, SearchFilters filters, Runnable checkActive) {
         if (queries.isEmpty() || queries.size() > 8) throw new SearchRequestException();
         var tenant = scope.tenant();

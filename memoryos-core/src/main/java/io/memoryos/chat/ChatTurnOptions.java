@@ -19,9 +19,13 @@ import org.jspecify.annotations.Nullable;
  *                        agent says so; it searches whatever the agent's search tool setting ({@link #searches()})
  * @param topicRules      the Tenant's blocked topics as an instruction for the answer model, set on every turn while a
  *                        topic is enabled (MEM-208); empty otherwise
+ * @param wholeSources    MEM-298: a public bot's turn, which searches only the attached Sources and reads each Public
+ *                        or Private one whole, whatever its reader may read elsewhere; an Auto Sync one stays as far
+ *                        as the reader may
  */
 public record ChatTurnOptions(boolean searchEnabled, List<UUID> sourceIds, boolean sourcesRestricted,
-                              boolean codeInterpreter, ModelSampling sampling, boolean grounded, String topicRules) {
+                              boolean codeInterpreter, ModelSampling sampling, boolean grounded, String topicRules,
+                              boolean wholeSources) {
     public static final ChatTurnOptions DEFAULT = builder().build();
     public ChatTurnOptions {
         sourceIds = List.copyOf(sourceIds);
@@ -55,23 +59,32 @@ public record ChatTurnOptions(boolean searchEnabled, List<UUID> sourceIds, boole
         public Builder grounded(boolean value) { grounded = value; return this; }
 
         public ChatTurnOptions build() {
-            return new ChatTurnOptions(searchEnabled, sourceIds, sourcesRestricted, codeInterpreter, sampling, grounded, "");
+            return new ChatTurnOptions(searchEnabled, sourceIds, sourcesRestricted, codeInterpreter, sampling, grounded, "", false);
         }
     }
 
     /** The same restrictions with this turn's creativity and reasoning level. */
     public ChatTurnOptions withSampling(ModelSampling value) {
-        return new ChatTurnOptions(searchEnabled, sourceIds, sourcesRestricted, codeInterpreter, value, grounded, topicRules);
+        return new ChatTurnOptions(searchEnabled, sourceIds, sourcesRestricted, codeInterpreter, value, grounded, topicRules, wholeSources);
     }
 
     /** The same restrictions, answering from documents only or not; the agent's own search setting is kept. */
     public ChatTurnOptions withGrounded(boolean value) {
-        return new ChatTurnOptions(searchEnabled, sourceIds, sourcesRestricted, codeInterpreter, sampling, value, topicRules);
+        return new ChatTurnOptions(searchEnabled, sourceIds, sourcesRestricted, codeInterpreter, sampling, value, topicRules, wholeSources);
     }
 
     /** The same turn, with the blocked topics as the answer model's own instruction. */
     public ChatTurnOptions withTopicRules(String value) {
-        return new ChatTurnOptions(searchEnabled, sourceIds, sourcesRestricted, codeInterpreter, sampling, grounded, value);
+        return new ChatTurnOptions(searchEnabled, sourceIds, sourcesRestricted, codeInterpreter, sampling, grounded, value, wholeSources);
+    }
+
+    /**
+     * The same agent as a public bot's turn takes it (MEM-298): only {@code attached}, the agent's Sources and those
+     * of every Document Set it is given, searched even when there are none, each read whole as {@link #wholeSources}
+     * says, and no code interpreter.
+     */
+    public ChatTurnOptions forPublicBot(List<UUID> attached) {
+        return new ChatTurnOptions(searchEnabled, attached, true, false, sampling, grounded, topicRules, true);
     }
 
     /** Whether the turn offers {@code search_knowledge}: the agent allows it, or the turn is grounded. */
