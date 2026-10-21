@@ -41,6 +41,7 @@ export function AgentChannelsPanel({ agent }: { agent: Persona }) {
       line: [
         ui(providerWords(bot.provider).bot),
         ui("mặc định"),
+        bot.publicAccess ? ui("công khai") : null,
         bot.enabled ? null : ui("Đang tắt"),
       ]
         .filter(Boolean)

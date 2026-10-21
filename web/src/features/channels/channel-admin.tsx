@@ -7,6 +7,7 @@ import {
   listChannelsOptions,
   listChannelsQueryKey,
   updateChannelEnabledMutation,
+  updateChannelPublicMutation,
   updateChannelTransportMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { ChannelResponse } from "@/lib/hey-api/types.gen";
@@ -52,6 +53,7 @@ export function useChannelAdmin({ onRemoved }: { onRemoved?: () => void } = {}) 
   const reread = () => cache.invalidateQueries({ queryKey: listChannelsQueryKey() });
   const toggle = useMutation({ ...updateChannelEnabledMutation(), onSettled: reread });
   const transport = useMutation({ ...updateChannelTransportMutation(), onSettled: reread });
+  const publish = useMutation({ ...updateChannelPublicMutation(), onSettled: reread });
   const remove = useMutation({
     ...deleteChannelMutation(),
     onSuccess: async () => {
@@ -63,7 +65,7 @@ export function useChannelAdmin({ onRemoved }: { onRemoved?: () => void } = {}) 
   const message = (failure: unknown) =>
     channelError(failure, changed?.provider) ??
     problem(presentProblem(failure, "mutation").message);
-  const failure = toggle.error ?? transport.error;
+  const failure = toggle.error ?? transport.error ?? publish.error;
   const open = (replacing: ChannelResponse | null) => {
     trigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setDialog((current) => ({ open: true, session: current.session + 1, replacing }));
@@ -127,6 +129,7 @@ export function useChannelAdmin({ onRemoved }: { onRemoved?: () => void } = {}) 
     setEnabled: (channel: ChannelResponse, enabled: boolean) => {
       setChanged(channel);
       transport.reset();
+      publish.reset();
       toggle.mutate({
         path: { channelId: channel.id },
         headers: { "If-Match": `"${channel.revision}"` },
@@ -135,10 +138,27 @@ export function useChannelAdmin({ onRemoved }: { onRemoved?: () => void } = {}) 
     },
     switching: (channel: ChannelResponse) =>
       toggle.isPending && toggle.variables?.path.channelId === channel.id,
+    /**
+     * Makes a bot answer anyone, or only the organisation's people (MEM-298); the caller asks first when it opens the
+     * bot. The promise settles with the save, for a dialog that waits on it.
+     */
+    setPublic: (channel: ChannelResponse, publicAccess: boolean) => {
+      setChanged(channel);
+      toggle.reset();
+      transport.reset();
+      return publish.mutateAsync({
+        path: { channelId: channel.id },
+        headers: { "If-Match": `"${channel.revision}"` },
+        body: { publicAccess },
+      });
+    },
+    publishing: (channel: ChannelResponse) =>
+      publish.isPending && publish.variables?.path.channelId === channel.id,
     /** How a Zalo bot receives; a choice saves on change, as the switch does. */
     setTransport: (channel: ChannelResponse, next: Transport) => {
       setChanged(channel);
       toggle.reset();
+      publish.reset();
       transport.mutate({
         path: { channelId: channel.id },
         headers: { "If-Match": `"${channel.revision}"` },

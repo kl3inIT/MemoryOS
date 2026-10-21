@@ -46,7 +46,11 @@ const group = (overrides: Partial<ChannelGroupResponse>): ChannelGroupResponse =
   ...overrides,
 });
 
-function renderSection(provider: ChannelResponse["provider"], groups: ChannelGroupResponse[]) {
+function renderSection(
+  provider: ChannelResponse["provider"],
+  groups: ChannelGroupResponse[],
+  publicAccess = false,
+) {
   server.use(
     handleListChatPersonas({
       body: [
@@ -58,7 +62,7 @@ function renderSection(provider: ChannelResponse["provider"], groups: ChannelGro
   );
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <ChannelAssistantsSection channel={channel(provider)} />
+      <ChannelAssistantsSection channel={{ ...channel(provider), publicAccess }} />
     </QueryClientProvider>,
   );
 }
@@ -68,6 +72,15 @@ beforeEach(async () => {
 });
 
 describe("ChannelAssistantsSection", () => {
+  it("asks no permission for a group of a public bot, which answers in every group", async () => {
+    renderSection("ZALO_BOT", [group({ name: "Khách Đại Phát", permission: "WAITING" })], true);
+    expect(await screen.findByText("Khách Đại Phát")).toBeVisible();
+    expect(screen.queryByText(/chờ cho phép/)).toBeNull();
+    expect(
+      screen.queryByRole("switch", { name: "Cho phép trả lời trong Khách Đại Phát" }),
+    ).toBeNull();
+  });
+
   it("shows the bot's default and each group chat with the assistant it answers with", async () => {
     renderSection("LARK", [
       group({ name: "Phòng Kế toán", assistant: { id: TAX, name: "Kế toán thuế" } }),
