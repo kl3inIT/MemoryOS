@@ -95,7 +95,7 @@ public class SourceSearchService {
     public Map<UUID, List<DocumentSourceMetadata>> readableMetadata(SourceSearchScope scope, List<UUID> ids) {
         if (tenants.findActiveTenant(scope.actor()).filter(scope.tenant()::equals).isEmpty()) return Map.of();
         var metadata = new LinkedHashMap<UUID, List<DocumentSourceMetadata>>();
-        documents.sourceMetadata(scope.tenant(), ids, scope.actor(), scope.wholeSources(), adapters::documentUrl).forEach((document, origins) -> {
+        documents.readableSourceMetadata(scope.tenant(), ids, scope.actor(), scope.wholeSources(), adapters::documentUrl).forEach((document, origins) -> {
             var visible = origins.stream().filter(origin -> scope.sources().containsKey(origin.sourceId())).toList();
             if (!visible.isEmpty()) metadata.put(document, visible);
         });

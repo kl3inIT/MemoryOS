@@ -186,6 +186,48 @@ class PostgresChannelConnectionTest {
         assertEquals("CHANNEL_NOT_FOUND", code(() -> channels.setEnabled(owner, UUID.randomUUID(), 0, true)));
     }
 
+    /**
+     * MEM-298: a bot is made public, or private again, by whoever manages bots, on its revision, and it is audited.
+     * Making it public hands its assistants to anyone, so it takes edit rights on each, as binding does.
+     */
+    @Test
+    void aBotIsMadePublicOnItsRevisionByWhoeverManagesBotsAndMayEditItsAssistants() {
+        var bot = channels.create(owner, draft("cli_a1b2c3d4e5f6"));
+        assertFalse(bot.publicAccess(), "no bot is public until an administrator says so");
+
+        var open = channels.setPublic(owner, bot.id(), bot.revision(), true);
+        assertTrue(open.publicAccess());
+        assertEquals(bot.revision() + 1, open.revision(), "the process holding the bot opens it again");
+        assertTrue(channels.get(owner, bot.id()).publicAccess());
+        assertEquals("CHANNEL_CHANGED", code(() -> channels.setPublic(owner, bot.id(), bot.revision(), false)));
+        assertThrows(BusinessException.class, () -> channels.setPublic(member, bot.id(), open.revision(), false));
+        assertEquals("CHANNEL_NOT_FOUND", code(() -> channels.setPublic(owner, UUID.randomUUID(), 0, true)));
+        var closed = channels.setPublic(owner, bot.id(), open.revision(), false);
+        assertFalse(closed.publicAccess());
+        assertEquals(List.of("public", "private"), jdbc.sql("""
+                        SELECT details ->> 'change' FROM audit_event WHERE action = 'channel.update' ORDER BY occurred_at, id
+                        """).query(String.class).list());
+
+        // The bot's assistant and every group's own take edit rights; a deleted one answers as none and takes nothing.
+        UUID legal = assistant("Pháp chế", false, false);
+        UUID hr = assistant("Nhân sự", false, true);
+        bindings.bind(TENANT, bot.id(), legal);
+        assertEquals("CHANNEL_ASSISTANT_NOT_EDITABLE", code(() -> channels.setPublic(owner, bot.id(), closed.revision(), true)));
+        bindings.bind(TENANT, bot.id(), hr);
+        channelGroups.seen(TENANT, bot.id(), "oc_board", null, Instant.now());
+        bindings.bindGroup(TENANT, bot.id(), "oc_board", legal);
+        assertEquals("CHANNEL_ASSISTANT_NOT_EDITABLE", code(() -> channels.setPublic(owner, bot.id(), closed.revision(), true)));
+        jdbc.sql("UPDATE persona SET deleted_at = now() WHERE id = :id").param("id", legal).update();
+        when(personas.get(any(), eq(hr))).thenThrow(ChatException.unavailable());
+        assertEquals("CHANNEL_ASSISTANT_NOT_EDITABLE", code(() -> channels.setPublic(owner, bot.id(), closed.revision(), true)),
+                "an assistant the administrator cannot see is not handed to anyone");
+        bindings.bind(TENANT, bot.id(), null);
+        var reopened = channels.setPublic(owner, bot.id(), closed.revision(), true);
+        assertTrue(reopened.publicAccess());
+        // Making it private again takes nothing.
+        assertFalse(channels.setPublic(owner, bot.id(), reopened.revision(), false).publicAccess());
+    }
+
     @Test
     void aSettingChangesWhatTheProviderAcceptsAndMovesTheRevision() {
         var bot = channels.create(owner, draft("cli_a1b2c3d4e5f6"));

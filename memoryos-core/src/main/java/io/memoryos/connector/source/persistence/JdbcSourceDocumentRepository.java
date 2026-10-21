@@ -419,7 +419,7 @@ public class JdbcSourceDocumentRepository {
      * The origins the actor may read, as above, and also every origin in one of {@code wholeSources} that is not Auto
      * Sync: a public bot reads its assistant's Public and Private Sources whole (MEM-298).
      */
-    public Map<UUID, List<DocumentSourceMetadata>> sourceMetadata(TenantId tenant, List<UUID> ids, ActorId actor,
+    public Map<UUID, List<DocumentSourceMetadata>> readableSourceMetadata(TenantId tenant, List<UUID> ids, ActorId actor,
             Set<UUID> wholeSources, DocumentLinks links) {
         return sourceMetadata(tenant, ids, actor, null, null, wholeSources, links);
     }

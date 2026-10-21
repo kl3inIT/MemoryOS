@@ -4,6 +4,7 @@ import io.memoryos.audit.AuditAction;
 import io.memoryos.audit.AuditRecord;
 import io.memoryos.audit.AuditTrail;
 import io.memoryos.chat.ChatChannelBindings;
+import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatPersonaService;
 import io.memoryos.channel.persistence.ChannelCredentialConfiguration;
 import io.memoryos.channel.persistence.JdbcChannelConnectionRepository;
@@ -250,12 +251,19 @@ public class ChannelConnectionService {
 
     /**
      * Makes a bot answer anyone who addresses it, from its assistant's attachments only, or only the Tenant's people
-     * again (MEM-298). The revision moves on, so the process that holds the bot opens it again; conversations are
-     * continued only in the mode they were started in, so each one starts over.
+     * again (MEM-298). Making it public decides who may ask its assistants, as binding does, so it takes edit rights on
+     * the bot's assistant and on each of its groups' own, the built-in one aside. The revision moves on, so the process
+     * that holds the bot opens it again; conversations are continued only in the mode they were started in, so each one
+     * starts over.
      */
     @Transactional
     public ChannelConnection setPublic(ActorId actor, UUID id, long revision, boolean publicAccess) {
         var tenant = writer(actor);
+        connections.find(tenant, id).orElseThrow(ChannelException::notFound);
+        if (publicAccess) {
+            bindings.bound(tenant, id).ifPresent(assistant -> requireEditable(actor, assistant));
+            bindings.groups(tenant, id).values().forEach(assistant -> requireEditable(actor, assistant));
+        }
         var updated = connections.setPublic(tenant, id, revision, publicAccess).orElseThrow(() -> missingOrChanged(tenant, id));
         record(actor, tenant, updated, publicAccess ? "public" : "private");
         return updated;
@@ -441,6 +449,21 @@ public class ChannelConnectionService {
         if (leaving == null || !personas.names(actor, List.of(leaving)).containsKey(leaving)) return;
         var left = personas.get(actor, leaving);
         if (!left.builtin() && !left.permissions().edit()) throw ChannelException.assistantNotEditable();
+    }
+
+    /**
+     * An assistant a bot may answer anyone with only for someone who may edit it. A deleted one answers as none, so it
+     * takes nothing; a live one the actor cannot see is refused like one they cannot edit.
+     */
+    private void requireEditable(ActorId actor, UUID assistant) {
+        if (!personas.names(actor, List.of(assistant)).containsKey(assistant)) return;
+        boolean editable;
+        try {
+            editable = personas.get(actor, assistant).permissions().edit();
+        } catch (ChatException unavailable) {
+            editable = false;
+        }
+        if (!editable) throw ChannelException.assistantNotEditable();
     }
 
     private TenantId reader(ActorId actor) {
