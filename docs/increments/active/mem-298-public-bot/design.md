@@ -44,7 +44,9 @@ the user turned off.
 
 1. **A bot is public or not** (`channel_connections.public_access`, false for every bot, new and existing), switched
    on the bot's page (*Công khai*) with `CHANNELS_MANAGE`, audited as `channel.update` with `change` `public` or
-   `private`. Switching moves the revision, so the process holding the bot opens it again. Switching on asks first in a
+   `private`. Switching moves the revision, so the process holding the bot opens it again, and starts every
+   conversation of the bot over, both ways: a conversation held while the bot answered members may hold what they
+   could read, in its history or its summary, which must not reach a stranger's turn. Switching on asks first in a
    dialog that says anyone who messages the bot reads what its assistants are given, and names those assistants and
    their Sources, Document Sets and files (Copilot Studio's Caution and pre-publish scan; OpenClaw's critical audit
    finding).
@@ -57,7 +59,8 @@ the user turned off.
 3. **Every turn of a public bot runs as the bot's account**, a linked member's direct message included, so the bot
    answers the same for everyone and never reads with a person's own access (Copilot Studio's no-auth agent has no
    user identity). Direct conversations stay one per sender and a group's one per group, as now; a group question
-   carries its asker's name as the provider gives it. No reply carries the "continue on the web" footer.
+   carries its asker's name as the provider gives it. No reply carries a closing line: neither "continue on the web"
+   nor how to get an account.
 4. **A public bot reads only what its assistant is given.** Search runs over the Sources attached to the assistant
    and those of its Document Sets, and the assistant's files; an assistant that is given none searches nothing, where
    today it would search every readable Source. A Source the Tenant is deleting or a Document Set deleted stays out.
@@ -66,17 +69,18 @@ the user turned off.
      documents are read only as far as the bot's account reads them, those every member may read (Copilot Studio does
      not search a source that needs the user's sign-in).
 
-   Citations in the reply name the document as today; their links lead to the web app, where only a member who may read
-   the document opens it.
+   Citations in the reply name the document without its link: today a citation carries the document's address at its
+   provider (`ChatSource.providerUrl`, a Drive or SharePoint address), which tells a stranger where the company keeps
+   it.
 5. **Who exposes what is the person who attaches it.** Attaching a Source to an assistant needs read access to the
    Source (`ChatPersonaService.check`) and a Document Set the right to use it, and binding a bot or group to an
    assistant needs edit rights on it, so a Source reaches a public bot only through someone who could read it or who
    was warned. The assistant editor shows a warning beside its knowledge section while any public bot or group of one
    answers with the assistant, naming the bots; the bot page's dialog (decision 1) names the assistants.
-6. **Tools that act or cost on a stranger's behalf are off**: the code interpreter and image generation are not
-   offered on a public bot's turns, whatever the assistant allows (Copilot Studio's no user-credential tools; OpenClaw's
-   audit of open rooms with exec tools). MCP servers are already not offered in a channel. Web search follows the
-   assistant.
+6. **The code interpreter is off** on a public bot's turns, whatever the assistant allows: it runs code a stranger
+   asks for (OpenClaw's audit of open rooms with exec tools; Copilot Studio's no user-credential tools). A channel turn
+   already offers no Web search, no image generation and no MCP server (`ChatCommand` leaves both modes off;
+   `ChatTurnService` attaches no MCP server to a channel), and that stays.
 7. **The API** adds `PUT /api/channels/{channelId}/public` (`setChannelPublic`, body `{"public": boolean}`) and
    `public` on the bot's response, and `public` on each bot in the assistant's channel listing
    (`GET /api/chat/personas/{personaId}/channels`), which the editor's warning reads.
