@@ -59,9 +59,28 @@ public class McpTurnService {
         this.transactions = new TransactionTemplate(transactionManager);
     }
 
+    /**
+     * Where a turn is asked (MEM-299). On the web the person selects servers. In a channel every server the assistant
+     * attaches is selected and no tool that asks first is offered, as there is no approval card; on the bot's account
+     * (a group, or any turn of a public bot) a server each person connects for themselves cannot be used; a public bot
+     * uses only servers opened to public bots, and only their read tools.
+     */
+    public enum Surface {
+        WEB, MEMBER_CHANNEL, BOT_CHANNEL, PUBLIC_BOT;
+
+        boolean channel() { return this != WEB; }
+
+        boolean botAccount() { return this == BOT_CHANNEL || this == PUBLIC_BOT; }
+    }
+
     /** Opens the tools of the servers the User selected, for a turn whose assistant attaches no others. */
     public McpTurnTools open(ActorId actor, List<UUID> serverIds) {
         return open(actor, serverIds, List.of());
+    }
+
+    /** A web turn whose assistant has no server open through it alone. */
+    public McpTurnTools open(ActorId actor, List<UUID> serverIds, Collection<UUID> attached) {
+        return open(actor, serverIds, attached, Set.of(), Surface.WEB);
     }
 
     /**
@@ -70,12 +89,16 @@ public class McpTurnService {
      * as unavailable only when they could not have selected it, never when they turned a usable one off; one restricted
      * to Groups they are not in is reported too, as its name is already on the assistant's page. A selected server
      * the actor may not use and the assistant does not attach is ignored, matching the connections API.
+     * {@code openThrough} are the attached servers open through the turn's assistant alone (MEM-299): anyone who
+     * uses the assistant uses them, and they are always on.
      */
-    public McpTurnTools open(ActorId actor, List<UUID> serverIds, Collection<UUID> attached) {
+    public McpTurnTools open(ActorId actor, List<UUID> serverIds, Collection<UUID> attached, Set<UUID> openThrough,
+                             Surface surface) {
         if (serverIds.size() > MAX_SERVERS)
             throw McpException.invalid("A turn uses at most " + MAX_SERVERS + " MCP servers.");
         if (serverIds.isEmpty() && attached.isEmpty()) return empty();
-        var resolved = Objects.requireNonNull(transactions.execute(_ -> resolve(actor, serverIds, attached)));
+        var resolved = Objects.requireNonNull(transactions.execute(_ -> resolve(actor, serverIds, attached,
+                Set.copyOf(openThrough), surface)));
         var targets = new LinkedHashMap<UUID, McpTurnTools.Target>();
         var bindings = new ArrayList<McpTurnTools.Binding>();
         var unavailable = new ArrayList<>(resolved.unavailable());
@@ -95,7 +118,7 @@ public class McpTurnService {
                     candidate.ownerActorId() == null, scopeRequired));
             bindings.addAll(candidate.bindings());
         }
-        return new McpTurnTools(clients, targets, bindings, unavailable, resolved.alwaysAllowable());
+        return new McpTurnTools(clients, targets, bindings, unavailable, resolved.alwaysAllowable(), surface.channel());
     }
 
     /** A turn that selected no usable server; only {@link #open} needs it. */
@@ -118,9 +141,11 @@ public class McpTurnService {
         serverAdministration.allowAlways(actor, binding.serverId(), binding.toolName());
     }
 
-    private Resolved resolve(ActorId actor, List<UUID> serverIds, Collection<UUID> attached) {
+    private Resolved resolve(ActorId actor, List<UUID> serverIds, Collection<UUID> attached, Set<UUID> openThrough,
+                             Surface surface) {
         UUID tenant = authorization.require(actor, IamCapability.CHAT_WRITE, false).tenantId().value();
-        Set<UUID> accessible = access.accessibleServerIds(tenant, actor.value());
+        var accessible = new HashSet<>(access.accessibleServerIds(tenant, actor.value()));
+        for (UUID server : openThrough) if (attached.contains(server)) accessible.add(server);
         var candidates = new ArrayList<Candidate>();
         var unavailable = new ArrayList<McpTurnTools.Unavailable>();
         var alwaysAllowable = new HashSet<String>();
@@ -129,12 +154,18 @@ public class McpTurnService {
         // stays the same from turn to turn (MEM-269).
         var selected = Set.copyOf(serverIds);
         for (UUID serverId : Stream.concat(serverIds.stream(), attached.stream()).distinct().sorted().toList()) {
-            boolean chosen = selected.contains(serverId);
+            boolean chosen = selected.contains(serverId) || openThrough.contains(serverId) || surface.channel();
             if (!accessible.contains(serverId) && !attached.contains(serverId)) continue;
             var server = servers.findByTenantIdAndId(tenant, serverId).orElse(null);
             if (server == null) continue;
-            if (!accessible.contains(serverId)) {
+            if (!accessible.contains(serverId) || surface == Surface.PUBLIC_BOT && !server.publicBots()) {
                 unavailable.add(new McpTurnTools.Unavailable(serverId, server.name(), McpTurnTools.Unavailable.Reason.INACCESSIBLE));
+                continue;
+            }
+            // Nobody connects as a bot, so a group's or a public bot's turn cannot use a personal connection.
+            if (surface.botAccount() && server.authType() != McpAuthType.NONE
+                    && server.authPerformer() == McpAuthPerformer.PER_USER) {
+                unavailable.add(new McpTurnTools.Unavailable(serverId, server.name(), McpTurnTools.Unavailable.Reason.PERSONAL));
                 continue;
             }
             UUID owner = server.authPerformer() == McpAuthPerformer.PER_USER ? actor.value() : null;
@@ -153,6 +184,10 @@ public class McpTurnService {
             var allowable = new ArrayList<String>();
             for (var tool : tools.findByTenantIdAndServerIdOrderByNameAsc(tenant, serverId)) {
                 if (tool.policy() == McpToolPolicy.OFF) continue;
+                // A channel has no approval card, and a public bot reads only (MEM-299).
+                if (surface.channel() && tool.policy() == McpToolPolicy.ASK) continue;
+                if (surface == Surface.PUBLIC_BOT
+                        && McpServerRules.risk(tool.readOnly(), tool.annotations()) != McpToolRisk.READ) continue;
                 var modelName = McpServerRules.modelToolName(server.slug(), tool.name());
                 if (modelName.isEmpty()) continue;
                 bindings.add(new McpTurnTools.Binding(serverId, server.slug(), server.name(), tool.name(), modelName.get(),

@@ -579,11 +579,24 @@ public class JdbcChatRepository {
      * @param mcpServerIds   attached MCP servers; null for the builtin agent, which reaches every accessible server
      * @param reasoningEffort the level pinned on this conversation, else the agent's own; either outranks the model
      *                        configuration (MEM-273)
+     * @param mcpOpenThrough  MCP servers open through this assistant alone (MEM-299), whoever uses it; also in
+     *                        {@code mcpServerIds}
      */
     public record Persona(String instructions, ChatTurnOptions options, String revision,
                           @Nullable UUID modelConfigurationId, List<UUID> fileIds, Set<String> tools,
                           @Nullable List<UUID> mcpServerIds,
-                          @Nullable ReasoningEffort reasoningEffort) {
+                          @Nullable ReasoningEffort reasoningEffort, List<UUID> mcpOpenThrough) {
+        public Persona {
+            mcpOpenThrough = List.copyOf(mcpOpenThrough);
+        }
+
+        public Persona(String instructions, ChatTurnOptions options, String revision,
+                       @Nullable UUID modelConfigurationId, List<UUID> fileIds, Set<String> tools,
+                       @Nullable List<UUID> mcpServerIds, @Nullable ReasoningEffort reasoningEffort) {
+            this(instructions, options, revision, modelConfigurationId, fileIds, tools, mcpServerIds, reasoningEffort,
+                    List.of());
+        }
+
         public Persona(String instructions, ChatTurnOptions options, String revision,
                        @Nullable UUID modelConfigurationId, List<UUID> fileIds, Set<String> tools,
                        @Nullable List<UUID> mcpServerIds) {
@@ -642,6 +655,17 @@ public class JdbcChatRepository {
             WHERE s.id=:session AND s.deleted_at IS NULL AND p.deleted_at IS NULL AND
             """ + CHANNEL_OR_USES;
 
+    /** MCP servers open through the session's assistant alone (MEM-299), in ID order. */
+    private static final String OPEN_MCP_SERVERS = "ARRAY(SELECT granted.server_id FROM mcp_server_persona granted"
+            + " WHERE granted.tenant_id = p.tenant_id AND granted.persona_id = p.id ORDER BY granted.server_id)";
+
+    /** A draft's attached servers with those open through its assistant, in ID order as a saved one's. */
+    private static List<UUID> draftServers(@Nullable List<UUID> attached, List<UUID> open) {
+        var servers = new TreeSet<UUID>(open);
+        if (attached != null) servers.addAll(attached);
+        return List.copyOf(servers);
+    }
+
     /** The Tenant's Chat settings are part of it because the turn reads grounded answers from them (MEM-195). */
     private static final String REVISION = "concat_ws(':',p.id,p.revision,p.model_revision,pr.id,pr.revision,"
             + "(SELECT cs.revision FROM chat_settings cs WHERE cs.tenant_id = p.tenant_id))";
@@ -663,7 +687,11 @@ public class JdbcChatRepository {
                                  ELSE p.instructions END AS instructions,
                             ARRAY(SELECT tool.tool_key FROM persona_tool tool WHERE tool.persona_id = p.id) AS tools,
                             ARRAY(SELECT server.server_id FROM persona_mcp_server server WHERE server.persona_id = p.id
-                                  ORDER BY server.server_id) AS mcp_servers,
+                                  UNION
+                                  SELECT granted.server_id FROM mcp_server_persona granted
+                                  WHERE granted.tenant_id = p.tenant_id AND granted.persona_id = p.id
+                                  ORDER BY 1) AS mcp_servers,
+                            %s AS open_mcp_servers,
                             EXISTS (SELECT 1 FROM persona_source direct WHERE direct.persona_id = p.id)
                                 OR EXISTS (SELECT 1 FROM persona_document_set attachment
                                            JOIN document_set d ON d.tenant_id = attachment.tenant_id AND d.id = attachment.document_set_id
@@ -683,7 +711,7 @@ public class JdbcChatRepository {
                                   JOIN document_set_source source ON source.tenant_id = d.tenant_id AND source.document_set_id = d.id
                                   WHERE attachment.persona_id = p.id AND d.deleted_at IS NULL
                                   ORDER BY 1) AS attached_sources
-                        """.formatted(REVISION, DocumentSetAccessSql.USES.replace(":actor", "s.owner_actor_id"))
+                        """.formatted(REVISION, OPEN_MCP_SERVERS, DocumentSetAccessSql.USES.replace(":actor", "s.owner_actor_id"))
                         + SESSION_AGENT + (lock ? " FOR SHARE OF p" : ""))
                 .param("session", session).param("base", ChatPrompts.DEFAULT_SYSTEM)
                 .param("agentsManage", agentsManage)
@@ -706,7 +734,8 @@ public class JdbcChatRepository {
                             row.getString("revision"), row.getObject("model_configuration_id", UUID.class),
                             files(builtin, tools, List.of(JSON.readValue(row.getString("file_ids"), UUID[].class))), tools,
                             builtin ? null : List.of((UUID[]) row.getArray("mcp_servers").getArray()),
-                            effort == null ? null : ReasoningEffort.valueOf(effort));
+                            effort == null ? null : ReasoningEffort.valueOf(effort),
+                            List.of((UUID[]) row.getArray("open_mcp_servers").getArray()));
                 })
                 .optional().orElseThrow(ChatException::unavailable);
     }
@@ -751,13 +780,14 @@ public class JdbcChatRepository {
                             COALESCE((SELECT cs.grounded_answers FROM chat_settings cs
                                       WHERE cs.tenant_id = p.tenant_id), FALSE) AS tenant_grounded,
                             %s AS revision,
+                            %s AS open_mcp_servers,
                             EXISTS (SELECT 1 FROM document_set d
                                     WHERE d.tenant_id = p.tenant_id AND %s AND d.deleted_at IS NULL) AS restricts_sets,
                             ARRAY(SELECT source.source_id FROM document_set d
                                   JOIN document_set_source source ON source.tenant_id = d.tenant_id AND source.document_set_id = d.id
                                   WHERE d.tenant_id = p.tenant_id AND %s AND d.deleted_at IS NULL AND %s
                                   ORDER BY 1) AS set_sources
-                        """.formatted(REVISION, attached, attached,
+                        """.formatted(REVISION, OPEN_MCP_SERVERS, attached, attached,
                         DocumentSetAccessSql.USES.replace(":actor", "s.owner_actor_id"))
                         + SESSION_AGENT)
                 .param("session", session).param("agentsManage", agentsManage);
@@ -767,6 +797,7 @@ public class JdbcChatRepository {
                     var sources = new TreeSet<>(draft.sourceIds());
                     sources.addAll(List.of((UUID[]) row.getArray("set_sources").getArray()));
                     String pinned = row.getString("pinned_effort");
+                    var open = List.of((UUID[]) row.getArray("open_mcp_servers").getArray());
                     return new Persona(builtin ? draft.instructions()
                             : String.join("\n", ChatPrompts.DEFAULT_SYSTEM, draft.instructions()),
                             ChatTurnOptions.builder()
@@ -778,8 +809,8 @@ public class JdbcChatRepository {
                                     .build(),
                             row.getString("revision"), draft.modelConfigurationId(),
                             files(builtin, draft.tools(), draft.fileIds()), draft.tools(),
-                            builtin ? null : draft.mcpServerIds() == null ? List.of() : draft.mcpServerIds(),
-                            pinned != null ? ReasoningEffort.valueOf(pinned) : draft.reasoningEffort());
+                            builtin ? null : draftServers(draft.mcpServerIds(), open),
+                            pinned != null ? ReasoningEffort.valueOf(pinned) : draft.reasoningEffort(), open);
                 })
                 .optional().orElseThrow(ChatException::unavailable);
     }

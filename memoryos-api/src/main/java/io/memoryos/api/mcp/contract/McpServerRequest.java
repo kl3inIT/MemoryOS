@@ -27,12 +27,19 @@ public record McpServerRequest(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) McpHeaderTemplateRequest headers,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) McpSecretRequest sharedApiKey,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean tenantWide,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Set<UUID> groupIds
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Set<UUID> groupIds,
+        @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true,
+                description = "Assistants the server is open through alone; empty or absent for any other access")
+        @Nullable Set<UUID> personaIds,
+        @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true,
+                description = "Whether public bots may use the server; only with a shared connection or none")
+        @Nullable Boolean publicBots
 ) {
     public McpServerService.ServerInput toInput() {
         return new McpServerService.ServerInput(name, description, url, authType, authPerformer, oauthProviderMode,
                 oauthScopes, oauthAdditionalParameters, headers == null ? null : headers.toInput(),
-                sharedApiKey == null ? null : sharedApiKey.toInput(), tenantWide, groupIds);
+                sharedApiKey == null ? null : sharedApiKey.toInput(), tenantWide, groupIds,
+                personaIds == null ? Set.of() : personaIds, Boolean.TRUE.equals(publicBots));
     }
 
     @Override public @NonNull String toString() { return "McpServerRequest[redacted]"; }

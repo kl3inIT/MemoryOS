@@ -217,10 +217,22 @@ public class JdbcAgentRepository {
                 .param("tenant", tenant).param("groups", groups).query(Integer.class).single();
     }
 
-    public int countMcpServers(UUID tenant, Collection<UUID> servers) {
+    /**
+     * How many of {@code servers} the assistant may attach: the Tenant's servers, except one open through chosen
+     * assistants alone (MEM-299) that it has not attached already.
+     */
+    public int countMcpServers(UUID tenant, Collection<UUID> servers, UUID persona) {
         if (servers.isEmpty()) return 0;
-        return jdbc.sql("SELECT count(*) FROM mcp_server WHERE tenant_id = :tenant AND id IN (:servers)")
-                .param("tenant", tenant).param("servers", servers).query(Integer.class).single();
+        return jdbc.sql("""
+                        SELECT count(*) FROM mcp_server server WHERE server.tenant_id = :tenant AND server.id IN (:servers)
+                          AND (NOT EXISTS (SELECT 1 FROM mcp_server_persona granted
+                                           WHERE granted.tenant_id = server.tenant_id AND granted.server_id = server.id)
+                               OR EXISTS (SELECT 1 FROM persona_mcp_server attached
+                                          WHERE attached.tenant_id = server.tenant_id AND attached.server_id = server.id
+                                            AND attached.persona_id = :persona))
+                        """)
+                .param("tenant", tenant).param("servers", servers).param("persona", persona)
+                .query(Integer.class).single();
     }
 
     public boolean memberOf(UUID tenant, UUID actor, UUID group) {

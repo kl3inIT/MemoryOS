@@ -158,8 +158,13 @@ every bot until switched.
 - **What it reads**: a conversation started through a public bot is marked `chat_session.channel_public` and searches
   only the Sources its assistant is given and those of every Document Set it is given, whoever may use the set: a
   Public or Private Source whole, an Auto Sync one as far as the bot's account reads each document, nothing when there
-  are none ([chat](chat.md)). The code interpreter is not offered; a channel turn offers no Web search, image
-  generation or MCP server in any case.
+  are none ([chat](chat.md)). The code interpreter is not offered, and a channel turn offers no Web search or image
+  generation in any case. It uses only the MCP servers an administrator opened to public bots, read tools only
+  ([MEM-299](../increments/active/mem-299-mcp-in-channels/design.md)).
+- **MCP in any channel** (MEM-299): a turn uses its assistant's MCP servers as whoever it runs as: a member's direct
+  message with their own connections, a group as the bot's account with shared or unauthenticated servers only. No
+  tool that asks first is offered, and a server the person has not connected is named with where to connect it in
+  MemoryOS ([chat](chat.md)).
 - **Conversations** are continued only in the mode they were started in (`ChannelTurns.continues`), so switching a bot
   starts every conversation over, both ways, and a reply to an older answer does not reach its conversation.
 

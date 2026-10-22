@@ -6067,6 +6067,53 @@ class ChatSessionApiIntegrationTest {
         }
     }
 
+    @Test
+    void anMcpServerOpensThroughChosenAssistantsAloneAndToPublicBotsOnlyWithASharedConnection() throws Exception {
+        grantCapability("MCP_MANAGE");
+        grantCapability("AGENTS_CREATE");
+        UUID chosen = UUID.fromString(Json.mapper().readTree(mockMvc.perform(post("/api/chat/personas")
+                        .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                {"name":"CSKH","description":"","instructions":"Care","starterPrompts":[],"sourceIds":[],"tools":[]}
+                                """))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("id").asText());
+        var required = Map.of("Authorization", "Bearer fixture-mcp-key", "X-Fixture", "static-header-secret");
+        try (var fixture = McpFixtureServer.start(required)) {
+            var body = mcpServerBody("open" + (System.nanoTime() % 100000), fixture.url());
+            body.put("tenantWide", false).put("publicBots", true).putArray("personaIds").add(chosen.toString());
+            var created = Json.mapper().readTree(mockMvc.perform(post("/api/mcp/servers").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                    .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+            String serverId = created.path("id").asText();
+            assertEquals(chosen.toString(), created.path("personaIds").get(0).asText());
+            assertTrue(created.path("publicBots").asBoolean());
+
+            // Nobody selects it in the composer, and no other assistant attaches it.
+            assertFalse(mockMvc.perform(get("/api/mcp/connections").with(authentication(actor))).andExpect(status().isOk())
+                    .andReturn().getResponse().getContentAsString().contains(serverId));
+            var other = Json.mapper().createObjectNode().put("name", "Khác").put("description", "").put("instructions", "Other");
+            other.putArray("starterPrompts");
+            other.putArray("sourceIds");
+            other.putArray("tools");
+            other.putArray("mcpServerIds").add(serverId);
+            mockMvc.perform(post("/api/chat/personas").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                            .contentType(MediaType.APPLICATION_JSON).content(other.toString()))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("CHAT_INVALID_REQUEST"));
+
+            // One kind of access at a time, and a public bot cannot use anyone's personal connection.
+            var both = mcpServerBody("both" + (System.nanoTime() % 100000), fixture.url());
+            both.putArray("personaIds").add(chosen.toString());
+            mockMvc.perform(post("/api/mcp/servers").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                            .contentType(MediaType.APPLICATION_JSON).content(both.toString()))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MCP_INVALID"));
+            var personal = mcpServerBody("mine" + (System.nanoTime() % 100000), fixture.url());
+            personal.put("authPerformer", "PER_USER").put("publicBots", true).putObject("sharedApiKey").put("action", "KEEP");
+            mockMvc.perform(post("/api/mcp/servers").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                            .contentType(MediaType.APPLICATION_JSON).content(personal.toString()))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MCP_INVALID"));
+        }
+    }
+
     private ObjectNode mcpServerBody(String slug, String url) {
         var body = Json.mapper().createObjectNode().put("slug", slug).put("name", "Fixture " + slug).put("url", url)
                 .put("authType", "API_TOKEN").put("authPerformer", "ADMIN").put("tenantWide", true);

@@ -29,6 +29,10 @@ public record McpServerResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean sharedCredentialConfigured,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean tenantWide,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Set<UUID> groupIds,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "Assistants the server is open through alone; empty for any other access") Set<UUID> personaIds,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Whether public bots may use the server")
+        boolean publicBots,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) McpServerStatus status,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable Instant lastRefreshedAt,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long toolCount,
@@ -39,7 +43,7 @@ public record McpServerResponse(
         return new McpServerResponse(value.id(), value.slug(), value.name(), value.description(), value.url(),
                 value.authType(), value.authPerformer(), value.oauthProviderMode(), value.oauthScopes(),
                 value.oauthAdditionalParameters(), value.headerNames(), value.sharedCredentialConfigured(),
-                value.tenantWide(), value.groupIds(), value.status(), value.lastRefreshedAt(), value.toolCount(),
+                value.tenantWide(), value.groupIds(), value.personaIds(), value.publicBots(), value.status(), value.lastRefreshedAt(), value.toolCount(),
                 value.enabledToolCount(), value.revision());
     }
 }

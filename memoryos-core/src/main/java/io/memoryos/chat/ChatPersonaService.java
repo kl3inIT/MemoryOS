@@ -629,7 +629,10 @@ public class ChatPersonaService {
                 throw ChatException.invalid("Attach at most 50 unique MCP servers.");
             // The builtin agent reaches every MCP server the actor can use; it has no attachment rows.
             if (entity.builtin() && !servers.isEmpty()) throw ChatException.invalid("The default assistant uses every available MCP server.");
-            if (agents.countMcpServers(tenant.value(), servers) != servers.size()) throw ChatException.invalid("A selected MCP server is unavailable.");
+            // MEM-299: a server open through chosen assistants alone is given on its own page, not attached here; one
+            // the assistant already attached before that stays, so its other settings can still be saved.
+            if (agents.countMcpServers(tenant.value(), servers, entity.id()) != servers.size())
+                throw ChatException.invalid("A selected MCP server is unavailable.");
         }
         return new Relations(documentSetIds, tools, servers);
     }

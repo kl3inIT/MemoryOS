@@ -473,7 +473,7 @@ class ChatTurnServiceTest {
 
     /** Blocks {@code mcp.open} until released, as a slow MCP server or OAuth token endpoint would. */
     private void slowMcpOpen(CountDownLatch opening, CountDownLatch release) {
-        when(mcp.open(any(), any(), any())).thenAnswer(_ -> {
+        when(mcp.open(any(), any(), any(), any(), any())).thenAnswer(_ -> {
             opening.countDown();
             assertTrue(release.await(5, TimeUnit.SECONDS));
             return tools;
@@ -548,7 +548,7 @@ class ChatTurnServiceTest {
                 assertEquals(pair.assistantMessageId(), second.assistantMessageId());
                 assertEquals(pair.assistantMessageId(), first.get(5, TimeUnit.SECONDS).assistantMessageId());
                 verify(persistence).reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any());
-                verify(mcp).open(any(), any(), any());
+                verify(mcp).open(any(), any(), any(), any(), any());
                 assertEquals(1, queued.size());
             } finally {
                 release.countDown();
@@ -628,7 +628,7 @@ class ChatTurnServiceTest {
     private AtomicReference<McpTurnTools.Decision> modelAskingApproval(CountDownLatch asking) {
         var gate = new AtomicReference<McpTurnTools.Approvals>();
         doAnswer(call -> { gate.set(call.getArgument(0)); return null; }).when(tools).approvals(any());
-        when(mcp.open(any(), any(), any())).thenReturn(tools);
+        when(mcp.open(any(), any(), any(), any(), any())).thenReturn(tools);
         var decided = new AtomicReference<McpTurnTools.Decision>();
         doAnswer(call -> {
             asking.countDown();
@@ -712,6 +712,35 @@ class ChatTurnServiceTest {
     }
 
     @Test
+    void aGroupsTurnOpensEveryServerOfTheAssistantOnTheBotsAccountWithoutACard() throws Exception {
+        prepare();
+        UUID linear = UUID.randomUUID();
+        UUID gmail = UUID.randomUUID();
+        when(persistence.agent(any(), any(), anyBoolean())).thenReturn(new ChatTurnPersistence.SessionAgent(new JdbcChatRepository.Persona(
+                "", ChatTurnOptions.DEFAULT, "0", null, List.of(), Set.of("search"), List.of(gmail, linear), null,
+                List.of(linear)), false, false, false));
+        when(tools.unavailable()).thenReturn(List.of(
+                new McpTurnTools.Unavailable(gmail, "Gmail", McpTurnTools.Unavailable.Reason.NOT_CONNECTED)));
+        // MEM-299: a channel selects every attached server; Linear is open through the assistant alone.
+        when(mcp.open(actor, List.of(), List.of(gmail, linear), Set.of(linear), McpTurnService.Surface.BOT_CHANNEL))
+                .thenReturn(tools);
+        doAnswer(call -> {
+            call.<Consumer<String>>getArgument(3).accept("Done");
+            return null;
+        }).when(model).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        var command = ChatCommand.builder(ChatCommand.Operation.SEND, parent, request, "Question")
+                .channel(new ChatChannel("Zalo", true, false)).build();
+        try (var tasks = Executors.newVirtualThreadPerTaskExecutor(); var service = withMcp(limits, tasks::execute)) {
+            service.command(actor, session, command);
+            // A channel has no Connect card: the model tells the person where to connect instead.
+            verify(persistence, timeout(5000)).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.COMPLETED),
+                    eq("Done"), any(), any(), any(), any(), any(), any(),
+                    argThat((ChatActivity activity) -> activity.unavailableApps().isEmpty()), any(), any(), any());
+        }
+        verify(mcp).open(actor, List.of(), List.of(gmail, linear), Set.of(linear), McpTurnService.Surface.BOT_CHANNEL);
+    }
+
+    @Test
     void theAssistantsServersThePersonCannotSelectAreOpenedAndOnlyConnectableOnesGetACard() throws Exception {
         prepare();
         UUID linear = UUID.randomUUID();
@@ -722,7 +751,7 @@ class ChatTurnServiceTest {
                 new McpTurnTools.Unavailable(linear, "Linear", McpTurnTools.Unavailable.Reason.NOT_CONNECTED),
                 new McpTurnTools.Unavailable(payroll, "Payroll", McpTurnTools.Unavailable.Reason.INACCESSIBLE)));
         // The composer sent no server: the assistant's own are still resolved, to tell the model and the person.
-        when(mcp.open(actor, List.of(), List.of(linear, payroll))).thenReturn(tools);
+        when(mcp.open(actor, List.of(), List.of(linear, payroll), Set.of(), McpTurnService.Surface.WEB)).thenReturn(tools);
         var opened = new AtomicReference<McpTurnTools>();
         doAnswer(call -> {
             opened.set(call.<ChatTurnSetup>getArgument(0).mcp());
@@ -747,7 +776,7 @@ class ChatTurnServiceTest {
     @Test
     void mcpOpenFailureAfterReservationFailsTheReservedTurn() throws Exception {
         prepare();
-        when(mcp.open(any(), any(), any())).thenThrow(new IllegalStateException("authorization server unavailable"));
+        when(mcp.open(any(), any(), any(), any(), any())).thenThrow(new IllegalStateException("authorization server unavailable"));
         try (var service = withMcp(limits, Runnable::run)) {
             assertThrows(IllegalStateException.class, () -> service.command(actor, session, mcpCommand(request)));
             verify(persistence).reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any());

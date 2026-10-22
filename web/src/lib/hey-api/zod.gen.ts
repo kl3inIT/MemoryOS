@@ -361,7 +361,9 @@ export const zMcpServerInput = z.object({
     headers: zMcpHeaderTemplateChange,
     sharedApiKey: zMcpSecretChange,
     tenantWide: z.boolean(),
-    groupIds: z.array(z.uuid())
+    groupIds: z.array(z.uuid()),
+    personaIds: z.array(z.uuid()).nullish(),
+    publicBots: z.boolean().nullish()
 });
 
 /**
@@ -386,6 +388,8 @@ export const zMcpServerView = z.object({
     sharedCredentialConfigured: z.boolean(),
     tenantWide: z.boolean(),
     groupIds: z.array(z.uuid()),
+    personaIds: z.array(z.uuid()),
+    publicBots: z.boolean(),
     status: z.enum([
         'CREATED',
         'AWAITING_AUTH',

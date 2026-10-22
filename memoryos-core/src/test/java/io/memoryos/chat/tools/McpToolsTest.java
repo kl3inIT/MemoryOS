@@ -277,6 +277,18 @@ class McpToolsTest {
     }
 
     @Test
+    void aChannelHasNoButtonSoTheNoticeSendsThePersonToMemoryOsSettings() {
+        String notice = McpTools.unavailableNotice(List.of(
+                new McpTurnTools.Unavailable(SERVER, "Gmail", McpTurnTools.Unavailable.Reason.NOT_CONNECTED),
+                new McpTurnTools.Unavailable(UUID.randomUUID(), "Drive", McpTurnTools.Unavailable.Reason.PERSONAL)), true);
+        assertTrue(notice.contains("- Gmail: the user has not connected it; tell them they can connect it in MemoryOS, "
+                + "under Settings, Connections"));
+        assertFalse(notice.contains("button"));
+        assertTrue(notice.contains("- Drive: each person connects it with their own account, which this conversation "
+                + "cannot use; do not suggest connecting it"));
+    }
+
+    @Test
     void recordsOneTimerPerOutcomeWithBoundedLabels() {
         when(turn.call(any(), any(), any())).thenReturn(new McpTurnTools.Outcome("ok", false, "{}"));
         var tools = tools(1, 8000);

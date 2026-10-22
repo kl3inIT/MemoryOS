@@ -86,7 +86,8 @@ public class McpServerService {
     public record ServerInput(String name, @Nullable String description, String url, McpAuthType authType,
                               McpAuthPerformer authPerformer, @Nullable McpOAuthProviderMode oauthProviderMode,
                               List<String> oauthScopes, Map<String, String> oauthAdditionalParameters,
-                              HeaderChange headers, SecretChange sharedApiKey, boolean tenantWide, Set<UUID> groupIds) {
+                              HeaderChange headers, SecretChange sharedApiKey, boolean tenantWide, Set<UUID> groupIds,
+                              Set<UUID> personaIds, boolean publicBots) {
         @Override public @NonNull String toString() { return "McpServerInput[redacted]"; }
     }
 
@@ -95,7 +96,7 @@ public class McpServerService {
                              @Nullable McpOAuthProviderMode oauthProviderMode, List<String> oauthScopes,
                              Map<String, String> oauthAdditionalParameters, List<String> headerNames,
                              boolean sharedCredentialConfigured, boolean tenantWide, Set<UUID> groupIds,
-                             McpServerStatus status, @Nullable Instant lastRefreshedAt, long toolCount,
+                             Set<UUID> personaIds, boolean publicBots, McpServerStatus status, @Nullable Instant lastRefreshedAt, long toolCount,
                              long enabledToolCount, long revision) {}
 
     /** {@code exposable} is false when {@code mcp_<slug>_<name>} does not fit model tool-name limits. */
@@ -141,7 +142,7 @@ public class McpServerService {
         var created = save(tenant, new McpServerEntity(UUID.randomUUID(), tenant, validSlug, now), input, true, now);
         record(tenant, actor, AuditAction.MCP_SERVER_CREATE, created.id(), created.name(),
                 event -> event.detail("after", facts(created.url(), created.authType(), created.authPerformer(),
-                        created.tenantWide(), created.groupIds().size())));
+                        created.tenantWide(), created.groupIds().size(), created.personaIds().size(), created.publicBots())));
         return created;
     }
 
@@ -151,12 +152,13 @@ public class McpServerService {
         var server = server(tenant, serverId);
         if (server.revision() != revision) throw McpException.conflict();
         if (!server.slug().equals(slug)) throw McpException.invalid("The slug of an MCP server cannot change.");
-        var before = facts(server.url(), server.authType(), server.authPerformer(), server.tenantWide(), server.groupIds().size());
+        var before = facts(server.url(), server.authType(), server.authPerformer(), server.tenantWide(), server.groupIds().size(),
+                server.personaIds().size(), server.publicBots());
         var updated = save(tenant, server, input, false, Instant.now());
         record(tenant, actor, AuditAction.MCP_SERVER_UPDATE, updated.id(), updated.name(), event -> event
                 .detail("before", before)
                 .detail("after", facts(updated.url(), updated.authType(), updated.authPerformer(), updated.tenantWide(),
-                        updated.groupIds().size()))
+                        updated.groupIds().size(), updated.personaIds().size(), updated.publicBots()))
                 .detail("credentialChange", input.sharedApiKey() == null ? "KEEP" : input.sharedApiKey().action().name()));
         return updated;
     }
@@ -395,7 +397,12 @@ public class McpServerService {
         var parameters = McpServerRules.parameters(input.oauthAdditionalParameters());
         if (authType != McpAuthType.OAUTH && (!scopes.isEmpty() || !parameters.isEmpty()))
             throw McpException.invalid("Only OAuth servers take scopes or authorization parameters.");
-        Set<UUID> groupIds = accessGroups(tenant, input.tenantWide(), input.groupIds());
+        Set<UUID> groupIds = accessGroups(tenant, input.tenantWide(), input.groupIds(), input.personaIds());
+        Set<UUID> personaIds = accessAssistants(tenant, input.personaIds());
+        // MEM-299: nobody connects as a bot, so only a server with a shared connection or none can serve a public bot.
+        boolean sharedConnection = authType == McpAuthType.NONE || performer == McpAuthPerformer.ADMIN;
+        if (input.publicBots() && !sharedConnection)
+            throw McpException.invalid("Only a server with a shared connection or none can serve public bots.");
 
         boolean urlChanged = !created && !server.url().equals(url);
         boolean connectionChanged = created || urlChanged || server.authType() != authType || server.authPerformer() != performer;
@@ -417,7 +424,8 @@ public class McpServerService {
         };
 
         server.configure(name, description, url, authType, performer, input.oauthProviderMode(), McpServerRules.json(scopes),
-                McpServerRules.json(parameters), headerTemplate, input.tenantWide(), groupIds, now);
+                McpServerRules.json(parameters), headerTemplate, input.tenantWide(), groupIds, personaIds,
+                input.publicBots(), now);
         if (urlChanged) server.reconnect(readiness(authType, performer, sharedAfter), now);
         else if (connectionChanged || key.action() != McpSecretAction.KEEP)
             server.status(readiness(authType, performer, sharedAfter), null, now);
@@ -460,11 +468,14 @@ public class McpServerService {
         };
     }
 
-    private Set<UUID> accessGroups(UUID tenant, boolean tenantWide, @Nullable Set<UUID> groupIds) {
+    /** Exactly one of: the whole organization, some Groups, or some assistants alone (MEM-299). */
+    private Set<UUID> accessGroups(UUID tenant, boolean tenantWide, @Nullable Set<UUID> groupIds, @Nullable Set<UUID> personaIds) {
         if (groupIds == null || groupIds.size() > McpServerRules.MAX_GROUPS || groupIds.stream().anyMatch(Objects::isNull))
             throw McpException.invalid("Provide at most " + McpServerRules.MAX_GROUPS + " Groups.");
-        if (tenantWide && !groupIds.isEmpty()) throw McpException.invalid("Choose organization-wide access or Groups, not both.");
-        if (!tenantWide && groupIds.isEmpty()) throw McpException.invalid("Choose organization-wide access or at least one Group.");
+        boolean assistants = personaIds != null && !personaIds.isEmpty();
+        int chosen = (tenantWide ? 1 : 0) + (groupIds.isEmpty() ? 0 : 1) + (assistants ? 1 : 0);
+        if (chosen > 1) throw McpException.invalid("Choose organization-wide access, Groups or assistants, only one.");
+        if (chosen == 0) throw McpException.invalid("Choose organization-wide access, at least one Group or at least one assistant.");
         if (!groupIds.isEmpty()) groups.validateGroupIds(new TenantId(tenant), groupIds.stream().map(GroupId::new).toList());
         return Set.copyOf(groupIds);
     }
@@ -520,6 +531,16 @@ public class McpServerService {
         }
     }
 
+    /** Custom assistants of the Tenant, not deleted, that the server is open through alone. */
+    private Set<UUID> accessAssistants(UUID tenant, @Nullable Set<UUID> personaIds) {
+        if (personaIds == null) throw McpException.invalid("Provide the assistants, or none.");
+        if (personaIds.size() > McpServerRules.MAX_GROUPS || personaIds.stream().anyMatch(Objects::isNull))
+            throw McpException.invalid("Provide at most " + McpServerRules.MAX_GROUPS + " assistants.");
+        if (access.countCustomAssistants(tenant, personaIds) != personaIds.size())
+            throw McpException.invalid("A selected assistant is unavailable.");
+        return Set.copyOf(personaIds);
+    }
+
     private ServerView view(McpServerEntity server) {
         List<String> headerNames;
         try {
@@ -531,7 +552,8 @@ public class McpServerService {
                 server.authType(), server.authPerformer(), server.oauthProviderMode(),
                 McpServerRules.stringList(server.oauthScopes()), McpServerRules.stringMap(server.oauthAdditionalParameters()),
                 headerNames, credentials.findByTenantIdAndServerIdAndOwnerActorIdIsNull(server.tenantId(), server.getId()).isPresent(),
-                server.tenantWide(), server.groupIds(), server.status(), server.lastRefreshedAt(),
+                server.tenantWide(), server.groupIds(), server.personaIds(), server.publicBots(), server.status(),
+                server.lastRefreshedAt(),
                 tools.countByTenantIdAndServerId(server.tenantId(), server.getId()),
                 tools.countByTenantIdAndServerIdAndPolicyNot(server.tenantId(), server.getId(), McpToolPolicy.OFF),
                 server.revision());
@@ -569,13 +591,15 @@ public class McpServerService {
 
     /** Where the server is, how it authenticates and who may use it; header values and keys are never recorded. */
     private static Map<String, Object> facts(String url, McpAuthType authType, McpAuthPerformer performer, boolean tenantWide,
-                                             int groups) {
+                                             int groups, int assistants, boolean publicBots) {
         var facts = new LinkedHashMap<String, Object>();
         facts.put("url", url);
         facts.put("authentication", authType.name());
         facts.put("performer", performer.name());
         facts.put("tenantWide", tenantWide);
         facts.put("groups", groups);
+        facts.put("assistants", assistants);
+        facts.put("publicBots", publicBots);
         return facts;
     }
 }

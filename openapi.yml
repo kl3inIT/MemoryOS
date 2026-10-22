@@ -25026,6 +25026,22 @@ components:
             type: string
             format: uuid
           uniqueItems: true
+        personaIds:
+          type:
+          - array
+          - "null"
+          description: Assistants the server is open through alone; empty or absent
+            for any other access
+          items:
+            type: string
+            format: uuid
+          uniqueItems: true
+        publicBots:
+          type:
+          - boolean
+          - "null"
+          description: Whether public bots may use the server; only with a shared
+            connection or none
       required:
       - authPerformer
       - authType
@@ -25095,6 +25111,17 @@ components:
             type: string
             format: uuid
           uniqueItems: true
+        personaIds:
+          type: array
+          description: Assistants the server is open through alone; empty for any
+            other access
+          items:
+            type: string
+            format: uuid
+          uniqueItems: true
+        publicBots:
+          type: boolean
+          description: Whether public bots may use the server
         status:
           type: string
           enum:
@@ -25130,6 +25157,8 @@ components:
       - oauthAdditionalParameters
       - oauthProviderMode
       - oauthScopes
+      - personaIds
+      - publicBots
       - revision
       - sharedCredentialConfigured
       - slug

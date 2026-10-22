@@ -65,10 +65,10 @@ Read on 2026-10-22.
    picks the assistants (`mcp_server_persona`):
    - The server is then usable only through those assistants, by anyone who may use them: a person on the web, or a
      bot that answers with one.
-   - It is not offered in the composer, and only those assistants may attach it. The editor lists it only for them,
-     and saving any other assistant with it is refused.
-   - A token meant for one bot is given to that bot's assistant alone. The schema allows Groups and assistants
-     together; the editor offers the three choices one at a time.
+   - It is not offered in the composer. It is on in every turn of those assistants without being attached, and
+     saving any other assistant with it is refused, unless that assistant attached it before.
+   - A token meant for one bot is given to that bot's assistant alone.
+   - Access is exactly one of the three choices, as organization-wide and Groups already exclude each other.
 3. **Otherwise access stays the actor's.** Unlike Onyx, an attached server is not usable by everyone who uses the
    assistant, unless it is open through that assistant (decision 2). The bot's account may use an
    organization-wide server, one granted to the Basic Group, or one open through its assistant.
@@ -77,8 +77,8 @@ Read on 2026-10-22.
    credential is used, as on the web. No product lends one person's Gmail to others except Copilot Studio's maker
    credentials, which Microsoft lets admins block.
 5. **A public bot uses only servers an administrator opened to it.** A new switch on each server, *Cho bot công khai
-   dùng* (`mcp_server.public_bots`, off by default), is offered only for a server with a shared credential or none.
-   Changing the server to personal credentials turns it off. Changing it is audited with the server. Onyx and Dust
+   dùng* (`mcp_server.public_bots`, off by default), is accepted only for a server with a shared credential or none.
+   It is audited with the server. Onyx and Dust
    have no such step: their Slack channels hold the company's own workspace, while a public bot answers strangers on
    Zalo.
 6. **A public bot offers only read tools.** For a public bot, only tools whose risk is `READ` (MEM-264) open, even if

@@ -33,6 +33,14 @@ public class McpAccessRepository {
         return Set.copyOf(ids);
     }
 
+    /** How many of {@code personaIds} are the Tenant's custom assistants, not deleted (MEM-299). */
+    public int countCustomAssistants(UUID tenantId, Set<UUID> personaIds) {
+        if (personaIds.isEmpty()) return 0;
+        return jdbc.sql("SELECT count(*) FROM persona WHERE tenant_id = :tenant AND id IN (:ids)"
+                        + " AND builtin_key IS NULL AND deleted_at IS NULL")
+                .param("tenant", tenantId).param("ids", personaIds).query(Integer.class).single();
+    }
+
     public boolean accessible(UUID tenantId, UUID serverId, UUID actorId) {
         return jdbc.sql("SELECT EXISTS (SELECT 1 FROM mcp_server server WHERE server.tenant_id = :tenant"
                         + " AND server.id = :server AND (" + ACCESSIBLE + "))")
