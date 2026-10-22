@@ -1,9 +1,14 @@
 package io.memoryos.chat;
 
 import io.memoryos.chat.preferences.persistence.JdbcChatPreferencesRepository;
+import io.memoryos.chat.session.persistence.JdbcChatRepository;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.shared.TenantId;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.ActorProfileReader;
 import io.memoryos.iam.TenantAccessResolver;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,9 +21,14 @@ public class ChatPreferencesService {
     private final TenantAccessResolver tenants;
     private final ChatModelAccess catalog;
     private final ActorProfileReader profiles;
+    private final JdbcChatRepository chats;
+    private final IamAuthorization authorization;
 
     public ChatPreferencesService(JdbcChatPreferencesRepository preferences, TenantAccessResolver tenants,
-                                  ChatModelAccess catalog, ActorProfileReader profiles) {
+                                  ChatModelAccess catalog, ActorProfileReader profiles, JdbcChatRepository chats,
+                                  IamAuthorization authorization) {
+        this.chats = chats;
+        this.authorization = authorization;
         this.preferences = preferences;
         this.tenants = tenants;
         this.catalog = catalog;
@@ -28,7 +38,16 @@ public class ChatPreferencesService {
     @Transactional(readOnly = true)
     public View get(ActorId actor) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable).value();
-        return new View(preferences.find(tenant, actor.value()).orElse(ChatPreferences.DEFAULT), profiles.read(actor));
+        var value = preferences.find(tenant, actor.value()).orElse(ChatPreferences.DEFAULT);
+        // An assistant deleted or no longer usable is not offered back: the bot's own answers instead.
+        if (value.channelPersonaId() != null && !usable(tenant, actor, value.channelPersonaId()))
+            value = value.withChannelPersona(null);
+        return new View(value, profiles.read(actor));
+    }
+
+    private boolean usable(UUID tenant, ActorId actor, UUID persona) {
+        return chats.usablePersona(new TenantId(tenant), actor, persona,
+                authorization.effectiveCapabilities(actor).contains(IamCapability.AGENTS_MANAGE));
     }
 
     /** Replaces the preferences; a default model must be one the member may pick for a new conversation now. */
@@ -45,6 +64,8 @@ public class ChatPreferencesService {
         if (value.defaultModelId() != null && catalog.availableModels(actor, null).stream()
                 .noneMatch(model -> model.id().equals(value.defaultModelId())))
             throw ChatException.invalid("Choose a model you can use.");
+        if (value.channelPersonaId() != null && !usable(tenant, actor, value.channelPersonaId()))
+            throw ChatException.invalid("Choose an assistant you can use.");
         return new View(preferences.save(tenant, actor.value(), value), profiles.read(actor));
     }
 }

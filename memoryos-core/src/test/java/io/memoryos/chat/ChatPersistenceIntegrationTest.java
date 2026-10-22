@@ -1068,7 +1068,7 @@ class ChatPersistenceIntegrationTest {
         var tenantId = new TenantId(tenant);
         UUID bot = UUID.randomUUID();
         UUID builtin = sessions.create(other, "Web").personaId();
-        assertEquals(builtin, sessions.channelPersona(other, bot, null), "a bot bound to nothing answers with the built-in one");
+        assertEquals(builtin, sessions.channelPersona(other, bot, null, false), "a bot bound to nothing answers with the built-in one");
 
         tx.executeWithoutResult(_ -> bindings.bind(tenantId, bot, agent.id()));
         var held = sessions.createInChannel(other, "Nghỉ phép từ Zalo", bot, null, false);
@@ -1089,7 +1089,7 @@ class ChatPersistenceIntegrationTest {
         assertEquals("CHAT_UNAVAILABLE", assertThrows(ChatException.class, () -> snapshot(onFinance.id())).code());
         tx.executeWithoutResult(_ -> bindings.bind(tenantId, bot, agent.id()));
         personas.delete(owner, agent.id(), personas.get(owner, agent.id()).revision());
-        assertEquals(builtin, sessions.channelPersona(other, bot, null));
+        assertEquals(builtin, sessions.channelPersona(other, bot, null, false));
         assertEquals(builtin, sessions.createInChannel(other, "Sau khi xoá", bot, null, false).personaId());
     }
 
@@ -1138,11 +1138,27 @@ class ChatPersistenceIntegrationTest {
         tx.executeWithoutResult(_ -> bindings.bind(tenantId, bot, finance.id()));
 
         // No group of its own: the bot's default, in a group and in a direct message alike.
-        assertEquals(finance.id(), sessions.channelPersona(other, bot, "oc_hr"));
+        assertEquals(finance.id(), sessions.channelPersona(other, bot, "oc_hr", false));
         tx.executeWithoutResult(_ -> bindings.bindGroup(tenantId, bot, "oc_hr", hr.id()));
-        assertEquals(hr.id(), sessions.channelPersona(other, bot, "oc_hr"), "the group's own assistant wins");
-        assertEquals(finance.id(), sessions.channelPersona(other, bot, "oc_board"), "another group keeps the default");
-        assertEquals(finance.id(), sessions.channelPersona(other, bot, null), "a direct message keeps the default");
+        assertEquals(hr.id(), sessions.channelPersona(other, bot, "oc_hr", false), "the group's own assistant wins");
+        assertEquals(finance.id(), sessions.channelPersona(other, bot, "oc_board", false), "another group keeps the default");
+        assertEquals(finance.id(), sessions.channelPersona(other, bot, null, false), "a direct message keeps the default");
+
+        // MEM-299: a member's direct messages answer with the assistant they chose, while they may use it; a group and
+        // a public bot keep the administrator's choice.
+        jdbc.sql("""
+                        INSERT INTO chat_preferences (tenant_id, actor_id, channel_persona_id) VALUES (:tenant, :actor, :persona)
+                        ON CONFLICT (tenant_id, actor_id) DO UPDATE SET channel_persona_id = EXCLUDED.channel_persona_id
+                        """).param("tenant", tenant).param("actor", other.value()).param("persona", hr.id()).update();
+        assertEquals(finance.id(), sessions.channelPersona(other, bot, null, false), "an assistant they may not use is ignored");
+        jdbc.sql("UPDATE persona SET is_public = TRUE WHERE id = :id").param("id", hr.id()).update();
+        assertEquals(hr.id(), sessions.channelPersona(other, bot, null, false), "their own choice answers their direct message");
+        assertEquals(hr.id(), sessions.createInChannel(other, "Riêng", bot, null, false).personaId());
+        assertEquals(finance.id(), sessions.channelPersona(other, bot, "oc_board", false), "a group keeps the bot's");
+        assertEquals(finance.id(), sessions.channelPersona(other, bot, null, true), "a public bot keeps the bot's");
+        jdbc.sql("UPDATE persona SET is_public = FALSE WHERE id = :id").param("id", hr.id()).update();
+        jdbc.sql("UPDATE chat_preferences SET channel_persona_id = NULL WHERE actor_id = :actor")
+                .param("actor", other.value()).update();
 
         var inGroup = sessions.createInChannel(other, "Nghỉ phép trong nhóm", bot, "oc_hr", false);
         assertEquals(hr.id(), inGroup.personaId());
@@ -1171,11 +1187,11 @@ class ChatPersistenceIntegrationTest {
         tx.executeWithoutResult(_ -> bindings.bind(tenantId, bot, finance.id()));
         tx.executeWithoutResult(_ -> bindings.bindGroup(tenantId, bot, "oc_hr", hr.id()));
         personas.delete(owner, hr.id(), personas.get(owner, hr.id()).revision());
-        assertEquals(finance.id(), sessions.channelPersona(other, bot, "oc_hr"));
+        assertEquals(finance.id(), sessions.channelPersona(other, bot, "oc_hr", false));
         assertTrue(snapshot(onFinance.id()).instructions().contains("Trả lời theo báo cáo."),
                 "a deleted group assistant no longer resolves, so the default's conversation is usable again");
         tx.executeWithoutResult(_ -> bindings.release(tenantId, bot));
-        assertEquals(builtin, sessions.channelPersona(other, bot, "oc_hr"));
+        assertEquals(builtin, sessions.channelPersona(other, bot, "oc_hr", false));
         assertEquals(Map.of(), tx.execute(_ -> bindings.groups(tenantId, bot)), "removing the bot drops its groups' assistants");
     }
 

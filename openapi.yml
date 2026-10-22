@@ -27109,6 +27109,13 @@ components:
           - HIGH
         autoScroll:
           type: boolean
+        channelPersonaId:
+          type:
+          - string
+          - "null"
+          format: uuid
+          description: The assistant the member's direct messages to a bot answer
+            with; null keeps the bot's own
       required:
       - autoScroll
       - personalPreferences
@@ -27187,6 +27194,13 @@ components:
           - HIGH
         autoScroll:
           type: boolean
+        channelPersonaId:
+          type:
+          - string
+          - "null"
+          format: uuid
+          description: The assistant the member's direct messages to a bot answer
+            with; absent for the bot's own
         displayName:
           type:
           - string

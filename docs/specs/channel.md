@@ -161,6 +161,8 @@ every bot until switched.
   are none ([chat](chat.md)). The code interpreter is not offered, and a channel turn offers no Web search or image
   generation in any case. It uses only the MCP servers an administrator opened to public bots, read tools only
   ([MEM-299](../increments/active/mem-299-mcp-in-channels/design.md)).
+- **A member's own assistant** (MEM-299): a direct message to a bot that is not public answers with the assistant the
+  member chose in Settings › Chat while they may use it, else the bot's; changing it starts the conversation over.
 - **MCP in any channel** (MEM-299): a turn uses its assistant's MCP servers as whoever it runs as: a member's direct
   message with their own connections, a group as the bot's account with shared or unauthenticated servers only. No
   tool that asks first is offered, and a server the person has not connected is named with where to connect it in

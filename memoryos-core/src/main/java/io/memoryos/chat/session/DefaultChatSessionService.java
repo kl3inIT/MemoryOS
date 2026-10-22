@@ -17,6 +17,7 @@ import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
@@ -64,9 +65,17 @@ public class DefaultChatSessionService implements ChatSessionService {
 
     @Override
     @Transactional(readOnly = true)
-    public UUID channelPersona(ActorId actor, UUID connection, @Nullable String groupChat) {
+    public UUID channelPersona(ActorId actor, UUID connection, @Nullable String groupChat, boolean publicBot) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
-        return chats.channelPersona(tenant, connection, groupChat).orElseThrow(ChatException::unavailable);
+        return persona(tenant, actor, connection, groupChat, publicBot).orElseThrow(ChatException::unavailable);
+    }
+
+    /** The bot's assistant in the chat, or the member's own for their direct message to a bot that is not public. */
+    private Optional<UUID> persona(TenantId tenant, ActorId actor, UUID connection, @Nullable String groupChat,
+                                   boolean publicBot) {
+        boolean own = groupChat == null && !publicBot;
+        return chats.channelPersona(tenant, connection, groupChat, own ? actor : null,
+                own && authorization.effectiveCapabilities(actor).contains(IamCapability.AGENTS_MANAGE));
     }
 
     private ChatSession create(ActorId actor, String title, boolean temporary, ChatSurface surface) {
@@ -80,7 +89,7 @@ public class DefaultChatSessionService implements ChatSessionService {
         }
         authorization.require(actor, IamCapability.CHAT_WRITE, false);
         var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();
-        var personaId = (connection != null ? chats.channelPersona(tenant, connection, groupChat)
+        var personaId = (connection != null ? persona(tenant, actor, connection, groupChat, publicBot)
                 : chats.defaultPersona(tenant)).orElseThrow(ChatException::unavailable);
         return chats.create(tenant, actor, personaId, title.strip(), temporary, surface, connection, groupChat, publicBot);
     }

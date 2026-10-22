@@ -46,22 +46,17 @@
 
 ## PR 3: the assistant of a member's direct messages
 
-- [ ] V196: `chat_preferences.channel_persona_id` (nullable, cleared when the assistant is deleted).
-- [ ] Preferences:
-  - `PUT` accepts an assistant the member may use and refuses another.
-  - Reading it back drops one that is no longer usable.
-- [ ] Channel: a member's direct message to a bot that is not public answers with it, else the bot's default.
-  Changing it starts the conversation over (`ChannelTurns.continues` already compares the assistant).
-- [ ] Settings › Chat: *Trợ lý khi nhắn riêng bot*, a picker of the member's assistants with the bot's default first.
-  It saves on change.
-- [ ] Tests:
-  - Preferences validation.
-  - `ChannelInboundServiceTest`:
-    - The member's choice answers their direct message.
-    - A group or a public bot ignores it.
-    - An unusable choice falls back to the bot's default.
-  - Web component test.
-- [ ] Docs: the chat spec's personal preferences and the channel spec's direct message.
+- [x] V196: `chat_preferences.channel_persona_id`, cleared when the assistant is deleted.
+- [x] Preferences: `PUT` accepts an assistant the member may use and refuses another; a read leaves out one no
+  longer usable.
+- [x] Chat: a member's direct message to a bot that is not public resolves to it (`channelPersona`), else the bot's;
+  changing it starts the conversation over through `ChannelTurns.continues`.
+- [x] Settings › Chat: *Nhắn riêng bot* › *Trợ lý trả lời*, *Theo bot* first, saved on change, shown when the Tenant
+  has a bot.
+- [x] Tests: `ChatPersistenceIntegrationTest` (direct message, group, public bot, unusable),
+  `ChatSessionApiIntegrationTest.aMemberChoosesTheAssistantOfTheirDirectMessagesToBotsAmongThoseTheyMayUse`,
+  `channel-direct-assistant.test.tsx`.
+- [x] Docs: the chat spec's personal preferences and the channel spec.
 
 ## Acceptance on staging
 

@@ -15,9 +15,13 @@ public record ChatPreferencesRequest(
         @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true, minimum = "0", maximum = "2")
         @Nullable Double temperatureDefault,
         @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true) @Nullable ReasoningEffort reasoningEffortDefault,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean autoScroll
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean autoScroll,
+        @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true,
+                description = "The assistant the member's direct messages to a bot answer with; null keeps the bot's own")
+        @Nullable UUID channelPersonaId
 ) {
     public ChatPreferences toInput() {
-        return new ChatPreferences(workRole, personalPreferences, defaultModelId, temperatureDefault, reasoningEffortDefault, autoScroll);
+        return new ChatPreferences(workRole, personalPreferences, defaultModelId, temperatureDefault, reasoningEffortDefault,
+                autoScroll, channelPersonaId);
     }
 }

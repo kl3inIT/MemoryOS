@@ -2369,4 +2369,7 @@ Object.assign(vietnameseUi, {
   "Được dùng": "Allowed",
   "Không dùng": "Not allowed",
   "Chưa có trợ lý nào.": "No assistants yet.",
+  "Nhắn riêng bot": "Direct messages to bots",
+  "Trợ lý trả lời": "Answering assistant",
+  "Theo bot": "The bot's own",
 });

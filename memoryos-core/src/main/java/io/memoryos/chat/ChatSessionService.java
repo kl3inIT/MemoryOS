@@ -32,9 +32,10 @@ public interface ChatSessionService {
     /**
      * The assistant the bot {@code connection} answers with in the group chat {@code groupChat} (null for a direct
      * message): the group's own live assistant, else the live custom assistant the bot is bound to, else the Tenant's
-     * built-in assistant ({@link ChatChannelBindings}).
+     * built-in assistant ({@link ChatChannelBindings}). A direct message to a bot that is not public ({@code publicBot})
+     * answers with the assistant the member chose for their direct messages, while they may use it (MEM-299).
      */
-    UUID channelPersona(ActorId actor, UUID connection, @Nullable String groupChat);
+    UUID channelPersona(ActorId actor, UUID connection, @Nullable String groupChat, boolean publicBot);
     /** {@code archived} lists the conversations the owner archived instead of the ones on the sidebar. */
     default List<ChatSession> list(ActorId actor, boolean archived, int offset, int limit) {
         return list(actor, archived, null, offset, limit);
