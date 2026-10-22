@@ -1442,6 +1442,8 @@ export type PersonaView = {
     grounded?: boolean;
     pinned?: boolean;
     deletedAt?: string;
+    openMcpServers?: Array<AgentRef>;
+    publicBotMcpServers?: Array<AgentRef>;
 };
 
 export type GroupShareInput = {

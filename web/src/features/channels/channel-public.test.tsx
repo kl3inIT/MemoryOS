@@ -75,6 +75,7 @@ function renderSwitch(channel: ChannelResponse) {
               sources: [{ id: "s1", name: "Câu hỏi thường gặp" }],
               documentSets: [{ id: "d1", name: "Chính sách đổi trả" }],
               fileIds: ["f1", "f2"],
+              publicBotMcpServers: [{ id: "m1", name: "Linear" }],
             })
           : view(PRICES, "Bảng giá Đại Phát"),
       ),
@@ -115,6 +116,7 @@ describe("ChannelPublicSwitch", () => {
       "Bảng giá Đại Phát · Khách Đại Phát",
     );
     expect(await within(dialog).findByText("Không có tài liệu")).toBeVisible();
+    expect(within(dialog).getByText("Ứng dụng: Linear")).toBeVisible();
 
     await user.click(within(dialog).getByRole("button", { name: "Hủy" }));
     expect(saved).toEqual([]);

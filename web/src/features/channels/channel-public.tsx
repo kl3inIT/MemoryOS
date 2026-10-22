@@ -110,6 +110,8 @@ function Exposure({ channel }: { channel: ChannelResponse }) {
             ? [ui("{{count}} tệp", { count: view?.fileIds?.length ?? 0 })]
             : []),
         ];
+        // MEM-299: the apps a public bot uses through this assistant, read tools only.
+        const apps = (view?.publicBotMcpServers ?? []).map((server) => server.name ?? "");
         return (
           <li key={id || "built-in"} className="flex flex-col gap-0.5 px-4 py-3">
             <span className="text-content-primary">
@@ -123,6 +125,11 @@ function Exposure({ channel }: { channel: ChannelResponse }) {
                   ? given.join(", ")
                   : ui("Không có tài liệu")}
             </span>
+            {apps.length > 0 ? (
+              <span className="wrap-anywhere text-content-muted">
+                {ui("Ứng dụng: {{apps}}", { apps: apps.join(", ") })}
+              </span>
+            ) : null}
           </li>
         );
       })}

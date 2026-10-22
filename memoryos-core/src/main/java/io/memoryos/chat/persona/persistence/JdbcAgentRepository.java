@@ -28,9 +28,13 @@ import org.springframework.stereotype.Repository;
 public class JdbcAgentRepository {
 
     public record Access(UUID id, boolean uses, boolean edits, boolean owns, boolean vacant) {}
+    /**
+     * {@code openMcpServers} are the servers open through an agent alone (MEM-299); {@code publicBotMcpServers} those of
+     * its servers, attached or open through it, that a public bot may use.
+     */
     public record Details(Map<UUID, Set<String>> tools, Map<UUID, List<AgentRef>> mcpServers, Map<UUID, List<AgentRef>> labels,
                           Map<UUID, AgentOwner> owners, Map<UUID, List<AgentUserShare>> userShares, Map<UUID, List<AgentGroupShare>> groupShares,
-                          Set<UUID> pinned) {}
+                          Set<UUID> pinned, Map<UUID, List<AgentRef>> openMcpServers, Map<UUID, List<AgentRef>> publicBotMcpServers) {}
 
     private final JdbcClient jdbc;
 
@@ -94,13 +98,25 @@ public class JdbcAgentRepository {
     }
 
     public Details details(UUID tenant, UUID actor, Collection<UUID> ids) {
-        if (ids.isEmpty()) return new Details(Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Set.of());
+        if (ids.isEmpty()) return new Details(Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Set.of(), Map.of(), Map.of());
         var tools = new HashMap<UUID, Set<String>>();
         rows("SELECT persona_id, tool_key FROM persona_tool WHERE tenant_id = :tenant AND persona_id IN (:ids) ORDER BY tool_key",
                 tenant, ids).forEach(row -> tools.computeIfAbsent((UUID) row[0], ignored -> new LinkedHashSet<>()).add((String) row[1]));
         var servers = refs("""
                 SELECT a.persona_id, s.id, s.name FROM persona_mcp_server a
                 JOIN mcp_server s ON s.tenant_id = a.tenant_id AND s.id = a.server_id
+                WHERE a.tenant_id = :tenant AND a.persona_id IN (:ids) ORDER BY lower(s.name), s.id
+                """, tenant, ids);
+        var open = refs("""
+                SELECT a.persona_id, s.id, s.name FROM mcp_server_persona a
+                JOIN mcp_server s ON s.tenant_id = a.tenant_id AND s.id = a.server_id
+                WHERE a.tenant_id = :tenant AND a.persona_id IN (:ids) ORDER BY lower(s.name), s.id
+                """, tenant, ids);
+        var publicBots = refs("""
+                SELECT a.persona_id, s.id, s.name
+                FROM (SELECT tenant_id, persona_id, server_id FROM persona_mcp_server
+                      UNION SELECT tenant_id, persona_id, server_id FROM mcp_server_persona) a
+                JOIN mcp_server s ON s.tenant_id = a.tenant_id AND s.id = a.server_id AND s.public_bots
                 WHERE a.tenant_id = :tenant AND a.persona_id IN (:ids) ORDER BY lower(s.name), s.id
                 """, tenant, ids);
         var labels = refs("""
@@ -145,7 +161,7 @@ public class JdbcAgentRepository {
         var pinned = Set.copyOf(jdbc.sql("""
                         SELECT persona_id FROM actor_pinned_persona WHERE tenant_id = :tenant AND actor_id = :actor AND persona_id IN (:ids)
                         """).param("tenant", tenant).param("actor", actor).param("ids", ids).query(UUID.class).list());
-        return new Details(tools, servers, labels, owners, userShares, groupShares, pinned);
+        return new Details(tools, servers, labels, owners, userShares, groupShares, pinned, open, publicBots);
     }
 
     public void replaceShares(UUID tenant, UUID persona, Map<UUID, AgentPermission> users, Map<UUID, AgentPermission> groups) {

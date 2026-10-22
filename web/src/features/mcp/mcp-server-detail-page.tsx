@@ -100,7 +100,23 @@ function ServerDetail({
             ),
           ] as [string, string],
         ]),
-    [ui("Ai dùng được"), ui(server.tenantWide ? "Cả tổ chức" : "Chọn nhóm")],
+    [
+      ui("Ai dùng được"),
+      ui(
+        server.personaIds.length > 0
+          ? "Chỉ qua trợ lý được chọn"
+          : server.tenantWide
+            ? "Cả tổ chức"
+            : "Chọn nhóm",
+      ),
+    ],
+    // MEM-299: only a shared connection or none can serve a public bot.
+    ...(server.authType === "NONE" || server.authPerformer === "ADMIN"
+      ? ([[ui("Bot công khai"), ui(server.publicBots ? "Được dùng" : "Không dùng")]] as [
+          string,
+          string,
+        ][])
+      : []),
   ];
 
   return (

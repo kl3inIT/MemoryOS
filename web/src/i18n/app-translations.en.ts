@@ -2360,4 +2360,13 @@ Object.assign(vietnameseUi, {
   "công khai": "public",
   "Ai nhắn bot {{bots}} cũng đọc được tài liệu ở đây.":
     "Anyone who messages {{bots}} can read the documents here.",
+  "Ai nhắn bot {{bots}} cũng dùng được {{apps}}.": "Anyone who messages {{bots}} can use {{apps}}.",
+  "Ứng dụng: {{apps}}": "Apps: {{apps}}",
+  "Luôn bật": "Always on",
+  "Chỉ qua trợ lý được chọn": "Only through chosen assistants",
+  "Cho bot công khai dùng": "Public bots may use it",
+  "Bot công khai": "Public bots",
+  "Được dùng": "Allowed",
+  "Không dùng": "Not allowed",
+  "Chưa có trợ lý nào.": "No assistants yet.",
 });
