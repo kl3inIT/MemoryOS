@@ -3427,6 +3427,29 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void aMemberChoosesTheAssistantOfTheirDirectMessagesToBotsAmongThoseTheyMayUse() throws Exception {
+        grantCapability("AGENTS_CREATE");
+        String mine = Json.mapper().readTree(mockMvc.perform(post("/api/chat/personas").with(authentication(actor)).with(csrf())
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("""
+                                {"name":"Thư ký","description":"","instructions":"Mail","starterPrompts":[],"sourceIds":[],"tools":[]}
+                                """))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("id").asText();
+        var body = Json.mapper().createObjectNode().put("workRole", "").put("personalPreferences", "").put("autoScroll", true)
+                .put("channelPersonaId", mine);
+        mockMvc.perform(put("/api/chat/preferences").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.channelPersonaId").value(mine));
+        // Another member may not use it, so it is refused for them.
+        mockMvc.perform(put("/api/chat/preferences").with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("CHAT_INVALID_REQUEST"));
+        // Deleted later: the choice is no longer offered back.
+        jdbc.sql("UPDATE persona SET deleted_at = now() WHERE id = :id").param("id", UUID.fromString(mine)).update();
+        mockMvc.perform(get("/api/chat/preferences").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.channelPersonaId").doesNotExist());
+    }
+
+    @Test
     void reasoningLevelIsPinnedPerConversationAndDefaultsBelongToTheMember() throws Exception {
         String session = create().path("id").asText();
         // A conversation starts with nothing pinned; the model configuration decides.

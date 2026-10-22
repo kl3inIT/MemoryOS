@@ -104,6 +104,26 @@ public class JdbcChatRepository {
      * direct message.
      */
     public Optional<UUID> channelPersona(TenantId tenant, UUID connection, @Nullable String groupChat) {
+        return channelPersona(tenant, connection, groupChat, null, false);
+    }
+
+    /**
+     * As {@link #channelPersona(TenantId, UUID, String)}, but a direct message from {@code member} answers with the
+     * assistant they chose for their direct messages while they may still use it (MEM-299); null for a group or a
+     * public bot, where the administrator's choice holds.
+     */
+    public Optional<UUID> channelPersona(TenantId tenant, UUID connection, @Nullable String groupChat,
+                                         @Nullable ActorId member, boolean agentsManage) {
+        if (groupChat == null && member != null) {
+            var chosen = jdbc.sql("""
+                            SELECT p.id FROM chat_preferences preference
+                            JOIN persona p ON p.tenant_id = preference.tenant_id AND p.id = preference.channel_persona_id
+                            WHERE preference.tenant_id = :tenant AND preference.actor_id = :actor AND p.deleted_at IS NULL
+                              AND """ + AgentAccessSql.USES)
+                    .param("tenant", tenant.value()).param("actor", member.value()).param("agentsManage", agentsManage)
+                    .query(UUID.class).optional();
+            if (chosen.isPresent()) return chosen;
+        }
         if (groupChat != null) {
             var group = jdbc.sql("""
                             SELECT p.id FROM chat_channel_group_binding g

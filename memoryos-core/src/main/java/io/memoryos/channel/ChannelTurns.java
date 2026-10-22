@@ -47,7 +47,7 @@ class ChannelTurns {
         try {
             var held = sessions.get(actor, session);
             return held.channelPublic() == publicBot
-                    && held.personaId().equals(sessions.channelPersona(actor, connection, group));
+                    && held.personaId().equals(sessions.channelPersona(actor, connection, group, publicBot));
         } catch (RuntimeException unavailable) {
             return false;
         }

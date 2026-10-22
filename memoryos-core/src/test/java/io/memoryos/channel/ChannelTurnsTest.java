@@ -5,8 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -70,8 +72,8 @@ class ChannelTurnsTest {
         var held = new ChatSession(session, hr, UUID.randomUUID(), "Leave", Instant.now(), Instant.now(), null, null, null,
                 null, null, false, false, false);
         when(sessions.get(actor, session)).thenReturn(held);
-        when(sessions.channelPersona(actor, bound, null)).thenReturn(hr);
-        when(sessions.channelPersona(actor, moved, null)).thenReturn(UUID.randomUUID());
+        when(sessions.channelPersona(eq(actor), eq(bound), isNull(), anyBoolean())).thenReturn(hr);
+        when(sessions.channelPersona(eq(actor), eq(moved), isNull(), anyBoolean())).thenReturn(UUID.randomUUID());
 
         assertTrue(turns.continues(actor, session, bound, null, false));
         assertFalse(turns.continues(actor, session, moved, null, false), "a bot moved to another assistant starts over");

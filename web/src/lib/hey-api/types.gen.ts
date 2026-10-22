@@ -1277,6 +1277,10 @@ export type ChatPreferencesInput = {
     temperatureDefault?: number | null;
     reasoningEffortDefault?: 'OFF' | 'LOW' | 'MEDIUM' | 'HIGH';
     autoScroll: boolean;
+    /**
+     * The assistant the member's direct messages to a bot answer with; null keeps the bot's own
+     */
+    channelPersonaId?: string | null;
 };
 
 export type ChatMemory = {
@@ -1320,6 +1324,10 @@ export type ChatPreferences = {
     temperatureDefault: number | null;
     reasoningEffortDefault: 'OFF' | 'LOW' | 'MEDIUM' | 'HIGH';
     autoScroll: boolean;
+    /**
+     * The assistant the member's direct messages to a bot answer with; absent for the bot's own
+     */
+    channelPersonaId?: string | null;
     displayName: string | null;
     email: string | null;
 };

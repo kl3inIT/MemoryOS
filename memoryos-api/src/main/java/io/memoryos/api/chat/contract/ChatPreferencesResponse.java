@@ -15,13 +15,17 @@ public record ChatPreferencesResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable Double temperatureDefault,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable ReasoningEffort reasoningEffortDefault,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean autoScroll,
+        @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true,
+                description = "The assistant the member's direct messages to a bot answer with; absent for the bot's own")
+        @Nullable UUID channelPersonaId,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String displayName,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String email
 ) {
     public static ChatPreferencesResponse from(ChatPreferencesService.View view) {
         var value = view.preferences();
         return new ChatPreferencesResponse(value.workRole(), value.personalPreferences(), value.defaultModelId(),
-                value.temperatureDefault(), value.reasoningEffortDefault(), value.autoScroll(), view.profile().displayName(),
+                value.temperatureDefault(), value.reasoningEffortDefault(), value.autoScroll(), value.channelPersonaId(),
+                view.profile().displayName(),
                 view.profile().email());
     }
 }
