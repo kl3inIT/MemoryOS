@@ -34,15 +34,15 @@
 
 ## PR 2: administration (web)
 
-- [ ] Server editor:
+- [x] Server editor:
   - *Ai dùng được* offers *Cả tổ chức*, *Chọn nhóm* and *Chỉ qua trợ lý được chọn*, with an assistant picker.
   - *Cho bot công khai dùng*, for a shared credential or none.
   - The detail page shows both.
-- [ ] Assistant editor: the servers open through the assistant are shown, not chosen.
-- [ ] `PersonaView` names the servers open through the assistant and whether a public bot may use each.
-- [ ] *Công khai* dialog and the assistant editor's public-bot warning: the servers a public bot uses.
-- [ ] i18n (vi, en), component tests, screenshots at desktop and phone width, light and dark.
-- [ ] Docs: the web parts in the chat and channel specs.
+- [x] Assistant editor: the servers open through the assistant are shown, not chosen.
+- [x] `PersonaView` names the servers open through the assistant and whether a public bot may use each.
+- [x] *Công khai* dialog and the assistant editor's public-bot warning: the servers a public bot uses.
+- [x] i18n (vi, en), component tests, screenshots at desktop and phone width, light and dark.
+- [x] Docs: the web parts in the chat and channel specs.
 
 ## PR 3: the assistant of a member's direct messages
 

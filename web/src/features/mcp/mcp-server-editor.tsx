@@ -28,8 +28,12 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Switch } from "@/components/ui/switch";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { listMcpGroupOptionsOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
+import {
+  listChatPersonasOptions,
+  listMcpGroupOptionsOptions,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { McpServerInput, McpServerView } from "@/lib/hey-api/types.gen";
 import { presentProblem } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
@@ -88,10 +92,17 @@ function serverSchema(editing: boolean) {
       parameters: z.array(z.object({ name: z.string(), value: z.string() })),
       headerMode: z.enum(["KEEP", "REPLACE", "REMOVE"]),
       headers: z.array(z.object({ name: z.string(), value: z.string() })),
-      tenantWide: z.boolean(),
+      access: z.enum(["ALL", "GROUPS", "ASSISTANTS"]),
       groupIds: z.array(z.string()),
+      personaIds: z.array(z.string()),
+      publicBots: z.boolean(),
     })
-    .refine((draft) => draft.tenantWide || draft.groupIds.length > 0, { path: ["groupIds"] })
+    .refine((draft) => draft.access !== "GROUPS" || draft.groupIds.length > 0, {
+      path: ["groupIds"],
+    })
+    .refine((draft) => draft.access !== "ASSISTANTS" || draft.personaIds.length > 0, {
+      path: ["personaIds"],
+    })
     .refine((draft) => rowsComplete(draft.parameters), { path: ["parameters"] })
     .refine((draft) => draft.headerMode !== "REPLACE" || rowsComplete(draft.headers), {
       path: ["headers"],
@@ -136,9 +147,16 @@ function serverInput(draft: ServerDraft, editing: boolean): McpServerInput {
       sharedKey && draft.apiKey.trim() !== ""
         ? { action: "REPLACE", value: draft.apiKey }
         : { action: "KEEP" },
-    tenantWide: draft.tenantWide,
-    groupIds: draft.tenantWide ? [] : draft.groupIds,
+    tenantWide: draft.access === "ALL",
+    groupIds: draft.access === "GROUPS" ? draft.groupIds : [],
+    personaIds: draft.access === "ASSISTANTS" ? draft.personaIds : [],
+    // Nobody connects as a bot, so only a shared connection or none can serve a public bot (MEM-299).
+    publicBots: sharedConnection(draft) && draft.publicBots,
   };
+}
+
+function sharedConnection(draft: Pick<ServerDraft, "authType" | "performer">): boolean {
+  return draft.authType === "NONE" || draft.performer === "ADMIN";
 }
 
 function useServerForm(
@@ -167,8 +185,15 @@ function useServerForm(
     // A new server writes its rows; an existing one keeps its template until replaced.
     headerMode: server === undefined ? "REPLACE" : "KEEP",
     headers: [],
-    tenantWide: server?.tenantWide ?? true,
+    access:
+      (server?.personaIds.length ?? 0) > 0
+        ? "ASSISTANTS"
+        : server === undefined || server.tenantWide
+          ? "ALL"
+          : "GROUPS",
     groupIds: server?.groupIds ?? [],
+    personaIds: server?.personaIds ?? [],
+    publicBots: server?.publicBots ?? false,
   };
   return useAppForm({
     defaultValues,
@@ -267,7 +292,7 @@ export function McpServerEditor({
             {(field) => <field.TextField label={ui("Tên")} placeholder={ui("Ví dụ: Linear")} />}
           </form.AppField>
           <AuthFields form={form} server={server} values={values} />
-          <AccessFields form={form} tenantWide={values.tenantWide} />
+          <AccessFields form={form} values={values} />
           <AdvancedFields form={form} server={server} values={values} />
         </FieldGroup>
 
@@ -354,29 +379,92 @@ function AuthFields({
   );
 }
 
-function AccessFields({ form, tenantWide }: { form: ServerForm; tenantWide: boolean }) {
+/**
+ * Who may use the server: the organization, some Groups, or chosen assistants alone (MEM-299, after Dust's "Restrict
+ * this tool to skills"), and whether public bots may use it, which only a shared connection or none allows.
+ */
+function AccessFields({ form, values }: { form: ServerForm; values: ServerDraft }) {
   const ui = useAppTranslation();
   const problem = useProblemMessage();
   const groups = useQuery({
     ...listMcpGroupOptionsOptions({ query: { size: 50 } }),
-    enabled: !tenantWide,
+    enabled: values.access === "GROUPS",
+  });
+  const assistants = useQuery({
+    ...listChatPersonasOptions({ query: { limit: 100 } }),
+    enabled: values.access === "ASSISTANTS",
+    select: (personas) =>
+      personas.flatMap(({ id, name, builtin, deletedAt }) =>
+        id !== undefined && !builtin && !deletedAt ? [{ id, name: name ?? "" }] : [],
+      ),
   });
   return (
     <>
-      <form.AppField name="tenantWide">
+      <form.AppField name="access">
         {(field) => (
           <Choice
             label={ui("Ai dùng được")}
-            value={field.state.value ? "ALL" : "GROUPS"}
-            onChange={(value) => field.handleChange(value === "ALL")}
+            value={field.state.value}
+            onChange={(value) => field.handleChange(value)}
             options={[
               { value: "ALL", label: ui("Cả tổ chức") },
               { value: "GROUPS", label: ui("Chọn nhóm") },
+              { value: "ASSISTANTS", label: ui("Chỉ qua trợ lý được chọn") },
             ]}
           />
         )}
       </form.AppField>
-      {!tenantWide ? (
+      {values.access === "ASSISTANTS" ? (
+        <form.AppField name="personaIds">
+          {(field) => (
+            <div className="flex flex-col gap-2">
+              {(assistants.data ?? []).map((assistant) => (
+                <Field key={assistant.id} orientation="horizontal">
+                  <Checkbox
+                    id={`mcp-assistant-${assistant.id}`}
+                    checked={field.state.value.includes(assistant.id)}
+                    onCheckedChange={(checked) =>
+                      field.handleChange(
+                        checked === true
+                          ? [...field.state.value, assistant.id]
+                          : field.state.value.filter((id) => id !== assistant.id),
+                      )
+                    }
+                  />
+                  <FieldLabel htmlFor={`mcp-assistant-${assistant.id}`}>
+                    {assistant.name}
+                  </FieldLabel>
+                </Field>
+              ))}
+              {assistants.isError ? (
+                <Alert variant="destructive" role="alert">
+                  <AlertDescription>
+                    {problem(presentProblem(assistants.error, "initialLoad").message)}
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+              {assistants.data && assistants.data.length === 0 ? (
+                <FieldDescription>{ui("Chưa có trợ lý nào.")}</FieldDescription>
+              ) : null}
+            </div>
+          )}
+        </form.AppField>
+      ) : null}
+      {sharedConnection(values) ? (
+        <form.AppField name="publicBots">
+          {(field) => (
+            <Field orientation="horizontal">
+              <Switch
+                id="mcp-public-bots"
+                checked={field.state.value}
+                onCheckedChange={(checked) => field.handleChange(checked)}
+              />
+              <FieldLabel htmlFor="mcp-public-bots">{ui("Cho bot công khai dùng")}</FieldLabel>
+            </Field>
+          )}
+        </form.AppField>
+      ) : null}
+      {values.access === "GROUPS" ? (
         <form.AppField name="groupIds">
           {(field) => (
             <div className="flex flex-col gap-2">

@@ -6087,6 +6087,12 @@ class ChatSessionApiIntegrationTest {
             String serverId = created.path("id").asText();
             assertEquals(chosen.toString(), created.path("personaIds").get(0).asText());
             assertTrue(created.path("publicBots").asBoolean());
+            // The assistant shows the server it uses without attaching it, and that a public bot may use it.
+            var view = Json.mapper().readTree(mockMvc.perform(get("/api/chat/personas/" + chosen).with(authentication(actor)))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertEquals(serverId, view.path("openMcpServers").get(0).path("id").asText());
+            assertEquals(serverId, view.path("publicBotMcpServers").get(0).path("id").asText());
+            assertTrue(view.path("mcpServers").isEmpty());
 
             // Nobody selects it in the composer, and no other assistant attaches it.
             assertFalse(mockMvc.perform(get("/api/mcp/connections").with(authentication(actor))).andExpect(status().isOk())

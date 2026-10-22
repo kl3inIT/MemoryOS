@@ -100,7 +100,11 @@ public class ChatPersonaService {
 
     public record AgentSourceRef(UUID id, String name) {}
     public record DocumentSetRef(UUID id, String name) {}
-    /** {@code templateKey} is set on a MemoryOS template (MEM-281), whose text is in the reader's account language. */
+    /**
+     * {@code templateKey} is set on a MemoryOS template (MEM-281), whose text is in the reader's account language.
+     * {@code openMcpServers} are the MCP servers open through the agent alone, which it uses without attaching them;
+     * {@code publicBotMcpServers} the agent's servers a public bot may use (MEM-299).
+     */
     public record PersonaView(UUID id, boolean builtin, @Nullable String templateKey, PersonaPermissions permissions, long revision, String name,
                               @Nullable String title, String description, String instructions, @Nullable String greeting,
                               List<String> starterPrompts,
@@ -110,7 +114,8 @@ public class ChatPersonaService {
                               String avatarSeed, boolean hasAvatar, List<AgentRef> labels, AgentOwner owner,
                               boolean vacant, List<AgentUserShare> userShares, List<AgentGroupShare> groupShares, boolean isPublic,
                               AgentPermission publicPermission, boolean listed, boolean featured, @Nullable Integer displayPriority,
-                              boolean grounded, boolean pinned, @Nullable Instant deletedAt) {}
+                              boolean grounded, boolean pinned, @Nullable Instant deletedAt,
+                              List<AgentRef> openMcpServers, List<AgentRef> publicBotMcpServers) {}
 
     public record UserShareInput(UUID actorId, AgentPermission permission) {}
     public record GroupShareInput(UUID groupId, AgentPermission permission) {}
@@ -702,7 +707,9 @@ public class ChatPersonaService {
                     details.owners().getOrDefault(id, new AgentOwner(null, null)), granted.vacant(), userShares,
                     details.groupShares().getOrDefault(id, List.of()), entity.isPublic(), AgentPermission.valueOf(entity.publicPermission()),
                     entity.listed(), entity.featured(), entity.displayPriority(), entity.grounded(),
-                    details.pinned().contains(id), entity.deletedAt()));
+                    details.pinned().contains(id), entity.deletedAt(),
+                    details.openMcpServers().getOrDefault(id, List.of()),
+                    details.publicBotMcpServers().getOrDefault(id, List.of())));
         }
         return result;
     }

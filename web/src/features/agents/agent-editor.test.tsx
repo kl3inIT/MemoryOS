@@ -220,6 +220,34 @@ describe("AgentEditorPage", () => {
     expect(await screen.findByText("Zalo bot · default · public")).toBeVisible();
   });
 
+  it("shows an app open through the assistant alone as always on, and warns that a public bot uses it", async () => {
+    const linear = { id: "90000000-0000-4000-8000-000000000001", name: "Linear" };
+    server.use(
+      handleGetChatPersona({
+        body: saved({ openMcpServers: [linear], publicBotMcpServers: [linear] }),
+      }),
+      handleListAssistantChannels({
+        body: [
+          {
+            id: "80000000-0000-4000-8000-000000000003",
+            provider: "ZALO_BOT",
+            name: "Tasco customer care",
+            enabled: true,
+            publicAccess: true,
+            byDefault: true,
+            groups: [],
+          },
+        ],
+      }),
+    );
+    await renderEditor();
+    expect(
+      await screen.findByText("Anyone who messages Tasco customer care can use Linear."),
+    ).toBeVisible();
+    expect(screen.getByText("Always on")).toBeVisible();
+    expect(screen.getByRole("switch", { name: "Linear" })).toBeDisabled();
+  });
+
   it("gives the built-in assistant no Kênh tab", async () => {
     server.use(handleGetChatPersona({ body: saved({ builtin: true }) }));
     await renderEditor("channels");

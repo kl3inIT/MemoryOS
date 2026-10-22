@@ -1312,7 +1312,9 @@ export const zPersonaView = z.object({
     displayPriority: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).optional(),
     grounded: z.boolean().optional(),
     pinned: z.boolean().optional(),
-    deletedAt: z.iso.datetime().optional()
+    deletedAt: z.iso.datetime().optional(),
+    openMcpServers: z.array(zAgentRef).optional(),
+    publicBotMcpServers: z.array(zAgentRef).optional()
 });
 
 export const zGroupShareInput = z.object({

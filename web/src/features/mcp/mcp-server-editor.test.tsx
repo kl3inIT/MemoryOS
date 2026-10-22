@@ -3,7 +3,9 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import { i18n } from "@/i18n";
+import { handleListChatPersonas } from "@/lib/hey-api/msw.gen";
 import type { McpServerInput, McpServerView } from "@/lib/hey-api/types.gen";
+import { server as http } from "@/test/msw";
 import { McpServerEditor } from "./mcp-server-editor";
 import { slugFromName } from "./mcp-servers";
 
@@ -136,4 +138,37 @@ it("adds a catalog entry with its address, short code, scopes and parameters fil
     oauthScopes: ["https://www.googleapis.com/auth/gmail.readonly"],
     oauthAdditionalParameters: { access_type: "offline", prompt: "consent" },
   });
+});
+
+it("opens a shared server through chosen assistants alone and to public bots", async () => {
+  http.use(
+    handleListChatPersonas({
+      body: [
+        { id: "p0", revision: 1, name: "MemoryOS", builtin: true },
+        { id: "p1", revision: 1, name: "CSKH" },
+        { id: "p2", revision: 1, name: "Kế toán thuế" },
+      ],
+    }),
+  );
+  const onSave = edit(
+    saved({ authType: "API_TOKEN", authPerformer: "ADMIN", sharedCredentialConfigured: true }),
+  );
+  await userEvent.click(screen.getByRole("radio", { name: "Chỉ qua trợ lý được chọn" }));
+  await userEvent.click(await screen.findByRole("checkbox", { name: "CSKH" }));
+  // The built-in assistant reaches every server anyone may use, so it is not offered.
+  expect(screen.queryByRole("checkbox", { name: "MemoryOS" })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("switch", { name: "Cho bot công khai dùng" }));
+  await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
+  await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
+  expect(onSave.mock.lastCall?.[0]).toMatchObject({
+    tenantWide: false,
+    groupIds: [],
+    personaIds: ["p1"],
+    publicBots: true,
+  });
+});
+
+it("offers public bots nothing on a server each person connects", () => {
+  edit(saved({ authPerformer: "PER_USER" }));
+  expect(screen.queryByRole("switch", { name: "Cho bot công khai dùng" })).not.toBeInTheDocument();
 });

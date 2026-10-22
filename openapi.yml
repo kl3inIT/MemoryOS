@@ -27490,6 +27490,14 @@ components:
         deletedAt:
           type: string
           format: date-time
+        openMcpServers:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentRef"
+        publicBotMcpServers:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentRef"
     GroupShareInput:
       type: object
       properties:
