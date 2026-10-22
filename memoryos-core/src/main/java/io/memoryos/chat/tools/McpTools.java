@@ -149,22 +149,35 @@ public final class McpTools {
     /**
      * What to tell the model about the turn's servers it cannot use, so it explains the missing step instead of
      * guessing or claiming a result; empty when there are none. A server the User can connect has a Connect card
-     * under the answer; for the others only an administrator can help.
+     * under the answer; for the others only an administrator can help. A channel has no button (MEM-299), so the
+     * person is sent to MemoryOS's settings instead.
      */
     public static String unavailableNotice(List<McpTurnTools.Unavailable> unavailable) {
+        return unavailableNotice(unavailable, false);
+    }
+
+    public static String unavailableNotice(List<McpTurnTools.Unavailable> unavailable, boolean channel) {
         if (unavailable.isEmpty()) return "";
         var text = new StringBuilder("These apps (MCP servers) of this conversation cannot be used this turn. "
                 + "Do not attempt their tools or claim results from them; mention this only when the request needs one:");
         for (var server : unavailable) {
             text.append("\n- ").append(name(server.serverName())).append(": ").append(switch (server.reason()) {
                 // The card's label is translated ("Kết nối"); naming it here made the answer say "nút Connect".
-                case NOT_CONNECTED -> "the user has not connected it; tell them they can connect it with the button "
-                        + "shown under your answer, without naming the button";
-                case REAUTH_REQUIRED -> "the user's sign-in has expired; tell them they can connect it again with the "
-                        + "button shown under your answer, without naming the button";
+                case NOT_CONNECTED -> channel
+                        ? "the user has not connected it; tell them they can connect it in MemoryOS, under Settings, "
+                                + "Connections, in their language"
+                        : "the user has not connected it; tell them they can connect it with the button "
+                                + "shown under your answer, without naming the button";
+                case REAUTH_REQUIRED -> channel
+                        ? "the user's sign-in has expired; tell them they can connect it again in MemoryOS, under "
+                                + "Settings, Connections, in their language"
+                        : "the user's sign-in has expired; tell them they can connect it again with the "
+                                + "button shown under your answer, without naming the button";
                 case NO_TOOLS -> "no tools are enabled; only an administrator can enable them";
                 case INACCESSIBLE -> "not available to this user; only an administrator can grant access, "
                         + "so do not suggest connecting it";
+                case PERSONAL -> "each person connects it with their own account, which this conversation cannot "
+                        + "use; do not suggest connecting it";
             });
         }
         return text.toString();

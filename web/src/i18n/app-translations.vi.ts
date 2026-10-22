@@ -1941,6 +1941,8 @@ Object.assign(englishUi, {
   "Connected by": "Người kết nối",
   "Provider session ended": "Đã kết thúc phiên ở nhà cung cấp",
   "Available to everyone": "Mọi người dùng được",
+  Assistants: "Trợ lý",
+  "Public bots": "Bot công khai",
   Reason: "Lý do",
   Kept: "Giữ nguyên",
   Replaced: "Đã thay",

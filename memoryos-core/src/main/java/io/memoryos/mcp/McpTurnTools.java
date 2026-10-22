@@ -34,10 +34,12 @@ public final class McpTurnTools implements AutoCloseable {
     /**
      * A server of the turn the User cannot use: one they selected, or one of the assistant's they could not select.
      * {@code NOT_CONNECTED} and {@code REAUTH_REQUIRED} are theirs to fix with a connect action; {@code NO_TOOLS} and
-     * {@code INACCESSIBLE} (a server restricted to Groups they are not in) are an administrator's.
+     * {@code INACCESSIBLE} (a server restricted to Groups they are not in) are an administrator's. {@code PERSONAL} is
+     * a server each person connects for themselves, which a bot's account answering a group or a public bot cannot use
+     * (MEM-299).
      */
     public record Unavailable(UUID serverId, String serverName, Reason reason) {
-        public enum Reason { NOT_CONNECTED, REAUTH_REQUIRED, NO_TOOLS, INACCESSIBLE }
+        public enum Reason { NOT_CONNECTED, REAUTH_REQUIRED, NO_TOOLS, INACCESSIBLE, PERSONAL }
 
         /** Whether the User can fix it themselves by connecting. */
         public boolean connectable() { return reason == Reason.NOT_CONNECTED || reason == Reason.REAUTH_REQUIRED; }
@@ -96,6 +98,7 @@ public final class McpTurnTools implements AutoCloseable {
     private final Set<String> alwaysAllowable;
     private final Map<UUID, McpSession> sessions = new LinkedHashMap<>();
     private boolean closed;
+    private final boolean channel;
     /** Until a turn with a person to ask supplies one, a call that requires approval is declined. */
     private volatile Approvals approvals = (binding, callId, arguments) -> Decision.DECLINED;
 
@@ -107,6 +110,12 @@ public final class McpTurnTools implements AutoCloseable {
 
     McpTurnTools(McpClients clients, Map<UUID, Target> targets, List<Binding> bindings, List<Unavailable> unavailable,
                  Set<String> alwaysAllowable) {
+        this(clients, targets, bindings, unavailable, alwaysAllowable, false);
+    }
+
+    McpTurnTools(McpClients clients, Map<UUID, Target> targets, List<Binding> bindings, List<Unavailable> unavailable,
+                 Set<String> alwaysAllowable, boolean channel) {
+        this.channel = channel;
         this.clients = clients;
         this.targets = Map.copyOf(targets);
         this.bindings = List.copyOf(bindings);
@@ -117,6 +126,9 @@ public final class McpTurnTools implements AutoCloseable {
     public List<Binding> bindings() { return bindings; }
 
     public List<Unavailable> unavailable() { return unavailable; }
+
+    /** Whether the turn is asked in a channel, which has no Connect button (MEM-299). */
+    public boolean channel() { return channel; }
 
     /**
      * Whether the person deciding may answer this call with "always allow" (MEM-267): they manage MCP servers and the

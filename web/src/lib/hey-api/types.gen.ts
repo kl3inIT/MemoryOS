@@ -397,6 +397,14 @@ export type McpServerInput = {
     sharedApiKey: McpSecretChange;
     tenantWide: boolean;
     groupIds: Array<string>;
+    /**
+     * Assistants the server is open through alone; empty or absent for any other access
+     */
+    personaIds?: Array<string> | null;
+    /**
+     * Whether public bots may use the server; only with a shared connection or none
+     */
+    publicBots?: boolean | null;
 };
 
 /**
@@ -419,6 +427,14 @@ export type McpServerView = {
     sharedCredentialConfigured: boolean;
     tenantWide: boolean;
     groupIds: Array<string>;
+    /**
+     * Assistants the server is open through alone; empty for any other access
+     */
+    personaIds: Array<string>;
+    /**
+     * Whether public bots may use the server
+     */
+    publicBots: boolean;
     status: 'CREATED' | 'AWAITING_AUTH' | 'FETCHING_TOOLS' | 'CONNECTED' | 'DISCONNECTED';
     lastRefreshedAt: string | null;
     toolCount: number;

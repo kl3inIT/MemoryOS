@@ -22,6 +22,8 @@ const saved = (overrides: Partial<McpServerView> = {}): McpServerView => ({
   sharedCredentialConfigured: false,
   tenantWide: true,
   groupIds: [],
+  personaIds: [],
+  publicBots: false,
   status: "CREATED",
   lastRefreshedAt: null,
   toolCount: 0,

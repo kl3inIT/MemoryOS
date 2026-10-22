@@ -390,7 +390,7 @@ public final class ChatModelExecutor {
                 activity.quiet(mcpTools.openers());
             }
             // MEM-273: told even when no MCP tool remains, so the model explains the step instead of guessing.
-            if (mcp != null) guard.mcpNotice(McpTools.unavailableNotice(mcp.unavailable()));
+            if (mcp != null) guard.mcpNotice(McpTools.unavailableNotice(mcp.unavailable(), mcp.channel()));
             // MEM-287: a turn without tools sends no replayed tool calls; Anthropic refuses them without tools.
             if (runner == untooled) messages = ChatTurnSetup.withoutToolHistory(messages);
             if (selected.toolCalling()) runner = runner.withToolCallInspectors(activity);

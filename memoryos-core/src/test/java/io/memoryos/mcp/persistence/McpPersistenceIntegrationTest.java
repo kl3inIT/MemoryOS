@@ -172,14 +172,14 @@ class McpPersistenceIntegrationTest {
         var server = new McpServerEntity(id, tenantId, slug, NOW);
         server.configure("Google Drive", "Drive MCP", "https://drivemcp.googleapis.com/mcp/v1", McpAuthType.OAUTH,
                 McpAuthPerformer.PER_USER, McpOAuthProviderMode.KNOWN_PROVIDER,
-                "[\"https://www.googleapis.com/auth/drive.readonly\"]", "{}", null, groups.isEmpty(), groups, NOW);
+                "[\"https://www.googleapis.com/auth/drive.readonly\"]", "{}", null, groups.isEmpty(), groups, Set.of(), false, NOW);
         return server;
     }
 
     private McpServerEntity server(UUID tenantId, String slug, McpAuthType type, McpAuthPerformer performer,
                                    @Nullable McpOAuthProviderMode mode, Set<UUID> groups) {
         var server = new McpServerEntity(UUID.randomUUID(), tenantId, slug, NOW);
-        server.configure("Server", null, "http://10.0.0.5/mcp", type, performer, mode, "[]", "{}", null, true, groups, NOW);
+        server.configure("Server", null, "http://10.0.0.5/mcp", type, performer, mode, "[]", "{}", null, true, groups, Set.of(), false, NOW);
         return server;
     }
 
