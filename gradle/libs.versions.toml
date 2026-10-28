@@ -2,9 +2,9 @@
 # The SDK of the instrumentation BOM below (2.32.0 is built on 1.66.0): a newer SDK drops classes its alpha
 # artifacts still load.
 opentelemetry = "1.66.0"
-spring-boot = "4.1.1"
+spring-boot = "4.1.2"
 spring-dependency-management = "1.1.7"
-spring-modulith = "2.1.1"
+spring-modulith = "2.1.2"
 archunit = "1.5.1"
 springdoc = "3.1.1"
 keycloak-admin-client = "26.0.12"
@@ -13,16 +13,16 @@ jsoup = "1.23.2"
 pdfbox = "3.0.8"
 imageio = "3.15.3"
 db-scheduler = "16.12.0"
-aws-sdk = "2.56.0"
-docling-java = "0.7.0"
+aws-sdk = "2.57.3"
+docling-java = "0.7.1"
 poi = "5.5.1"
 commons-csv = "1.14.1"
 commons-compress = "1.28.0"
-spring-ai = "2.0.1"
+spring-ai = "2.0.2"
 embabel = "1.5.3"
 opensearch-java = "3.10.0"
 msal4j = "1.26.0"
-microsoft-graph = "6.71.0"
+microsoft-graph = "6.72.0"
 lark-oapi = "2.8.7"
 # MEM-270: the Chat sandbox runtime (ADR 0029).
 opensandbox = "1.1.1"
@@ -31,7 +31,7 @@ google-api-sheets = "v4-rev20260930-2.0.0"
 google-api-docs = "v1-rev20261006-2.0.0"
 google-api-admin-directory = "directory_v1-rev20260914-2.0.0"
 # MEM-137: realtime dictation and streamed read-aloud for Azure; the REST client stays for recordings.
-azure-speech = "1.52.0"
+azure-speech = "1.53.0"
 typesafe = "0.4.0"
 # The Spring AI BOM does not manage it, and Spring AI 2.0.1 still resolves 2.0.0. MEM-114 needs 2.0.1: a stateless
 # server answers an unregistered method (ChatGPT calls resources/list) with a JSON-RPC error instead of 500, and HTTP
@@ -43,7 +43,7 @@ nimbus-oauth2-oidc-sdk = "11.38.2"
 # MEM-114 rate limit of the MCP endpoint.
 bucket4j = "8.21.0"
 # MEM-283: an answer's markdown made WhatsApp's own formatting.
-commonmark = "0.30.1"
+commonmark = "0.31.0"
 
 [libraries]
 azure-speech = { module = "com.microsoft.cognitiveservices.speech:client-sdk", version.ref = "azure-speech" }
