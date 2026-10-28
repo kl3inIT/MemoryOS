@@ -13,7 +13,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
  * MEM-114: the 2025-11-25 transport requires a server to answer an unsupported {@code MCP-Protocol-Version} with 400,
- * which Spring AI 2.0.1 does not check. ChatGPT opens with a 2026-07-28 {@code server/discover}; a 400 whose body is not
+ * which Spring AI 2.0.2 does not check. ChatGPT opens with a 2026-07-28 {@code server/discover}; a 400 whose body is not
  * a modern JSON-RPC error makes such a dual-era client fall back to {@code initialize}, which the SDK speaks.
  *
  * <p>A plain servlet filter, so it runs after Spring Security and an anonymous probe still receives the 401 that starts
@@ -21,8 +21,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
  */
 @Component
 class McpProtocolVersionFilter extends OncePerRequestFilter {
-    /** What MCP Java SDK 2.0.1 negotiates. */
-    static final Set<String> SUPPORTED = Set.of("2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05");
+    /** What MCP Java SDK 2.1.0 negotiates on the stateless Streamable HTTP transport; 2024-11-05 is gone (java-sdk #1126). */
+    static final Set<String> SUPPORTED = Set.of("2025-11-25", "2025-06-18", "2025-03-26");
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -43,6 +43,6 @@ class McpProtocolVersionFilter extends OncePerRequestFilter {
         // -32000, as the TypeScript SDK sends; -32601, -32020 or -32022 would mark this server as a modern one.
         response.getWriter().write("{\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32000,\"message\":\"Bad Request: "
                 + "Unsupported protocol version: " + shown + " (supported versions: 2025-11-25, 2025-06-18, "
-                + "2025-03-26, 2024-11-05)\"},\"id\":null}");
+                + "2025-03-26)\"},\"id\":null}");
     }
 }

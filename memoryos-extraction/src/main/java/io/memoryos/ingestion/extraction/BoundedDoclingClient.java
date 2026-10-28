@@ -204,6 +204,9 @@ final class BoundedDoclingClient extends DoclingServeClient implements AutoClose
         }
     }
 
+    // docling-java deprecates toBuilder() for removal but keeps it abstract until 0.8.0 (docling-java#697); nothing here
+    // calls it. Delete it and the copying Builder constructor with that release.
+    @SuppressWarnings("removal")
     @Override public Builder toBuilder() { return new Builder(this); }
     @Override public void close() { transport.shutdownNow(); }
 

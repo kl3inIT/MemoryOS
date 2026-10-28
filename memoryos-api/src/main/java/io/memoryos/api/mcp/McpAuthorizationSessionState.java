@@ -1,6 +1,5 @@
 package io.memoryos.api.mcp;
 
-import io.memoryos.shared.Sha256;
 import io.memoryos.iam.IdentityContext;
 import io.memoryos.mcp.McpException;
 import io.memoryos.mcp.McpOAuthService;
@@ -55,11 +54,6 @@ public record McpAuthorizationSessionState(UUID actorId, McpOAuthService.Pending
         byte[] bytes = new byte[32];
         RANDOM.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-    }
-
-    public static String challenge(String verifier) {
-        return Base64.getUrlEncoder().withoutPadding()
-                .encodeToString(Sha256.digest(verifier.getBytes(StandardCharsets.US_ASCII)));
     }
 
     private static boolean actorMatches(HttpServletRequest request, UUID actorId) {

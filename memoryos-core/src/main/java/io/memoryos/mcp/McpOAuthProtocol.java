@@ -26,7 +26,6 @@ import com.nimbusds.oauth2.sdk.client.ClientRegistrationRequest;
 import com.nimbusds.oauth2.sdk.http.HTTPRequest;
 import com.nimbusds.oauth2.sdk.id.ClientID;
 import com.nimbusds.oauth2.sdk.id.State;
-import com.nimbusds.oauth2.sdk.pkce.CodeChallenge;
 import com.nimbusds.oauth2.sdk.pkce.CodeChallengeMethod;
 import com.nimbusds.oauth2.sdk.pkce.CodeVerifier;
 import com.nimbusds.oauth2.sdk.token.BearerAccessToken;
@@ -195,23 +194,23 @@ public final class McpOAuthProtocol {
         }
     }
 
-    public URI authorizationUrl(URI authorizationEndpoint, String clientId, URI redirectUri, String state, String challenge,
+    /**
+     * The authorization request URL. The URL carries the S256 challenge of {@code verifier}, never the verifier itself;
+     * an invalid RFC 7636 verifier throws {@link IllegalArgumentException}.
+     */
+    public URI authorizationUrl(URI authorizationEndpoint, String clientId, URI redirectUri, String state, String verifier,
                                 @Nullable String scope, String resource, Map<String, String> additionalParameters) {
-        try {
-            var request = new AuthorizationRequest.Builder(ResponseType.CODE, new ClientID(clientId))
-                    .endpointURI(authorizationEndpoint)
-                    .redirectionURI(redirectUri)
-                    .state(new State(state))
-                    .codeChallenge(CodeChallenge.parse(challenge), CodeChallengeMethod.S256)
-                    .resources(URI.create(resource));
-            if (scope != null && !scope.isBlank()) request.scope(Scope.parse(scope));
-            additionalParameters.forEach((name, value) -> {
-                if (!AUTHORIZATION_PARAMETERS.contains(name)) request.customParameter(name, value);
-            });
-            return request.build().toURI();
-        } catch (ParseException invalid) {
-            throw new IllegalArgumentException("Invalid PKCE code challenge", invalid);
-        }
+        var request = new AuthorizationRequest.Builder(ResponseType.CODE, new ClientID(clientId))
+                .endpointURI(authorizationEndpoint)
+                .redirectionURI(redirectUri)
+                .state(new State(state))
+                .codeChallenge(new CodeVerifier(verifier), CodeChallengeMethod.S256)
+                .resources(URI.create(resource));
+        if (scope != null && !scope.isBlank()) request.scope(Scope.parse(scope));
+        additionalParameters.forEach((name, value) -> {
+            if (!AUTHORIZATION_PARAMETERS.contains(name)) request.customParameter(name, value);
+        });
+        return request.build().toURI();
     }
 
     public Tokens exchangeCode(URI tokenEndpoint, Client client, String code, URI redirectUri, String verifier, String resource) {

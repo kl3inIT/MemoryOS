@@ -69,7 +69,7 @@ class McpConnectionController {
         String state = McpAuthorizationSessionState.random();
         String verifier = McpAuthorizationSessionState.random();
         var start = oauth.startUserAuthorization(identity.actorId(), serverId, request.oauthClientId(), state,
-                McpAuthorizationSessionState.challenge(verifier), returnPath);
+                verifier, returnPath);
         McpAuthorizationSessionState.store(servletRequest, identity, start.pending(), state, verifier);
         return ResponseEntity.ok()
                 .body(new McpOAuthAuthorizationResponse(start.authorizationUrl().toString()));
