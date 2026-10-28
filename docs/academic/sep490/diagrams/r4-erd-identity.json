@@ -1,0 +1,427 @@
+{
+  "schema_version": 1,
+  "diagram_type": "erd",
+  "meta": {
+    "title": "Identity and access",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "visual_preset": "editorial",
+    "output": "docs/academic/sep490/diagrams/r4-erd-identity.html"
+  },
+  "layout": {
+    "mode": "grid",
+    "gapX": 80,
+    "gapY": 48,
+    "entityW": 250
+  },
+  "entities": [
+    {
+      "id": "tenant_invitations",
+      "label": "tenant_invitations",
+      "row": 0,
+      "col": 0,
+      "width": 300.0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "tenant_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "tenants.id"
+        },
+        {
+          "name": "secret_digest",
+          "type": "varchar(64)",
+          "key": "uk"
+        },
+        {
+          "name": "status",
+          "type": "varchar(16)"
+        },
+        {
+          "name": "created_by_actor_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "actors.id"
+        },
+        {
+          "name": "expires_at",
+          "type": "timestamptz"
+        },
+        {
+          "name": "accepted_by_actor_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "actors.id"
+        },
+        {
+          "name": "revoked_by_actor_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "actors.id"
+        }
+      ]
+    },
+    {
+      "id": "tenants",
+      "label": "tenants",
+      "row": 0,
+      "col": 1,
+      "width": 300.0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "slug",
+          "type": "varchar(63)",
+          "key": "uk"
+        },
+        {
+          "name": "display_name",
+          "type": "varchar(200)"
+        },
+        {
+          "name": "status",
+          "type": "varchar(16)"
+        },
+        {
+          "name": "deployment_slot",
+          "type": "smallint",
+          "key": "uk"
+        }
+      ]
+    },
+    {
+      "id": "audit_event",
+      "label": "audit_event",
+      "row": 0,
+      "col": 2,
+      "width": 290.0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "tenant_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "tenants.id"
+        },
+        {
+          "name": "occurred_at",
+          "type": "timestamptz"
+        },
+        {
+          "name": "action",
+          "type": "varchar(64)"
+        },
+        {
+          "name": "event_class",
+          "type": "varchar(32)"
+        },
+        {
+          "name": "outcome",
+          "type": "varchar(16)"
+        }
+      ]
+    },
+    {
+      "id": "actors",
+      "label": "actors",
+      "row": 1,
+      "col": 0,
+      "width": 290.0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "account_type",
+          "type": "varchar(16)"
+        },
+        {
+          "name": "ui_language",
+          "type": "varchar(2)"
+        }
+      ]
+    },
+    {
+      "id": "tenant_memberships",
+      "label": "tenant_memberships",
+      "row": 1,
+      "col": 1,
+      "width": 290.0,
+      "attributes": [
+        {
+          "name": "tenant_id",
+          "type": "uuid",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "tenants.id"
+        },
+        {
+          "name": "actor_id",
+          "type": "uuid",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "actors.id"
+        },
+        {
+          "name": "role",
+          "type": "varchar(16)"
+        },
+        {
+          "name": "status",
+          "type": "varchar(16)"
+        }
+      ]
+    },
+    {
+      "id": "iam_groups",
+      "label": "iam_groups",
+      "row": 1,
+      "col": 2,
+      "width": 250,
+      "attributes": [
+        {
+          "name": "tenant_id",
+          "type": "uuid",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "tenants.id"
+        },
+        {
+          "name": "id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "name",
+          "type": "varchar(200)"
+        }
+      ]
+    },
+    {
+      "id": "external_identity_bindings",
+      "label": "external_identity_bindings",
+      "row": 2,
+      "col": 0,
+      "width": 350.0,
+      "attributes": [
+        {
+          "name": "issuer",
+          "type": "text",
+          "key": "pk"
+        },
+        {
+          "name": "subject",
+          "type": "text",
+          "key": "pk"
+        },
+        {
+          "name": "actor_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "actors.id"
+        }
+      ]
+    },
+    {
+      "id": "iam_group_memberships",
+      "label": "iam_group_memberships",
+      "row": 2,
+      "col": 1,
+      "width": 310.0,
+      "attributes": [
+        {
+          "name": "tenant_id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "group_id",
+          "type": "uuid",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "iam_groups.id"
+        },
+        {
+          "name": "actor_id",
+          "type": "uuid",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "tenant_memberships.actor_id"
+        },
+        {
+          "name": "is_manager",
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "id": "iam_group_capability_grants",
+      "label": "iam_group_capability_grants",
+      "row": 2,
+      "col": 2,
+      "width": 360.0,
+      "attributes": [
+        {
+          "name": "tenant_id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "group_id",
+          "type": "uuid",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "iam_groups.id"
+        },
+        {
+          "name": "capability",
+          "type": "varchar(32)",
+          "key": "pk"
+        }
+      ]
+    },
+    {
+      "id": "actor_profiles",
+      "label": "actor_profiles",
+      "row": 3,
+      "col": 0,
+      "width": 250,
+      "attributes": [
+        {
+          "name": "actor_id",
+          "type": "uuid",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "external_identity_bindings.actor_id"
+        },
+        {
+          "name": "display_name",
+          "type": "text"
+        },
+        {
+          "name": "email",
+          "type": "text"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "id": "tenant_invitations-tenant_id",
+      "from": "tenants",
+      "to": "tenant_invitations",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "tenant_invitations-created_by_actor_id",
+      "from": "actors",
+      "to": "tenant_invitations",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "audit_event-tenant_id",
+      "from": "tenants",
+      "to": "audit_event",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "tenant_memberships-tenant_id",
+      "from": "tenants",
+      "to": "tenant_memberships",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "tenant_memberships-actor_id",
+      "from": "actors",
+      "to": "tenant_memberships",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "iam_groups-tenant_id",
+      "from": "tenants",
+      "to": "iam_groups",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "external_identity_bindings-actor_id",
+      "from": "actors",
+      "to": "external_identity_bindings",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "iam_group_memberships-group_id",
+      "from": "iam_groups",
+      "to": "iam_group_memberships",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "iam_group_memberships-actor_id",
+      "from": "tenant_memberships",
+      "to": "iam_group_memberships",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "iam_group_capability_grants-group_id",
+      "from": "iam_groups",
+      "to": "iam_group_capability_grants",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "actor_profiles-actor_id",
+      "from": "external_identity_bindings",
+      "to": "actor_profiles",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    }
+  ]
+}

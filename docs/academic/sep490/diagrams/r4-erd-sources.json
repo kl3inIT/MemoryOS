@@ -1,0 +1,628 @@
+{
+  "schema_version": 1,
+  "diagram_type": "erd",
+  "meta": {
+    "title": "Sources and documents",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "visual_preset": "editorial",
+    "output": "docs/academic/sep490/diagrams/r4-erd-sources.html"
+  },
+  "layout": {
+    "mode": "grid",
+    "gapX": 80,
+    "gapY": 48,
+    "entityW": 250
+  },
+  "entities": [
+    {
+      "id": "google_drive_sources",
+      "label": "google_drive_sources",
+      "row": 0,
+      "col": 0,
+      "width": 300.0,
+      "attributes": [
+        {
+          "name": "tenant_id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "source_id",
+          "type": "uuid",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "connector_credential_pairs.id"
+        },
+        {
+          "name": "scope_mode",
+          "type": "varchar(16)"
+        }
+      ]
+    },
+    {
+      "id": "sharepoint_sources",
+      "label": "sharepoint_sources",
+      "row": 0,
+      "col": 1,
+      "width": 290.0,
+      "attributes": [
+        {
+          "name": "tenant_id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "source_id",
+          "type": "uuid",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "connector_credential_pairs.id"
+        },
+        {
+          "name": "scope_mode",
+          "type": "varchar(16)"
+        },
+        {
+          "name": "tenant_host",
+          "type": "varchar(255)"
+        }
+      ]
+    },
+    {
+      "id": "lark_sources",
+      "label": "lark_sources",
+      "row": 0,
+      "col": 2,
+      "width": 250,
+      "attributes": [
+        {
+          "name": "tenant_id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "source_id",
+          "type": "uuid",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "connector_credential_pairs.id"
+        }
+      ]
+    },
+    {
+      "id": "credentials",
+      "label": "credentials",
+      "row": 0,
+      "col": 3,
+      "width": 320.0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "credential_kind",
+          "type": "varchar(32)"
+        },
+        {
+          "name": "status",
+          "type": "varchar(32)"
+        },
+        {
+          "name": "name",
+          "type": "varchar(120)"
+        }
+      ]
+    },
+    {
+      "id": "source_group_grants",
+      "label": "source_group_grants",
+      "row": 1,
+      "col": 0,
+      "width": 370.0,
+      "attributes": [
+        {
+          "name": "tenant_id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "connector_credential_pair_id",
+          "type": "uuid",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "connector_credential_pairs.id"
+        },
+        {
+          "name": "group_id",
+          "type": "uuid",
+          "key": "pk"
+        }
+      ]
+    },
+    {
+      "id": "connector_credential_pairs",
+      "label": "connector_credential_pairs",
+      "row": 1,
+      "col": 1,
+      "width": 350.0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "connector_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "connectors.id"
+        },
+        {
+          "name": "credential_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "credentials.id"
+        },
+        {
+          "name": "access_type",
+          "type": "varchar(32)"
+        },
+        {
+          "name": "status",
+          "type": "varchar(32)"
+        },
+        {
+          "name": "document_count",
+          "type": "bigint"
+        }
+      ]
+    },
+    {
+      "id": "connectors",
+      "label": "connectors",
+      "row": 1,
+      "col": 2,
+      "width": 310.0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "name",
+          "type": "varchar(120)"
+        },
+        {
+          "name": "connector_type",
+          "type": "varchar(32)"
+        },
+        {
+          "name": "status",
+          "type": "varchar(32)"
+        }
+      ]
+    },
+    {
+      "id": "connector_items",
+      "label": "connector_items",
+      "row": 1,
+      "col": 3,
+      "width": 340.0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "connector_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "connectors.id"
+        },
+        {
+          "name": "status",
+          "type": "varchar(32)"
+        },
+        {
+          "name": "provider_file_id",
+          "type": "varchar(256)"
+        }
+      ]
+    },
+    {
+      "id": "document_set_source",
+      "label": "document_set_source",
+      "row": 2,
+      "col": 0,
+      "width": 290.0,
+      "attributes": [
+        {
+          "name": "tenant_id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "document_set_id",
+          "type": "uuid",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "document_set.id"
+        },
+        {
+          "name": "source_id",
+          "type": "uuid",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "connector_credential_pairs.id"
+        }
+      ]
+    },
+    {
+      "id": "index_attempts",
+      "label": "index_attempts",
+      "row": 2,
+      "col": 1,
+      "width": 370.0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "connector_credential_pair_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "connector_credential_pairs.id"
+        },
+        {
+          "name": "status",
+          "type": "varchar(32)"
+        },
+        {
+          "name": "error_code",
+          "type": "varchar(64)"
+        }
+      ]
+    },
+    {
+      "id": "documents_by_connector_credential_pair",
+      "label": "documents_by_connector_credential_pair",
+      "row": 2,
+      "col": 2,
+      "width": 460.0,
+      "attributes": [
+        {
+          "name": "tenant_id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "connector_credential_pair_id",
+          "type": "uuid",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "connector_credential_pairs.id"
+        },
+        {
+          "name": "document_id",
+          "type": "uuid",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "documents.id"
+        }
+      ]
+    },
+    {
+      "id": "connector_item_versions",
+      "label": "connector_item_versions",
+      "row": 2,
+      "col": 3,
+      "width": 330.0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "connector_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "connectors.id"
+        },
+        {
+          "name": "connector_item_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "connector_items.id"
+        },
+        {
+          "name": "revision_number",
+          "type": "bigint"
+        },
+        {
+          "name": "filename",
+          "type": "varchar(255)"
+        },
+        {
+          "name": "size_bytes",
+          "type": "bigint"
+        },
+        {
+          "name": "stored_object_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "stored_objects.id"
+        }
+      ]
+    },
+    {
+      "id": "document_set",
+      "label": "document_set",
+      "row": 3,
+      "col": 0,
+      "width": 250,
+      "attributes": [
+        {
+          "name": "tenant_id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "name",
+          "type": "varchar(200)"
+        },
+        {
+          "name": "is_public",
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "id": "document_chunks",
+      "label": "document_chunks",
+      "row": 3,
+      "col": 1,
+      "width": 260.0,
+      "attributes": [
+        {
+          "name": "tenant_id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "document_id",
+          "type": "uuid",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "documents.id"
+        },
+        {
+          "name": "ordinal",
+          "type": "integer",
+          "key": "pk"
+        },
+        {
+          "name": "content",
+          "type": "text"
+        },
+        {
+          "name": "token_count",
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "id": "documents",
+      "label": "documents",
+      "row": 3,
+      "col": 2,
+      "width": 250,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "status",
+          "type": "varchar(32)"
+        },
+        {
+          "name": "title",
+          "type": "varchar(255)"
+        },
+        {
+          "name": "chunk_count",
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "id": "stored_objects",
+      "label": "stored_objects",
+      "row": 3,
+      "col": 3,
+      "width": 290.0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "object_key",
+          "type": "varchar(240)",
+          "key": "uk"
+        },
+        {
+          "name": "filename",
+          "type": "varchar(255)"
+        },
+        {
+          "name": "size_bytes",
+          "type": "bigint"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "id": "google_drive_sources-source_id",
+      "from": "connector_credential_pairs",
+      "to": "google_drive_sources",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "sharepoint_sources-source_id",
+      "from": "connector_credential_pairs",
+      "to": "sharepoint_sources",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "lark_sources-source_id",
+      "from": "connector_credential_pairs",
+      "to": "lark_sources",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "source_group_grants-connector_credential_pair_id",
+      "from": "connector_credential_pairs",
+      "to": "source_group_grants",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "connector_credential_pairs-connector_id",
+      "from": "connectors",
+      "to": "connector_credential_pairs",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "connector_credential_pairs-credential_id",
+      "from": "credentials",
+      "to": "connector_credential_pairs",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "connector_items-connector_id",
+      "from": "connectors",
+      "to": "connector_items",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "document_set_source-document_set_id",
+      "from": "document_set",
+      "to": "document_set_source",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "document_set_source-source_id",
+      "from": "connector_credential_pairs",
+      "to": "document_set_source",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "index_attempts-connector_credential_pair_id",
+      "from": "connector_credential_pairs",
+      "to": "index_attempts",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "documents_by_connector_credential_pair-connector_credential_pair_id",
+      "from": "connector_credential_pairs",
+      "to": "documents_by_connector_credential_pair",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "documents_by_connector_credential_pair-document_id",
+      "from": "documents",
+      "to": "documents_by_connector_credential_pair",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "connector_item_versions-connector_id",
+      "from": "connectors",
+      "to": "connector_item_versions",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "connector_item_versions-connector_item_id",
+      "from": "connector_items",
+      "to": "connector_item_versions",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "connector_item_versions-stored_object_id",
+      "from": "stored_objects",
+      "to": "connector_item_versions",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "document_chunks-document_id",
+      "from": "documents",
+      "to": "document_chunks",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    }
+  ]
+}

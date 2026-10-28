@@ -1,0 +1,419 @@
+{
+  "schema_version": 1,
+  "diagram_type": "erd",
+  "meta": {
+    "title": "Chat and AI administration",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "visual_preset": "editorial",
+    "output": "docs/academic/sep490/diagrams/r4-erd-chat.html"
+  },
+  "layout": {
+    "mode": "grid",
+    "gapX": 80,
+    "gapY": 48,
+    "entityW": 250
+  },
+  "entities": [
+    {
+      "id": "chat_project",
+      "label": "chat_project",
+      "row": 0,
+      "col": 0,
+      "width": 250,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "name",
+          "type": "varchar(200)"
+        },
+        {
+          "name": "instructions",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "id": "chat_session",
+      "label": "chat_session",
+      "row": 0,
+      "col": 1,
+      "width": 340.0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "root_message_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "chat_message.id"
+        },
+        {
+          "name": "title",
+          "type": "varchar(200)"
+        },
+        {
+          "name": "project_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "chat_project.id"
+        },
+        {
+          "name": "deleted_at",
+          "type": "timestamptz"
+        },
+        {
+          "name": "archived_at",
+          "type": "timestamptz"
+        },
+        {
+          "name": "branched_from_session_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "chat_session.id"
+        }
+      ]
+    },
+    {
+      "id": "chat_sharing",
+      "label": "chat_sharing",
+      "row": 0,
+      "col": 2,
+      "width": 250,
+      "attributes": [
+        {
+          "name": "session_id",
+          "type": "uuid",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "chat_session.id"
+        },
+        {
+          "name": "enabled",
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "id": "chat_settings",
+      "label": "chat_settings",
+      "row": 0,
+      "col": 3,
+      "width": 290.0,
+      "attributes": [
+        {
+          "name": "tenant_id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "grounded_answers",
+          "type": "boolean"
+        },
+        {
+          "name": "guardrail_topics",
+          "type": "jsonb"
+        },
+        {
+          "name": "blocked_phrases",
+          "type": "jsonb"
+        }
+      ]
+    },
+    {
+      "id": "chat_user_file",
+      "label": "chat_user_file",
+      "row": 1,
+      "col": 0,
+      "width": 270.0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "filename",
+          "type": "varchar(255)"
+        },
+        {
+          "name": "status",
+          "type": "varchar(24)"
+        }
+      ]
+    },
+    {
+      "id": "chat_message",
+      "label": "chat_message",
+      "row": 1,
+      "col": 1,
+      "width": 380.0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "session_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "chat_session.id"
+        },
+        {
+          "name": "parent_message_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "chat_message.id"
+        },
+        {
+          "name": "latest_child_message_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "chat_message.id"
+        },
+        {
+          "name": "role",
+          "type": "varchar(16)"
+        },
+        {
+          "name": "content",
+          "type": "text"
+        },
+        {
+          "name": "status",
+          "type": "varchar(16)"
+        },
+        {
+          "name": "original_assistant_message_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "chat_message.id"
+        },
+        {
+          "name": "model_name",
+          "type": "varchar(200)"
+        }
+      ]
+    },
+    {
+      "id": "chat_feedback",
+      "label": "chat_feedback",
+      "row": 1,
+      "col": 2,
+      "width": 300.0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "session_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "chat_session.id"
+        },
+        {
+          "name": "assistant_message_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "chat_message.id"
+        },
+        {
+          "name": "positive",
+          "type": "boolean"
+        },
+        {
+          "name": "comment",
+          "type": "varchar(4000)"
+        }
+      ]
+    },
+    {
+      "id": "llm_provider",
+      "label": "llm_provider",
+      "row": 1,
+      "col": 3,
+      "width": 290.0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "name",
+          "type": "varchar(200)"
+        },
+        {
+          "name": "adapter_type",
+          "type": "varchar(64)"
+        },
+        {
+          "name": "enabled",
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "id": "ai_usage_limit",
+      "label": "ai_usage_limit",
+      "row": 2,
+      "col": 1,
+      "width": 340.0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "scope",
+          "type": "varchar(16)"
+        },
+        {
+          "name": "token_budget",
+          "type": "bigint"
+        },
+        {
+          "name": "cost_budget_usd",
+          "type": "numeric(18,8)"
+        },
+        {
+          "name": "period_days",
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "id": "ai_usage",
+      "label": "ai_usage",
+      "row": 2,
+      "col": 2,
+      "width": 280.0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "key": "pk"
+        },
+        {
+          "name": "day",
+          "type": "date"
+        },
+        {
+          "name": "flow",
+          "type": "varchar(32)"
+        },
+        {
+          "name": "input_tokens",
+          "type": "bigint"
+        },
+        {
+          "name": "output_tokens",
+          "type": "bigint"
+        },
+        {
+          "name": "cost_usd",
+          "type": "numeric(18,8)"
+        }
+      ]
+    },
+    {
+      "id": "model_configuration",
+      "label": "model_configuration",
+      "row": 2,
+      "col": 3,
+      "width": 300.0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "provider_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "llm_provider.id"
+        },
+        {
+          "name": "model_name",
+          "type": "varchar(200)"
+        },
+        {
+          "name": "display_name",
+          "type": "varchar(200)"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "id": "chat_session-root_message_id",
+      "from": "chat_message",
+      "to": "chat_session",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "chat_session-project_id",
+      "from": "chat_project",
+      "to": "chat_session",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": true
+    },
+    {
+      "id": "chat_sharing-session_id",
+      "from": "chat_session",
+      "to": "chat_sharing",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "chat_message-session_id",
+      "from": "chat_session",
+      "to": "chat_message",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "chat_feedback-session_id",
+      "from": "chat_session",
+      "to": "chat_feedback",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "chat_feedback-assistant_message_id",
+      "from": "chat_message",
+      "to": "chat_feedback",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "model_configuration-provider_id",
+      "from": "llm_provider",
+      "to": "model_configuration",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    }
+  ]
+}
