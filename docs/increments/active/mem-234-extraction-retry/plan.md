@@ -12,7 +12,10 @@ Issue: [MEM-234](https://linear.app/memory-os/issue/MEM-234). See the [design](d
 - [x] Alert `MemoryOSExtractionUnavailable` in `infrastructure/observability/alerts.yaml`.
 - [x] Tests: `DefaultIngestionCoordinatorTest`, `PaddleOcrVlClientTest`, the attempt number in `PostgresSourceLifecycleTest`.
 - [x] Documents: ingestion spec, observability guideline, ingestion and observability test matrices, roadmap row.
-- [ ] `promtool check rules` on `alerts.yaml` in the staging Prometheus container.
+- [x] `promtool check rules` on `alerts.yaml` in the staging Prometheus container.
+  2026-10-28: 10 rules, success; staging's Prometheus has `MemoryOSExtractionUnavailable` loaded and two
+  `memoryos_extraction_unavailable_total` series. Production runs release `f9ccabf5` but its observability stack is
+  still `6ac59f77`, without the rule; bringing it moves five image versions, so it waits for the upgrade steps.
 - [ ] Staging, after the deployment: stop `paddleocr-vl-api`, upload two scanned PDFs to a FILE Source, see the attempts wait with `SOURCE_EXTRACTION_CONNECTION_FAILED`, start the service again, see both files index without a manual reindex.
 - [ ] Observability rollout on staging and production, a server action the application deployment does not perform ([observability README](../../../infrastructure/observability/README.md)): the rule is loaded and `memoryos_extraction_unavailable_total` shows two zero series.
 
