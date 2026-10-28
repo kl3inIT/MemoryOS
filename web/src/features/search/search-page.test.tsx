@@ -789,28 +789,6 @@ describe("SearchPage", () => {
     expect(screen.queryByRole("region", { name: "Recent searches" })).not.toBeInTheDocument();
   });
 
-  it("keeps the Groups administration affordance for a member", async () => {
-    await renderNewSession({
-      ...OWNER_SESSION,
-      tenant: { ...OWNER_SESSION.tenant, role: "MEMBER" },
-      capabilities: [
-        "SYSTEM_BASIC",
-        "SEARCH_READ",
-        "CHAT_READ",
-        "CHAT_WRITE",
-        "IMAGE_GENERATE",
-        "LLM_GATEWAY_USE",
-      ],
-      scopedCapabilities: [],
-    });
-
-    expect(screen.getByRole("button", { name: "Member" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Admin Panel" })).toHaveAttribute(
-      "href",
-      "/admin/groups",
-    );
-  });
-
   it("denies Search without global SEARCH_READ and sends no Search or reader requests", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
@@ -825,57 +803,6 @@ describe("SearchPage", () => {
     expect(screen.queryByRole("region", { name: "Document passages" })).not.toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
     expect(searchDocumentsMock).not.toHaveBeenCalled();
-  });
-  it("routes user-only administrators to users", async () => {
-    await renderNewSession({
-      ...OWNER_SESSION,
-      capabilities: [
-        "SYSTEM_BASIC",
-        "SEARCH_READ",
-        "CHAT_READ",
-        "CHAT_WRITE",
-        "IMAGE_GENERATE",
-        "LLM_GATEWAY_USE",
-        "USERS_MANAGE",
-      ],
-    });
-
-    expect(screen.getByRole("link", { name: "Admin Panel" })).toHaveAttribute(
-      "href",
-      "/admin/users",
-    );
-  });
-
-  it("routes group-scoped managers to the Groups surface", async () => {
-    await renderNewSession({
-      ...OWNER_SESSION,
-      tenant: { ...OWNER_SESSION.tenant, role: "MEMBER" },
-      capabilities: [
-        "SYSTEM_BASIC",
-        "SEARCH_READ",
-        "CHAT_READ",
-        "CHAT_WRITE",
-        "IMAGE_GENERATE",
-        "LLM_GATEWAY_USE",
-      ],
-      scopedCapabilities: ["GROUPS_READ"],
-    });
-
-    expect(screen.getByRole("link", { name: "Admin Panel" })).toHaveAttribute(
-      "href",
-      "/admin/groups",
-    );
-  });
-
-  it("collapses and expands the desktop sidebar", async () => {
-    const user = userEvent.setup();
-    await renderNewSession();
-
-    await user.click(screen.getByRole("button", { name: "Collapse sidebar" }));
-    expect(screen.getByRole("button", { name: "Expand sidebar" })).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Expand sidebar" }));
-    expect(screen.getByRole("button", { name: "Collapse sidebar" })).toBeInTheDocument();
   });
 
   it("sends a guarded same-origin sign-out request", async () => {

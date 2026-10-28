@@ -149,7 +149,7 @@ class GoogleDriveCredentialAuthorityTest {
                         new GroupProjectionRepository(jdbc)), TestDatabase.noAudit(), SourceSyncAdapters.registry()),
                 new JdbcGoogleGroupRepository(jdbc), TestDatabase.noAudit()), GoogleDriveAuthorizationService.class, manager);
         selections = new JdbcGoogleDriveSelectionRepository(jdbc);
-        var service = new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, sync, attempts, linkReader, manager, selections, credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new DefaultGroupScopeService(new GroupInvariantRepository(jdbc), new GroupProjectionRepository(jdbc)), TestDatabase.noAudit(), SourceSyncAdapters.registry()), new GoogleDriveMetadataCache(), TestDatabase.noAudit());
+        var service = new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, sync, attempts, linkReader, manager, selections, credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new DefaultGroupScopeService(new GroupInvariantRepository(jdbc), new GroupProjectionRepository(jdbc)), TestDatabase.noAudit(), SourceSyncAdapters.registry()), GoogleDriveMetadataCaches.withoutRedis(), TestDatabase.noAudit());
         drive = service;
         processor = new GoogleDriveSelectionAdapter(selections, service, connections, manager);
     }
@@ -871,7 +871,7 @@ class GoogleDriveCredentialAuthorityTest {
             return result;
         }).when(access).require(owner, IamCapability.SOURCES_MANAGE, command.equals("schedule"));
         var documents = new JdbcSourceDocumentRepository(jdbc);
-        var service = new DefaultGoogleDriveSourceService(access, connections, roots, sources, sync, new JdbcIndexAttemptRepository(jdbc, sources, documents, SourceSyncAdapters.registry(SourceSyncAdapters.credentials(SourceType.GOOGLE_DRIVE, connections::current))), Mockito.mock(GoogleDriveLinkReader.class), Objects.requireNonNull(transactions.getTransactionManager()), selections, credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(access, sources, new DefaultGroupScopeService(new GroupInvariantRepository(jdbc), new GroupProjectionRepository(jdbc)), TestDatabase.noAudit(), SourceSyncAdapters.registry()), new GoogleDriveMetadataCache(), TestDatabase.noAudit());
+        var service = new DefaultGoogleDriveSourceService(access, connections, roots, sources, sync, new JdbcIndexAttemptRepository(jdbc, sources, documents, SourceSyncAdapters.registry(SourceSyncAdapters.credentials(SourceType.GOOGLE_DRIVE, connections::current))), Mockito.mock(GoogleDriveLinkReader.class), Objects.requireNonNull(transactions.getTransactionManager()), selections, credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(access, sources, new DefaultGroupScopeService(new GroupInvariantRepository(jdbc), new GroupProjectionRepository(jdbc)), TestDatabase.noAudit(), SourceSyncAdapters.registry()), GoogleDriveMetadataCaches.withoutRedis(), TestDatabase.noAudit());
         try (var executor = Executors.newSingleThreadExecutor()) {
             var update = transactions.execute(_ -> {
                 sources.lock(tenant, source);

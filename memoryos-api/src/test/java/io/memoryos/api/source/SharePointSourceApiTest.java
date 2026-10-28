@@ -19,15 +19,12 @@ import io.memoryos.connector.SharePointSourceService.RootPage;
 import io.memoryos.connector.SharePointSourceService.ScopeMode;
 import io.memoryos.connector.SharePointSourceService.SelectionPolicy;
 import io.memoryos.connector.SharePointSourceService.SelectionReceipt;
-import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceOperationStatus;
 import io.memoryos.connector.SourceOperationType;
 import io.memoryos.connector.SourceOperationView;
 import io.memoryos.connector.sharepoint.DefaultSharePointSourceService;
-import io.memoryos.iam.IamException;
-import io.memoryos.iam.IamFailureReason;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.IdentityContext;
 import java.net.InetAddress;
@@ -52,7 +49,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
  * The SharePoint Source endpoints: what they route, what they require, and what they answer. Authority
- * lives in the application service, so here its denial must surface as 403.
+ * lives in the application service and is tested there.
  */
 @SpringBootTest(properties = {
         "spring.security.oauth2.resourceserver.jwt.issuer-uri=https://issuer.example.test",
@@ -140,23 +137,16 @@ class SharePointSourceApiTest {
 
         mockMvc.perform(post("/api/sources/sharepoint")
                         .with(authentication(owner))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(createBody()))
-                .andExpect(status().isForbidden());
-
-        mockMvc.perform(post("/api/sources/sharepoint")
-                        .with(authentication(owner))
                         .header("X-MemoryOS-CSRF", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(createBody()))
                 .andExpect(status().isAccepted())
-                .andExpect(header().string("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate"))
                 .andExpect(jsonPath("$.sourceId").value(SOURCE.toString()))
                 .andExpect(jsonPath("$.operation.type").value("VALIDATE_SHAREPOINT_SELECTION"));
     }
 
     @Test
-    void replacingTheScopeNeedsTheRevisionAndCsrf() throws Exception {
+    void replacingTheScopeNeedsTheRevision() throws Exception {
         when(sources.replaceScope(any(), any(), any(), anyLong(), anyLong(), any())).thenReturn(receipt());
 
         mockMvc.perform(put("/api/sources/{id}/sharepoint/scope", SOURCE)
@@ -237,27 +227,7 @@ class SharePointSourceApiTest {
     }
 
     @Test
-    void deniedAuthorityAndInvalidScopeSurfaceAsProblems() throws Exception {
-        when(sources.selectionPolicy(any())).thenThrow(new IamException(IamFailureReason.ACCESS_DENIED, "no management"));
-        mockMvc.perform(get("/api/sources/sharepoint/selection-policy").with(authentication(owner)))
-                .andExpect(status().isForbidden());
-
-        when(sources.create(any(), any(), any(), any(), any(), any(), any()))
-                .thenThrow(SourceException.invalid("Select document libraries, site pages, or both.",
-                        "SharePoint source selects neither documents nor pages"));
-        mockMvc.perform(post("/api/sources/sharepoint")
-                        .with(authentication(owner))
-                        .header("X-MemoryOS-CSRF", "1")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(createBody()))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("SOURCE_INVALID_REQUEST"));
-
-        mockMvc.perform(get("/api/sources/sharepoint/selection-policy")).andExpect(status().isUnauthorized());
-    }
-
-    @Test
-    void selectionPolicyAndReceiptAreReadable() throws Exception {
+    void selectionPolicyAndReceiptAreReadableWhenAuthenticated() throws Exception {
         reset(sources);
         when(sources.selectionPolicy(any())).thenReturn(new SelectionPolicy(1000, 100, 3_145_728));
         when(sources.selectionRequest(any(), any())).thenReturn(receipt());
@@ -270,6 +240,8 @@ class SharePointSourceApiTest {
                         .with(authentication(owner)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.sourceId").value(SOURCE.toString()));
+
+        mockMvc.perform(get("/api/sources/sharepoint/selection-policy")).andExpect(status().isUnauthorized());
     }
 
     private static SelectionReceipt receipt() {

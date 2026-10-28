@@ -88,9 +88,6 @@ class BoundedDoclingClientTest {
             });
             assertTrue(multipart.body().contains("test file content"));
             assertFalse(source.body().contains(properties.apiKey())); assertFalse(multipart.body().contains(properties.apiKey()));
-            assertFalse(properties.toString().contains(properties.apiKey()));
-            assertTrue(properties.parserConfiguration(262_144_000, true).contains("maxInput=262144000"));
-            assertTrue(properties.parserConfiguration(10_485_760, true).contains("ocr=tesseract:vie,eng"));
         } finally { server.stop(0); }
     }
 

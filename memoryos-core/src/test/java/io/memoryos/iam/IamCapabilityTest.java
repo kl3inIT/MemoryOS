@@ -44,16 +44,12 @@ class IamCapabilityTest {
                         IamCapability.IMAGE_GENERATE, IamCapability.LLM_GATEWAY_USE),
                 IamCapability.expand(Set.of(IamCapability.SYSTEM_BASIC))
         );
-        assertEquals(Set.of(), IamCapability.expand(Set.of()));
-    }
-
-    @Test
-    void basicImpliesExactlyFiveDerivedCapabilities() {
         assertEquals(
                 Set.of(IamCapability.SEARCH_READ, IamCapability.CHAT_READ, IamCapability.CHAT_WRITE,
                         IamCapability.IMAGE_GENERATE, IamCapability.LLM_GATEWAY_USE),
                 IamCapability.SYSTEM_BASIC.impliedCapabilities()
         );
+        assertEquals(Set.of(), IamCapability.expand(Set.of()));
     }
 
     @Test
@@ -91,12 +87,8 @@ class IamCapabilityTest {
 
         assertEquals(EnumSet.allOf(IamCapability.class), expanded);
         assertThrows(UnsupportedOperationException.class, () -> expanded.remove(IamCapability.SEARCH_READ));
-    }
 
-    @Test
-    void adminImpliesEveryOtherCapabilityWithoutExposingMutableMetadata() {
         Set<IamCapability> implied = IamCapability.SYSTEM_ADMIN.impliedCapabilities();
-
         assertEquals(EnumSet.complementOf(EnumSet.of(IamCapability.SYSTEM_ADMIN)), implied);
         assertThrows(UnsupportedOperationException.class, () -> implied.add(IamCapability.SYSTEM_ADMIN));
         assertThrows(UnsupportedOperationException.class, () -> implied.remove(IamCapability.SEARCH_READ));

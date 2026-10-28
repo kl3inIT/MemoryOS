@@ -59,7 +59,6 @@ final class PaddleOcrVlClient implements AutoCloseable {
     private final URI endpoint;
     private final Duration timeout;
     private final ObjectMapper mapper;
-    private final int maxResponseBytes;
     private final Semaphore permits;
     private final HttpClient transport = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1)
             .followRedirects(HttpClient.Redirect.NEVER).connectTimeout(Duration.ofSeconds(5)).build();
@@ -92,11 +91,6 @@ final class PaddleOcrVlClient implements AutoCloseable {
 
     /** @param service the connection's address, without {@code /layout-parsing} */
     PaddleOcrVlClient(PaddleOcrVlProperties properties, URI service, ObjectMapper mapper) {
-        this(properties, service, mapper, MAX_RESPONSE_BYTES);
-    }
-
-    PaddleOcrVlClient(PaddleOcrVlProperties properties, URI service, ObjectMapper mapper, int maxResponseBytes) {
-        this.maxResponseBytes = maxResponseBytes;
         this.endpoint = URI.create(service.toString().replaceAll("/+$", "") + "/layout-parsing");
         this.timeout = properties.timeout();
         this.mapper = mapper;
@@ -155,14 +149,14 @@ final class PaddleOcrVlClient implements AutoCloseable {
                             }
                         });
                 try {
-                    answer = stream.readNBytes(maxResponseBytes + 1);
+                    answer = stream.readNBytes(MAX_RESPONSE_BYTES + 1);
                 } catch (IOException read) {
                     if (expired.get()) throw failed(ExtractionFailure.TIMEOUT, status, "response_deadline", waited);
                     throw read;
                 }
                 if (expired.get()) throw failed(ExtractionFailure.TIMEOUT, status, "response_deadline", waited);
             }
-            if (answer.length > maxResponseBytes) throw failed(ExtractionFailure.WRITE_LIMIT, status, "response_limit", waited);
+            if (answer.length > MAX_RESPONSE_BYTES) throw failed(ExtractionFailure.WRITE_LIMIT, status, "response_limit", waited);
             JsonNode envelope;
             try {
                 envelope = mapper.readTree(answer);

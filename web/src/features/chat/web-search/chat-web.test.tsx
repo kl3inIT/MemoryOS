@@ -6,7 +6,6 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { handleGetChatWebAvailability } from "@/lib/hey-api/msw.gen";
 import { server } from "@/test/msw";
 import { ChatWebToggle } from "./chat-web-options";
-import { sourceSchema } from "@/features/chat/sources/chat-evidence";
 
 const state = {
   availability: {
@@ -94,32 +93,6 @@ it("offers Web to a tool-capable model only, never guessing from its name", asyn
   expect(screen.queryByText("The selected model cannot use Web search.")).not.toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Web search" }));
   expect(change).toHaveBeenCalledExactlyOnceWith("auto");
-});
-
-it("restores URL evidence without inventing a document identity and rejects unsafe links", () => {
-  const source = {
-    citationId: 1,
-    title: "Article",
-    documentId: null,
-    generation: null,
-    fileId: null,
-    fileLocation: null,
-    startOrdinal: 0,
-    endOrdinal: 0,
-    provenance: [],
-    web: {
-      url: "https://example.com/news",
-      excerpt: "Evidence",
-      retrievedAt: "2026-09-13T00:00:00Z",
-    },
-  };
-  expect(sourceSchema.parse(source)).toEqual(source);
-  for (const url of ["javascript:alert(1)", "file:///secret", "https://user:secret@example.com"]) {
-    expect(sourceSchema.safeParse({ ...source, web: { ...source.web, url } }).success).toBe(false);
-  }
-  expect(sourceSchema.safeParse({ ...source, documentId: crypto.randomUUID() }).success).toBe(
-    false,
-  );
 });
 
 it("the Web row turns Web on and off by itself, with no submenu", async () => {

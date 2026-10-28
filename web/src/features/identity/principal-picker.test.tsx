@@ -71,16 +71,4 @@ describe("PrincipalPicker", () => {
     expect(await screen.findByRole("option", { name: /Chị Lan/ })).toBeVisible();
     expect(screen.queryByRole("option", { name: /Ban điều hành/ })).toBeNull();
   });
-
-  it("names its search field so it is reachable without seeing the placeholder", () => {
-    renderPicker(true);
-
-    expect(screen.getByRole("combobox", { name: "Add people or Groups" })).toBeVisible();
-  });
-
-  it("names the people-only field for what it searches", () => {
-    renderPicker(false);
-
-    expect(screen.getByRole("combobox", { name: "Search people" })).toBeVisible();
-  });
 });

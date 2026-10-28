@@ -24,13 +24,9 @@ final class PaddleOcrVlExtractor implements OcrReader {
     private final ObjectMapper mapper;
 
     PaddleOcrVlExtractor(PaddleOcrVlProperties properties, URI service, ObjectMapper mapper) {
-        this(properties, mapper, new PaddleOcrVlClient(properties, service, mapper));
-    }
-
-    PaddleOcrVlExtractor(PaddleOcrVlProperties properties, ObjectMapper mapper, PaddleOcrVlClient client) {
         this.properties = properties;
         this.mapper = mapper;
-        this.client = client;
+        this.client = new PaddleOcrVlClient(properties, service, mapper);
     }
 
     @Override public boolean readsImage(String mediaType) { return IMAGES.contains(mediaType); }

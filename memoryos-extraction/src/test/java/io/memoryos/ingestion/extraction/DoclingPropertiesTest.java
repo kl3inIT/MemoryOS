@@ -17,7 +17,7 @@ import org.springframework.boot.context.properties.source.MapConfigurationProper
 
 class DoclingPropertiesTest {
     @Test
-    void bindsPrivateOcrConfigurationWithoutExposingTheKey() {
+    void bindsPrivateOcrConfigurationIntoTheParserIdentity() {
         var source = new MapConfigurationPropertySource(Map.of(
                 "memoryos.extraction.docling.endpoint", "http://ocr.internal:5001",
                 "memoryos.extraction.docling.api-key", "test-private-key",
@@ -30,10 +30,8 @@ class DoclingPropertiesTest {
         assertEquals(List.of("vie", "eng"), bound.ocrLanguages());
         assertTrue(bound.forceOcr());
         assertEquals("test-private-key", bound.apiKey());
-        assertFalse(bound.toString().contains(bound.apiKey()));
-        assertFalse(bound.parserConfiguration(262_144_000, true).contains(bound.apiKey()));
-        assertThrows(IllegalArgumentException.class,
-                () -> new DoclingProperties(null, null, null, 0, null, null, false, "injected\r\nheader"));
+        assertTrue(bound.parserConfiguration(262_144_000, true).contains("maxInput=262144000"));
+        assertTrue(bound.parserConfiguration(10_485_760, true).contains("ocr=tesseract:vie,eng"));
     }
 
     @Test

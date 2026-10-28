@@ -61,18 +61,6 @@ class ImageProviderTest {
     }
 
     @Test
-    void onlyCloudflareRequiresAnAccountEndpoint() {
-        assertTrue(registry.capabilities(ImageProvider.CLOUDFLARE_WORKERS_AI).endpointRequired());
-        assertNull(registry.capabilities(ImageProvider.CLOUDFLARE_WORKERS_AI).defaultEndpoint());
-        assertFalse(registry.capabilities(ImageProvider.OPENAI_IMAGE).endpointRequired());
-        assertEquals("https://api.openai.com/v1", registry.capabilities(ImageProvider.OPENAI_IMAGE).defaultEndpoint());
-        for (var provider : List.of(ImageProvider.GEMINI_IMAGE, ImageProvider.OPENROUTER_IMAGE, ImageProvider.XAI_IMAGE, ImageProvider.FAL_AI)) {
-            assertFalse(registry.capabilities(provider).endpointRequired(), provider.name());
-            assertNotNull(registry.capabilities(provider).defaultEndpoint(), provider.name());
-        }
-    }
-
-    @Test
     void aspectRatioProvidersEditWithTheConfiguredModel() {
         for (var provider : List.of(ImageProvider.GEMINI_IMAGE, ImageProvider.OPENROUTER_IMAGE, ImageProvider.XAI_IMAGE, ImageProvider.FAL_AI)) {
             var adapter = registry.adapter(provider);

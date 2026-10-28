@@ -31,7 +31,7 @@ public class GoogleDriveMetadataCache {
 
     private final @Nullable StringRedisTemplate redis;
 
-    // Marked, because the container would otherwise prefer the cacheless constructor kept for tests.
+    // Marked, because the class has a second constructor.
     @Autowired
     public GoogleDriveMetadataCache(ObjectProvider<StringRedisTemplate> redis) {
         this(redis.getIfAvailable());
@@ -41,11 +41,6 @@ public class GoogleDriveMetadataCache {
 
     GoogleDriveMetadataCache(@Nullable StringRedisTemplate redis) {
         this.redis = redis;
-    }
-
-    /** A cache that keeps nothing, for callers assembled without Redis. */
-    GoogleDriveMetadataCache() {
-        this((StringRedisTemplate) null);
     }
 
     public Optional<FileMetadata> find(String scope, String id) {

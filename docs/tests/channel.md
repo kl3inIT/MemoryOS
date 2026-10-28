@@ -12,7 +12,7 @@
 | A missing key fails the bots alone | `PostgresChannelConnectionTest.aMissingKeyFailsTheBotsAlone` |
 | An app the platform refuses is not stored, nor is its new secret; a test stores nothing and needs the capability | `PostgresChannelConnectionTest.anAppThePlatformRefusesIsNotStoredAndATestStoresNothing` |
 | The list carries what the process that holds a bot last wrote | `PostgresChannelConnectionTest.theListCarriesWhatTheProcessThatHoldsABotLastWrote` |
-| The API lists bots with their status and no secret, and needs the capability | `ChannelApiTest.theListNeedsTheCapabilityAndCarriesTheStateButNoSecret` |
+| The API lists bots with their status and no secret, and needs authentication | `ChannelApiTest.theListNeedsAuthenticationAndCarriesTheStateButNoSecret` |
 | The API's test checks an app; a rejected app is `400 CHANNEL_APP_REJECTED`; a mutation needs the CSRF header | `ChannelApiTest.aTestChecksTheAppAndARejectedAppIsABadRequest` |
 | Adding a bot is `201` and the notice language is checked | `ChannelApiTest.addingABotReturnsItCreated` |
 | Switching, replacing the secret and removing need a quoted revision; a stale one is `409` | `ChannelApiTest.changesFollowTheRevision` |

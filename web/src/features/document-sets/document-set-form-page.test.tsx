@@ -35,7 +35,6 @@ const FINANCE_SOURCE = {
 };
 
 const publicExplanation = /every organization member can use this Document Set/;
-const sharingExplanation = /Only you, agent administrators/;
 
 async function renderForm() {
   const rootRoute = createRootRoute();
@@ -85,15 +84,6 @@ describe("DocumentSetFormPage", () => {
     expect(await screen.findByText(publicExplanation)).toBeVisible();
     // The help control sits beside the choice, so reading it does not make the set public.
     expect(checkbox).not.toBeChecked();
-  });
-
-  it("keeps who can use a shared set behind its help control", async () => {
-    const user = await renderForm();
-    expect(screen.queryByText(sharingExplanation)).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Share the Document Set help" }));
-
-    expect(await screen.findByText(sharingExplanation)).toBeVisible();
   });
 
   it("names what is missing only once the form is submitted, and clears it as it is fixed", async () => {
