@@ -561,6 +561,9 @@ describe("model manager authority", () => {
           writes.push(request);
           return pending.promise;
         }
+        // Like the server, refuse every Models route once the identity has lost its authority.
+        if (!identity.capabilities.includes("MODELS_MANAGE"))
+          return Response.json({ status: 403, code: "IAM_ACCESS_DENIED" }, { status: 403 });
         if (path === "/api/chat/providers") return Response.json([provider]);
         if (path === "/api/chat/provider-adapters") return Response.json([adapter]);
         if (path.endsWith(`/providers/${provider.id}/models`)) return Response.json([model]);

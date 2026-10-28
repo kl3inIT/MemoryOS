@@ -10,6 +10,7 @@ import java.net.URI;
 import java.util.HexFormat;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.logging.LoggingSystem;
 import org.springframework.boot.test.context.SpringBootTest;
 import java.io.IOException;
 import java.net.InetAddress;
@@ -21,12 +22,14 @@ import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -48,6 +51,9 @@ import org.springframework.web.client.RestClient;
         })
 @ExtendWith(OutputCaptureExtension.class)
 @ActiveProfiles("staging")
+// Closing this context cleans up Logback, so the next context configures its own logging instead of inheriting the
+// staging appenders (see resetLoggingSystem).
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @TestPropertySource(properties = {
         "management.otlp.metrics.export.step=1s",
         "MEMORYOS_RELEASE=telemetry-contract-test",
@@ -75,6 +81,15 @@ class StagingTelemetryIntegrationTest {
     static void telemetry(DynamicPropertyRegistry properties) {
         properties.add("MEMORYOS_OTLP_BASE_URL", () -> "http://127.0.0.1:" + COLLECTOR.getAddress().getPort());
         properties.add("MEMORYOS_RELEASE", () -> "telemetry-contract-test");
+    }
+
+    // Logback is JVM-wide and Spring Boot skips configuring it while another live context has done so. Since Boot 4.1.2
+    // a cached context the test framework pauses keeps its logging (spring-projects/spring-boot#52088), so a context
+    // started earlier in this JVM would keep this one on the non-staging configuration, without the JSON console or the
+    // OTEL appender. Context loading follows @BeforeAll, so this context configures Logback from its own profile.
+    @BeforeAll
+    static void resetLoggingSystem() {
+        LoggingSystem.get(StagingTelemetryIntegrationTest.class.getClassLoader()).cleanUp();
     }
 
     @Test
