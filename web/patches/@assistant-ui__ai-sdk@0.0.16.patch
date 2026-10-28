@@ -1,14 +1,14 @@
 diff --git a/dist/runtime/useAISDKRuntime.js b/dist/runtime/useAISDKRuntime.js
-index ea4c2e1d90615f4585ce5fe556c866ab33896a19..c66596fe309bc27bbbdffc0755320d33ca01bce2 100644
+index 0d7553bb6dee9fc958aa332a65681832f6e0703d..fb972db7a31a62a29a03cfd9be1dcead0e52fa8d 100644
 --- a/dist/runtime/useAISDKRuntime.js
 +++ b/dist/runtime/useAISDKRuntime.js
-@@ -384,13 +384,16 @@ const useAISDKRuntime = (chatHelpers, adapter = {}) => {
+@@ -401,13 +401,16 @@ const useAISDKRuntime = (chatHelpers, adapter = {}) => {
  	const [runtimeRef] = useState(() => ({ get current() {
  		return runtime;
  	} }));
--	const { isLoading, deleteMessage: deleteHistoryMessage, persistToolInteractions, persistToolApprovalResponses } = useExternalHistory(runtimeRef, adapters?.history ?? contextAdapters?.history, toThreadMessages, aiSDKV6FormatAdapter, (messages_0) => {
+-	const { isLoading, deleteMessage: deleteHistoryMessage, markRunCancelled, persistToolInteractions, persistToolApprovalResponses } = useExternalHistory(runtimeRef, adapters?.history ?? contextAdapters?.history, toThreadMessages, aiSDKV6FormatAdapter, (messages_0) => {
 -		chatHelpers.setMessages(messages_0);
--	}, toolArtifactsRef.current, markToolArtifactsChanged, toolInteractionsRef.current, markToolInteractionsChanged, toolApprovalResponsesRef.current, () => {
+-	}, getToolArtifacts, restoreToolArtifacts, getToolInteractions, restoreToolInteractions, toolApprovalResponsesRef.current, () => {
 +	// useExternalHistory lists this callback among its load effect's dependencies; a new function each render
 +	// re-ran that effect, whose setHasLoaded(true) rendered again: Maximum update depth on a thread without remoteId.
 +	const markToolApprovalResponsesRestored = useCallback(() => {
@@ -17,9 +17,9 @@ index ea4c2e1d90615f4585ce5fe556c866ab33896a19..c66596fe309bc27bbbdffc0755320d33
  		setToolApprovalResponses(new Map(toolApprovalResponsesRef.current));
 -	});
 +	}, [ownedApprovals]);
-+	const { isLoading, deleteMessage: deleteHistoryMessage, persistToolInteractions, persistToolApprovalResponses } = useExternalHistory(runtimeRef, adapters?.history ?? contextAdapters?.history, toThreadMessages, aiSDKV6FormatAdapter, (messages_0) => {
++	const { isLoading, deleteMessage: deleteHistoryMessage, markRunCancelled, persistToolInteractions, persistToolApprovalResponses } = useExternalHistory(runtimeRef, adapters?.history ?? contextAdapters?.history, toThreadMessages, aiSDKV6FormatAdapter, (messages_0) => {
 +		chatHelpers.setMessages(messages_0);
-+	}, toolArtifactsRef.current, markToolArtifactsChanged, toolInteractionsRef.current, markToolInteractionsChanged, toolApprovalResponsesRef.current, markToolApprovalResponsesRestored);
++	}, getToolArtifacts, restoreToolArtifacts, getToolInteractions, restoreToolInteractions, toolApprovalResponsesRef.current, markToolApprovalResponsesRestored);
  	const { id: chatId_0, messages: chatMessages, status: chatStatus } = chatHelpers;
  	const extras = useMemo(() => aiSDKExtras.provide({
  		chat: chatHelpers,
