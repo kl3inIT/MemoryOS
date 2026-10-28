@@ -1,7 +1,7 @@
 # MEM-263 Zalo bot
 
 A member asks the MemoryOS bot in Zalo, in a direct message or by naming it in a group, and is answered from what
-they may read. It is the second provider of the `channel` capability that [MEM-246](../mem-246-lark-bot/design.md)
+they may read. It is the second provider of the `channel` capability that [MEM-246](../../active/mem-246-lark-bot/design.md)
 built for Lark; everything that capability decides (who a turn runs as, conversations, order, the sender's rate,
 notices, the bounds) holds here unless this page says otherwise.
 

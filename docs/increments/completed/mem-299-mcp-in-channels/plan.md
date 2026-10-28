@@ -60,6 +60,8 @@
 
 ## Acceptance on staging
 
+Closed by the owner on 2026-10-28 without this run: the boxes below that are not ticked were not exercised on staging.
+
 - [ ] An administrator adds Linear with a shared read-only token, open only through the assistant "CSKH":
   - [ ] Another member cannot select it on the web.
   - [ ] The bot answering with "CSKH" uses it in a group.
