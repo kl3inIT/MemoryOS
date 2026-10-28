@@ -1,0 +1,545 @@
+{
+  "schema_version": 1,
+  "diagram_type": "class",
+  "meta": {
+    "title": "Source synchronization and indexing classes",
+    "output": "r4-set1-class.html",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "visual_preset": "editorial"
+  },
+  "types": [
+    {
+      "id": "ctrl",
+      "label": "GoogleDriveSourceController",
+      "kind": "class",
+      "sublabel": "memoryos-api",
+      "row": 0,
+      "col": 1,
+      "methods": [
+        {
+          "name": "synchronize",
+          "parameters": "identity, sourceId",
+          "returns": "SourceOperationResponse",
+          "visibility": "public"
+        }
+      ]
+    },
+    {
+      "id": "gdsvc",
+      "label": "GoogleDriveSourceService",
+      "kind": "interface",
+      "sublabel": "connector",
+      "row": 0,
+      "col": 0,
+      "methods": [
+        {
+          "name": "synchronize",
+          "parameters": "actor, sourceId",
+          "returns": "SourceOperationView",
+          "visibility": "public",
+          "abstract": true
+        }
+      ]
+    },
+    {
+      "id": "dgds",
+      "label": "DefaultGoogleDriveSourceService",
+      "kind": "class",
+      "sublabel": "connector.googledrive",
+      "row": 1,
+      "col": 0,
+      "methods": [
+        {
+          "name": "synchronize",
+          "parameters": "actor, sourceId",
+          "returns": "SourceOperationView",
+          "visibility": "public"
+        }
+      ]
+    },
+    {
+      "id": "syncrepo",
+      "label": "JdbcSourceSyncRepository",
+      "kind": "class",
+      "sublabel": "source_sync_attempts",
+      "row": 1,
+      "col": 1,
+      "methods": [
+        {
+          "name": "enqueue",
+          "parameters": "tenant, source, revision, trigger, actor",
+          "returns": "SourceOperationView",
+          "visibility": "public"
+        },
+        {
+          "name": "claim",
+          "parameters": "tenant, operationId, deliveryId",
+          "returns": "Optional<Work>",
+          "visibility": "public"
+        },
+        {
+          "name": "complete",
+          "parameters": "work",
+          "returns": "Optional<String>",
+          "visibility": "public"
+        }
+      ]
+    },
+    {
+      "id": "dispatch",
+      "label": "JdbcOperationDispatchRepository",
+      "kind": "class",
+      "sublabel": "ingestion.persistence",
+      "row": 0,
+      "col": 3,
+      "methods": [
+        {
+          "name": "claim",
+          "parameters": "workload, limit",
+          "returns": "List<DispatchClaim>",
+          "visibility": "public"
+        },
+        {
+          "name": "recordPublished",
+          "parameters": "claim, messageId, delay",
+          "returns": "boolean",
+          "visibility": "public"
+        }
+      ]
+    },
+    {
+      "id": "relay",
+      "label": "RedisOperationRelay",
+      "kind": "class",
+      "sublabel": "memoryos-worker",
+      "row": 0,
+      "col": 2,
+      "methods": [
+        {
+          "name": "relay",
+          "parameters": "workload",
+          "returns": "void",
+          "visibility": "public"
+        }
+      ]
+    },
+    {
+      "id": "worker",
+      "label": "RedisStreamWorker",
+      "kind": "class",
+      "sublabel": "memoryos-worker",
+      "row": 1,
+      "col": 2,
+      "methods": [
+        {
+          "name": "start",
+          "returns": "void",
+          "visibility": "public"
+        }
+      ]
+    },
+    {
+      "id": "coord",
+      "label": "IngestionCoordinator",
+      "kind": "interface",
+      "sublabel": "ingestion",
+      "row": 2,
+      "col": 2,
+      "methods": [
+        {
+          "name": "process",
+          "parameters": "delivery",
+          "returns": "Outcome",
+          "visibility": "public",
+          "abstract": true
+        }
+      ]
+    },
+    {
+      "id": "dic",
+      "label": "DefaultIngestionCoordinator",
+      "kind": "class",
+      "sublabel": "extract and publish",
+      "row": 3,
+      "col": 2,
+      "methods": [
+        {
+          "name": "process",
+          "parameters": "delivery",
+          "returns": "Outcome",
+          "visibility": "public"
+        }
+      ]
+    },
+    {
+      "id": "sic",
+      "label": "SearchIngestionCoordinator",
+      "kind": "class",
+      "sublabel": "chunk and index",
+      "row": 2,
+      "col": 3,
+      "methods": [
+        {
+          "name": "process",
+          "parameters": "delivery",
+          "returns": "Outcome",
+          "visibility": "public"
+        }
+      ]
+    },
+    {
+      "id": "engine",
+      "label": "SourceSyncEngine",
+      "kind": "class",
+      "sublabel": "connector.sync",
+      "row": 2,
+      "col": 1,
+      "methods": [
+        {
+          "name": "claim",
+          "parameters": "tenant, operationId, deliveryId",
+          "returns": "Optional<Work>",
+          "visibility": "public"
+        },
+        {
+          "name": "execute",
+          "parameters": "work",
+          "returns": "Result",
+          "visibility": "public"
+        }
+      ]
+    },
+    {
+      "id": "registry",
+      "label": "SourceSyncAdapterRegistry",
+      "kind": "class",
+      "sublabel": "one adapter per source type",
+      "row": 2,
+      "col": 0,
+      "methods": [
+        {
+          "name": "require",
+          "parameters": "type",
+          "returns": "SourceSyncAdapter",
+          "visibility": "package"
+        }
+      ]
+    },
+    {
+      "id": "adapter",
+      "label": "SourceSyncAdapter",
+      "kind": "interface",
+      "sublabel": "connector.sync",
+      "row": 3,
+      "col": 0,
+      "methods": [
+        {
+          "name": "type",
+          "returns": "SourceType",
+          "visibility": "public",
+          "abstract": true
+        },
+        {
+          "name": "walk",
+          "parameters": "run",
+          "returns": "Slice",
+          "visibility": "public",
+          "abstract": true
+        }
+      ]
+    },
+    {
+      "id": "gd",
+      "label": "GoogleDriveSyncAdapter",
+      "kind": "class",
+      "sublabel": "Google Drive",
+      "row": 5,
+      "col": 0,
+      "methods": [
+        {
+          "name": "walk",
+          "parameters": "run",
+          "returns": "Slice",
+          "visibility": "public"
+        }
+      ]
+    },
+    {
+      "id": "sp",
+      "label": "SharePointSyncAdapter",
+      "kind": "class",
+      "sublabel": "SharePoint",
+      "row": 5,
+      "col": 1,
+      "methods": [
+        {
+          "name": "walk",
+          "parameters": "run",
+          "returns": "Slice",
+          "visibility": "public"
+        }
+      ]
+    },
+    {
+      "id": "lark",
+      "label": "LarkSyncAdapter",
+      "kind": "class",
+      "sublabel": "Lark",
+      "row": 5,
+      "col": 2,
+      "methods": [
+        {
+          "name": "walk",
+          "parameters": "run",
+          "returns": "Slice",
+          "visibility": "public"
+        }
+      ]
+    },
+    {
+      "id": "run",
+      "label": "SyncRun",
+      "kind": "class",
+      "sublabel": "one slice of a sync",
+      "row": 3,
+      "col": 1,
+      "methods": [
+        {
+          "name": "unchanged",
+          "parameters": "fileId, version, created, updated",
+          "returns": "boolean",
+          "visibility": "public"
+        },
+        {
+          "name": "acquire",
+          "parameters": "content, hooks",
+          "returns": "Acquired",
+          "visibility": "public"
+        },
+        {
+          "name": "complete",
+          "returns": "void",
+          "visibility": "public"
+        }
+      ]
+    },
+    {
+      "id": "attempts",
+      "label": "JdbcIndexAttemptRepository",
+      "kind": "class",
+      "sublabel": "index_attempts",
+      "row": 4,
+      "col": 2,
+      "methods": [
+        {
+          "name": "create",
+          "parameters": "tenant, pair, version, operationId",
+          "returns": "SourceOperationView",
+          "visibility": "public"
+        },
+        {
+          "name": "claim",
+          "parameters": "tenant, operationId, deliveryId",
+          "returns": "Optional<IndexWork>",
+          "visibility": "public"
+        },
+        {
+          "name": "complete",
+          "parameters": "work, documentId",
+          "returns": "boolean",
+          "visibility": "public"
+        }
+      ]
+    },
+    {
+      "id": "extractor",
+      "label": "SourceContentExtractorRouter",
+      "kind": "class",
+      "sublabel": "memoryos-extraction",
+      "row": 4,
+      "col": 3,
+      "methods": [
+        {
+          "name": "extract",
+          "parameters": "tenant, stream, size, filename, input",
+          "returns": "DocumentContent",
+          "visibility": "public"
+        }
+      ]
+    },
+    {
+      "id": "chunks",
+      "label": "DocumentChunkService",
+      "kind": "class",
+      "sublabel": "document_chunks",
+      "row": 3,
+      "col": 3,
+      "methods": [
+        {
+          "name": "prepare",
+          "parameters": "tenant, documentId, generation",
+          "returns": "DocumentChunkSet",
+          "visibility": "public"
+        },
+        {
+          "name": "markSearchReady",
+          "parameters": "tenant, documentId, generation",
+          "returns": "void",
+          "visibility": "public"
+        }
+      ]
+    },
+    {
+      "id": "osidx",
+      "label": "OpenSearchIndexService",
+      "kind": "class",
+      "sublabel": "retrieval.opensearch",
+      "row": 1,
+      "col": 3,
+      "methods": [
+        {
+          "name": "index",
+          "parameters": "chunkSet, identity",
+          "returns": "void",
+          "visibility": "public"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "id": "r1",
+      "from": "ctrl",
+      "to": "gdsvc",
+      "kind": "dependency",
+      "label": "synchronize"
+    },
+    {
+      "id": "r2",
+      "from": "dgds",
+      "to": "gdsvc",
+      "kind": "realization"
+    },
+    {
+      "id": "r3",
+      "from": "dgds",
+      "to": "syncrepo",
+      "kind": "dependency",
+      "label": "enqueue"
+    },
+    {
+      "id": "r4",
+      "from": "relay",
+      "to": "dispatch",
+      "kind": "dependency",
+      "label": "claim"
+    },
+    {
+      "id": "r5",
+      "from": "worker",
+      "to": "coord",
+      "kind": "dependency",
+      "label": "process"
+    },
+    {
+      "id": "r6",
+      "from": "dic",
+      "to": "coord",
+      "kind": "realization"
+    },
+    {
+      "id": "r7",
+      "from": "sic",
+      "to": "coord",
+      "kind": "realization"
+    },
+    {
+      "id": "r8",
+      "from": "dic",
+      "to": "engine",
+      "kind": "dependency",
+      "label": "sync"
+    },
+    {
+      "id": "r9",
+      "from": "engine",
+      "to": "syncrepo",
+      "kind": "dependency",
+      "label": "claim"
+    },
+    {
+      "id": "r10",
+      "from": "engine",
+      "to": "registry",
+      "kind": "dependency",
+      "label": "require"
+    },
+    {
+      "id": "r11",
+      "from": "registry",
+      "to": "adapter",
+      "kind": "aggregation"
+    },
+    {
+      "id": "r12",
+      "from": "gd",
+      "to": "adapter",
+      "kind": "realization"
+    },
+    {
+      "id": "r13",
+      "from": "sp",
+      "to": "adapter",
+      "kind": "realization"
+    },
+    {
+      "id": "r14",
+      "from": "lark",
+      "to": "adapter",
+      "kind": "realization"
+    },
+    {
+      "id": "r15",
+      "from": "engine",
+      "to": "run",
+      "kind": "dependency",
+      "label": "creates"
+    },
+    {
+      "id": "r16",
+      "from": "run",
+      "to": "attempts",
+      "kind": "dependency",
+      "label": "create"
+    },
+    {
+      "id": "r17",
+      "from": "dic",
+      "to": "attempts",
+      "kind": "dependency",
+      "label": "claim"
+    },
+    {
+      "id": "r18",
+      "from": "dic",
+      "to": "extractor",
+      "kind": "dependency",
+      "label": "extract"
+    },
+    {
+      "id": "r19",
+      "from": "sic",
+      "to": "chunks",
+      "kind": "dependency",
+      "label": "prepare"
+    },
+    {
+      "id": "r20",
+      "from": "sic",
+      "to": "osidx",
+      "kind": "dependency",
+      "label": "index"
+    }
+  ]
+}
