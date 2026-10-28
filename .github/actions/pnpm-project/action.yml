@@ -17,7 +17,9 @@ runs:
     - name: Install pnpm and Node.js
       uses: pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e # v3.1.2
       with:
-        runtime: node@26
+        # An exact release: `node@26` resolves to the newest listed one, whose checksums nodejs.org can publish later
+        # (26.13.0 on 2026-10-28), and every job then fails to verify the download.
+        runtime: node@26.12.1
         working-directory: ${{ inputs.directory }}
         cache: true
         cache-dependency-path: ${{ inputs.directory }}/pnpm-lock.yaml
