@@ -6,7 +6,7 @@ spring-boot = "4.1.2"
 spring-dependency-management = "1.1.7"
 spring-modulith = "2.1.2"
 archunit = "1.5.1"
-springdoc = "3.1.1"
+springdoc = "3.2.0"
 keycloak-admin-client = "26.0.12"
 tika = "4.1.0"
 jsoup = "1.23.2"
@@ -81,12 +81,12 @@ pdfbox = { module = "org.apache.pdfbox:pdfbox", version.ref = "pdfbox" }
 # MEM-243: PDFBox renders a scanned page for a model to read; black-and-white scans are commonly JBIG2.
 pdfbox-jbig2 = { module = "org.apache.pdfbox:jbig2-imageio", version = "3.0.5" }
 docling-client = { module = "ai.docling:docling-serve-client", version.ref = "docling-java" }
-otel-instrumentation-bom = { module = "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom-alpha", version = "2.32.0-alpha" }
+otel-instrumentation-bom = { module = "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom-alpha", version = "2.33.0-alpha" }
 spring-boot-starter-opentelemetry = { module = "org.springframework.boot:spring-boot-starter-opentelemetry" }
 micrometer-core = { module = "io.micrometer:micrometer-core" }
 micrometer-context = { module = "io.micrometer:context-propagation" }
 micrometer-registry-otlp = { module = "io.micrometer:micrometer-registry-otlp" }
-otel-logback-appender = { module = "io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0", version = "2.32.0-alpha" }
+otel-logback-appender = { module = "io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0", version = "2.33.0-alpha" }
 aws-sdk-bom = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk" }
 aws-sdk-s3 = { module = "software.amazon.awssdk:s3" }
 aws-sdk-auth = { module = "software.amazon.awssdk:auth" }
