@@ -700,7 +700,7 @@ none: a turn that registers no tool and the search rewrite strip them, and a Dee
 
 ## Sandbox tools
 
-MEM-270 ([design](../increments/active/mem-270-chat-sandbox/design.md#tools), [sandbox](sandbox.md)): the agent tool key
+MEM-270 ([design](../increments/completed/mem-270-chat-sandbox/design.md#tools), [sandbox](sandbox.md)): the agent tool key
 `code_interpreter` and the Tenant's Code Interpreter switch govern one group, labelled "Sandbox" in every language. It
 is `run_python` (below) and four tools working in the conversation's sandbox, registered when the model supports tool
 calling and the deployment has a sandbox (`SandboxService.available()`); a turn without them still runs.

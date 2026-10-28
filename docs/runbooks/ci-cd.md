@@ -297,7 +297,7 @@ Do not run a second deployment outside this workflow/reservation protocol. Retai
 
 ## Sandbox runtime
 
-`memoryos-sandbox` ([MEM-270](../increments/active/mem-270-chat-sandbox/design.md), [ADR 0029](../decisions/0029-chat-sandbox-through-opensandbox.md)) is the OpenSandbox lifecycle server: it starts one sandbox container per Chat conversation from `memoryos-sandbox-computer`. The api calls it for the Chat sandbox tools and `run_python`.
+`memoryos-sandbox` ([MEM-270](../increments/completed/mem-270-chat-sandbox/design.md), [ADR 0029](../decisions/0029-chat-sandbox-through-opensandbox.md)) is the OpenSandbox lifecycle server: it starts one sandbox container per Chat conversation from `memoryos-sandbox-computer`. The api calls it for the Chat sandbox tools and `run_python`.
 
 - **Release.** The CI `sandbox` job builds both images from `memoryos-sandbox/`, checks the computer image's tools, runs `memoryos-sandbox/computer/tests` against it, starts the server with a key from a file, and on a main push pushes both to GHCR for publication to record. The server image is `opensandbox/server` pinned by digest with `memoryos-sandbox/server/config.toml` inside it.
 - **Pull.** The deployment pulls the server through Compose and the computer image with `docker pull`, both with the job-scoped token, and checks both revision labels. The computer image is not a Compose service. The server pulls OpenSandbox's own `execd` and `egress` images, pinned by digest in its configuration, from Docker Hub when it first starts a sandbox.

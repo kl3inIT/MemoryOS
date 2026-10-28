@@ -24,7 +24,7 @@ follows in its own pull request. 2026-10-18: after MEM-271, `/admin/code-interpr
 ## Acceptance
 
 - [x] A workbook sent to Chat is cleaned and summed by month, and a follow-up "add a chart" works on the same file.
-      2026-10-16 on `e12fd7d5`, once [MEM-287](../../completed/mem-287-tool-history/plan.md) replays earlier tool calls.
+      2026-10-16 on `e12fd7d5`, once [MEM-287](../mem-287-tool-history/plan.md) replays earlier tool calls.
 - [x] After the sandbox has expired, the next question in the conversation finds its files. 2026-10-18 on `008adb99`:
       a turn wrote `ghichu.txt` and `data/so.csv` and saved a 210-byte archive under `raw/{tenant}/`; with both of the
       sandbox's containers removed, the next turn started a new sandbox from it and read `ma so 7351` and the sum 6.
@@ -34,6 +34,7 @@ follows in its own pull request. 2026-10-18: after MEM-271, `/admin/code-interpr
       `example.com`, `github.com`, `8.8.8.8`, example.com's IP and `172.17.0.1:5432` are unreachable, and Fastly refuses
       another Host through `pypi.org` or `files.pythonhosted.org` (421/403). The host's nameservers stay reachable on every
       port, so DNS-over-HTTPS to `1.1.1.1` resolves any name: [MEM-292](https://linear.app/memory-os/issue/MEM-292).
+      Closed 2026-10-28 with this box open: the remaining gap is a change to the egress rules, tracked as MEM-292.
 - [x] A command adds a Python package with `uv pip install` from PyPI. 2026-10-16 on `7879ebe6`: the `pip` scenario
       installed `wordcloud` into `/opt/sandbox-venv` and published the word cloud PNG (65 KB).
 - [x] Past the running-sandbox bound, the tool answers that the computer is busy. 2026-10-16 on `7879ebe6`: with two

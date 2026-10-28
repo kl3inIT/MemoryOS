@@ -3,7 +3,7 @@
 ## Why
 
 `run_python` runs one script in a fresh, network-less container and throws the container away
-([MEM-110](../../completed/mem-110-memoryos-interpreter/design.md)). A member who sends a workbook, asks for it to be
+([MEM-110](../mem-110-memoryos-interpreter/design.md)). A member who sends a workbook, asks for it to be
 cleaned and then asks for a chart gets two unrelated runs: the second starts without the first one's files. Every
 reference product now gives the agent a machine that keeps its files across the steps and turns of a conversation:
 a `bash` tool, file tools, files in and out. It is also what Agent Skills (MEM-120) run on.

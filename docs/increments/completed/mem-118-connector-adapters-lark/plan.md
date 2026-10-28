@@ -1,7 +1,7 @@
 # Implementation plan
 
 Builds on [ADR 0019](../../../decisions/0019-provider-families-use-adapters-behind-a-registry.md) and the delivered
-[provider adapter registries](../../completed/provider-adapter-registries/plan.md). Steps 1 to 5 preserve behavior
+[provider adapter registries](../provider-adapter-registries/plan.md). Steps 1 to 5 preserve behavior
 and are one pull request (owner decision 2026-09-30); what was built is in the design's
 [as delivered](design.md#as-delivered). Lark Suite is deferred.
 
@@ -53,8 +53,11 @@ and are one pull request (owner decision 2026-09-30); what was built is in the d
   `SELECTION_VALIDATION` and runs a Google Drive verification through `SelectionValidationProcessor`;
   `PostgresSharePointSelectionTest` runs the SharePoint adapter on the shared table; `ControlPlaneIntegrationTest` and
   `RedisExecutionTopologyIntegrationTest` cover the relay task and the stream group.
-- [ ] A deployed Worker observed verifying a request of each provider on the shared stream. Not run for this pull
+- [x] A deployed Worker observed verifying a request of each provider on the shared stream. Not run for this pull
   request: the development machine could not hold the Worker and its services in memory; CI is the runtime gate.
+  2026-10-28 on staging: `source_selection_operations` holds 10 Google Drive verifications (the last on 2026-10-01)
+  and one Lark verification (2026-10-12), all `SUCCEEDED` and each delivered through its Redis message. Staging has
+  no SharePoint Source, so SharePoint's runs only in `PostgresSharePointSelectionTest`.
 
 ## 5. Permission-change event
 
@@ -66,19 +69,20 @@ and are one pull request (owner decision 2026-09-30); what was built is in the d
   `DocumentSourceMetadata` and the Drive-only link check in `ChatSource`; SharePoint returns the recorded `webUrl`
   on a SharePoint host; the library uses the same link (owner decision 2026-10-01: before the hierarchy).
 - [x] Access changes follow the creation rule for every provider; SharePoint may change between Public and Private.
-- [ ] `SourceHierarchyAdapter` for Google Drive and SharePoint from stored provider state; endpoint under the
-  Sources API; contract regenerated.
-- [ ] The tree on the library's Sources view; browser evidence and owner approval before merge.
+- Not built; moved to the roadmap as the candidate *Source hierarchy for readers* when the increment closed
+  (2026-10-28): `SourceHierarchyAdapter` for Google Drive and SharePoint from stored provider state, an endpoint
+  under the Sources API, and the tree on the library's Sources view.
 
 ## 7. Consolidate
 
 - [x] `ARCHITECTURE.md`, the connector and ingestion specs and test matrices describe the neutral tables and the
   registries.
-- [ ] Reconcile the roadmap; this increment stays active for steps 6 and Lark or is closed and they get their own.
+- [x] Reconcile the roadmap; this increment stays active for steps 6 and Lark or is closed and they get their own.
+  Closed 2026-10-28: Lark Suite was delivered by MEM-245 and the hierarchy is a roadmap candidate.
 
 ## Deferred: Lark Suite
 
-Moved to its own increment, [MEM-245](../../completed/mem-245-lark-connector/plan.md), after the owner go-ahead of 2026-10-12;
+Moved to its own increment, [MEM-245](../mem-245-lark-connector/plan.md), after the owner go-ahead of 2026-10-12;
 the items below are tracked there.
 
 Needs a separate owner go-ahead and the open questions closed (edition, app type, demo spaces, customer approval).

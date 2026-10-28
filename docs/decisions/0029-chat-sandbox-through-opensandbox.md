@@ -4,7 +4,7 @@ Date: 2026-10-15
 
 ## Status
 
-Accepted with the [MEM-270 design](../increments/active/mem-270-chat-sandbox/design.md) on 2026-10-15; implementation
+Accepted with the [MEM-270 design](../increments/completed/mem-270-chat-sandbox/design.md) on 2026-10-15; implementation
 started with the runtime (step 1).
 
 ## Context

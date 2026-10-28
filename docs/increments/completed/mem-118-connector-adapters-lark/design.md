@@ -5,7 +5,7 @@ document links and the access change rule implemented 2026-10-01 ([document link
 the reader hierarchy and Lark Suite remain.** Linear:
 [MEM-118](https://linear.app/memory-os/issue/MEM-118), which absorbs MEM-128 (Lark Suite). It applies
 [ADR 0019](../../../decisions/0019-provider-families-use-adapters-behind-a-registry.md) to connectors, after the Web,
-Voice and Image families in [provider adapter registries](../../completed/provider-adapter-registries/design.md).
+Voice and Image families in [provider adapter registries](../provider-adapter-registries/design.md).
 
 ## Problem
 

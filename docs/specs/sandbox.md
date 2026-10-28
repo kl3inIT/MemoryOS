@@ -1,6 +1,6 @@
 # Sandbox
 
-The Chat sandbox ([MEM-270](../increments/active/mem-270-chat-sandbox/design.md),
+The Chat sandbox ([MEM-270](../increments/completed/mem-270-chat-sandbox/design.md),
 [ADR 0029](../decisions/0029-chat-sandbox-through-opensandbox.md)): one runtime sandbox a Chat conversation, a
 computer that keeps its files while the conversation works in it. The [Sandbox tools](chat.md#sandbox-tools) of Chat
 work in it.
