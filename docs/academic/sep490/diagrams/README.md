@@ -33,3 +33,5 @@ Bản chỉnh sửa là file JSON, dựng bằng skill archify: `node .claude/sk
 - [Kiến trúc phần mềm](r4-software-architecture.png) (mục I.1): nguồn [r4-software-architecture.json](r4-software-architecture.json), bản xem [r4-software-architecture.html](r4-software-architecture.html). Khung nét đứt là phần nhóm tự chạy; hệ thống ngoài nằm ngoài khung.
 
 PNG chụp ở tỉ lệ 2x từ bản HTML, nền trắng, ẩn thanh công cụ và chú giải của viewer. Khi sửa JSON thì dựng lại HTML rồi chụp lại PNG.
+
+- [Package diagram](r4-package-diagram.png) (mục I.2): archify chưa có loại package diagram nên hình này vẽ tay bằng SVG theo ký hiệu UML (package có tab, class box ba ngăn, `«use»`, realization). Nguồn là script [r4-package-diagram.mjs](r4-package-diagram.mjs); chạy `node docs/academic/sep490/diagrams/r4-package-diagram.mjs` để sinh [r4-package-diagram.html](r4-package-diagram.html), rồi chụp phần tử `#diagram` ở tỉ lệ 2x thành PNG. Bốn tầng của `memoryos-core` tóm tắt `allowedDependencies` trong các `package-info.java` sau khi bỏ cạnh bắc cầu (49 còn 18); ô "Inside a capability: chat" dùng class thật của module `chat`.
