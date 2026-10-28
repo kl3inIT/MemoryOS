@@ -50,6 +50,7 @@ import io.memoryos.retrieval.SearchHit;
 import io.memoryos.retrieval.SearchTimings;
 import io.memoryos.retrieval.opensearch.OpenSearchGateway;
 import io.memoryos.retrieval.opensearch.OpenSearchIndexService;
+import io.memoryos.retrieval.opensearch.TestOpenSearch;
 import io.memoryos.retrieval.opensearch.TestSearchGateways;
 import io.memoryos.retrieval.opensearch.SearchProperties;
 import io.memoryos.retrieval.settings.persistence.JdbcSearchSettingsRepository;
@@ -85,7 +86,6 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.support.JdbcTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import tools.jackson.databind.ObjectMapper;
@@ -98,11 +98,7 @@ import tools.jackson.databind.ObjectMapper;
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class SearchRebuildIntegrationTest {
     @Container
-    @SuppressWarnings("resource") // JUnit's Testcontainers extension owns start/stop.
-    static final GenericContainer<?> OPENSEARCH = new GenericContainer<>("opensearchproject/opensearch:3.8.0@sha256:bcc1797519726ceb6d651d4a3e60b7c30da91793914a8dfe75fd441d4f641509")
-            .withEnv("discovery.type", "single-node").withEnv("DISABLE_SECURITY_PLUGIN", "true")
-            .withEnv("DISABLE_INSTALL_DEMO_CONFIG", "true").withEnv("OPENSEARCH_JAVA_OPTS", "-Xms512m -Xmx512m")
-            .withExposedPorts(9200).waitingFor(Wait.forHttp("/").forPort(9200).withStartupTimeout(Duration.ofMinutes(3)));
+    static final GenericContainer<?> OPENSEARCH = TestOpenSearch.container();
 
     private static final String MASTER_KEY = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
     private static final String OLD_MODEL = "old-embedding";
