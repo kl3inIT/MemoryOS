@@ -56,7 +56,7 @@ class GoogleDriveMetadataCacheTest {
 
     @Test
     void keepsNothingWhenNoRedisIsConfigured() {
-        var cache = new GoogleDriveMetadataCache();
+        var cache = GoogleDriveMetadataCaches.withoutRedis();
 
         cache.putAll("tenant|credential|3", List.of(FILE));
 

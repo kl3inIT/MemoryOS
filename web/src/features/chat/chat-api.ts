@@ -169,7 +169,7 @@ export async function newChatSession(
   return data;
 }
 
-export function initialChatTitle(text: string) {
+function initialChatTitle(text: string) {
   const segments = new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(
     text.trim().replace(/\s+/g, " "),
   );

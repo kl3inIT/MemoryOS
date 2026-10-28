@@ -3,7 +3,8 @@ package io.memoryos.api.security;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 class SecurityConfigurationTest {
 
@@ -11,39 +12,20 @@ class SecurityConfigurationTest {
 
     private final SecurityConfiguration configuration = new SecurityConfiguration();
 
-    @Test
-    void rejectsPlainHttpJwkSetUriOutsideLiteralLoopback() {
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> configuration.jwtDecoder(
-                        "https://issuer.example.test",
-                        "http://keys.example.test/jwks",
-                        IDENTITY_PROPERTIES));
-    }
-
-    @Test
-    void rejectsLocalhostNameForPlainHttpJwkSetUri() {
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> configuration.jwtDecoder(
-                        "https://issuer.example.test",
-                        "http://localhost:8080/jwks",
-                        IDENTITY_PROPERTIES));
-    }
-
-    @Test
-    void acceptsHttpsJwkSetUri() {
-        assertDoesNotThrow(() -> configuration.jwtDecoder(
-                "https://issuer.example.test",
-                "https://keys.example.test/jwks",
-                IDENTITY_PROPERTIES));
-    }
-
-    @Test
-    void acceptsLiteralLoopbackHttpJwkSetUriForTests() {
-        assertDoesNotThrow(() -> configuration.jwtDecoder(
-                "https://issuer.example.test",
-                "http://127.0.0.1:8080/jwks",
-                IDENTITY_PROPERTIES));
+    /** Plain HTTP is accepted only on the literal loopback address, which tests use; a loopback name is not enough. */
+    @ParameterizedTest
+    @CsvSource({
+            "http://keys.example.test/jwks, false",
+            "http://localhost:8080/jwks, false",
+            "https://keys.example.test/jwks, true",
+            "http://127.0.0.1:8080/jwks, true",
+    })
+    void acceptsAJwkSetUriOnlyOverHttpsOrLiteralLoopback(String jwkSetUri, boolean accepted) {
+        if (accepted) {
+            assertDoesNotThrow(() -> configuration.jwtDecoder("https://issuer.example.test", jwkSetUri, IDENTITY_PROPERTIES));
+        } else {
+            assertThrows(IllegalArgumentException.class,
+                    () -> configuration.jwtDecoder("https://issuer.example.test", jwkSetUri, IDENTITY_PROPERTIES));
+        }
     }
 }

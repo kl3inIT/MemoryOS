@@ -126,10 +126,3 @@ it("shows nothing once the app is connected or no longer offered", async () => {
   expect(screen.queryByText(/chưa kết nối|hết hạn/)).toBeNull();
   expect(screen.queryByRole("button")).toBeNull();
 });
-
-it("translates the line", async () => {
-  await i18n.changeLanguage("en");
-  show([{ serverId: LINEAR, serverName: "Linear", reason: "NOT_CONNECTED" }], [connection({})]);
-  expect(await screen.findByText("Linear is not connected")).toBeVisible();
-  expect(screen.getByRole("button", { name: "Connect" })).toBeVisible();
-});

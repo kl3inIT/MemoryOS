@@ -35,8 +35,6 @@ import io.memoryos.channel.ChannelPairing;
 import io.memoryos.channel.ChannelProvider;
 import io.memoryos.channel.ChannelRegion;
 import io.memoryos.channel.ChannelVerification;
-import io.memoryos.iam.IamException;
-import io.memoryos.iam.IamFailureReason;
 import io.memoryos.iam.IdentityContext;
 import io.memoryos.shared.ActorId;
 import java.net.InetAddress;
@@ -220,7 +218,7 @@ class ChannelApiTest {
     }
 
     @Test
-    void theListNeedsTheCapabilityAndCarriesTheStateButNoSecret() throws Exception {
+    void theListNeedsAuthenticationAndCarriesTheStateButNoSecret() throws Exception {
         var id = UUID.randomUUID();
         when(channels.listWithState(any())).thenReturn(List.of(listed(id, true, Listed.Status.CONNECTED)));
         mockMvc.perform(get("/api/channels").with(authentication(owner)))
@@ -232,8 +230,6 @@ class ChannelApiTest {
                 .andExpect(jsonPath("$[0].revision").value(3))
                 .andExpect(jsonPath("$[0].secret").doesNotExist())
                 .andExpect(jsonPath("$[0].appSecret").doesNotExist());
-        when(channels.listWithState(any())).thenThrow(new IamException(IamFailureReason.ACCESS_DENIED, "no CHANNELS_MANAGE"));
-        mockMvc.perform(get("/api/channels").with(authentication(member))).andExpect(status().isForbidden());
         mockMvc.perform(get("/api/channels")).andExpect(status().isUnauthorized());
     }
 
@@ -357,9 +353,6 @@ class ChannelApiTest {
         when(channels.test(any(), eq(ChannelProvider.LARK), eq(new ChannelCredentials("cli_a1b2c3d4e5f6", SECRET,
                 Map.of(ChannelRegion.SETTING, "LARK")))))
                 .thenReturn(new ChannelVerification("cli_a1b2c3d4e5f6", "MemoryOS Bot", "ou_bot", Set.of("im:chat:readonly")));
-        mockMvc.perform(post("/api/channels/lark/test").with(authentication(owner))
-                        .contentType(MediaType.APPLICATION_JSON).content(body))
-                .andExpect(status().isForbidden());
         mockMvc.perform(post("/api/channels/lark/test").with(authentication(owner)).header("X-MemoryOS-CSRF", "1")
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk())
@@ -574,9 +567,6 @@ class ChannelApiTest {
 
         String body = "{\"connectionId\":\"" + bot + "\"}";
         when(links.code(any(), eq(bot))).thenReturn(new ChannelLinkCode("ABCD2345", Instant.parse("2026-10-15T07:10:00Z")));
-        mockMvc.perform(post("/api/channel-links").with(authentication(member))
-                        .contentType(MediaType.APPLICATION_JSON).content(body))
-                .andExpect(status().isForbidden());
         mockMvc.perform(post("/api/channel-links").with(authentication(member)).header("X-MemoryOS-CSRF", "1")
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated())

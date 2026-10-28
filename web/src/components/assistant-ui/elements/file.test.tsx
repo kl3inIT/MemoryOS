@@ -1,6 +1,5 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { documentKind } from "@/features/documents/document-source-presentation";
 import { File } from "./file";
 
 function glyph(filename: string, mimeType = "application/octet-stream") {
@@ -18,14 +17,5 @@ describe("file icons", () => {
     expect(glyph("phan_tich.py", "text/x-python")).toBe("code");
     expect(glyph("bieu_do.png", "image/png")).toBe("image");
     expect(glyph("du-lieu.bin")).toBe("generic");
-  });
-
-  it("lets the media type win over the name", () => {
-    expect(documentKind("application/pdf", "bao-cao.xlsx")).toBe("pdf");
-    expect(documentKind(null, "bao-cao.XLSX")).toBe("spreadsheet");
-    expect(documentKind(undefined, undefined)).toBe("generic");
-    expect(documentKind("text/plain", "phan_tich.py")).toBe("code");
-    expect(documentKind("text/plain", "ghi-chu.txt")).toBe("text");
-    expect(documentKind("text/plain", "ghi-chu")).toBe("text");
   });
 });

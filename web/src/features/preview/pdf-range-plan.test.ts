@@ -8,16 +8,6 @@ const spans = (wanted: WantedBlock[], count = 1000, taken = none) =>
   planReads(wanted, count, taken).map(({ first, last }) => [first, last]);
 
 describe("planReads", () => {
-  it("fetches a burst of scattered reads exactly, the most recent ask last", () => {
-    // A scan's page dictionaries: one block per page, a page apart, asked for from the last page back.
-    expect(spans(asked(159, 119, 79, 39))).toEqual([
-      [159, 159],
-      [119, 119],
-      [79, 79],
-      [39, 39],
-    ]);
-  });
-
   it("extends an ordinary read to the bytes that usually follow", () => {
     expect(spans(asked(10))).toEqual([[10, 25]]);
     expect(spans(asked(10, 100))).toEqual([

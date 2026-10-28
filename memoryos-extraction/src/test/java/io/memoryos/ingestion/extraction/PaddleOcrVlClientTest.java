@@ -15,6 +15,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Random;
 import java.util.concurrent.Executors;
@@ -133,12 +134,12 @@ class PaddleOcrVlClientTest {
 
     @Test
     void anAnswerOverTheCapIsAWriteLimit() throws Exception {
-        serve(200, ANSWER);
-        var properties = new PaddleOcrVlProperties(Duration.ofSeconds(10), 200, null, null);
-        try (var capped = new PaddleOcrVlClient(properties, endpoint(), mapper, ANSWER.getBytes(StandardCharsets.UTF_8).length - 1)) {
-            assertFailure(ExtractionFailure.WRITE_LIMIT, capped);
-        }
-        try (var exact = new PaddleOcrVlClient(properties, endpoint(), mapper, ANSWER.getBytes(StandardCharsets.UTF_8).length)) {
+        servePadded(PaddleOcrVlClient.MAX_RESPONSE_BYTES + 1L);
+        assertFailure(ExtractionFailure.WRITE_LIMIT, client(Duration.ofSeconds(10)));
+        server.stop(0);
+
+        servePadded(PaddleOcrVlClient.MAX_RESPONSE_BYTES);
+        try (var exact = client(Duration.ofSeconds(10))) {
             assertEquals(1, exact.parse(PaddleOcrVlClient.Input.of(new byte[] {1}), PaddleOcrVlClient.FileType.PDF).size());
         }
     }
@@ -291,6 +292,29 @@ class PaddleOcrVlClientTest {
                         exchange.getRequestHeaders().getFirst("Content-Type"),
                         exchange.getRequestHeaders().getFirst("Content-Length"), exchange.getRequestBody().readAllBytes()));
                 respond(exchange, status, answer);
+            }
+        });
+        server.start();
+    }
+
+    /** Answers with {@link #ANSWER} followed by spaces, streamed to exactly {@code length} bytes. */
+    private void servePadded(long length) throws IOException {
+        byte[] answer = ANSWER.getBytes(StandardCharsets.UTF_8);
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/layout-parsing", exchange -> {
+            try (exchange) {
+                exchange.getRequestBody().readAllBytes();
+                exchange.getResponseHeaders().add("Content-Type", "application/json");
+                exchange.sendResponseHeaders(200, length);
+                var body = exchange.getResponseBody();
+                body.write(answer);
+                byte[] padding = new byte[65_536];
+                Arrays.fill(padding, (byte) ' ');
+                for (long left = length - answer.length; left > 0; left -= padding.length) {
+                    body.write(padding, 0, (int) Math.min(padding.length, left));
+                }
+            } catch (IOException ignored) {
+                // The client stops reading once the answer passes its bound.
             }
         });
         server.start();

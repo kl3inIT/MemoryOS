@@ -38,17 +38,13 @@ it("keeps every tool off until the turn's model is known, on a model without too
 });
 
 it("turns a tool on only where it can run", () => {
-  expect(chatToolDefaults({ ...everything, web: undefined }).web).toBe("off");
-  expect(
-    chatToolDefaults({ ...everything, web: { ...everything.web, searchAvailable: false } }).web,
-  ).toBe("off");
+  // Where Web can run is webUsableOn's rule; deep research never uses provider-hosted search, and the server
+  // refuses Web without a search connection.
   const hosted = {
     searchAvailable: false,
     automaticModelIds: ["tools"],
     nativeModelIds: ["tools"],
   };
-  expect(chatToolDefaults({ ...everything, web: hosted }).web).toBe("auto");
-  // Deep research never uses provider-hosted search, and the server refuses Web without a search connection.
   expect(chatToolDefaults({ ...everything, web: hosted, deepResearch: true }).web).toBe("off");
   expect(chatToolDefaults({ ...everything, image: { available: false } }).image).toBe("off");
   expect(chatToolDefaults({ ...everything, image: undefined }).image).toBe("off");

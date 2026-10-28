@@ -20,26 +20,33 @@ const credential: GoogleDriveCredentialResponse = {
 afterEach(cleanup);
 
 describe("GoogleDriveConnectionAccount", () => {
-  it("names the credential with its account and reports the connection", () => {
-    render(<GoogleDriveConnectionAccount credential={credential} connected={true} />);
+  it.each([
+    [
+      "names an OAuth credential with its account and reports the connection",
+      credential,
+      true,
+      "Workspace credential (drive-ops@example.com)",
+      "Connected",
+    ],
+    [
+      "names a service account with the account it acts as",
+      { ...credential, authMethod: "SERVICE_ACCOUNT" },
+      false,
+      "Workspace credential (service account acting as drive-ops@example.com)",
+      "Not connected",
+    ],
+    [
+      "says no credential is selected while none is chosen",
+      undefined,
+      false,
+      "No credential selected",
+      "Not connected",
+    ],
+  ] as const)("%s", (_, chosen, connected, account, status) => {
+    render(<GoogleDriveConnectionAccount credential={chosen} connected={connected} />);
 
     expect(screen.getByText("Google Drive")).toBeInTheDocument();
-    expect(screen.getByText("Workspace credential (drive-ops@example.com)")).toBeInTheDocument();
-    expect(screen.getByText("Connected")).toBeInTheDocument();
-  });
-
-  it("says no credential is selected while none is chosen", () => {
-    render(<GoogleDriveConnectionAccount credential={undefined} connected={false} />);
-
-    expect(screen.getByText("No credential selected")).toBeInTheDocument();
-    expect(screen.getByText("Not connected")).toBeInTheDocument();
-  });
-
-  it("warns when the chosen credential is not connected", () => {
-    render(<GoogleDriveConnectionAccount credential={credential} connected={false} />);
-
-    expect(screen.getByText("Workspace credential (drive-ops@example.com)")).toBeInTheDocument();
-    expect(screen.getByText("Not connected")).toBeInTheDocument();
-    expect(screen.queryByText("Connected")).not.toBeInTheDocument();
+    expect(screen.getByText(account)).toBeInTheDocument();
+    expect(screen.getByText(status)).toBeInTheDocument();
   });
 });

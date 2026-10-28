@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
-import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
 import org.junit.jupiter.api.Test;
@@ -33,11 +32,7 @@ class VoiceAdapterRegistryTest {
         assertEquals(EnumSet.of(VoiceProvider.SONIOX), matching(p -> registry.live(p).isPresent()));
     }
 
-    @Test void capabilitiesKeepThePublishedCatalog() {
-        var openAi = registry.capabilities(VoiceProvider.OPENAI);
-        assertEquals("https://api.openai.com/v1", openAi.defaultEndpoint());
-        assertEquals(List.of("whisper-1", "gpt-4o-transcribe", "gpt-4o-mini-transcribe"), openAi.sttModels());
-        assertEquals(List.of("alloy", "echo", "fable", "onyx", "nova", "shimmer"), openAi.voices());
+    @Test void capabilitiesNameTheKeyAndEndpointEachProviderNeedsAndItsBaseUrl() {
         assertEquals(EnumSet.of(VoiceProvider.OPENAI_COMPATIBLE), matching(p -> !registry.capabilities(p).requiresKey()));
         assertEquals(EnumSet.of(VoiceProvider.OPENAI_COMPATIBLE, VoiceProvider.AZURE),
                 matching(p -> registry.capabilities(p).requiresEndpoint()));

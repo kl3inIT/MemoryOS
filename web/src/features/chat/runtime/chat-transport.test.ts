@@ -1,6 +1,6 @@
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 import { MemoryOsChatTransport } from "./chat-transport";
-import { initialChatTitle, loadChatHistory, toUiMessages } from "@/features/chat/chat-api";
+import { loadChatHistory, newChatSession, toUiMessages } from "@/features/chat/chat-api";
 import { mergedReport, type ResearchState } from "@/features/chat/research/chat-research";
 import { fixtureSource } from "../../../../tests/fixtures/chat-data";
 import type { ChatMessage, ChatSession } from "@/lib/hey-api/types.gen";
@@ -24,11 +24,35 @@ const session: ChatSession = {
   replyRunning: false,
 };
 const runId = "7c6f01e4-a456-4157-bb67-3b9e3ae8e3a4";
-it("uses a short, whitespace-normalized and Unicode-safe fallback title", async () => {
+const family = "👨‍👩‍👧‍👦";
+/** A new conversation is titled from its first question: whole visible characters, inside the API's 200. */
+it.each([
+  ["normalizes whitespace", "  Phân tích\n  tài liệu  ", "Phân tích tài liệu"],
+  ["falls back for a blank question", " ", "Hội thoại mới"],
+  ["cuts after forty characters", "😀".repeat(45), "😀".repeat(40) + "…"],
+  ...[family, "e\u0301", "a\u0306\u0301"].flatMap((grapheme) => [
+    [
+      "keeps a grapheme whole at the boundary",
+      "A".repeat(39) + grapheme + "x",
+      "A".repeat(39) + grapheme + "…",
+    ],
+    ["keeps a grapheme that ends the title", "A".repeat(39) + grapheme, "A".repeat(39) + grapheme],
+  ]),
+  ["stays inside the API length limit", family.repeat(40), family.repeat(18) + "…"],
+])("titles a new conversation: %s", async (_, question, title) => {
   await i18n.changeLanguage("vi");
-  expect(initialChatTitle("  Phân tích\n  tài liệu  ")).toBe("Phân tích tài liệu");
-  expect(initialChatTitle(" ")).toBe("Hội thoại mới");
-  expect(initialChatTitle("😀".repeat(45))).toBe("😀".repeat(40) + "…");
+  const sent: { title: string }[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const body = (await new Request(input, init).json()) as { title: string };
+      sent.push(body);
+      return json({ ...session, title: body.title }, 201);
+    }),
+  );
+  await newChatSession(question, new AbortController().signal);
+  expect(sent).toEqual([expect.objectContaining({ title })]);
+  expect(title.length).toBeLessThanOrEqual(200);
 });
 it("places a question's attached files above its text", () => {
   const [question] = toUiMessages([
@@ -46,18 +70,6 @@ it("places a question's attached files above its text", () => {
     } as ChatMessage,
   ]);
   expect(question?.parts.map((part) => part.type)).toEqual(["file", "text"]);
-});
-it("keeps family emoji and combining marks intact at the title boundary", () => {
-  for (const grapheme of ["👨‍👩‍👧‍👦", "e\u0301", "a\u0306\u0301"]) {
-    expect(initialChatTitle("A".repeat(39) + grapheme + "x")).toBe("A".repeat(39) + grapheme + "…");
-    expect(initialChatTitle("A".repeat(39) + grapheme)).toBe("A".repeat(39) + grapheme);
-  }
-});
-it("keeps grapheme titles inside the API length limit", () => {
-  const family = "👨‍👩‍👧‍👦";
-  const title = initialChatTitle(family.repeat(40));
-  expect(title).toBe(family.repeat(18) + "…");
-  expect(title.length).toBeLessThanOrEqual(200);
 });
 const userId = "9a1b5318-f15b-4e37-899a-0809354cda6f";
 const requestId = "e7a05ee5-cfd5-470b-9641-f4c322a3b4bb";

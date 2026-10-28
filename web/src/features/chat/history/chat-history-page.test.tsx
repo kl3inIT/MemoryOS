@@ -85,23 +85,19 @@ describe("conversation history", () => {
     expect(screen.getByText("Conversations").closest("div")).toHaveTextContent("1");
   });
 
-  it("marks a conversation held in a channel", async () => {
-    mount([{ ...entry, surface: "CHANNEL" }]);
+  it.each<[string, Record<string, unknown>, string]>([
+    ["marks a conversation held in a channel", { surface: "CHANNEL" }, "Bot"],
+    ["marks a conversation its owner deleted, which is still listed", { deleted: true }, "Deleted"],
+    [
+      "names the asker as hidden when the organization hides who asked",
+      { actorId: null, person: null, email: null },
+      "Hidden",
+    ],
+  ])("%s", async (_, change, label) => {
+    mount([{ ...entry, ...change }]);
     const row = (await screen.findByText("Tôi còn bao nhiêu ngày phép?")).closest("tr")!;
-    expect(within(row).getByText("Bot")).toBeVisible();
-  });
-
-  it("marks a conversation its owner deleted, which is still listed", async () => {
-    mount([{ ...entry, deleted: true }]);
-    const row = (await screen.findByText("Tôi còn bao nhiêu ngày phép?")).closest("tr")!;
-    expect(within(row).getByText("Deleted")).toBeVisible();
-  });
-
-  it("names the asker as hidden when the organization hides who asked", async () => {
-    mount([{ ...entry, actorId: null, person: null, email: null }]);
-    const row = (await screen.findByText("Tôi còn bao nhiêu ngày phép?")).closest("tr")!;
-    expect(within(row).getByText("Hidden")).toBeVisible();
-    // The question itself is not hidden; only who asked is.
+    expect(within(row).getByText(label)).toBeVisible();
+    // The question itself is never hidden; only who asked can be.
     expect(within(row).getByText("Tôi còn bao nhiêu ngày phép?")).toBeVisible();
   });
 

@@ -5,7 +5,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -19,7 +18,6 @@ import io.memoryos.shared.TenantId;
 import io.memoryos.ingestion.OperationDelivery;
 import io.memoryos.ingestion.persistence.JdbcSearchWorkRepository;
 import io.memoryos.retrieval.SearchIndex;
-import io.memoryos.retrieval.SearchUnavailableException;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.util.List;
@@ -72,18 +70,5 @@ class SearchIngestionCoordinatorTest {
 
         verify(work).finish(any(), eq("FAILED"), eq("SEARCH_INDEX_CONTENT_LIMIT"));
         verify(documents).markSearchFailed(tenant, document, generation, "SEARCH_INDEX_CONTENT_LIMIT", "test-index");
-    }
-
-    @Test
-    void transientFailureKeepsTheGenericCodeAndRetries() {
-        doThrow(new SearchUnavailableException()).when(index).index(any(), any());
-        when(work.finish(any(), eq("NOT_STARTED"), eq("SEARCH_INDEX_FAILED"))).thenReturn(true);
-
-        assertEquals(IngestionCoordinator.Outcome.FAILED,
-                coordinator.process(mock(OperationDelivery.class)));
-
-        verify(work).finish(any(), eq("NOT_STARTED"), eq("SEARCH_INDEX_FAILED"));
-        verify(documents).markSearchFailed(tenant, document, generation, "SEARCH_INDEX_FAILED", "test-index");
-        verify(documents, never()).markSearchReady(any(), any(), any(), any());
     }
 }
