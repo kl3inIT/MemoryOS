@@ -19,10 +19,16 @@ auditConfig:
     # the browser bundle and the nginx image carry no Node. Remove this once braces 3.0.4 is published.
     - GHSA-vfj7-8cjw-p6xm
 minimumReleaseAgeExclude:
-  - "@assistant-ui/ai-sdk@0.0.13"
-  - "@assistant-ui/core@0.3.29"
-  - "@assistant-ui/react@0.15.29"
-  - "@assistant-ui/store@0.3.21"
-  - assistant-stream@0.3.52
+  - "@ai-sdk/gateway@4.0.128"
+  - "@ai-sdk/mcp@2.0.86"
+  - "@ai-sdk/provider-utils@5.0.70"
+  - "@ai-sdk/react@4.0.159"
+  - "@assistant-ui/ai-sdk@0.0.16"
+  - "@assistant-ui/core@0.3.32"
+  - "@assistant-ui/react-streamdown@0.3.21"
+  - "@assistant-ui/react@0.15.32"
+  - ai@7.0.155
+  - assistant-cloud@0.2.9
+  - assistant-stream@0.3.55
 patchedDependencies:
-  "@assistant-ui/ai-sdk@0.0.13": patches/@assistant-ui__ai-sdk@0.0.13.patch
+  "@assistant-ui/ai-sdk@0.0.16": patches/@assistant-ui__ai-sdk@0.0.16.patch
