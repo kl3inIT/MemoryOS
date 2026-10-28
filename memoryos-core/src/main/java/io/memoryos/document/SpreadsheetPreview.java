@@ -14,12 +14,12 @@ import org.apache.poi.util.RecordFormatException;
 import org.apache.poi.util.XMLHelper;
 import org.apache.poi.openxml4j.exceptions.OpenXML4JException;
 import org.apache.poi.openxml4j.opc.OPCPackage;
+import org.apache.poi.ss.usermodel.Comment;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.util.CellReference;
 import org.apache.poi.xssf.eventusermodel.ReadOnlySharedStringsTable;
 import org.apache.poi.xssf.eventusermodel.XSSFReader;
 import org.apache.poi.xssf.eventusermodel.XSSFSheetXMLHandler;
-import org.apache.poi.xssf.usermodel.XSSFComment;
 import org.jspecify.annotations.Nullable;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
@@ -124,7 +124,7 @@ public final class SpreadsheetPreview {
             nextRow = rowNum + 1;
         }
 
-        @Override public void cell(@Nullable String reference, @Nullable String value, @Nullable XSSFComment comment) {
+        @Override public void cell(@Nullable String reference, @Nullable String value, @Nullable Comment comment) {
             int index = reference == null ? column : Math.max(column, new CellReference(reference).getCol());
             // Missing cells before this one are empty columns.
             row.repeat(',', index - column + (column > 0 ? 1 : 0));
