@@ -113,11 +113,11 @@ public final class McpFixtureServer implements AutoCloseable {
         String challenge = authorizationServer == null ? "Bearer" : "Bearer resource_metadata=\"" + origin + METADATA_PATH + "\"";
         var servlet = Tomcat.addServlet(context, "mcp", new RequiredHeadersServlet(transport, requiredHeaders, challenge));
         servlet.setAsyncSupported(true);
-        context.addServletMappingDecoded("/mcp", "mcp");
+        servlet.addMapping("/mcp");
         if (authorizationServer != null) {
-            Tomcat.addServlet(context, "metadata", new MetadataServlet("{\"resource\":\"" + origin + "/mcp\",\"authorization_servers\":[\""
+            var metadata = Tomcat.addServlet(context, "metadata", new MetadataServlet("{\"resource\":\"" + origin + "/mcp\",\"authorization_servers\":[\""
                     + authorizationServer + "\"]}"));
-            context.addServletMappingDecoded(METADATA_PATH, "metadata");
+            metadata.addMapping(METADATA_PATH);
         }
         return new McpFixtureServer(tomcat, server, origin + "/mcp");
     }

@@ -78,7 +78,7 @@ class McpClientsIntegrationTest {
         var context = tomcat.addContext("", null);
         var servlet = Tomcat.addServlet(context, "mcp", new BearerServlet(transport));
         servlet.setAsyncSupported(true);
-        context.addServletMappingDecoded("/mcp", "mcp");
+        servlet.addMapping("/mcp");
         tomcat.getConnector();
         tomcat.start();
         url = "http://127.0.0.1:" + tomcat.getConnector().getLocalPort() + "/mcp";
