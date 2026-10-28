@@ -13,7 +13,8 @@ export default defineConfig({
     include: ["src/**/*.test.{ts,tsx}", "scripts/**/*.test.mjs"],
     environment: "jsdom",
     restoreMocks: true,
-    maxWorkers: 2,
+    // A public repository's GitHub runner has four cores; a developer machine keeps two free for everything else.
+    maxWorkers: process.env.CI ? 4 : 2,
     reporters: process.env.CI
       ? [...configDefaults.reporters, ["junit", { includeConsoleOutput: false }]]
       : ["default"],
