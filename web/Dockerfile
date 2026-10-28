@@ -20,6 +20,14 @@ RUN pnpm generate:api && pnpm build
 
 FROM nginx:1.31-alpine@sha256:892bb2152464f0c5d8972593a5f5afaf8054552580b699d95f8ff4af08c2d33d
 
+RUN rm -f /etc/nginx/conf.d/default.conf
+
+COPY --chown=101:101 web/nginx.conf /etc/nginx/nginx.conf.template
+COPY --from=build --chown=101:101 /workspace/web/dist /usr/share/nginx/html
+ENV MEMORYOS_OBJECT_STORAGE_CONNECT_SRC=""
+
+# Build metadata comes last: every RUN after an ARG sees it in its environment, so a per-commit value placed
+# earlier would rebuild every layer below it on each commit.
 ARG VCS_REF=unknown
 ARG BUILD_DATE=unknown
 
@@ -27,13 +35,6 @@ LABEL org.opencontainers.image.title="MemoryOS Web" \
       org.opencontainers.image.source="https://github.com/kl3inIT/MemoryOS" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.created="${BUILD_DATE}"
-
-RUN rm -f /etc/nginx/conf.d/default.conf
-
-COPY --chown=101:101 web/nginx.conf /etc/nginx/nginx.conf.template
-COPY --from=build --chown=101:101 /workspace/web/dist /usr/share/nginx/html
-ENV MEMORYOS_OBJECT_STORAGE_CONNECT_SRC=""
-
 
 USER 101:101
 EXPOSE 8080
