@@ -2,7 +2,7 @@
 
 A member asks the MemoryOS bot in WhatsApp, in a direct message or by naming it in a group, and is answered from what
 they may read. It is the third provider of the `channel` capability, after Lark
-([MEM-246](../mem-246-lark-bot/design.md)) and Zalo ([MEM-263](../mem-263-zalo-bot/design.md)); everything that
+([MEM-246](../mem-246-lark-bot/design.md)) and Zalo ([MEM-263](../../completed/mem-263-zalo-bot/design.md)); everything that
 capability decides (who a turn runs as, linked accounts, conversations, order, the sender's rate, notices, the bounds,
 a group's own assistant from MEM-273) holds here unless this page says otherwise.
 

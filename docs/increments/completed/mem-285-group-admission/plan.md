@@ -26,5 +26,7 @@ One pull request after this design: the rule, its storage, the API and the switc
 
 ## Acceptance on staging
 
+Closed by the owner on 2026-10-28 without this run: the boxes below that are not ticked were not exercised on staging.
+
 - [ ] The staging Zalo group is refused with the notice and listed as waiting; allowed, it answers; withdrawn, it is
   refused. Needs the owner to post in the group.

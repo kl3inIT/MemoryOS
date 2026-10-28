@@ -44,6 +44,8 @@ bot page and the editor's warning. Acceptance on staging follows the second.
 
 ## Acceptance on staging
 
+Closed by the owner on 2026-10-28 without this run: the boxes below that are not ticked were not exercised on staging.
+
 - [ ] The staging Zalo bot switched public; a Zalo account that is not linked asks it directly and in a group and is
   answered from the assistant's attachments only, with no links; a document outside them is not found.
 - [ ] Switched back to private, the same account is told to link, and the earlier conversation is not continued.

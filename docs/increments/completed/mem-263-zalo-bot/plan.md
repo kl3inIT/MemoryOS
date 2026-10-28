@@ -49,6 +49,8 @@ Design: [design.md](design.md). Each pull request is accepted when CI is green a
 
 ## 6. Acceptance
 
+Closed by the owner on 2026-10-28 without this run: the boxes below that are not ticked were not exercised on staging.
+
 - [ ] On staging with the owner's bot: link, a direct question on a private document, an unlinked sender, a group
   question, a long answer in pieces, unlink; a restart of `memoryos-channels` re-registers the webhook; the same
   over polling.

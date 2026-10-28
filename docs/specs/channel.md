@@ -121,7 +121,7 @@ Direct messages always answer with the default.
 A provider that neither names organisations nor lists a group's people (`ChannelFeatures.groupsNeedPermission`: Zalo)
 gives the capability no way to tell that an outsider reads a group, so its groups are answered only once an
 administrator allows each one, as OpenClaw's `groupPolicy: "allowlist"` and Onyx's Discord channels are closed until
-enabled (MEM-285, [design](../increments/active/mem-285-group-admission/design.md)). Lark keeps its outsider check and
+enabled (MEM-285, [design](../increments/completed/mem-285-group-admission/design.md)). Lark keeps its outsider check and
 WhatsApp its every-member-linked check, and neither needs it.
 
 - **A question in a group not allowed**, from a linked sender, is refused as `GROUP_NOT_ALLOWED` with "Nhóm này chưa
@@ -140,7 +140,7 @@ WhatsApp its every-member-linked check, and neither needs it.
 
 A bot an administrator makes public answers anyone who addresses it, with no account, as Copilot Studio's agent with
 "No authentication" and a customer-facing agent such as Intercom Fin answer from what they are given (MEM-298,
-[design](../increments/active/mem-298-public-bot/design.md)). `channel_connections.public_access` (V194) is false for
+[design](../increments/completed/mem-298-public-bot/design.md)). `channel_connections.public_access` (V194) is false for
 every bot until switched.
 
 - **Switching** (`setPublic`, `PUT /api/channels/{channelId}/public`, `{"publicAccess": boolean}`) takes
@@ -160,7 +160,7 @@ every bot until switched.
   Public or Private Source whole, an Auto Sync one as far as the bot's account reads each document, nothing when there
   are none ([chat](chat.md)). The code interpreter is not offered, and a channel turn offers no Web search or image
   generation in any case. It uses only the MCP servers an administrator opened to public bots, read tools only
-  ([MEM-299](../increments/active/mem-299-mcp-in-channels/design.md)).
+  ([MEM-299](../increments/completed/mem-299-mcp-in-channels/design.md)).
 - **A member's own assistant** (MEM-299): a direct message to a bot that is not public answers with the assistant the
   member chose in Settings › Chat while they may use it, else the bot's; changing it starts the conversation over.
 - **MCP in any channel** (MEM-299): a turn uses its assistant's MCP servers as whoever it runs as: a member's direct
@@ -274,13 +274,13 @@ states organisations, a reply it rewrites and 150,000 characters; Zalo's is belo
 
 ## The Zalo adapter
 
-`ZaloChannelAdapter`, in `memoryos-integration-zalo` ([MEM-263](../increments/active/mem-263-zalo-bot/design.md)),
+`ZaloChannelAdapter`, in `memoryos-integration-zalo` ([MEM-263](../increments/completed/mem-263-zalo-bot/design.md)),
 calls the Zalo Bot Platform (`memoryos.zalo.base-url`, `https://bot-api.zaloplatforms.com/bot<token>/<method>`)
 through an `@HttpExchange` client on `shared.OutboundHttp`, since no SDK is maintained: 15 seconds a call, 45 for a
 poll, 5 for the typing mark, 1 MiB. A failure is known by Zalo's `error_code`, else the status; its text, the
 address that holds the token and the cause are never kept. Zalo states no organisations, no reply it rewrites and
 2,000 characters. What a real bot showed is recorded in the
-[increment's design](../increments/active/mem-263-zalo-bot/design.md#what-a-real-bot-showed-2026-10-15).
+[increment's design](../increments/completed/mem-263-zalo-bot/design.md#what-a-real-bot-showed-2026-10-15).
 
 - **A bot** is its token from Zalo Bot Creator; `getMe` names it by its display name, which members type after @,
   else its account name. Its one setting is how it receives: `WEBHOOK` where the deployment has a public HTTPS
@@ -512,7 +512,7 @@ shows where the time before an answer goes.
 ### Linked accounts
 
 A provider whose sender has no e-mail and no organisation, such as Zalo, answers only members who linked their
-account on it to their MemoryOS account ([MEM-263](../increments/active/mem-263-zalo-bot/design.md)).
+account on it to their MemoryOS account ([MEM-263](../increments/completed/mem-263-zalo-bot/design.md)).
 `ChannelLinkService` keeps the links (`channel_account_links`) and the codes that make them (`channel_link_codes`).
 
 - **The code.** A member makes it in MemoryOS (`POST /api/channel-links`): eight characters of

@@ -139,7 +139,7 @@ address, a restart of the process while idle, and the load and provider limits
 ([verification](../increments/active/mem-246-lark-bot/verification.md)). A group message naming the bot, `@all`,
 a second message during an answer and the three-account acceptance wait for a person on the Lark test tenant. The
 Zalo adapter runs against a local stand-in for Zalo; a real bot, its group mention and the webhook on staging are
-the probe and acceptance of [MEM-263](../increments/active/mem-263-zalo-bot/plan.md).
+the probe and acceptance of [MEM-263](../increments/completed/mem-263-zalo-bot/plan.md).
 | MEM-283: a bot linked by a code takes no secret and keeps none, is refused a secret, and is linked again by moving its revision; its number is reserved within its Tenant | `PostgresChannelConnectionTest.aBotLinkedByACodeHasNoSecretAndIsLinkedAgain` |
 | The database holds a WhatsApp bot by its number in international form and refuses it a secret, and any other bot none | `PostgresChannelConnectionTest.theDatabaseHoldsAWhatsAppBotByItsNumber` |
 | Two processes never hold one bot; the address of the holder is where a webhook request is passed; stopping hands the bot over at the next pass | `ChannelSupervisorTest.twoProcessesNeverHoldOneBotAndAStoppingOneHandsItOver` |
