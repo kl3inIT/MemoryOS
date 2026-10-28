@@ -1,0 +1,404 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "MemoryOS Software Architecture",
+    "output": ".archify/architecture-memoryos-r4-20261028-155531/memoryos-architecture.html",
+    "quality_profile": "showcase",
+    "visual_preset": "editorial",
+    "locale": "en"
+  },
+  "components": [
+    {
+      "id": "browser",
+      "type": "external",
+      "label": "Web browser",
+      "sublabel": "staff and admins",
+      "pos": [
+        40,
+        260
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "mcp-client",
+      "type": "external",
+      "label": "MCP client",
+      "sublabel": "Claude, ChatGPT",
+      "pos": [
+        40,
+        420
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "proxy",
+      "type": "cloud",
+      "label": "Reverse proxy",
+      "sublabel": "TLS termination",
+      "pos": [
+        300,
+        260
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "web",
+      "type": "frontend",
+      "label": "Web application",
+      "sublabel": "React 19, Nginx",
+      "pos": [
+        300,
+        420
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "API server",
+      "sublabel": "Spring Boot 4",
+      "pos": [
+        580,
+        260
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "redis",
+      "type": "messagebus",
+      "label": "Redis Streams",
+      "sublabel": "job delivery",
+      "pos": [
+        580,
+        420
+      ],
+      "size": [
+        170,
+        60
+      ]
+    },
+    {
+      "id": "worker",
+      "type": "backend",
+      "label": "Worker",
+      "sublabel": "background jobs",
+      "pos": [
+        580,
+        580
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "PostgreSQL",
+      "sublabel": "business data, sessions",
+      "pos": [
+        1140,
+        260
+      ],
+      "size": [
+        180,
+        384
+      ]
+    },
+    {
+      "id": "opensearch",
+      "type": "database",
+      "label": "OpenSearch",
+      "sublabel": "hybrid search index",
+      "pos": [
+        860,
+        420
+      ],
+      "size": [
+        180,
+        60
+      ]
+    },
+    {
+      "id": "minio",
+      "type": "database",
+      "label": "MinIO",
+      "sublabel": "files and extraction results",
+      "pos": [
+        860,
+        760
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "keycloak",
+      "type": "security",
+      "label": "Keycloak",
+      "sublabel": "identity provider",
+      "pos": [
+        420,
+        60
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "ai",
+      "type": "external",
+      "label": "AI model providers",
+      "sublabel": "chat, embedding, minutes",
+      "pos": [
+        1420,
+        420
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "speech",
+      "type": "external",
+      "label": "Speech-to-text",
+      "sublabel": "meeting transcripts",
+      "pos": [
+        640,
+        60
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "mcp-servers",
+      "type": "external",
+      "label": "External MCP servers",
+      "sublabel": "chat tools",
+      "pos": [
+        860,
+        60
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "sources",
+      "type": "external",
+      "label": "Document sources",
+      "sublabel": "Google Drive, SharePoint, Lark",
+      "pos": [
+        40,
+        760
+      ],
+      "size": [
+        200,
+        64
+      ]
+    },
+    {
+      "id": "docling",
+      "type": "backend",
+      "label": "Docling and OCR",
+      "sublabel": "text, tables, scans",
+      "pos": [
+        580,
+        760
+      ],
+      "size": [
+        170,
+        64
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "MemoryOS deployment",
+      "wraps": [
+        "proxy",
+        "web",
+        "api",
+        "redis",
+        "worker",
+        "postgres",
+        "opensearch",
+        "minio",
+        "docling"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "browser-proxy",
+      "from": "browser",
+      "to": "proxy",
+      "label": "HTTPS",
+      "variant": "emphasis"
+    },
+    {
+      "id": "mcp-client-proxy",
+      "from": "mcp-client",
+      "to": "proxy",
+      "label": "MCP"
+    },
+    {
+      "id": "proxy-web",
+      "from": "proxy",
+      "to": "web",
+      "label": "pages",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "proxy-api",
+      "from": "proxy",
+      "to": "api",
+      "label": "REST, SSE, WS",
+      "variant": "emphasis"
+    },
+    {
+      "id": "api-keycloak",
+      "from": "api",
+      "to": "keycloak",
+      "label": "OIDC",
+      "variant": "security"
+    },
+    {
+      "id": "api-speech",
+      "from": "api",
+      "to": "speech",
+      "label": "WebSocket"
+    },
+    {
+      "id": "api-mcp-servers",
+      "from": "api",
+      "to": "mcp-servers",
+      "label": "MCP"
+    },
+    {
+      "id": "api-postgres",
+      "from": "api",
+      "to": "postgres",
+      "label": "SQL",
+      "variant": "emphasis"
+    },
+    {
+      "id": "api-redis",
+      "from": "api",
+      "to": "redis",
+      "label": "enqueue",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "redis-worker",
+      "from": "redis",
+      "to": "worker",
+      "label": "consume",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "api-opensearch",
+      "from": "api",
+      "to": "opensearch",
+      "label": "search"
+    },
+    {
+      "id": "worker-opensearch",
+      "from": "worker",
+      "to": "opensearch",
+      "label": "index"
+    },
+    {
+      "id": "worker-minio",
+      "from": "worker",
+      "to": "minio",
+      "label": "objects"
+    },
+    {
+      "id": "worker-sources",
+      "from": "worker",
+      "to": "sources",
+      "label": "read files and ACL"
+    },
+    {
+      "id": "worker-docling",
+      "from": "worker",
+      "to": "docling",
+      "label": "HTTP",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "api-ai",
+      "from": "api",
+      "to": "ai",
+      "label": "chat, minutes"
+    },
+    {
+      "id": "worker-postgres",
+      "from": "worker",
+      "to": "postgres",
+      "label": "SQL"
+    },
+    {
+      "id": "worker-ai",
+      "from": "worker",
+      "to": "ai",
+      "label": "embeddings"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Data authority",
+      "items": [
+        "PostgreSQL decides who may read what",
+        "OpenSearch and Redis can be rebuilt and never grant access"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Background work",
+      "items": [
+        "Redis delivers each job at least once",
+        "Workers reload the job from PostgreSQL before running it"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Security",
+      "items": [
+        "Keycloak signs users in; MemoryOS never stores passwords",
+        "Sources are read only"
+      ]
+    }
+  ]
+}

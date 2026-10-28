@@ -34,8 +34,10 @@
 - [x] `docs/specs/chat.md` and `docs/tests/chat.md` describe the delivered contract
 - [x] Web gate, each part run locally: `tsc -b`, the unit suite (one failure, the load-sensitive `chat-web.test.tsx` that fails the same without this change), oxlint, oxfmt, the i18n audit, knip, the generated client and route tree stable, bundle budget
 - [x] `ChatPersistenceIntegrationTest`, `ChatSessionApiIntegrationTest` and `OpenApiContractTest` on PostgreSQL with V159 applied; `ModulithArchitectureTest`, `CoreDependencyRulesTest`
-- [ ] `clean check` and the complete Playwright suite on the pull request's CI (one complete local run: 207 passed, 5 failed — two from this change and fixed, three from fixture state or load)
-- [ ] Browser verification of the sidebar, the Projects page and the conversation menu on staging
+- [x] `clean check` and the complete Playwright suite on the pull request's CI (one complete local run: 207 passed, 5 failed — two from this change and fixed, three from fixture state or load)
+  PR #628: the backend checks and the six Playwright shards passed on CI; #643 likewise.
+- [x] Browser verification of the sidebar, the Projects page and the conversation menu on staging
+  2026-10-28 on `87eedb29` at 1440×900: the sidebar's *Dự án* lists the two projects and closes on a click; `/projects` shows each with its icon, file count and update date; a conversation's menu offers *Chuyển đến dự án* with *Dự án mới* and both projects.
 
 ## Staging acceptance (2026-10-19)
 

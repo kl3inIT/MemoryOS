@@ -15,7 +15,8 @@ Design: [design.md](design.md).
 - [x] Chat composer: the Thinking row and the level pill in `ChatModelPicker`; the first send pins a level chosen before the conversation existed.
 - [x] Docs: `docs/specs/chat-models.md` (task models), the test matrix, roadmap.
 - [x] UI screenshots for owner approval (2026-10-03); CI; merge (#491).
-- [ ] Staging: V143 applied, each task row shows its level, a level saved on the Models page reaches the task's call, and a level picked in the composer before the first question applies to the first answer.
+- [x] Staging: V143 applied, each task row shows its level, a level saved on the Models page reaches the task's call, and a level picked in the composer before the first question applies to the first answer.
+  2026-10-28 on `87eedb29`: V143 is in `flyway_schema_history`; `GET /api/chat/model-flows` returns a level for each of the six tasks (the minutes `MEDIUM`, the others `OFF`); saving `LOW` on the naming task returned it with revision 10, and `OFF` was put back (revision 11). Nine conversations since 2026-10-03 carry a pinned `LOW`. That the level reaches the provider request was not observed: 9Router has kept no request bodies since July, so it rests on the unit tests above.
 
 ## Staging acceptance (2026-10-19)
 

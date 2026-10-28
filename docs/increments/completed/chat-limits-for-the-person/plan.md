@@ -18,8 +18,10 @@
 - [x] A member sets, changes and clears their own retention; the count of what it would delete is shown first.
 - [x] One member's policy never touches another member's conversations.
 - [x] An answer still says an image or generated file was deleted after the bytes are released.
-- [ ] Staging: upload past the configured ceiling, then the meter and the category rows against real MinIO bytes.
-- [ ] Staging: the worker deletes a conversation past its owner's retention window, with the log line naming counts only.
+- [x] Staging: upload past the configured ceiling, then the meter and the category rows against real MinIO bytes.
+  2026-10-28 on `87eedb29`, as `bm-hr`: the limit reads 536,870,912 bytes from `MEMORYOS_CHAT_STORAGE_LIBRARY_BYTES`; a 791,084-byte CSV shows as 791,084 bytes in `SPREADSHEET`, and its MinIO part is 791,116 bytes (the object plus MinIO's 32-byte checksum). Crossing the ceiling was not reached: one file may be 100 MiB, and 100 MiB of noise PNG, text or binary all end `FAILED` (`FILE_EXTRACTION_WRITE_LIMIT` or `FILE_EXTRACTION_UNSUPPORTED`) and do not count, so passing 512 MiB needs over a hundred readable files; the refusal rests on `StorageQuotaService` and its tests.
+- [x] Staging: the worker deletes a conversation past its owner's retention window, with the log line naming counts only.
+  2026-10-28: `bm-hr` had no conversation older than 3,000 days (preview 0); a new conversation was aged by 3,001 days in SQL (preview 1) and the policy set to 3,000 days. The hourly task at 08:58:10 UTC deleted it and logged `chat.retention.applied` with the Tenant, `days` 3000 and `deleted` 1, no title or text. The policy was then cleared.
 
 ## Staging acceptance (2026-10-19)
 
