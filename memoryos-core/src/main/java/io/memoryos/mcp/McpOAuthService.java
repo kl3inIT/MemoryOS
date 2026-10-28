@@ -306,32 +306,32 @@ public class McpOAuthService {
     /** Builds the administrator's authorization request; the caller keeps {@code state} and the PKCE verifier. */
     @Transactional(readOnly = true)
     public AuthorizationStart startAdministratorAuthorization(ActorId actor, UUID serverId, UUID clientId, String state,
-                                                             String codeChallenge) {
+                                                             String codeVerifier) {
         UUID tenant = read(actor);
         var server = oauthServer(tenant, serverId);
         if (server.authPerformer() != McpAuthPerformer.ADMIN)
             throw McpException.invalid("Users connect per-User servers from Chat.");
         var client = clients.findByTenantIdAndServerIdAndId(tenant, serverId, clientId).orElseThrow(McpException::notFound);
-        return start(tenant, server, client, state, codeChallenge, null, ADMINISTRATION_PATH);
+        return start(tenant, server, client, state, codeVerifier, null, ADMINISTRATION_PATH);
     }
 
     /** A User connects their own account to a per-User server they may use; {@code returnPath} is already validated. */
     @Transactional(readOnly = true)
     public AuthorizationStart startUserAuthorization(ActorId actor, UUID serverId, UUID clientId, String state,
-                                                     String codeChallenge, String returnPath) {
+                                                     String codeVerifier, String returnPath) {
         UUID tenant = use(actor);
         var server = accessibleOAuthServer(tenant, serverId, actor);
         if (server.authPerformer() != McpAuthPerformer.PER_USER)
             throw McpException.invalid("The administrator manages this server's shared connection.");
         var client = clients.findByTenantIdAndServerIdAndId(tenant, serverId, clientId).orElseThrow(McpException::notFound);
-        return start(tenant, server, client, state, codeChallenge, actor.value(), returnPath);
+        return start(tenant, server, client, state, codeVerifier, actor.value(), returnPath);
     }
 
     private AuthorizationStart start(UUID tenant, McpServerEntity server, McpOAuthClientEntity client, String state,
-                                     String codeChallenge, @Nullable UUID ownerActorId, String returnPath) {
+                                     String codeVerifier, @Nullable UUID ownerActorId, String returnPath) {
         String scope = String.join(" ", scopes(tenant, server, ownerActorId));
         URI url = protocol.authorizationUrl(URI.create(client.authorizationEndpoint()), client.clientId(),
-                properties.redirectUri(), state, codeChallenge, scope.isEmpty() ? null : scope,
+                properties.redirectUri(), state, codeVerifier, scope.isEmpty() ? null : scope,
                 McpOAuthProtocol.canonicalResource(server.url()), McpServerRules.stringMap(server.oauthAdditionalParameters()));
         return new AuthorizationStart(url, new Pending(tenant, server.getId(), server.revision(), client.getId(),
                 client.revision(), ownerActorId, returnPath));

@@ -111,7 +111,7 @@ class McpOAuthController {
         String state = McpAuthorizationSessionState.random();
         String verifier = McpAuthorizationSessionState.random();
         var start = oauth.startAdministratorAuthorization(identity.actorId(), serverId, request.oauthClientId(), state,
-                McpAuthorizationSessionState.challenge(verifier));
+                verifier);
         McpAuthorizationSessionState.store(servletRequest, identity, start.pending(), state, verifier);
         return ResponseEntity.ok()
                 .body(new McpOAuthAuthorizationResponse(start.authorizationUrl().toString()));

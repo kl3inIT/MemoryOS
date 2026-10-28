@@ -36,7 +36,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.memoryos.api.chat.contract.ChatProviderRequest;
-import io.memoryos.api.mcp.McpAuthorizationSessionState;
 import io.memoryos.api.mcp.McpFixtureServer;
 import io.memoryos.api.mcp.contract.McpOAuthClientRequest;
 import io.memoryos.api.mcp.contract.McpServerRequest;
@@ -132,6 +131,9 @@ import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
+import com.nimbusds.oauth2.sdk.pkce.CodeChallenge;
+import com.nimbusds.oauth2.sdk.pkce.CodeChallengeMethod;
+import com.nimbusds.oauth2.sdk.pkce.CodeVerifier;
 import io.memoryos.api.ApiPostgresDatabase;
 import io.memoryos.api.security.ActorAuthenticationToken;
 import io.memoryos.shared.ActorId;
@@ -5674,7 +5676,7 @@ class ChatSessionApiIntegrationTest {
             UUID serverId = UUID.fromString(id);
             UUID clientId = UUID.fromString(client.path("id").asText());
             var mismatched = mcpOAuth.startAdministratorAuthorization(actorId, serverId, clientId, "state-1",
-                    McpAuthorizationSessionState.challenge(pkceVerifier("verifier-1")));
+                    pkceVerifier("verifier-1"));
             var mismatchedParameters = formParameters(mismatched.authorizationUrl().getRawQuery());
             assertEquals(fixture.url(), mismatchedParameters.get("resource"));
             assertEquals("S256", mismatchedParameters.get("code_challenge_method"));
@@ -5686,13 +5688,13 @@ class ChatSessionApiIntegrationTest {
                             null)).code());
 
             var launch = mcpOAuth.startAdministratorAuthorization(actorId, serverId, clientId, "state-2",
-                    McpAuthorizationSessionState.challenge(pkceVerifier("verifier-2")));
+                    pkceVerifier("verifier-2"));
             mcpOAuth.complete(actorId, launch.pending(), "good-code", pkceVerifier("verifier-2"), issuer);
             var exchanged = tokenForms.getLast();
             assertEquals("good-code", exchanged.get("code"));
             assertEquals(fixture.url(), exchanged.get("resource"));
             assertEquals(formParameters(launch.authorizationUrl().getRawQuery()).get("code_challenge"),
-                    McpAuthorizationSessionState.challenge(exchanged.get("code_verifier")));
+                    s256(exchanged.get("code_verifier")));
             // Connecting changed the server revision, so the earlier pending authorization can no longer complete.
             assertEquals("MCP_CONFLICT", Assertions.assertThrows(McpException.class,
                     () -> mcpOAuth.complete(actorId, mismatched.pending(), "late-code", pkceVerifier("verifier-1"),
@@ -5768,7 +5770,7 @@ class ChatSessionApiIntegrationTest {
             invalidGrant.set(false);
             UUID clientBId = UUID.fromString(clientB.path("id").asText());
             var knownLaunch = mcpOAuth.startAdministratorAuthorization(actorId, knownServerId, clientBId, "state-known",
-                    McpAuthorizationSessionState.challenge(pkceVerifier("verifier-known")));
+                    pkceVerifier("verifier-known"));
             var knownParameters = formParameters(knownLaunch.authorizationUrl().getRawQuery());
             assertEquals("org-b-client", knownParameters.get("client_id"));
             assertEquals("files:read", knownParameters.get("scope"));
@@ -5782,11 +5784,11 @@ class ChatSessionApiIntegrationTest {
             // the configured scopes and the challenged ones; the new grant clears it.
             mcpOAuth.requireScope(knownServerId, null, "files:write files:read");
             var stepUp = mcpOAuth.startAdministratorAuthorization(actorId, knownServerId, clientBId, "state-step-up",
-                    McpAuthorizationSessionState.challenge(pkceVerifier("verifier-step-up")));
+                    pkceVerifier("verifier-step-up"));
             assertEquals("files:read files:write", formParameters(stepUp.authorizationUrl().getRawQuery()).get("scope"));
             mcpOAuth.complete(actorId, stepUp.pending(), "step-up-code", pkceVerifier("verifier-step-up"), null);
             var afterStepUp = mcpOAuth.startAdministratorAuthorization(actorId, knownServerId, clientBId, "state-after",
-                    McpAuthorizationSessionState.challenge(pkceVerifier("verifier-after")));
+                    pkceVerifier("verifier-after"));
             assertEquals("files:read", formParameters(afterStepUp.authorizationUrl().getRawQuery()).get("scope"));
             mockMvc.perform(delete(clientBPath).param("revision", updatedB.path("revision").asText()).with(authentication(actor))
                     .with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isNoContent());
@@ -5823,7 +5825,7 @@ class ChatSessionApiIntegrationTest {
             assertFalse(connections.contains(issuer));
 
             var userLaunch = mcpOAuth.startUserAuthorization(otherId, perUserId, userClientId, "state-user",
-                    McpAuthorizationSessionState.challenge(pkceVerifier("verifier-user")), "/chat/session-9");
+                    pkceVerifier("verifier-user"), "/chat/session-9");
             assertEquals(otherId.value(), userLaunch.pending().ownerActorId());
             assertEquals("/chat/session-9", userLaunch.pending().returnPath());
             assertEquals("MCP_CONFLICT", Assertions.assertThrows(McpException.class,
@@ -5867,7 +5869,7 @@ class ChatSessionApiIntegrationTest {
                     .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
             assertEquals(1, restrictedServer.path("groupIds").size());
             var withdrawn = mcpOAuth.startUserAuthorization(otherId, perUserId, userClientId, "state-withdrawn",
-                    McpAuthorizationSessionState.challenge(pkceVerifier("verifier-withdrawn")), "/chat/session-9");
+                    pkceVerifier("verifier-withdrawn"), "/chat/session-9");
             jdbc.sql("DELETE FROM iam_group_memberships WHERE tenant_id=:tenant AND group_id=:group AND actor_id=:actor")
                     .param("tenant", TENANT).param("group", restricted).param("actor", otherId.value()).update();
             assertEquals("MCP_NOT_FOUND", Assertions.assertThrows(McpException.class,
@@ -5893,6 +5895,10 @@ class ChatSessionApiIntegrationTest {
     /** A PKCE verifier of the 43 characters RFC 7636 asks for at least, which Nimbus enforces before sending. */
     private static String pkceVerifier(String name) {
         return name + "~".repeat(Math.max(0, 43 - name.length()));
+    }
+
+    private static String s256(String verifier) {
+        return CodeChallenge.compute(CodeChallengeMethod.S256, new CodeVerifier(verifier)).getValue();
     }
 
     private static Map<String, String> formParameters(String raw) {

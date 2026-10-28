@@ -14,6 +14,11 @@ java {
     }
 }
 
+// Name each deprecated API a build uses instead of javac's one-line summary, so a deprecation is seen before its removal.
+tasks.withType<JavaCompile>().configureEach {
+    options.compilerArgs.add("-Xlint:deprecation")
+}
+
 // Docker dependency layer: downloads the production build classpaths before sources are copied, so an
 // unchanged dependency set is reused from the image build cache.
 tasks.register("resolveDependencies") {

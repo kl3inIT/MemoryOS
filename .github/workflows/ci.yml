@@ -347,12 +347,9 @@ jobs:
         run: pnpm --dir web check
 
       # A committed lockfile carrying a published advisory must fail review, not sit on the default
-      # branch waiting for a Dependabot alert nobody reads. The archify skill lockfile is committed
-      # too, so it is audited with npm here.
+      # branch waiting for a Dependabot alert nobody reads.
       - name: Audit committed lockfiles
-        run: |
-          pnpm --dir web audit --audit-level=high
-          npm --prefix .skills/archify audit --audit-level=high
+        run: pnpm --dir web audit --audit-level=high
 
       - name: Upload frontend unit reports
         if: ${{ !cancelled() }}

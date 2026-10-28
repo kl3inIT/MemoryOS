@@ -16,6 +16,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.nimbusds.oauth2.sdk.pkce.CodeChallenge;
+import com.nimbusds.oauth2.sdk.pkce.CodeChallengeMethod;
+import com.nimbusds.oauth2.sdk.pkce.CodeVerifier;
 import io.memoryos.api.mcp.contract.McpOAuthAuthorizationRequest;
 import io.memoryos.api.security.ActorAuthenticationToken;
 import io.memoryos.shared.ActorId;
@@ -63,14 +66,14 @@ class McpOAuthCallbackTest {
 
         when(oauth.startAdministratorAuthorization(eq(identity.actorId()), eq(pending.serverId()), eq(pending.oauthClientId()),
                 anyString(), anyString())).thenAnswer(call -> new McpOAuthService.AuthorizationStart(URI.create(
-                "https://as.example/authorize?state=" + call.getArgument(3) + "&code_challenge=" + call.getArgument(4)), pending));
+                "https://as.example/authorize?state=" + call.getArgument(3) + "&code_challenge=" + s256(call.getArgument(4))), pending));
         var response = controller.authorize(identity, pending.serverId(), new McpOAuthAuthorizationRequest(pending.oauthClientId()), request());
         var stored = (McpAuthorizationSessionState) session.getAttribute(McpAuthorizationSessionState.class.getName());
         assertEquals(pending, stored.pending());
         assertEquals(identity.actorId().value(), stored.actorId());
         String url = response.getBody().authorizationUrl();
         assertTrue(url.contains("state=" + stored.state()));
-        assertTrue(url.contains("code_challenge=" + McpAuthorizationSessionState.challenge(stored.verifier())));
+        assertTrue(url.contains("code_challenge=" + s256(stored.verifier())));
         assertFalse(url.contains(stored.verifier()));
         assertFalse(stored.toString().contains(stored.verifier()));
         var bytes = new ByteArrayOutputStream();
@@ -150,6 +153,10 @@ class McpOAuthCallbackTest {
         assertEquals("/?mcp=authorization-failed", response.getRedirectedUrl());
         verify(oauth, never()).complete(any(), any(), any(), any(), any());
         assertTrue(new String(response.getContentAsByteArray(), StandardCharsets.UTF_8).isEmpty());
+    }
+
+    private static String s256(String verifier) {
+        return CodeChallenge.compute(CodeChallengeMethod.S256, new CodeVerifier(verifier)).getValue();
     }
 
     private MockHttpServletRequest request() {

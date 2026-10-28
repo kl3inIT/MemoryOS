@@ -15,12 +15,14 @@ runs:
   using: composite
   steps:
     - name: Install pnpm and Node.js
-      uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
+      uses: pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e # v3.1.2
       with:
         runtime: node@26
         working-directory: ${{ inputs.directory }}
         cache: true
         cache-dependency-path: ${{ inputs.directory }}/pnpm-lock.yaml
+        # Every job reads the store; only a main push writes it, so pull requests do not fill the 10 GB Actions cache.
+        save-cache: ${{ github.ref == 'refs/heads/main' }}
         # The install below states --frozen-lockfile rather than relying on a default.
         install: false
 

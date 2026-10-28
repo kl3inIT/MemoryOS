@@ -1,14 +1,14 @@
 # syntax=docker/dockerfile:1.7
 
 # MEM-283: the WhatsApp bridge, a static Go binary on whatsmeow that the channels process starts as a child process.
-FROM golang:1.27.2-bookworm@sha256:5cf287a799e6b94384bad13d16b14904c531f51ba65792237e122ce42b392f61 AS whatsapp-bridge
+FROM golang:1.27.3-bookworm@sha256:972b4110ba0f47539a975c31e52c64765e1ff19f2d74469ae4a595c6676e80a5 AS whatsapp-bridge
 WORKDIR /bridge
 COPY memoryos-integration-whatsapp/bridge/go.mod memoryos-integration-whatsapp/bridge/go.sum ./
 RUN go mod download
 COPY memoryos-integration-whatsapp/bridge/*.go ./
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/memoryos-whatsapp-bridge .
 
-FROM eclipse-temurin:25-jdk-noble@sha256:589ff4cc3f71aab462e7048a47a0d10edf57fbccde3fceea2281e610bf5880b4 AS build
+FROM eclipse-temurin:25-jdk-noble@sha256:ba0f0e1a33864105e1d454e88105c617ab40f71062db1f306bf58be32a3f8e5e AS build
 
 WORKDIR /workspace
 

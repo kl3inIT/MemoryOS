@@ -19,7 +19,7 @@ import org.apache.tika.parser.epub.EpubParser;
 import org.apache.tika.parser.html.JSoupParser;
 import org.apache.tika.parser.mail.RFC822Parser;
 import org.apache.tika.parser.microsoft.ooxml.OOXMLParser;
-import org.apache.tika.parser.pdf.OcrConfig;
+import org.apache.tika.parser.pages.TextPolicy;
 import org.apache.tika.parser.pdf.PDFParser;
 import org.apache.tika.parser.pdf.PDFParserConfig;
 import org.apache.tika.sax.BodyContentHandler;
@@ -45,9 +45,7 @@ final class ChatMarkupExtractor {
         // Text layers only: OCR is Docling's job, and a fallback that ran it would be a second OCR
         // path with its own quality nobody measured.
         var pdfConfig = new PDFParserConfig();
-        var ocr = new OcrConfig();
-        ocr.setStrategy(OcrConfig.Strategy.NO_OCR);
-        pdfConfig.setOcr(ocr);
+        pdfConfig.pages().setText(TextPolicy.EXTRACT);
         context.set(PDFParserConfig.class, pdfConfig);
         context.set(OutputLimits.class, new OutputLimits(StructuredContent.MAX_TEXT, true, 100, 10, 1000000, 100));
         context.set(Parser.class, parser);

@@ -112,7 +112,7 @@ public class ChannelSupervisor implements SmartLifecycle {
         if (passes != null) return;
         passes = Executors.newSingleThreadScheduledExecutor(Thread.ofVirtual().name("channel-supervisor").factory());
         renewals = Executors.newSingleThreadScheduledExecutor(Thread.ofVirtual().name("channel-leases").factory());
-        passes.scheduleWithFixedDelay(this::pass, 0, PASS.toMillis(), TimeUnit.MILLISECONDS);
+        passes.scheduleWithFixedDelay(this::scheduledPass, 0, PASS.toMillis(), TimeUnit.MILLISECONDS);
         renewals.scheduleWithFixedDelay(this::renew, RENEWAL.toMillis(), RENEWAL.toMillis(), TimeUnit.MILLISECONDS);
     }
 
@@ -145,6 +145,14 @@ public class ChannelSupervisor implements SmartLifecycle {
     @Override
     public synchronized boolean isRunning() {
         return passes != null;
+    }
+
+    /**
+     * A scheduled pass that was already waiting on the lock while {@link #stop()} handed the leases back would take
+     * them again for a stopped process, leaving the bots unserved until the leases end; once stopped it does nothing.
+     */
+    private synchronized void scheduledPass() {
+        if (passes != null) pass();
     }
 
     /** One reconciliation of what is open here with what is switched on and leased to this process. */

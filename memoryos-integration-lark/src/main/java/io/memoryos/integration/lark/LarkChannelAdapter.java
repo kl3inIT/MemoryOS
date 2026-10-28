@@ -139,7 +139,7 @@ public final class LarkChannelAdapter implements ChannelAdapter, AutoCloseable {
         safety.setChatQueueEnabled(false);
         var options = LarkChannelOptions.newBuilder(connection.appId(), secret)
                 .domain(baseUrl(region(connection))).httpTransport(transport)
-                .policy(policy).safety(safety).includeRawInMessage(true).build();
+                .policy(policy).safety(safety).includeRawEvent(true).build();
         var channel = new LarkChannel(options);
         channel.on("message", (NormalizedMessage message) -> {
             var converted = convert(connection, message);

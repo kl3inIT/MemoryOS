@@ -27,7 +27,7 @@ import org.apache.tika.metadata.Metadata;
 import org.apache.tika.metadata.TikaCoreProperties;
 import org.apache.tika.parser.AutoDetectParser;
 import org.apache.tika.parser.ParseContext;
-import org.apache.tika.parser.pdf.OcrConfig;
+import org.apache.tika.parser.pages.TextPolicy;
 import org.apache.tika.parser.pdf.PDFParserConfig;
 import org.apache.tika.sax.BodyContentHandler;
 import org.jspecify.annotations.Nullable;
@@ -179,9 +179,7 @@ final class TikaExtractionProcess {
     private static ParseContext parseContext() {
         ParseContext context = new ParseContext();
         PDFParserConfig pdf = new PDFParserConfig();
-        OcrConfig ocr = new OcrConfig();
-        ocr.setStrategy(OcrConfig.Strategy.NO_OCR);
-        pdf.setOcr(ocr);
+        pdf.pages().setText(TextPolicy.EXTRACT);
         context.set(PDFParserConfig.class, pdf);
         context.set(EmbeddedDocumentExtractor.class, new RejectingEmbeddedDocumentExtractor());
         return context;

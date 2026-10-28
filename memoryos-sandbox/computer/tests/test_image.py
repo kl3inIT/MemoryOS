@@ -276,7 +276,7 @@ print(json.dumps(checks))
         self.assertEqual(run.returncode, 0, run.stderr)
         checks = json.loads(run.stdout)
         self.assertEqual(checks.pop("python"), [3, 14])
-        self.assertEqual((checks.pop("numpy"), checks.pop("pandas"), checks.pop("opencv")), ("2.5", "3.0", 5))
+        self.assertEqual((checks.pop("numpy"), checks.pop("pandas"), checks.pop("opencv")), ("2.5", "3.1", 5))
         self.assertEqual({name: ok for name, ok in checks.items() if not ok}, {})
 
 

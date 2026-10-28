@@ -36,9 +36,9 @@ class McpViewResourcesTransportTest {
 
     @Test
     void declaredResourcesAndOtherMessagesPassUnchanged() {
-        var declared = new McpSchema.InitializeResult("2025-11-25",
-                McpSchema.ServerCapabilities.builder().tools(false).resources(true, true).build(), SERVER, null);
-        var listed = new McpSchema.ListToolsResult(List.of(), null);
+        var declared = McpSchema.InitializeResult.builder("2025-11-25",
+                McpSchema.ServerCapabilities.builder().tools(false).resources(true, true).build(), SERVER).build();
+        var listed = McpSchema.ListToolsResult.builder(List.of()).build();
 
         assertSame(declared, new McpViewResourcesTransport(returning(declared))
                 .unmarshalFrom(Map.of(), new TypeRef<McpSchema.InitializeResult>() {}));

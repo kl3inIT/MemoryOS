@@ -254,10 +254,13 @@ class McpOAuthProtocolTest {
     @Test
     void buildsAuthorizationUrlsAndParsesChallengesAndProbeOrder() {
         var url = protocol.authorizationUrl(URI.create("https://as.example/authorize?tenant=1"), "client", URI.create("https://m.example/cb"),
-                "state", "challenge", "files:read", "https://mcp.example/mcp", Map.of("hd", "tasco.vn", "state", "attacker"));
+                "state", VERIFIER, "files:read", "https://mcp.example/mcp", Map.of("hd", "tasco.vn", "state", "attacker"));
         var parameters = query(url.getRawQuery());
         assertEquals("1", parameters.get("tenant"));
         assertEquals("state", parameters.get("state"));
+        // RFC 7636 Appendix B: the S256 challenge of this verifier; the verifier itself never leaves MemoryOS here.
+        assertEquals("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM", parameters.get("code_challenge"));
+        assertFalse(url.toString().contains(VERIFIER));
         assertEquals("S256", parameters.get("code_challenge_method"));
         assertEquals("https://mcp.example/mcp", parameters.get("resource"));
         assertEquals("tasco.vn", parameters.get("hd"));

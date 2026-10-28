@@ -103,8 +103,9 @@ final class AnthropicCancellation implements AutoCloseable {
     }
 
     /**
-     * Spring AI 2.0 keeps streamed thinking text to itself until the response ends; it publishes it per delta from
-     * 2.1. Until then the events are read where the SDK hands the stream over, with the SDK's own event types.
+     * Spring AI 2.0.2 publishes each thinking delta's text, but not where a thinking block starts, and emits nothing for
+     * events such as tool-argument deltas, so the turn could neither break between blocks nor stay checked through
+     * them. The events are read where the SDK hands the stream over, with the SDK's own event types.
      */
     private static AnthropicClientAsync observed(AnthropicClientAsync client, Consumer<RawMessageStreamEvent> events) {
         return intercept(AnthropicClientAsync.class, client, "messages", messages ->
