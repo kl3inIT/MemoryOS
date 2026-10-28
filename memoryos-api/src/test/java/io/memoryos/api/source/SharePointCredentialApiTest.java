@@ -6,132 +6,15 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-import com.sun.net.httpserver.HttpServer;
-import io.memoryos.api.ApiPostgresDatabase;
-import io.memoryos.api.security.ActorAuthenticationToken;
 import io.memoryos.connector.CredentialId;
 import io.memoryos.connector.SharePointCredentialService;
-import io.memoryos.shared.ActorId;
-import io.memoryos.iam.IdentityContext;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
-import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
-@SpringBootTest(properties = {
-        "spring.security.oauth2.resourceserver.jwt.issuer-uri=https://issuer.example.test",
-        "spring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://127.0.0.1:1/jwks",
-        "memoryos.identity.audience=memoryos-api",
-        "memoryos.google-drive.credential-encryption-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-        "memoryos.google-drive.credential-key-version=test-v1",
-        "memoryos.sharepoint.credential-encryption-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-        "memoryos.sharepoint.credential-key-version=sp-test-v1",
-        "spring.security.oauth2.client.registration.memoryos.client-secret=client-secret",
-        "memoryos.initial-tenant.id=10000000-0000-0000-0000-000000000024",
-        "memoryos.initial-tenant.owner-subject=sharepoint-owner",
-        "memoryos.initial-tenant.slug=sharepoint",
-        "memoryos.initial-tenant.display-name=SharePoint",
-        "memoryos.initial-tenant.change-reference=MEM-126-TEST",
-        "memoryos.search.endpoint=http://127.0.0.1:1",
-})
-@Testcontainers(disabledWithoutDocker = true)
-@AutoConfigureMockMvc
-class SharePointCredentialApiTest {
-    private static final HttpServer IDENTITY_SERVER = startIdentityServer();
-    private static final String BROWSER_ISSUER =
-            "http://127.0.0.1:" + IDENTITY_SERVER.getAddress().getPort();
-
-    @Autowired
-    private MockMvc mockMvc;
-
-    @Autowired
-    private JdbcClient jdbcClient;
-
-    @MockitoBean
-    private SharePointCredentialService credentials;
-
-    private ActorAuthenticationToken owner;
-
-    @DynamicPropertySource
-    static void browserProperties(DynamicPropertyRegistry registry) {
-        ApiPostgresDatabase.configure(registry);
-        registry.add("spring.security.oauth2.client.provider.memoryos.issuer-uri", () -> BROWSER_ISSUER);
-        registry.add("memoryos.identity.keycloak.admin.server-url", () -> "http://127.0.0.1:1");
-        registry.add("memoryos.identity.keycloak.admin.client-secret", () -> "test-provisioner-secret");
-        registry.add(
-                "memoryos.identity.keycloak.admin.action-redirect-uri",
-                () -> "http://127.0.0.1/invite/activate"
-        );
-    }
-
-    @AfterAll
-    static void stopIdentityServer() {
-        IDENTITY_SERVER.stop(0);
-    }
-
-    @BeforeEach
-    void seedOwner() {
-        owner = token(ownerActorId());
-    }
-
-    private UUID ownerActorId() {
-        return jdbcClient.sql("""
-                        SELECT actor_id FROM external_identity_bindings
-                        WHERE issuer = :issuer AND subject = 'sharepoint-owner'
-                        """)
-                .param("issuer", "https://issuer.example.test")
-                .query(UUID.class)
-                .single();
-    }
-
-    private static ActorAuthenticationToken token(UUID actorId) {
-        return new ActorAuthenticationToken(new IdentityContext(new ActorId(actorId)));
-    }
-
-    private static HttpServer startIdentityServer() {
-        try {
-            var server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
-            server.createContext("/.well-known/openid-configuration", exchange -> {
-                String issuer = "http://127.0.0.1:" + server.getAddress().getPort();
-                byte[] body = """
-                        {
-                          "issuer": "%s",
-                          "authorization_endpoint": "%s/authorize",
-                          "token_endpoint": "%s/token",
-                          "jwks_uri": "%s/jwks",
-                          "userinfo_endpoint": "%s/userinfo",
-                          "subject_types_supported": ["public"],
-                          "id_token_signing_alg_values_supported": ["RS256"]
-                        }
-                        """.formatted(issuer, issuer, issuer, issuer, issuer).getBytes(StandardCharsets.UTF_8);
-                exchange.getResponseHeaders().add("Content-Type", "application/json");
-                exchange.sendResponseHeaders(200, body.length);
-                try (var response = exchange.getResponseBody()) {
-                    response.write(body);
-                }
-            });
-            server.start();
-            return server;
-        } catch (Exception exception) {
-            throw new IllegalStateException("Could not start local identity server", exception);
-        }
-    }
-
+class SharePointCredentialApiTest extends SourceProviderApiTest {
     private static SharePointCredentialService.CredentialView view(CredentialId id, String name) {
         return new SharePointCredentialService.CredentialView(id, name, UUID.randomUUID(), UUID.randomUUID(),
                 "GLOBAL", "CLIENT_SECRET", "ACTIVE", null, null, "tenant.sharepoint.com", 1L,
@@ -147,7 +30,7 @@ class SharePointCredentialApiTest {
     @Test
     void listRequiresAuthenticationAndReturnsNoSecrets() throws Exception {
         var id = new CredentialId(UUID.randomUUID());
-        when(credentials.list(any())).thenReturn(List.of(view(id, "Entra app")));
+        when(sharePointCredentials.list(any())).thenReturn(List.of(view(id, "Entra app")));
         mockMvc.perform(get("/api/credentials/sharepoint").with(authentication(owner)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(id.value().toString()))
@@ -161,8 +44,8 @@ class SharePointCredentialApiTest {
     @Test
     void createReturnsCreated() throws Exception {
         var id = new CredentialId(UUID.randomUUID());
-        when(credentials.create(any(), any())).thenReturn(id);
-        when(credentials.list(any())).thenReturn(List.of(view(id, "Entra app")));
+        when(sharePointCredentials.create(any(), any())).thenReturn(id);
+        when(sharePointCredentials.list(any())).thenReturn(List.of(view(id, "Entra app")));
         mockMvc.perform(post("/api/credentials/sharepoint")
                         .with(authentication(owner))
                         .header("X-MemoryOS-CSRF", "1")
@@ -195,7 +78,7 @@ class SharePointCredentialApiTest {
     @Test
     void replaceAuthenticationRequiresIfMatch() throws Exception {
         var id = new CredentialId(UUID.randomUUID());
-        when(credentials.list(any())).thenReturn(List.of(view(id, "Entra app")));
+        when(sharePointCredentials.list(any())).thenReturn(List.of(view(id, "Entra app")));
         mockMvc.perform(put("/api/credentials/sharepoint/{id}/authentication", id.value())
                         .with(authentication(owner))
                         .header("X-MemoryOS-CSRF", "1")
@@ -209,7 +92,7 @@ class SharePointCredentialApiTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(secretBody("Entra app")))
                 .andExpect(status().isOk());
-        verify(credentials).replaceAuthentication(any(), eq(id), eq(1L), any());
+        verify(sharePointCredentials).replaceAuthentication(any(), eq(id), eq(1L), any());
     }
 
     @Test
@@ -222,19 +105,19 @@ class SharePointCredentialApiTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Renamed\"}"))
                 .andExpect(status().isNoContent());
-        verify(credentials).rename(any(), eq(id), eq(1L), eq("Renamed"));
+        verify(sharePointCredentials).rename(any(), eq(id), eq(1L), eq("Renamed"));
         mockMvc.perform(delete("/api/credentials/sharepoint/{id}", id.value())
                         .with(authentication(owner))
                         .header("X-MemoryOS-CSRF", "1")
                         .header("If-Match", "\"1\""))
                 .andExpect(status().isNoContent());
-        verify(credentials).delete(any(), eq(id), eq(1L));
+        verify(sharePointCredentials).delete(any(), eq(id), eq(1L));
     }
 
     @Test
     void testEndpointReturnsResult() throws Exception {
         var id = new CredentialId(UUID.randomUUID());
-        when(credentials.test(any(), eq(id))).thenReturn(new SharePointCredentialService.TestResult(true, "tenant.sharepoint.com"));
+        when(sharePointCredentials.test(any(), eq(id))).thenReturn(new SharePointCredentialService.TestResult(true, "tenant.sharepoint.com"));
         mockMvc.perform(post("/api/credentials/sharepoint/{id}/test", id.value())
                         .with(authentication(owner))
                         .header("X-MemoryOS-CSRF", "1"))
