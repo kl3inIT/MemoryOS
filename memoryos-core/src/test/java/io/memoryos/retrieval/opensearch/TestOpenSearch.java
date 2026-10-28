@@ -21,25 +21,31 @@ public final class TestOpenSearch {
 
     @SuppressWarnings("resource") // The caller's Testcontainers extension owns start and stop.
     public static GenericContainer<?> container() {
-        return new GenericContainer<>(IMAGE) {
-            @Override
-            protected void containerIsStarted(InspectContainerResponse containerInfo) {
-                try {
-                    var result = execInContainer("curl", "-sf", "-XPUT", "http://127.0.0.1:9200/_index_template/test-refresh",
-                            "-H", "Content-Type: application/json", "-d", FAST_REFRESH);
-                    if (result.getExitCode() != 0) {
-                        throw new IllegalStateException("The test refresh template was refused: " + result.getStdout());
-                    }
-                } catch (IOException failure) {
-                    throw new IllegalStateException("The test refresh template could not be installed", failure);
-                } catch (InterruptedException interrupted) {
-                    Thread.currentThread().interrupt();
-                    throw new IllegalStateException("Interrupted installing the test refresh template", interrupted);
-                }
-            }
-        }
+        return new Node()
                 .withEnv("discovery.type", "single-node").withEnv("DISABLE_SECURITY_PLUGIN", "true")
                 .withEnv("DISABLE_INSTALL_DEMO_CONFIG", "true").withEnv("OPENSEARCH_JAVA_OPTS", "-Xms512m -Xmx512m")
                 .withExposedPorts(9200).waitingFor(Wait.forHttp("/").forPort(9200).withStartupTimeout(Duration.ofMinutes(3)));
+    }
+
+    private static final class Node extends GenericContainer<Node> {
+        Node() {
+            super(IMAGE);
+        }
+
+        @Override
+        protected void containerIsStarted(InspectContainerResponse containerInfo) {
+            try {
+                var result = execInContainer("curl", "-sf", "-XPUT", "http://127.0.0.1:9200/_index_template/test-refresh",
+                        "-H", "Content-Type: application/json", "-d", FAST_REFRESH);
+                if (result.getExitCode() != 0) {
+                    throw new IllegalStateException("The test refresh template was refused: " + result.getStdout());
+                }
+            } catch (IOException failure) {
+                throw new IllegalStateException("The test refresh template could not be installed", failure);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Interrupted installing the test refresh template", interrupted);
+            }
+        }
     }
 }
