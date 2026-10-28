@@ -1,3 +1,5 @@
+package io.memoryos.integration.whatsapp;
+
 import java.io.BufferedReader;
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
@@ -18,7 +20,7 @@ import tools.jackson.databind.node.ObjectNode;
  * canned results. Two commands are its own: {@code emit} writes the event it carries, as WhatsApp's would, and
  * {@code exit} ends the process as a crash would.
  */
-public class FakeBridge {
+public final class FakeBridge {
     private static final JsonMapper JSON = JsonMapper.builder().build();
     private static int seq;
     /** UTF-8 whatever the locale, as the bridge writes; the adapter starts it with an empty environment. */
