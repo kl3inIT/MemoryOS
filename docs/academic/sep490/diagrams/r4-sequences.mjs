@@ -104,7 +104,8 @@ function render(file, parts, steps) {
     out.push(ret
       ? `<polyline points="${a}" fill="none" stroke="${LINE}" stroke-width="1.3"/>`
       : `<polygon points="${a}" fill="${LINE}"/>`);
-    const lx = dir > 0 ? x1 + 8 : x2 + 8;
+    // keep a long label inside the right edge
+    const lx = Math.min(dir > 0 ? x1 + 8 : x2 + 8, W - 12 - m.label.length * 7.25);
     // a white halo keeps a label readable where it crosses a lifeline
     out.push(`<text x="${lx}" y="${m.y - 6}" font-family="${MONO}" font-size="12" fill="${ret ? MUTED : INK}" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke"${ret ? ' font-style="italic"' : ''}>${esc(m.label)}</text>`);
   }
@@ -192,4 +193,87 @@ render('r4-set1-seq-index', [
   ['sic', 'pg', 'finish(claim, SUCCESS)'],
   ['sic', 'chunks', 'markSearchReady(...)'],
   ['chunks', 'pg', 'set searchable_generation'],
+]);
+
+render('r4-set2-seq-answer', [
+  ['user', 'actor', 'Browser'],
+  ['tctrl', 'class', 'ChatTurnController'],
+  ['sctrl', 'class', 'ChatStreamController'],
+  ['turn', 'class', 'ChatTurnService'],
+  ['limit', 'class', 'AiUsageLimitService'],
+  ['pg', 'store', 'PostgreSQL'],
+  ['redis', 'queue', 'Redis Streams'],
+  ['exec', 'class', 'ChatModelExecutor'],
+  ['model', 'external', 'AI model provider'],
+  ['search', 'class', 'SearchTool'],
+  ['dss', 'class', 'DocumentSearchService'],
+  ['os', 'store', 'OpenSearch'],
+], [
+  '| Accept the question',
+  ['user', 'tctrl', 'POST /api/chat/sessions/{id}/messages'],
+  ['tctrl', 'turn', 'command(actor, session, SEND, ...)'],
+  ['turn', 'limit', 'enforce(actor)'],
+  ['turn', 'pg', 'reserve(...): user and RUNNING assistant rows'],
+  ['turn', 'redis', 'open(assistantMessageId)'],
+  ['tctrl', 'user', '202 ChatTurnAcceptedResponse', 'return'],
+  ['user', 'sctrl', 'GET .../messages/{assistantId}/events'],
+  ['sctrl', 'turn', 'subscribe(actor, session, assistant, after)'],
+  '| Answer in the background',
+  ['turn', 'model', 'ChatGuardrailCheck.check(question)'],
+  ['turn', 'exec', 'execute(setup, ...)'],
+  ['exec', 'model', 'stream(prompt) with tools'],
+  ['model', 'exec', 'tool call search_knowledge', 'return'],
+  ['exec', 'search', 'searchKnowledge(queries, filters)'],
+  ['search', 'dss', 'scope(actor), ranked(scope, queries, ...)'],
+  ['dss', 'os', 'POST /{alias}/_search (hybrid)'],
+  ['os', 'dss', 'hits', 'return'],
+  ['dss', 'pg', 'readableMetadata(scope, ids)'],
+  ['search', 'exec', 'passages with citation numbers', 'return'],
+  ['exec', 'model', 'tool result'],
+  ['model', 'exec', 'answer text', 'return'],
+  ['exec', 'turn', 'output(text)'],
+  ['turn', 'redis', 'append(id, text) after CitationGate.accept'],
+  ['redis', 'sctrl', 'read new events', 'return'],
+  ['sctrl', 'user', 'SSE text', 'return'],
+  '| Finish',
+  ['turn', 'pg', 'finishAndRead(...) and record(AiUsage)'],
+  ['turn', 'redis', 'finish(id, status, ...)'],
+  ['sctrl', 'user', 'SSE outcome', 'return'],
+]);
+
+render('r4-set2-seq-mcp', [
+  ['user', 'actor', 'Browser'],
+  ['tctrl', 'class', 'ChatTurnController'],
+  ['turn', 'class', 'ChatTurnService'],
+  ['redis', 'queue', 'Redis Streams'],
+  ['mcpsvc', 'class', 'McpTurnService'],
+  ['pg', 'store', 'PostgreSQL'],
+  ['oauth', 'class', 'McpOAuthService'],
+  ['model', 'external', 'AI model provider'],
+  ['tools', 'class', 'McpTools'],
+  ['turntools', 'class', 'McpTurnTools'],
+  ['ext', 'external', 'External MCP server'],
+], [
+  '| Open the tools when the turn starts',
+  ['turn', 'mcpsvc', 'open(actor, serverIds, ..., WEB)'],
+  ['mcpsvc', 'pg', 'tools and credentials (OFF skipped)'],
+  ['mcpsvc', 'oauth', 'accessToken(tenant, server, owner)'],
+  ['oauth', 'ext', 'refresh the token if it expired'],
+  ['mcpsvc', 'turn', 'McpTurnTools', 'return'],
+  ['turn', 'model', 'stream(prompt) with McpTools'],
+  '| The model calls a tool that needs approval (ASK)',
+  ['model', 'tools', 'tool call (arguments)'],
+  ['tools', 'turntools', 'decide(binding, callId, args)'],
+  ['turntools', 'turn', 'awaitApproval(...)'],
+  ['turn', 'redis', 'approval(id, callId, server, tool, ...)'],
+  ['redis', 'user', 'SSE tool_approval', 'return'],
+  ['user', 'tctrl', 'POST .../tool-calls/{callId}/decision'],
+  ['tctrl', 'turn', 'decide(..., approved, alwaysAllow)'],
+  ['turn', 'turntools', 'approved', 'return'],
+  '| Call the tool',
+  ['tools', 'turntools', 'call(binding, arguments, deadline)'],
+  ['turntools', 'ext', 'McpClients.open(url, headers), call(tool, args)'],
+  ['ext', 'turntools', 'McpToolResult', 'return'],
+  ['turntools', 'tools', 'Outcome(text, error)', 'return'],
+  ['tools', 'model', 'Tool.Result.text(...)', 'return'],
 ]);

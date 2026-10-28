@@ -78,9 +78,10 @@ function render(name) {
         : [[a.cx, a.y + a.h], [a.cx, gy], [b.cx, gy], [b.cx, b.y]];
     } else {
       const gx = ca < cb ? gutterX(ca) : gutterX(cb);
-      // an edge going up leaves high and one going down leaves low, so two edges in one gutter never meet
-      const ya = a.y + a.h * (ra > rb ? 0.3 : 0.7);
-      const yb = b.y + b.h / 2;
+      // an edge going up leaves high and enters low, one going down leaves low and enters high, so two
+      // edges in one gutter never meet and neither lands on a straight edge at mid height
+      const ya = a.y + a.h * (ra > rb ? 0.15 : 0.85);
+      const yb = b.y + b.h * (ra > rb ? 0.85 : 0.15);
       pts = ca < cb
         ? [[a.x + a.w, ya], [gx, ya], [gx, yb], [b.x, yb]]
         : [[a.x, ya], [gx, ya], [gx, yb], [b.x + b.w, yb]];
