@@ -19,7 +19,6 @@ import io.memoryos.channel.ChannelReply;
 import io.memoryos.shared.ActorId;
 import java.io.File;
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
@@ -53,13 +52,13 @@ class WhatsAppChannelAdapterTest {
     private final Received received = new Received();
 
     @BeforeEach
-    void start() throws IOException, URISyntaxException {
+    void start() throws IOException {
         assumeFalse(File.separatorChar == '\\', "the stand-in bridge is started by a POSIX shell script");
-        var source = Path.of(getClass().getResource("/FakeBridge.java").toURI());
+        // The stand-in is compiled with the tests, so each start launches a class instead of compiling a source file.
         String java = ProcessHandle.current().info().command().orElseThrow();
         var launcher = directory.resolve("bridge");
         Files.writeString(launcher, "#!/bin/sh\nexec '" + java + "' -cp '" + System.getProperty("java.class.path")
-                + "' '" + source + "'\n");
+                + "' " + FakeBridge.class.getName() + "\n");
         Files.setPosixFilePermissions(launcher, PosixFilePermissions.fromString("rwx------"));
         commands = directory.resolve("commands.jsonl");
         bridge = new WhatsAppBridge(launcher, "WARN", () -> commands.toString());
