@@ -126,6 +126,12 @@
           "key": "pk"
         },
         {
+          "name": "meeting_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "meeting.id"
+        },
+        {
           "name": "speaker",
           "type": "varchar(16)",
           "key": "fk",
@@ -258,6 +264,12 @@
           "name": "id",
           "type": "uuid",
           "key": "pk"
+        },
+        {
+          "name": "meeting_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "meeting.id"
         },
         {
           "name": "kind",

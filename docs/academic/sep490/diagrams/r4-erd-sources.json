@@ -233,6 +233,12 @@
           "references": "connectors.id"
         },
         {
+          "name": "current_version_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "connector_item_versions.id"
+        },
+        {
           "name": "status",
           "type": "varchar(32)"
         },
@@ -293,6 +299,18 @@
           "references": "connector_credential_pairs.id"
         },
         {
+          "name": "connector_item_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "connector_items.id"
+        },
+        {
+          "name": "connector_item_version_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "connector_item_versions.id"
+        },
+        {
           "name": "status",
           "type": "varchar(32)"
         },
@@ -331,6 +349,12 @@
             "fk"
           ],
           "references": "documents.id"
+        },
+        {
+          "name": "connector_item_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "connector_items.id"
         }
       ]
     },

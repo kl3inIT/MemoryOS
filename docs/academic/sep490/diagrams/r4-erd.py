@@ -67,11 +67,11 @@ AREAS = {
             ("meeting_speaker", 0, 0, ["label", "name"]),
             ("meeting_user_share", 0, 1, []),
             ("mcp_server_group", 0, 3, []),
-            ("meeting_utterance", 1, 0, ["speaker", "start_ms", "end_ms", "text"], ["meeting_speaker"]),
+            ("meeting_utterance", 1, 0, ["meeting_id", "speaker", "start_ms", "end_ms", "text"], ["meeting_speaker"]),
             ("meeting", 1, 1, ["title", "kind", "status", "minutes_status"]),
             ("mcp_credential", 1, 2, ["status", "access_expires_at"]),
             ("mcp_server", 1, 3, ["slug", "name", "url", "auth_type", "status"]),
-            ("meeting_minutes_item", 2, 0, ["kind", "text", "owner", "due", "done"], ["meeting_utterance"]),
+            ("meeting_minutes_item", 2, 0, ["meeting_id", "kind", "text", "owner", "due", "done"], ["meeting_utterance"]),
             ("meeting_group_share", 2, 1, []),
             ("mcp_server_tool", 2, 3, ["name", "policy", "read_only"]),
         ],
@@ -136,7 +136,8 @@ def build(tables, area):
             keys = []
             if c["name"] in t["pk"]:
                 keys.append("pk")
-            fk = next((f for f in t["fk"].get(c["name"], []) if f[0] in chosen and (only is None or f[0] in only)), None)
+            # badge every FK whose target is drawn; only draw lines for the allowed targets
+            fk = next((f for f in t["fk"].get(c["name"], []) if f[0] in chosen and (only is None or f[0] in only)), None)                 or next((f for f in t["fk"].get(c["name"], []) if f[0] in chosen), None)
             if fk:
                 keys.append("fk")
             if c["name"] in t["uk"] and "pk" not in keys:
@@ -156,7 +157,7 @@ def build(tables, area):
         for a in attrs:
             if "references" in a:
                 target = a["references"].split(".")[0]
-                if target == name:
+                if target == name or (only is not None and target not in only):
                     continue
                 nullable = not next(c for c in t["columns"] if c["name"] == a["name"])["not_null"]
                 rels.append({
