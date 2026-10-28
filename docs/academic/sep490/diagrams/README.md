@@ -25,3 +25,11 @@ Bản chỉnh sửa: [r2-process-methodology.drawio](r2-process-methodology.draw
 - [Thực hiện một issue](r2-implementation-issue-flow.png) (trang 2): các bước từ issue Linear đến staging. Nếu review hoặc CI Gate chưa đạt thì quay lại bước code. Sơ đồ vẽ review pull request là điều kiện bắt buộc trước khi merge. Hiện `main` chưa bắt buộc review.
 
 Hai ảnh PNG được chụp ở tỉ lệ 2x bằng draw.io viewer. Khi sửa file `.drawio` thì xuất lại PNG.
+
+## R4 — Thiết kế phần mềm (archify)
+
+Bản chỉnh sửa là file JSON, dựng bằng skill archify: `node .claude/skills/archify/bin/archify.mjs deliver architecture <file>.json <file>.html --quality showcase`. Nhãn viết bằng tiếng Anh. Phạm vi là FE-01 đến FE-07 của Report 3, có Lark là một nguồn tài liệu; không vẽ bot, channels hay sandbox.
+
+- [Kiến trúc phần mềm](r4-software-architecture.png) (mục I.1): nguồn [r4-software-architecture.json](r4-software-architecture.json), bản xem [r4-software-architecture.html](r4-software-architecture.html). Khung nét đứt là phần nhóm tự chạy; hệ thống ngoài nằm ngoài khung.
+
+PNG chụp ở tỉ lệ 2x từ bản HTML, nền trắng, ẩn thanh công cụ và chú giải của viewer. Khi sửa JSON thì dựng lại HTML rồi chụp lại PNG.

@@ -3,7 +3,7 @@
   "diagram_type": "architecture",
   "meta": {
     "title": "MemoryOS Software Architecture",
-    "output": ".archify/architecture-memoryos-r4-20261028-155531/memoryos-architecture.html",
+    "output": "docs/academic/sep490/diagrams/r4-software-architecture.html",
     "quality_profile": "showcase",
     "visual_preset": "editorial",
     "locale": "en"
@@ -334,7 +334,8 @@
       "id": "worker-opensearch",
       "from": "worker",
       "to": "opensearch",
-      "label": "index"
+      "label": "index",
+      "fromSide": "right"
     },
     {
       "id": "worker-minio",
@@ -366,13 +367,15 @@
       "id": "worker-postgres",
       "from": "worker",
       "to": "postgres",
-      "label": "SQL"
+      "label": "SQL",
+      "fromSide": "right"
     },
     {
       "id": "worker-ai",
       "from": "worker",
       "to": "ai",
-      "label": "embeddings"
+      "label": "embeddings",
+      "fromSide": "right"
     }
   ],
   "cards": [
