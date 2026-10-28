@@ -137,7 +137,9 @@ def build(tables, area):
             if c["name"] in t["pk"]:
                 keys.append("pk")
             # badge every FK whose target is drawn; only draw lines for the allowed targets
-            fk = next((f for f in t["fk"].get(c["name"], []) if f[0] in chosen and (only is None or f[0] in only)), None)                 or next((f for f in t["fk"].get(c["name"], []) if f[0] in chosen), None)
+            fks = t["fk"].get(c["name"], [])
+            fk = (next((f for f in fks if f[0] in chosen and (only is None or f[0] in only)), None)
+                  or next((f for f in fks if f[0] in chosen), None))
             if fk:
                 keys.append("fk")
             if c["name"] in t["uk"] and "pk" not in keys:
