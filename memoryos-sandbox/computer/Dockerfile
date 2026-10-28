@@ -1,13 +1,5 @@
 FROM python:3.14-slim@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170
 
-ARG VCS_REF=unknown
-ARG BUILD_DATE=unknown
-
-LABEL org.opencontainers.image.title="MemoryOS Sandbox Computer" \
-      org.opencontainers.image.source="https://github.com/kl3inIT/MemoryOS" \
-      org.opencontainers.image.revision="${VCS_REF}" \
-      org.opencontainers.image.created="${BUILD_DATE}"
-
 # The interpreter executor's packages (MEM-110), then the tools Dust, Claude's code execution or Onyx Craft ship for
 # office work (MEM-270 design, "Image contents"): git, jq, ripgrep, fd, file, 7-Zip, bc, pandoc, LibreOffice Writer,
 # Tesseract with Vietnamese, ImageMagick, ffmpeg and Node.
@@ -102,5 +94,15 @@ COPY check_docx.py /usr/local/bin/check-docx
 # pptx-to-pdf: the Chat preview of generated presentations (MEM-111, LibreOffice Impress).
 COPY pptx_to_pdf.py /usr/local/bin/pptx-to-pdf
 RUN chmod 0755 /usr/local/bin/recalc-xlsx /usr/local/bin/check-docx /usr/local/bin/pptx-to-pdf
+
+# Build metadata comes last: every RUN after an ARG sees it in its environment, so a per-commit value placed
+# earlier would rebuild every layer below it on each commit.
+ARG VCS_REF=unknown
+ARG BUILD_DATE=unknown
+
+LABEL org.opencontainers.image.title="MemoryOS Sandbox Computer" \
+      org.opencontainers.image.source="https://github.com/kl3inIT/MemoryOS" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.created="${BUILD_DATE}"
 
 WORKDIR /workspace
