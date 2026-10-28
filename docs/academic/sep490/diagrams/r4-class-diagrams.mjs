@@ -128,8 +128,9 @@ function render(name) {
     }
     out.push(`<text x="${b.cx}" y="${ty}" text-anchor="middle" font-family="${MONO}" font-size="13" font-weight="700"${b.t.kind === 'interface' ? ' font-style="italic"' : ''} fill="${INK}">${esc(b.t.label)}</text>`);
     b.ops.forEach((op, i) => {
-      const abstract = b.t.methods[i].abstract;
-      out.push(`<text x="${b.x + 12}" y="${b.y + b.headH + 22 + i * 18}" font-family="${MONO}" font-size="12"${abstract ? ' font-style="italic"' : ''} fill="${INK}">${esc(op)}</text>`);
+      // UML: abstract operations in italics, static operations underlined
+      const { abstract, static: isStatic } = b.t.methods[i];
+      out.push(`<text x="${b.x + 12}" y="${b.y + b.headH + 22 + i * 18}" font-family="${MONO}" font-size="12"${abstract ? ' font-style="italic"' : ''}${isStatic ? ' text-decoration="underline"' : ''} fill="${INK}">${esc(op)}</text>`);
     });
   }
   for (const [x, y, anchor, text] of labels) {
