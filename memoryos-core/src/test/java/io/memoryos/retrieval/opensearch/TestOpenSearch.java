@@ -11,11 +11,14 @@ public final class TestOpenSearch {
     private static final String IMAGE =
             "opensearchproject/opensearch:3.8.0@sha256:bcc1797519726ceb6d651d4a3e60b7c30da91793914a8dfe75fd441d4f641509";
 
-    // Writes that wait for a refresh (refresh=wait_for) wait for the index's next one, a second by default; the tests
-    // write often enough that the wait was most of their run. Every index on the node refreshes every 50 ms instead,
-    // through a template rather than the application's index settings, which stay what production creates.
-    private static final String FAST_REFRESH =
-            "{\"index_patterns\":[\"*\"],\"priority\":0,\"template\":{\"settings\":{\"index.refresh_interval\":\"50ms\"}}}";
+    // Index settings for every index on the test node, through a template rather than the application's index
+    // settings, which stay what production creates. Writes that wait for a refresh (refresh=wait_for) wait for the
+    // index's next one, a second by default, so the node refreshes every 50 ms. The k-NN plugin builds a Faiss HNSW
+    // graph for every flushed and merged segment by default, which took most of the node's CPU at 3072 dimensions;
+    // the tests' few hundred chunks are searched exactly instead, with the same hits.
+    private static final String TEST_INDEX_SETTINGS = """
+            {"index_patterns":["*"],"priority":0,"template":{"settings":{
+            "index.refresh_interval":"50ms","index.knn.advanced.approximate_threshold":-1}}}""";
 
     private TestOpenSearch() { }
 
@@ -35,16 +38,16 @@ public final class TestOpenSearch {
         @Override
         protected void containerIsStarted(InspectContainerResponse containerInfo) {
             try {
-                var result = execInContainer("curl", "-sf", "-XPUT", "http://127.0.0.1:9200/_index_template/test-refresh",
-                        "-H", "Content-Type: application/json", "-d", FAST_REFRESH);
+                var result = execInContainer("curl", "-sf", "-XPUT", "http://127.0.0.1:9200/_index_template/test-index-settings",
+                        "-H", "Content-Type: application/json", "-d", TEST_INDEX_SETTINGS);
                 if (result.getExitCode() != 0) {
-                    throw new IllegalStateException("The test refresh template was refused: " + result.getStdout());
+                    throw new IllegalStateException("The test index template was refused: " + result.getStdout());
                 }
             } catch (IOException failure) {
-                throw new IllegalStateException("The test refresh template could not be installed", failure);
+                throw new IllegalStateException("The test index template could not be installed", failure);
             } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
-                throw new IllegalStateException("Interrupted installing the test refresh template", interrupted);
+                throw new IllegalStateException("Interrupted installing the test index template", interrupted);
             }
         }
     }
