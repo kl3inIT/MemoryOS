@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import type { SpeechSynthesisAdapter } from "@assistant-ui/react";
 import { describe, expect, it, vi } from "vitest";
 import type { AudioPlayback } from "./audio-player";

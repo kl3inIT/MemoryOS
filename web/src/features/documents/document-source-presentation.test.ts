@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import { documentKind, friendlyMediaType } from "./document-source-presentation";
 

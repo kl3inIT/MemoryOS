@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { QueryClient } from "@tanstack/react-query";
 import { AssistantMessageStream } from "assistant-stream";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";

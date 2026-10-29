@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import { ApiError } from "@/lib/api";
 import { embeddingTestOutcome } from "./embedding-connection";

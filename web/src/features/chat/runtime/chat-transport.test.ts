@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 import { MemoryOsChatTransport } from "./chat-transport";
 import { loadChatHistory, newChatSession, toUiMessages } from "@/features/chat/chat-api";

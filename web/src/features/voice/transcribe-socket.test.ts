@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FINAL_TIMEOUT_MS, openTranscriptionSocket, VoiceStreamError } from "./transcribe-socket";
 
