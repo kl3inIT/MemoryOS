@@ -21,10 +21,17 @@ export default defineConfig({
     // Building a jsdom window is a third of a file's cost, so only component tests and the logic tests that touch a
     // browser API (marked with an @vitest-environment jsdom docblock) get one.
     projects: [
-      { extends: true, test: { name: "dom", include: ["src/**/*.test.tsx"], environment: "jsdom" } },
       {
         extends: true,
-        test: { name: "logic", include: ["src/**/*.test.ts", "scripts/**/*.test.mjs"], environment: "node" },
+        test: { name: "dom", include: ["src/**/*.test.tsx"], environment: "jsdom" },
+      },
+      {
+        extends: true,
+        test: {
+          name: "logic",
+          include: ["src/**/*.test.ts", "scripts/**/*.test.mjs"],
+          environment: "node",
+        },
       },
     ],
   },
