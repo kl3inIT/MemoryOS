@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import {
   MAX_SYNC_INTERVAL_MINUTES,

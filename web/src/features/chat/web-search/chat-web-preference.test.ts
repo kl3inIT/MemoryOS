@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
 import { readWebPreference, webUsableOn, writeWebPreference } from "./chat-web-preference";
 import { MemoryOsChatTransport } from "@/features/chat/runtime/chat-transport";
