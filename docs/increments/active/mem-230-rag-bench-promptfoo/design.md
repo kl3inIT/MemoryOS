@@ -26,7 +26,7 @@ matched the corpus (all eleven documents, every figure, unchanged access).
 
 | Concern | Decision |
 | --- | --- |
-| Runner | promptfoo 0.123.1 (MIT, self-hosted, no account). Built-in assertions where they exist: `factuality`, `context-faithfulness`, `context-recall`, `is-refusal`. Written here only what promptfoo cannot know: a Python provider for MemoryOS and two assertions (a forbidden document reached the actor; an inline `[n]` that is not one of the message's sources) |
+| Runner | promptfoo 0.123.1, 0.125.1 since 2026-10-28 (MIT, self-hosted, no account). Built-in assertions where they exist: `factuality`, `context-faithfulness`, `context-recall`, `is-refusal`. Written here only what promptfoo cannot know: a Python provider for MemoryOS and two assertions (a forbidden document reached the actor; an inline `[n]` that is not one of the message's sources) |
 | Where it runs | A staging-only service in `compose.staging.yaml`, next to pgweb and Redis Insight. Evals run inside it with `docker exec`; the image ships Python 3.14, so the provider needs no custom image |
 | Viewer access | The self-hosted viewer has no sign-in, and it can start evals that spend the judge key and run provider code inside the container. It is reached only through OAuth2 Proxy with the realm's `memoryos-inspector` role, which only the initial owner holds, as pgweb and Redis Insight are ([MEM-53](../../completed/mem-53-inspection-tooling/design.md)). It is never published directly. The viewer also creates and runs evals, with 9Router as its provider under the benchmark's own key; an eval can read that key and send it elsewhere, so the key serves nothing else and is revoked in 9Router alone. The remaining risk is accepted: whoever holds the role can run code in a container with a read-only root filesystem, every capability dropped, `no-new-privileges`, 1 GiB, the access network internal and egress on a network of its own |
 | Judge | `cx/gpt-6-luna` through 9Router, under a dedicated `memoryos-benchmark` key. Scores are compared only under one judge |
@@ -117,7 +117,7 @@ document recall and invalid extra documents (EnterpriseRAG-Bench).
 
 | Stage | Question | Metric | Source |
 | --- | --- | --- | --- |
-| 1 Extraction | Is the evidence quote in the indexed text? | Extraction coverage: share of evidence quotes found in the document's chunks (normalized text, token containment ≥ 0.9; exact match reported beside it), by text layer | Document passages through the API, as `chat.py` reads them |
+| 1 Extraction | Is the evidence quote in the indexed text? | Extraction coverage: share of evidence quotes found in the document's chunks (at least 90% of the quote's character 6-grams, on letters and digits only, per fragment), by text layer | Document passages through the API, as `chat.py` reads them |
 | 2 Retrieval | Does search rank the gold documents first? | Recall@10 and @50, nDCG@10, MRR@10, at document level and at passage level (a returned section contains an evidence quote); tempting document ranked above gold | `POST /api/search` as `exec`; keyword-only, vector-only and hybrid |
 | 3 Chat context | Did the model read the gold documents? | Context recall (gold documents among the documents read) and context precision (read documents that are gold) | `readDocuments` of stored replies |
 | 4 Answer | Is the reply right and supported? | correctness, faithfulness, citation, leakage, behaviour (exist); completeness (every point the question asks for, judged against the gold answer) | Stored replies, judge `cx/gpt-6-luna` |

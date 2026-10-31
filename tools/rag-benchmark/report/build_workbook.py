@@ -224,7 +224,7 @@ METRICS = [
         "The range where the true value most likely lies",
         "Bootstrap: draw the questions again at random 10,000 times (seed 230), recompute, take the 2.5% and 97.5% points. Questions, not rows, are drawn, because one question is asked by several roles",
         "82.4% [75.6, 88.6]",
-        "summary.py",
+        "Statistics",
     ),
     (
         "paired difference",
@@ -232,7 +232,7 @@ METRICS = [
         "Whether one version beats another",
         "Per row, version A minus version B on the same question and role; bootstrap interval of the mean difference. An interval containing zero is no measured difference",
         "+7.0 [1.9, 12.1] proven; +4.1 [-0.5, 8.9] not proven",
-        "summary.py",
+        "Statistics",
     ),
 ]
 
@@ -240,67 +240,67 @@ METHOD = [
     (
         "1 Corpus",
         "61 public disclosures collected 2026-10-05 from savico.com.vn, haxaco.com.vn and two CafeF mirrors: 49 Savico (SVC) documents for questions (finance 14, governance 13, HR 13, investor relations 3, legal 6) and 12 Haxaco (HAX) documents of the same sector as noise that is never questioned. Text layer: 25 text, 10 mixed, 26 scanned. Each file is kept by URL and SHA-256; the provisioning script downloads it and refuses a changed file. Real conflicts were kept on purpose (superseded charters and notices, overlapping governance reports).",
-        "corpus/manifest.json",
+        "Corpus",
     ),
     (
         "2 Access",
         "Six Sources (one per department plus Haxaco) and six Groups in the staging tenant; seven roles (exec reads all, each department role its own Savico Source and Haxaco, outsider nothing). Each role is a test account placed only in its benchmark Groups.",
-        "corpus/layout.json; sheet Roles",
+        "Roles",
     ),
     (
         "3 Pages and sample",
         "1,750 pages extracted from the originals (1,075 read from images, 462 prose, 213 tables). 24 pages per department drawn with seed 230, one page of every question document first; questions start from a drawn page so the facts asked are not chosen for being easy.",
-        "authoring/pages.py; corpus/sample.json",
+        "Evidence (page of each quote)",
     ),
     (
         "4 Drafting",
         "Six agents drafted from the brief: 17 questions per department and 40 across departments, ambiguous, general knowledge and sensitive, 125 in all. Questions are written in user voice (abbreviations, some without diacritics, some typos), never copying 4+ words from the quote; word-trigram overlap with the quotes is at most 0.41. Evidence is quoted verbatim from the original page, never from MemoryOS's own text, so extraction errors are measured, not hidden.",
-        "authoring/BRIEF.md",
+        "Questions; Evidence",
     ),
     (
         "5 Bias controls",
         "Quotas fixed before reading; seeded page draw; three kinds of unanswerable question (absent, near miss, false premise); as_of on questions about current state; numeric gold checked on the page image for scanned pages; expectations per role derived from the access layout, not typed; 70/30 dev/test split, decisions read from test.",
-        "design.md, question authoring and bias controls",
+        "Questions (category, split, as_of and expect columns)",
     ),
     (
         "6 Blind validation",
         "Two models of another family than the author (cx/gpt-6-luna and cx/gpt-6-sol) each answered every question from its quotes and from the whole document, without the gold answer; both had to reproduce it. 111 of 125 passed at first; 12 were rewritten once; 5 still rejected were dropped. 120 questions remain.",
-        "authoring/validate.py",
+        "Questions (validated_by)",
     ),
     (
         "7 Review",
         "A seeded 24-question sample (20%) was read against the original pages; no gold answer was wrong; two defects of the derived expectations were fixed for the whole set. The set was frozen at 120 on 2026-10-06.",
-        "corpus/review.md",
+        "Questions",
     ),
     (
         "8 Who asks",
         "Each department question is asked by its own role, by exec and by one other role that must decline; cross-department, near-miss and false-premise questions by every role; ambiguous, general-knowledge and sensitive questions by exec. 375 rows in grounded mode, 361 in standard mode (general knowledge and sensitive run grounded only).",
-        "promptfoo/build_config.py",
+        "Questions (expect columns); Results Chat",
     ),
     (
         "9 Runs",
         "promptfoo on the staging server, a fresh chat session per row, 2 concurrent turns, chat model cx/gpt-6-luna. A run refuses to start unless all 61 documents are indexed and searchable. Error rows are asked once more and merged.",
-        "README.md; sheet Runs",
+        "Runs",
     ),
     (
         "10 Retrieval-only runs",
         "Each of the 97 questions with a gold document for exec is searched once through POST /api/search as exec, with no Chat and no query rewrite. Keyword-only and vector-only ran on a test image whose hybrid query keeps one side, with the same filters, depth and permission checks; it was never merged.",
-        "promptfoo/retrieval_provider.py",
+        "Results Retrieval; Summary",
     ),
     (
         "11 Stage re-grade",
         "The stored replies of the 2026-10-08 baseline were scored again without new turns: what the model read, completeness, and correctness and completeness by a second judge. The completeness rubric was calibrated on 20 hand-read replies: a first rubric (every point of the gold answer) failed 13 of 20 complete replies; the rubric used agreed with the hand reading on 20 of 20 for both judges.",
-        "promptfoo/build_config.py --checks stage",
+        "Results Chat; Summary (agreement between the two judges)",
     ),
     (
         "12 Ablation",
         "A step is tested by a test image that skips it (V1 no query rewrite, twice; V6 no adjacent chunks) against the released pipeline V0 on the same 375 rows the same day. A step is dropped only when removing it costs no more than noise on both splits, no category falls by more than 10 points and no leak appears.",
-        "docs/tests/chat.md",
+        "Summary (ablation runs, paired differences, rows passing by category)",
     ),
     (
         "13 Statistics",
         "Rates with 95% bootstrap intervals over questions (10,000 draws, seed 230); paired differences on the same rows. Re-grading unchanged replies moves a single check by up to 5 rows, so smaller differences are judge noise.",
-        "promptfoo/summary.py",
+        "Summary; Metrics",
     ),
 ]
 
@@ -400,7 +400,7 @@ def main() -> None:
         ),
         (
             "Generated",
-            "By tools/rag-benchmark/report/build_workbook.py from the repository files named on each sheet. Do not edit by hand; run the script again.",
+            "Built automatically from the recorded questions and run results; nothing is typed in by hand. Every rate in Summary can be recalculated from the Results sheets.",
         ),
         ("Corpus fingerprint", runs_meta["corpusFingerprint"]),
         ("Chat model", runs_meta["chatModel"]),
@@ -410,7 +410,7 @@ def main() -> None:
         ),
         (
             "Sheets",
-            "Method: how the benchmark was built and run. Metrics: what each measure means, how it is computed, with examples. Corpus, Roles, Questions, Evidence: the test set. Runs: every run with its evals. Summary: the comparison tables. Results Chat and Results Retrieval: one row per question and role per run.",
+            "Summary: the comparison tables. Method: how the benchmark was built and run. Metrics: what each measure means, how it is computed, with examples. Corpus, Roles, Questions, Evidence: the test set. Runs: every run with its evals. Results Chat and Results Retrieval: one row per question and role per run.",
         ),
         (
             "Reading a rate",
@@ -432,7 +432,7 @@ def main() -> None:
     write_table(
         ws,
         1,
-        ["Step", "What was done", "Source in the repository"],
+        ["Step", "What was done", "Where to see it in this workbook"],
         [list(m) for m in METHOD],
         [22, 110, 38],
     )

@@ -352,7 +352,8 @@ from another company's or another period's document (MEM-232).
 Each stage scored on its own, on the same corpus (fingerprint `6f95c22c5f14`) and the API of `main` at `dcdea3c5`
 ([design](../increments/active/mem-230-rag-bench-promptfoo/design.md#stage-metrics)). Every rate carries a 95%
 bootstrap interval that resamples questions (10,000 resamples, seed 230); a paired difference whose interval includes
-zero is no measured difference. `promptfoo/summary.py` computes them from promptfoo exports.
+zero is no measured difference. `promptfoo/summary.py` computes them from promptfoo exports. The method, environment
+and metric definitions are in [the benchmark method](../../tools/rag-benchmark/METHOD.md).
 
 **Retrieval** (`--mode retrieval`): the 97 questions `exec` must answer or follow, one `POST /api/search` each as
 `exec`, no rewrite (evals `retrieval-hybrid`, `retrieval-keyword`, `retrieval-vector`). Keyword-only and vector-only

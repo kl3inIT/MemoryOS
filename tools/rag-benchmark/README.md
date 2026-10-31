@@ -4,7 +4,8 @@ Measures what a retrieval or Chat change did: whether the reply answers correctl
 declines when the corpus cannot answer, keeps to the right period and company, and never reaches a document the
 asking role may not read. It runs on [promptfoo](https://www.promptfoo.dev/) on staging over a corpus of its own.
 
-Design and delivery: [MEM-230](../../docs/increments/active/mem-230-rag-bench-promptfoo/design.md). The current
+The whole process (environment and tools, corpus, question authoring, runs, every metric with an example,
+uncertainty, step ablation, limitations) is in [METHOD.md](METHOD.md). Design and delivery: [MEM-230](../../docs/increments/active/mem-230-rag-bench-promptfoo/design.md). The current
 baseline is in [docs/tests/chat.md](../../docs/tests/chat.md#rag-benchmark-baseline-mem-230--2026-10-08).
 
 ## Layout
