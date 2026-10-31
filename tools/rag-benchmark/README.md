@@ -4,7 +4,8 @@ Measures what a retrieval or Chat change did: whether the reply answers correctl
 declines when the corpus cannot answer, keeps to the right period and company, and never reaches a document the
 asking role may not read. It runs on [promptfoo](https://www.promptfoo.dev/) on staging over a corpus of its own.
 
-Design and delivery: [MEM-230](../../docs/increments/active/mem-230-rag-bench-promptfoo/design.md). The current
+The whole process (environment and tools, corpus, question authoring, runs, every metric with an example,
+uncertainty, step ablation, limitations) is in [METHOD.md](METHOD.md). Design and delivery: [MEM-230](../../docs/increments/active/mem-230-rag-bench-promptfoo/design.md). The current
 baseline is in [docs/tests/chat.md](../../docs/tests/chat.md#rag-benchmark-baseline-mem-230--2026-10-08).
 
 ## Layout
@@ -78,6 +79,38 @@ MEMORYOS_REPLAY=/home/promptfoo/.promptfoo/replay.json promptfoo eval -c replay-
 
 Re-grading unchanged replies moves a single check by up to 5 rows; read smaller differences between runs as judge
 noise.
+
+## Stage metrics
+
+Each stage of the pipeline on its own ([design](../../docs/increments/active/mem-230-rag-bench-promptfoo/design.md#stage-metrics)).
+`--checks stage` re-grades stored replies on what the model read (context recall and precision), completeness, and
+correctness and completeness by a second judge (`cx/gpt-6-sol`). `--mode retrieval` searches each question once as
+`exec`, without Chat, and scores extraction coverage, recall@10/@50, nDCG@10, MRR@10 and passage recall@10;
+`--label` names the search the API runs (hybrid, or keyword or vector on a probe build).
+
+```bash
+python promptfoo/build_config.py --mode grounded --replay --checks stage --out promptfoo/stage-grounded.yaml
+python promptfoo/build_config.py --mode retrieval --label hybrid --out promptfoo/retrieval-hybrid.yaml
+promptfoo export eval <eval id> -o run.json                      # inside the container
+python promptfoo/summary.py baseline.json stage.json             # rates with 95% intervals, by stratum
+python promptfoo/summary.py retrieval-keyword.json --against retrieval-hybrid.json   # paired differences
+```
+
+`summary.py` resamples questions, not rows, and merges a baseline export with its stage re-grade.
+
+## Recorded results and the reference workbook
+
+`results/` keeps every reported run as compact JSON lines (one row per question and role: each metric's score
+and verdict, what the model read and cited, the answer, the turn time), reduced from promptfoo exports by
+`promptfoo/export_rows.py`; `results/runs.json` names each run's date, API build and promptfoo evals.
+`report/build_workbook.py` builds the reference workbook given with the SEP490 reports from these files and
+`corpus/`: method, metric definitions, corpus, roles, questions and evidence, runs, per-row results and the
+comparison tables with 95% intervals, each rate beside an `AVERAGEIFS` formula that recomputes it.
+
+```bash
+python promptfoo/export_rows.py results/<run>.jsonl run.json [regrade.json | retry.json ...]   # in the container
+uv run --with openpyxl python report/build_workbook.py MemoryOS_RAG_Benchmark.xlsx
+```
 
 ## Tests
 
