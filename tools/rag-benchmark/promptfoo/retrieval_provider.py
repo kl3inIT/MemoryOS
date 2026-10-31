@@ -90,10 +90,19 @@ def call_api(prompt: str, options: dict, context: dict) -> dict:
     try:
         api = _api()
         gold = json.loads(variables["gold"])
+        texts, missing = {}, []
+        for document in gold:
+            # A gold document the name search cannot find is not in the index: its quotes count as lost,
+            # and the ranking of the row is still scored.
+            try:
+                texts[document] = indexed_text(api, document)
+            except LookupError:
+                missing.append(document)
         return {
             "output": {
                 "ranked": ranked(api, variables["question"]),
-                "goldText": {d: indexed_text(api, d) for d in gold},
+                "goldText": texts,
+                "missingGold": missing,
             }
         }
     except Exception as error:

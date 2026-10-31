@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import random
 from collections import defaultdict
 from collections.abc import Callable, Iterable
@@ -101,8 +102,9 @@ def mean(values: list[float]) -> float:
 
 def percentile(q: float) -> Callable[[list[float]], float]:
     def at(values: list[float]) -> float:
+        # Nearest rank: the smallest value with at least q of the values at or below it.
         ordered = sorted(values)
-        return ordered[min(len(ordered) - 1, int(q * len(ordered)))]
+        return ordered[max(0, math.ceil(q * len(ordered)) - 1)]
 
     return at
 

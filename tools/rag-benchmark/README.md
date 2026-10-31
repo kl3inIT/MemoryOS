@@ -97,6 +97,20 @@ python promptfoo/summary.py retrieval-keyword.json --against retrieval-hybrid.js
 
 `summary.py` resamples questions, not rows, and merges a baseline export with its stage re-grade.
 
+## Recorded results and the reference workbook
+
+`results/` keeps every reported run as compact JSON lines (one row per question and role: each metric's score
+and verdict, what the model read and cited, the answer, the turn time), reduced from promptfoo exports by
+`promptfoo/export_rows.py`; `results/runs.json` names each run's date, API build and promptfoo evals.
+`report/build_workbook.py` builds the reference workbook given with the SEP490 reports from these files and
+`corpus/`: method, metric definitions, corpus, roles, questions and evidence, runs, per-row results and the
+comparison tables with 95% intervals, each rate beside an `AVERAGEIFS` formula that recomputes it.
+
+```bash
+python promptfoo/export_rows.py results/<run>.jsonl run.json [regrade.json | retry.json ...]   # in the container
+uv run --with openpyxl python report/build_workbook.py MemoryOS_RAG_Benchmark.xlsx
+```
+
 ## Tests
 
 ```bash

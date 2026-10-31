@@ -66,7 +66,7 @@ def test_bootstrap_resamples_questions_and_brackets_the_mean() -> None:
 
 def test_percentile_takes_the_nearest_rank() -> None:
     assert summary.percentile(0.5)([3.0, 1.0, 2.0]) == 2.0
-    assert summary.percentile(0.95)([float(n) for n in range(1, 21)]) == 20.0
+    assert summary.percentile(0.95)([float(n) for n in range(1, 21)]) == 19.0
 
 
 def _ranked(*documents: str, sections: dict | None = None) -> dict:

@@ -391,4 +391,12 @@ The P8a ablation ran on the incomplete corpus: its differences hold, its rates d
 ### P9c — Record
 
 - [x] Results and intervals in [docs/tests/chat.md](../../../tests/chat.md), with corpus fingerprint, commit and judge.
+- [x] Every reported run kept as compact rows in `tools/rag-benchmark/results/` (`promptfoo/export_rows.py`), with
+  `results/runs.json`; `report/build_workbook.py` builds the reference workbook given with the SEP490 reports
+  (method, metrics with examples, corpus, roles, questions and evidence, runs, per-row results, comparison tables;
+  each rate beside an `AVERAGEIFS` check, 77 of 77 recomputed equal). Tasco Auto stays where Savico's public
+  statements name it (owner, 2026-10-31).
+- [x] CodeRabbit on #859: an inter-process token lock on Windows too (`msvcrt`), with a two-process test; a gold
+  document the name search cannot find no longer fails the retrieval row; nearest-rank percentiles (the reported p50
+  and p95 are unchanged at their precision).
 - [ ] README: the retrieval mode and `summary.py`.

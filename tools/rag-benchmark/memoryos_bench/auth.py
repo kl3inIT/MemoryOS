@@ -23,13 +23,18 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from typing import BinaryIO
 
 CLIENT_ID = "memoryos-integration"
 REDIRECT_PORT = 8765
 REDIRECT_URI = f"http://127.0.0.1:{REDIRECT_PORT}/callback"
 try:
     import fcntl
-except ImportError:  # Windows: one process signs in at a time, so the thread lock suffices.
+
+    msvcrt = None
+except ImportError:  # Windows
+    import msvcrt  # type: ignore[no-redef]
+
     fcntl = None  # type: ignore[assignment]
 
 _THREAD_LOCK = threading.Lock()
@@ -39,6 +44,28 @@ EARLY_SECONDS = 30.0
 
 class AuthError(RuntimeError):
     """A role cannot be authenticated; the message says what to do."""
+
+
+def _lock_file(handle: BinaryIO) -> None:
+    """An exclusive lock on the lock file, held by one process at a time on Linux and Windows."""
+    if fcntl is not None:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        return
+    handle.seek(0)
+    while True:
+        try:
+            msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+            return
+        except OSError:  # LK_LOCK gives up after about 10 seconds; keep waiting
+            continue
+
+
+def _unlock_file(handle: BinaryIO) -> None:
+    if fcntl is not None:
+        fcntl.flock(handle, fcntl.LOCK_UN)
+        return
+    handle.seek(0)
+    msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
 
 
 class TokenStore:
@@ -59,14 +86,12 @@ class TokenStore:
         the other role's rotated-out refresh token (2026-10-31: `owner` answered "Stale token")."""
         with _THREAD_LOCK:
             self.path.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.path.with_suffix(".lock"), "a") as handle:
-                if fcntl is not None:
-                    fcntl.flock(handle, fcntl.LOCK_EX)
+            with open(self.path.with_suffix(".lock"), "a+b") as handle:
+                _lock_file(handle)
                 try:
                     yield
                 finally:
-                    if fcntl is not None:
-                        fcntl.flock(handle, fcntl.LOCK_UN)
+                    _unlock_file(handle)
 
     def save_role(self, role: str, issuer: str, refresh_token: str) -> None:
         """Call within `locked()`."""
