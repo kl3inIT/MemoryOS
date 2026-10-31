@@ -1,0 +1,279 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "MemoryOS RAG Flow",
+    "output": "docs/academic/sep490/diagrams/r4-rag-flow.html",
+    "quality_profile": "showcase",
+    "visual_preset": "editorial",
+    "locale": "en",
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "Program code"
+        },
+        "cloud": {
+          "label": "Calls an AI model"
+        },
+        "security": {
+          "label": "Permission check"
+        },
+        "database": {
+          "label": "Search index"
+        },
+        "messagebus": {
+          "label": "Answer stream"
+        },
+        "frontend": {
+          "label": "Answer to the user"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "indexing",
+      "label": "Indexing: once for each new file version"
+    },
+    {
+      "id": "evidence",
+      "label": "Answering: find the evidence"
+    },
+    {
+      "id": "answer",
+      "label": "Answering: write and check the answer"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "a1",
+      "lane": "indexing",
+      "col": 0,
+      "type": "backend",
+      "label": "A1 Extract text",
+      "sublabel": "Docling; Apache Tika"
+    },
+    {
+      "id": "a2",
+      "lane": "indexing",
+      "col": 1,
+      "type": "cloud",
+      "label": "A2 Read scans",
+      "sublabel": "OCR reader, scans only"
+    },
+    {
+      "id": "a3",
+      "lane": "indexing",
+      "col": 2,
+      "type": "backend",
+      "label": "A3 Cut into chunks",
+      "sublabel": "up to 768 tokens"
+    },
+    {
+      "id": "a4",
+      "lane": "indexing",
+      "col": 3,
+      "type": "cloud",
+      "label": "A4 Create vectors",
+      "sublabel": "embedding model"
+    },
+    {
+      "id": "a5",
+      "lane": "indexing",
+      "col": 4,
+      "type": "backend",
+      "label": "A5 Index",
+      "sublabel": "with access list"
+    },
+    {
+      "id": "index",
+      "lane": "indexing",
+      "col": 5,
+      "type": "database",
+      "label": "OpenSearch",
+      "sublabel": "chunks and vectors"
+    },
+    {
+      "id": "b1",
+      "lane": "evidence",
+      "col": 0,
+      "type": "backend",
+      "label": "B1 Check limits",
+      "sublabel": "org, group, user"
+    },
+    {
+      "id": "b2",
+      "lane": "evidence",
+      "col": 1,
+      "type": "cloud",
+      "label": "B2 Guardrail",
+      "sublabel": "may block the question"
+    },
+    {
+      "id": "b3",
+      "lane": "evidence",
+      "col": 2,
+      "type": "cloud",
+      "label": "B3 Rewrite question",
+      "sublabel": "chat model"
+    },
+    {
+      "id": "b4",
+      "lane": "evidence",
+      "col": 3,
+      "type": "security",
+      "label": "B4 Readable scope",
+      "sublabel": "PostgreSQL"
+    },
+    {
+      "id": "b5",
+      "lane": "evidence",
+      "col": 5,
+      "type": "cloud",
+      "label": "B5 Hybrid search",
+      "sublabel": "BM25 + vector, RRF"
+    },
+    {
+      "id": "b6",
+      "lane": "answer",
+      "col": 5,
+      "type": "cloud",
+      "label": "B6 Choose passages",
+      "sublabel": "chat model, 10 of 50"
+    },
+    {
+      "id": "b7",
+      "lane": "answer",
+      "col": 4,
+      "type": "security",
+      "label": "B7 Add nearby text",
+      "sublabel": "PostgreSQL"
+    },
+    {
+      "id": "b8",
+      "lane": "answer",
+      "col": 3,
+      "type": "cloud",
+      "label": "B8 Write answer",
+      "sublabel": "chat model, [n]"
+    },
+    {
+      "id": "b9",
+      "lane": "answer",
+      "col": 2,
+      "type": "backend",
+      "label": "B9 Check citations",
+      "sublabel": "CitationGate"
+    },
+    {
+      "id": "b10",
+      "lane": "answer",
+      "col": 1,
+      "type": "messagebus",
+      "label": "B10 Send answer",
+      "sublabel": "Redis Streams, SSE"
+    },
+    {
+      "id": "reader",
+      "lane": "answer",
+      "col": 0,
+      "type": "frontend",
+      "label": "Cited answer",
+      "sublabel": "in the web app"
+    }
+  ],
+  "edges": [
+    {
+      "id": "a1-a2",
+      "from": "a1",
+      "to": "a2"
+    },
+    {
+      "id": "a2-a3",
+      "from": "a2",
+      "to": "a3"
+    },
+    {
+      "id": "a3-a4",
+      "from": "a3",
+      "to": "a4"
+    },
+    {
+      "id": "a4-a5",
+      "from": "a4",
+      "to": "a5"
+    },
+    {
+      "id": "a5-index",
+      "from": "a5",
+      "to": "index",
+      "label": "text, vectors, ACL",
+      "variant": "security"
+    },
+    {
+      "id": "b1-b2",
+      "from": "b1",
+      "to": "b2"
+    },
+    {
+      "id": "b2-b3",
+      "from": "b2",
+      "to": "b3"
+    },
+    {
+      "id": "b3-b4",
+      "from": "b3",
+      "to": "b4"
+    },
+    {
+      "id": "b4-b5",
+      "from": "b4",
+      "to": "b5",
+      "label": "readable only",
+      "variant": "security"
+    },
+    {
+      "id": "index-b5",
+      "from": "index",
+      "to": "b5",
+      "label": "search",
+      "variant": "emphasis"
+    },
+    {
+      "id": "b5-b6",
+      "from": "b5",
+      "to": "b6",
+      "label": "access rechecked",
+      "variant": "security"
+    },
+    {
+      "id": "b6-b7",
+      "from": "b6",
+      "to": "b7",
+      "label": "rechecked",
+      "variant": "security"
+    },
+    {
+      "id": "b7-b8",
+      "from": "b7",
+      "to": "b8",
+      "label": "rechecked",
+      "variant": "security"
+    },
+    {
+      "id": "b8-b9",
+      "from": "b8",
+      "to": "b9"
+    },
+    {
+      "id": "b9-b10",
+      "from": "b9",
+      "to": "b10"
+    },
+    {
+      "id": "b10-reader",
+      "from": "b10",
+      "to": "reader"
+    }
+  ]
+}
