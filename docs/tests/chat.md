@@ -347,6 +347,92 @@ ran while 13 of the 61 documents had failed extraction and so flattered the near
 benchmark now refuses to run on an incomplete corpus. The weak categories are one product defect: an answer taken
 from another company's or another period's document (MEM-232).
 
+## RAG stage metrics (MEM-230 P9) — 2026-10-31
+
+Each stage scored on its own, on the same corpus (fingerprint `6f95c22c5f14`) and the API of `main` at `dcdea3c5`
+([design](../increments/active/mem-230-rag-bench-promptfoo/design.md#stage-metrics)). Every rate carries a 95%
+bootstrap interval that resamples questions (10,000 resamples, seed 230); a paired difference whose interval includes
+zero is no measured difference. `promptfoo/summary.py` computes them from promptfoo exports.
+
+**Retrieval** (`--mode retrieval`): the 97 questions `exec` must answer or follow, one `POST /api/search` each as
+`exec`, no rewrite (evals `retrieval-hybrid`, `retrieval-keyword`, `retrieval-vector`). Keyword-only and vector-only
+ran on an unmerged probe image whose hybrid query keeps one side, with the same filters, depth and access rechecks.
+One keyword row failed and is left out (n=96).
+
+| Metric | Hybrid | Keyword only | Hybrid − keyword | Vector only | Hybrid − vector |
+| --- | --- | --- | --- | --- | --- |
+| Extraction coverage (evidence quote in the index) | 90.8% [86.2, 94.8] | — | — | — | — |
+| Recall@10 (gold document in the top 10) | 82.4% [75.6, 88.6] | 78.6% | +3.6 [−2.6, 9.9] | 80.2% | +2.2 [−3.1, 7.4] |
+| nDCG@10 | 62.9% [56.4, 69.2] | 56.0% | **+7.0 [1.9, 12.1]** | 58.7% | +4.1 [−0.5, 8.9] |
+| MRR@10 | 60.4% [52.8, 67.8] | 53.3% | **+7.4 [0.8, 14.0]** | 54.7% | +5.7 [−0.7, 12.3] |
+| Passage recall@10 (quote in a returned section) | 52.0% [44.2, 60.1] | 41.9% | **+10.2 [2.6, 18.1]** | 46.6% | +5.4 [−0.2, 11.1] |
+| Tempting document ranked above every gold one | 1 of 25 | 2 of 25 | | 1 of 25 | |
+
+Recall@50 is 100% for hybrid: with 61 documents a depth of 50 holds nearly the whole corpus, so it says nothing here.
+Extraction coverage by text layer of the gold documents: text 93.7%, mixed 90.0%, scanned 86.3%. One loss seen by
+hand: the place-and-date line under the heading of a Haxaco resolution is not in its indexed text.
+
+**Chat stages**: the stored replies of the 2026-10-08 baseline re-graded with `--checks stage` (no new turns; 215
+rows per mode where the role may read some gold document, 139 answerable).
+
+| Metric | Standard | Grounded | Grounded: text / mixed / scanned |
+| --- | --- | --- | --- |
+| Context recall (gold documents among those read) | 79.7% [73.7, 85.2] | 82.4% [77.1, 87.4] | 85.8% / 70.3% / 96.5% |
+| Context precision (read documents that are gold) | 51.1% [45.2, 57.2] | 51.7% [46.1, 57.7] | 56.5% / 41.3% / 60.2% |
+| Correctness, Luna | 86.3% [79.6, 92.6] | 87.8% [81.0, 93.6] | 90.3% / 71.4% / 97.6% |
+| Correctness, Sol | 84.2% [76.8, 90.9] | 87.8% [81.2, 93.6] | |
+| Completeness, Luna | 81.7% [73.6, 88.9] | 84.5% [77.1, 91.4] | 85.5% / 67.1% / 97.6% |
+| Completeness, Sol | 81.9% [74.0, 89.1] | 85.6% [78.4, 92.1] | |
+| Turn time p50 / p95 | 10.3 s / 15.2 s | 10.3 s / 14.5 s | |
+| Input / output tokens per turn, mean | 42.6k / 262 | 42.5k / 256 | |
+| Estimated cost per turn, mean (list price; `cx/` runs on a subscription) | 0.0044 USD | 0.0044 USD | |
+
+Judges: the chat model and the reference judge are both `cx/gpt-6-luna`, so `cx/gpt-6-sol` re-graded the same rows.
+Correctness agrees on 97.8% (κ 0.91) standard and 95.7% (κ 0.80) grounded; completeness on 98.6% (κ 0.95) and 97.1%
+(κ 0.89). No sign that Luna favours its own replies. Completeness asks whether every point the question asks for is
+answered; the first rubric, every point of the gold answer, failed 13 of 20 hand-read replies that answered fully, and
+the rubric used agreed with the hand reading on all 20 for both judges. Context precision counts only the evidence
+documents as relevant, so a correct second source lowers it: it is a lower bound. Token and cost figures are matched
+to all 736 replies through `chat_message` (25 of them have no known cost).
+
+Readings: retrieval puts a gold document in the top 10 for 82% of questions and the model reads one in 80–82% of
+rows, so most of the remaining answer failures happen with the evidence in hand. Hybrid ranks better than keyword
+search alone; against vector search alone it is ahead on every measure but within the interval. Documents that mix
+text and scanned pages, mostly financial statements, are the weakest group at every stage (context recall 70%,
+correctness 71%), while fully scanned documents are the strongest: the loss is not OCR as such.
+
+**Step ablation** (P9a′, 2026-10-31): grounded runs of 375 rows, error rows asked once more. V0 is the release; V1
+and V6 run on an unmerged probe image of `dcdea3c5` that drops one step of `search_knowledge`. Differences are paired
+with V0 on the same rows. V0 passed 247/375 (65.9%), against 249/375 on 2026-10-08, so 9Router 0.5.112 changed
+nothing measurable.
+
+| Variant | Rows passing | Paired with V0 | Correctness | Near miss | Input tokens per turn |
+| --- | --- | --- | --- | --- | --- |
+| V0 release | 65.9% | — | 87.1% | 29.5% | 59.9k |
+| V1 no rewrite (semantic and keyword queries), run 1 | 63.4% | −2.4 [−6.2, 1.3] | 82.5% | 20.5% | 57.9k |
+| V1 no rewrite, run 2 | 63.6% | −2.1 [−5.2, 0.8] | 86.2% | 20.5% | 58.6k |
+| V6 no adjacent chunks (selected sections only) | 67.5% | +1.6 [−2.0, 5.3] | 85.6% | 25.0% | 57.9k |
+
+Turn time p50 is 10.2–10.3 s in all four: the rewrite runs in parallel with the source and time inference, so
+removing it saves no time. Tokens are those recorded on the reply message, matched by content.
+
+**Evidence for each step of the RAG flow** (Report 4, IV.1):
+
+| Step | Evidence | Decision |
+| --- | --- | --- |
+| B1 Spending limits | A requirement, not a quality step | Kept |
+| B2 Guardrail | A requirement; not ablated | Kept |
+| B3 Query rewrite | V1 twice: rows passing −2.4 and −2.1 points, both intervals include zero; near miss 29.5% → 20.5% in both runs; no time saved | Kept: the loss repeats in the same direction, and dropping it saves nothing |
+| B3 Source and time inference | Not measurable here: every benchmark upload has one date and one source type | Kept, not measured |
+| B4 Readable scope | Leakage 0 in every run | Kept (requirement) |
+| B5 Hybrid search | nDCG@10 +7.0 [1.9, 12.1] over keyword alone, +4.1 [−0.5, 8.9] over vector alone | Kept |
+| B6 Section selection by the model | P8a V3 (2026-10-06, incomplete corpus, so only the difference holds): −13 points on the test split, temporal 60% → 43% | Kept |
+| Per-section classification (removed) | P8a V4: no loss on either split, 4 s faster, 22% fewer input tokens | Removed (#567) |
+| B7 Adjacent chunks | V6: +1.6 [−2.0, 5.3]; absent 100% → 83% (3 of 18 rows); 3% fewer input tokens | Kept: no measured gain, and removing it saves little |
+| B8 Grounded prompt | Grounded 66.4% against standard 63.4% on 2026-10-08, a mode comparison, not an ablation | Kept |
+| B9 CitationGate | Every `[n]` named a source in every grounded run | Kept (requirement) |
+| B10 Streaming | Not a quality step | Kept |
+
 ## Grounded backend (Phase 3.1)
 
 | Contract | Verification |

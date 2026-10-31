@@ -19,12 +19,20 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import webbrowser
+from collections.abc import Iterator
+from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 CLIENT_ID = "memoryos-integration"
 REDIRECT_PORT = 8765
 REDIRECT_URI = f"http://127.0.0.1:{REDIRECT_PORT}/callback"
+try:
+    import fcntl
+except ImportError:  # Windows: one process signs in at a time, so the thread lock suffices.
+    fcntl = None  # type: ignore[assignment]
+
+_THREAD_LOCK = threading.Lock()
 # Renew this long before the access token expires, so a request never races the expiry.
 EARLY_SECONDS = 30.0
 
@@ -44,11 +52,29 @@ class TokenStore:
             return {}
         return json.loads(self.path.read_text(encoding="utf-8"))
 
+    @contextmanager
+    def locked(self) -> Iterator[None]:
+        """Serializes reading, renewing and writing roles across threads and promptfoo's worker
+        processes. Without it two renewals each rewrote the whole file, and the later one put back
+        the other role's rotated-out refresh token (2026-10-31: `owner` answered "Stale token")."""
+        with _THREAD_LOCK:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.path.with_suffix(".lock"), "a") as handle:
+                if fcntl is not None:
+                    fcntl.flock(handle, fcntl.LOCK_EX)
+                try:
+                    yield
+                finally:
+                    if fcntl is not None:
+                        fcntl.flock(handle, fcntl.LOCK_UN)
+
     def save_role(self, role: str, issuer: str, refresh_token: str) -> None:
+        """Call within `locked()`."""
         data = self.load()
         data[role] = {"issuer": issuer, "refreshToken": refresh_token}
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = self.path.with_suffix(".tmp")
+        temporary = self.path.with_name(
+            f"{self.path.name}.{os.getpid()}.{threading.get_ident()}.tmp"
+        )
         temporary.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
         os.chmod(temporary, 0o600)
         temporary.replace(self.path)
@@ -103,19 +129,21 @@ class RoleSession:
             self._access = ""
 
     def _renew(self) -> None:
-        entry = self._store.role(self._role)
-        tokens = _post_form(
-            _token_endpoint(entry["issuer"]),
-            {
-                "grant_type": "refresh_token",
-                "client_id": CLIENT_ID,
-                "refresh_token": entry["refreshToken"],
-            },
-        )
-        self._access = tokens["access_token"]
-        self._expires = time.monotonic() + float(tokens.get("expires_in", 300)) - EARLY_SECONDS
-        if tokens.get("refresh_token") and tokens["refresh_token"] != entry["refreshToken"]:
-            self._store.save_role(self._role, entry["issuer"], tokens["refresh_token"])
+        # Held across the exchange: a rotated refresh token is saved before anyone reads the old.
+        with self._store.locked():
+            entry = self._store.role(self._role)
+            tokens = _post_form(
+                _token_endpoint(entry["issuer"]),
+                {
+                    "grant_type": "refresh_token",
+                    "client_id": CLIENT_ID,
+                    "refresh_token": entry["refreshToken"],
+                },
+            )
+            self._access = tokens["access_token"]
+            self._expires = time.monotonic() + float(tokens.get("expires_in", 300)) - EARLY_SECONDS
+            if tokens.get("refresh_token") and tokens["refresh_token"] != entry["refreshToken"]:
+                self._store.save_role(self._role, entry["issuer"], tokens["refresh_token"])
 
 
 def login(store: TokenStore, role: str, issuer: str) -> None:
@@ -186,5 +214,6 @@ def login(store: TokenStore, role: str, issuer: str) -> None:
         raise AuthError(
             "Keycloak did not grant offline_access; the token would expire with the browser session"
         )
-    store.save_role(role, issuer, tokens["refresh_token"])
+    with store.locked():
+        store.save_role(role, issuer, tokens["refresh_token"])
     print(f"role {role!r} signed in; offline token stored in {store.path}")

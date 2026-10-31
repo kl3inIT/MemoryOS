@@ -1,7 +1,7 @@
 # MEM-230 — Plan
 
 Design: [design.md](design.md). Four pull requests: P1–P3 (viewer, corpus, provisioning), P4–P6 (questions,
-promptfoo, baselines, removal of the old runner), P7, and P8.
+promptfoo, baselines, removal of the old runner), P7, and P8; P9 adds the stage metrics.
 
 ## P0 — promptfoo on staging (done 2026-10-03)
 
@@ -328,3 +328,67 @@ A recency boost on provider dates cannot help here: every benchmark document was
 period needs A3. A2 and A3 cost an LLM call per chunk or document; count the chunks and report the cost before running.
 
 - [ ] Additions that win become ordinary pull requests through CI; A3 gets its own increment with a design.
+
+## P9 — Stage metrics
+
+Design: [stage metrics](design.md#stage-metrics). Order: cheapest first, each step usable on its own.
+
+### P9a — Re-grade the stored v3 replies (no new turns)
+
+- [x] `assertions.py`: `context_recall` and `context_precision` over `readDocuments` (the sections given to the model)
+  against the gold documents the role may read; both always pass, so the baseline pass rate is untouched.
+- [x] `build_config.py --checks stage --replay`: context metrics, `completeness`, and `correctness_sol` and
+  `completeness_sol` by `cx/gpt-6-sol`. Calibration, changed from the plan: the first rubric (every point of the gold
+  answer) failed 13 of 20 hand-read replies that answered fully, because gold answers also cite the article, the
+  resolution number or a cross-check; the rubric became "every point the question asks for" and agreed with the hand
+  reading on 20 of 20 for both judges.
+- [x] `summary.py`: rate, 95% question-level bootstrap interval, strata, turn time p50/p95, judge agreement and κ,
+  paired differences; merges a baseline export with its stage re-grade per question, role and mode.
+- [x] 2026-10-31, both modes, 215 rows each, no error row. Tokens and cost per turn from `chat_message`, matched by
+  content to all 736 stored replies: `ai_usage` is a daily roll-up and 2026-10-08 also held probe runs.
+- [x] Second judge: agreement 95.7–98.6%, κ 0.80–0.95. Results in [docs/tests/chat.md](../../../tests/chat.md#rag-stage-metrics-mem-230-p9--2026-10-31).
+
+### P9a′ — Evidence for each step
+
+The P8a ablation ran on the incomplete corpus: its differences hold, its rates do not, and V1 was left undecided.
+
+- [x] V1 `no-rewrite` again on the complete corpus, two grounded runs: −2.4 and −2.1 points against V0, both within
+  the interval, near miss 29.5% → 20.5% in both; the rewrite stays.
+- [x] V6 `no-neighbours`: +1.6 [−2.0, 5.3] against V0, 3% fewer input tokens; the adjacent chunks stay.
+- Started 2026-10-31 08:30 UTC: V0 on the release (control: 9Router moved to 0.5.112 since the v3 baseline), then
+  V1, V6 and V1 again on image `memoryos-api:p9-steps` (`SearchTool` recompiled on `dcdea3c5`: `rewrite` skips the
+  semantic and keyword rewrites and their queries, `neighbours` returns the selected section without its window), 30
+  minutes apart, error rows asked once more. A smoke run first failed every row: the `owner` offline token was stale.
+  Cause: `TokenStore.save_role` rewrote the whole file without a lock, so a concurrent renewal of another role put
+  back `owner`'s rotated-out token, and both shared one `tokens.tmp`. `owner` was signed in again by admin
+  impersonation and the PKCE flow; `TokenStore.locked()` now serializes renewals across threads and processes, with a
+  test. The fix went to staging after these runs, which used the code they started with. The runs ended 14:37 UTC
+  with the release restored; the 30-minute gaps were skipped after the first (the owner confirmed Codex quota), and
+  `Deploy staging` was enabled again.
+- [x] A per-step evidence table in [docs/tests/chat.md](../../../tests/chat.md): each step of the RAG flow, the run
+  that justifies it, the measured difference with its interval, and the decision. Source and time inference is
+  recorded as not measurable on this corpus (one upload date and one source type); the guardrail and CitationGate as
+  requirements, not ablated.
+
+### P9b — Extraction and retrieval
+
+- [x] `promptfoo/retrieval_provider.py`: one `POST /api/search` per question as `exec`, to depth 50, with the section
+  texts and the full indexed text of the gold documents (found by file name, read through `/api/chat/documents`).
+- [x] `assertions.py`: `extraction_coverage`, `recall_at_10`, `recall_at_50`, `ndcg_at_10`, `mrr_at_10`,
+  `passage_recall_at_10`, `tempting_first`; unit tests on hand-computed rankings. A quote matches when 90% of its
+  character 6-grams occur, per fragment and per line: quotes join fragments with " | ", text-layer table quotes hold a
+  cell per line, and extraction splits words and figures ("M inh", "20 26"); a word-trigram match first put text-layer
+  coverage at 61%.
+- [x] `build_config.py --mode retrieval --label <search>`: 97 questions; 2 concurrent searches, since 4 raced on the
+  offline-token refresh.
+- [x] 2026-10-31: hybrid on the released API; keyword and vector on image `memoryos-api:p9-single-side` (the released
+  image with `OpenSearchIndexService` recompiled: one hybrid sub-query and one normalization weight; a first build kept
+  two weights and every search answered 503). `Deploy staging` disabled for the swap and enabled after; the release
+  restored by the run script. `sudo` needs a password on zm, so the script ran in a `docker:28-cli` container with the
+  socket and `/apps` mounted.
+- [x] Paired differences in [docs/tests/chat.md](../../../tests/chat.md#rag-stage-metrics-mem-230-p9--2026-10-31).
+
+### P9c — Record
+
+- [x] Results and intervals in [docs/tests/chat.md](../../../tests/chat.md), with corpus fingerprint, commit and judge.
+- [ ] README: the retrieval mode and `summary.py`.

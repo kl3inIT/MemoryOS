@@ -79,6 +79,24 @@ MEMORYOS_REPLAY=/home/promptfoo/.promptfoo/replay.json promptfoo eval -c replay-
 Re-grading unchanged replies moves a single check by up to 5 rows; read smaller differences between runs as judge
 noise.
 
+## Stage metrics
+
+Each stage of the pipeline on its own ([design](../../docs/increments/active/mem-230-rag-bench-promptfoo/design.md#stage-metrics)).
+`--checks stage` re-grades stored replies on what the model read (context recall and precision), completeness, and
+correctness and completeness by a second judge (`cx/gpt-6-sol`). `--mode retrieval` searches each question once as
+`exec`, without Chat, and scores extraction coverage, recall@10/@50, nDCG@10, MRR@10 and passage recall@10;
+`--label` names the search the API runs (hybrid, or keyword or vector on a probe build).
+
+```bash
+python promptfoo/build_config.py --mode grounded --replay --checks stage --out promptfoo/stage-grounded.yaml
+python promptfoo/build_config.py --mode retrieval --label hybrid --out promptfoo/retrieval-hybrid.yaml
+promptfoo export eval <eval id> -o run.json                      # inside the container
+python promptfoo/summary.py baseline.json stage.json             # rates with 95% intervals, by stratum
+python promptfoo/summary.py retrieval-keyword.json --against retrieval-hybrid.json   # paired differences
+```
+
+`summary.py` resamples questions, not rows, and merges a baseline export with its stage re-grade.
+
 ## Tests
 
 ```bash

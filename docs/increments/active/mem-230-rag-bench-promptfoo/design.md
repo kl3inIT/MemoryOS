@@ -105,6 +105,44 @@ quote, gold, roles) before the set is frozen.
   search choice is a product setting in its own right; otherwise the variants are built from a branch
   ([ADR 0002](../../../decisions/0002-no-speculative-operational-surfaces.md)).
 
+## Stage metrics
+
+The baselines score the reply only, so a wrong answer cannot be traced to the stage that lost the evidence. Each stage
+a question passes through is scored on its own, in pipeline order, so the drop between two stages names the stage to
+fix. The set follows the measures of BEIR (nDCG@10, recall at depth), MS MARCO (MRR@10), RAGAS (context recall and
+precision, faithfulness) and TREC RAG (completeness, citation support), and Onyx, which scores retrieval by
+recall@1/3/5/10 and MRR (`backend/scripts/benchmark_csv_retrieval.py`), recall@10/50 with paired 95% intervals
+(`backend/onyx/document_index/opensearch/QUANTIZATION_BENCHMARK.md`), and answers by correctness, completeness,
+document recall and invalid extra documents (EnterpriseRAG-Bench).
+
+| Stage | Question | Metric | Source |
+| --- | --- | --- | --- |
+| 1 Extraction | Is the evidence quote in the indexed text? | Extraction coverage: share of evidence quotes found in the document's chunks (normalized text, token containment ≥ 0.9; exact match reported beside it), by text layer | Document passages through the API, as `chat.py` reads them |
+| 2 Retrieval | Does search rank the gold documents first? | Recall@10 and @50, nDCG@10, MRR@10, at document level and at passage level (a returned section contains an evidence quote); tempting document ranked above gold | `POST /api/search` as `exec`; keyword-only, vector-only and hybrid |
+| 3 Chat context | Did the model read the gold documents? | Context recall (gold documents among the documents read) and context precision (read documents that are gold) | `readDocuments` of stored replies |
+| 4 Answer | Is the reply right and supported? | correctness, faithfulness, citation, leakage, behaviour (exist); completeness (every point the question asks for, judged against the gold answer) | Stored replies, judge `cx/gpt-6-luna` |
+| Operation | What does a turn cost? | Turn time p50 and p95; tokens and cost per turn | Stored replies; `ai_usage` of the benchmark actors on the run day |
+
+Rules:
+
+- **Questions.** Retrieval stages use the 97 questions whose `exec` expectation is `answer` or `follow_gold` (near
+  miss and false premise follow their gold), asked once as `exec`, which reads every benchmark Source; no LLM rewrite
+  runs, so stage 2 measures the index. Chat stages use the rows of the stored baseline.
+- **Deterministic first.** Stages 1–3 and operation need no judge. promptfoo's `context-recall` and `context-relevance`
+  are judge-graded and replace none of them; promptfoo has no rank metric, so stage 2 is a retrieval provider and
+  `python` assertions with one `metric` each, the pattern its RAG guide gives (`retrieval_only_provider`).
+- **Keyword and vector alone.** `keyword-weight` is bounded to (0, 1), so single-sided search runs on a probe build in
+  the P8 manner: an unmerged branch reads `MEMORYOS_SEARCH_ABLATION` (`keyword` or `vector`) in the hybrid query only,
+  so filters, access rechecks and sections stay identical across the three columns. The deployment is held while the
+  probe image runs.
+- **Uncertainty.** Every rate carries a 95% bootstrap interval (10,000 resamples, committed seed), resampling questions,
+  not rows, because one question is asked by several roles. A difference between two columns is a paired bootstrap on
+  the same questions; one whose interval includes zero is reported as no difference.
+- **Strata.** Each metric by text layer of the gold documents (text 49, mixed 32, scanned 25 of the 106 evidence
+  questions), by category, and by split; decisions read `test`.
+- Answer relevancy (RAGAS) is not added: it is embedding-scored and unstable, and `behaviour` already checks that the
+  reply answers what was asked.
+
 ## Out of scope
 
 - A non-streaming Chat endpoint: the provider reads the event stream, and the saved message already is the final form.
