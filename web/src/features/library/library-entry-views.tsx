@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import {
   keepPreviousData,
   useInfiniteQuery,
@@ -9,8 +9,12 @@ import {
 import { FilterChips } from "@/components/composites/filter-chips";
 import { useActionNotifications } from "@/components/ui/action-notifications";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ListFilter } from "lucide-react";
+import { TooltipIconButton } from "@/components/composites/tooltip-icon-button";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { PageSizeSelect } from "@/components/ui/page-size-select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { usePointerOpenedTrigger } from "@/hooks/use-pointer-opened-trigger";
 import {
   Select,
   SelectContent,
@@ -18,7 +22,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { TablePagination } from "@/components/ui/table-pagination";
 import { DocumentPreviewDialog } from "@/features/documents/document-preview-dialog";
 import { useGlobalCapability } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -36,7 +39,7 @@ import {
   invalidateLibrary,
   LIBRARY_CATEGORIES,
   LIBRARY_PAGE_SIZE,
-  LIBRARY_PAGE_SIZES,
+  LISTING_LIMIT,
   type LibraryCategory,
   type LibrarySort,
 } from "./library";
@@ -60,10 +63,10 @@ import {
 import { LibraryEntryEmpty, LibraryEntryList, type EntryActions } from "./library-entry-list";
 import { categoryLabels } from "./library-labels";
 import type { LibraryEntryView } from "./library-views";
-import { LibraryListSkeleton } from "./library-results";
+import { LibraryListSkeleton, LibraryPageSizeSelect, LibraryPager } from "./library-results";
 import { LibraryNoMatch } from "./library-rows";
 import type { EntryKindChip } from "./library-search";
-import { LibraryDisplayMenu, LibrarySearchField, type LibraryLayout } from "./library-toolbar";
+import { LibraryDisplayControls, LibrarySearchField, type LibraryLayout } from "./library-toolbar";
 import type { LibraryViewState } from "./use-library-view";
 
 /** The kinds a chip narrows to; the person's own files are one choice, whatever made them. */
@@ -121,14 +124,40 @@ export function LibraryEntryViews({
     [query, kind, category, sort, sourceId],
   );
   const categories = categoryLabels(ui);
-  const categoryChips = (
-    <FilterChips
-      label={ui("Loại tệp")}
-      chips={LIBRARY_CATEGORIES.map((value) => ({ value, label: categories[value] }))}
-      value={category}
-      onChange={(next) => filterBy({ category: next ? [next as LibraryCategory] : [] })}
-    />
-  );
+  const categoryGroup = {
+    label: ui("Loại tệp"),
+    chips: LIBRARY_CATEGORIES.map((value) => ({ value, label: categories[value] })),
+    value: category,
+    onChange: (next: string | undefined) =>
+      filterBy({ category: next ? [next as LibraryCategory] : [] }),
+  };
+  const kindGroup = (chips: { value: string; label: string }[]) => ({
+    label: ui("Loại"),
+    chips,
+    value: kind,
+    onChange: (next: string | undefined) => filterBy({ kind: next as EntryKindChip | undefined }),
+  });
+  const groups =
+    view === "shared"
+      ? [
+          kindGroup([
+            { value: "MEETING", label: ui("Cuộc họp") },
+            { value: "AGENT_FILE", label: ui("Tệp của trợ lý") },
+          ]),
+          categoryGroup,
+        ]
+      : view === "documents"
+        ? [categoryGroup]
+        : view === "starred"
+          ? [
+              kindGroup([
+                { value: "OWNED", label: ui("Tệp của tôi") },
+                { value: "MEETING", label: ui("Cuộc họp") },
+                { value: "AGENT_FILE", label: ui("Tệp của trợ lý") },
+                ...(canReadDocuments ? [{ value: "DOCUMENT", label: ui("Tài liệu tổ chức") }] : []),
+              ]),
+            ]
+          : [];
   const results = {
     view,
     filter,
@@ -146,13 +175,15 @@ export function LibraryEntryViews({
           onChange={library.setSearch}
           label={ui("Tìm theo tên")}
         />
-        {view === "documents" && (
-          <DocumentSourceSelect
-            value={sourceId}
-            onChange={(next) => filterBy({ sourceId: next })}
+        {groups.length > 0 && (
+          <EntryFilterMenu
+            groups={groups}
+            sourceId={view === "documents" ? { value: sourceId } : undefined}
+            onSourceId={(next) => filterBy({ sourceId: next })}
+            onClear={() => filterBy({ kind: undefined, category: [], sourceId: undefined })}
           />
         )}
-        <LibraryDisplayMenu
+        <LibraryDisplayControls
           sort={view === "shared" || view === "documents" ? sort : undefined}
           sorts={sorts}
           onSort={(next: LibrarySort) => filterBy({ sort: next })}
@@ -160,39 +191,10 @@ export function LibraryEntryViews({
           onLayout={onLayout}
         />
       </div>
-      {view === "shared" && (
-        <div className="flex flex-col gap-2">
-          <FilterChips
-            label={ui("Loại")}
-            chips={[
-              { value: "MEETING", label: ui("Cuộc họp") },
-              { value: "AGENT_FILE", label: ui("Tệp của trợ lý") },
-            ]}
-            value={kind}
-            onChange={(next) => filterBy({ kind: next as EntryKindChip | undefined })}
-          />
-          {categoryChips}
-        </div>
-      )}
-      {view === "documents" && categoryChips}
-      {view === "starred" && (
-        <FilterChips
-          label={ui("Loại")}
-          chips={[
-            { value: "OWNED", label: ui("Tệp của tôi") },
-            { value: "MEETING", label: ui("Cuộc họp") },
-            { value: "AGENT_FILE", label: ui("Tệp của trợ lý") },
-            ...(canReadDocuments ? [{ value: "DOCUMENT", label: ui("Tài liệu tổ chức") }] : []),
-          ]}
-          value={kind}
-          onChange={(next) => filterBy({ kind: next as EntryKindChip | undefined })}
-        />
-      )}
-
       {view === "recent" ? (
-        <RecentEntries {...results} />
+        <RecentEntries {...results} library={library} />
       ) : view === "documents" ? (
-        <DocumentEntries {...results} />
+        <DocumentEntries {...results} library={library} />
       ) : (
         <PagedEntries {...results} view={view} library={library} />
       )}
@@ -210,19 +212,31 @@ type ResultsProps = {
   onClearFilters: () => void;
 };
 
-/** What the person opened last; the server keeps at most a hundred, so the name search runs here. */
-function RecentEntries(props: ResultsProps) {
+/**
+ * What the person opened last; the server keeps at most a hundred, so the name search and the pages are cut here.
+ */
+function RecentEntries({ library, ...props }: ResultsProps & { library: LibraryViewState }) {
   const recent = useQuery({
     ...listChatLibraryRecentOptions({ query: { limit: RECENT_LIMIT } }),
     // Every visit reads the opens made since, including those made on the other views a moment ago.
     staleTime: 0,
   });
+  const { offset, size } = library;
+  const named = entriesNamed(recent.data ?? [], props.filter.query);
+  const end = size === "all" ? named.length : offset + size;
   return (
-    <EntryResults
-      {...props}
-      state={recent}
-      entries={entriesNamed(recent.data ?? [], props.filter.query)}
-    />
+    <>
+      <EntryResults {...props} state={recent} entries={named.slice(offset, end)} />
+      {recent.data && (
+        <LibraryPager
+          library={library}
+          noun="item"
+          total={named.length}
+          hasMore={end < named.length}
+          busy={false}
+        />
+      )}
+    </>
   );
 }
 
@@ -231,44 +245,23 @@ function PagedEntries({
   library,
   ...props
 }: ResultsProps & { view: "shared" | "starred"; library: LibraryViewState }) {
-  const ui = useAppTranslation();
   const { offset, size } = library;
   const page = useQuery({
     ...entryPageOptions(props.view, props.filter, offset, size),
     // Paging keeps the page being read on screen until the next one arrives, instead of emptying the list.
     placeholderData: keepPreviousData,
   });
-  const total = page.data?.totalCount ?? 0;
   return (
     <>
       <EntryResults {...props} state={page} entries={page.data?.items ?? []} />
-      {page.data && total > 0 && (
-        <TablePagination
-          label={ui("Phân trang thư viện")}
-          page={Math.floor(offset / size)}
-          totalPages={Math.ceil(total / size)}
-          summary={ui("Hiển thị {{first}}–{{last}} trên {{total}} mục", {
-            first: offset + 1,
-            last: Math.min(offset + size, total),
-            total,
-          })}
-          previousDisabled={offset === 0}
-          nextDisabled={!page.data.hasMore}
-          previousLabel={ui("Trang trước")}
-          nextLabel={ui("Trang sau")}
-          onPrevious={() => library.showPage(Math.max(0, offset - size))}
-          onNext={() => library.showPage(offset + size)}
-        >
-          <PageSizeSelect
-            label={ui("Số mục mỗi trang")}
-            rowsLabel={ui("Số mục")}
-            value={size}
-            sizes={LIBRARY_PAGE_SIZES}
-            disabled={page.isPlaceholderData}
-            // A page size change re-cuts the list, so it restarts at its first page.
-            onSizeChange={(next) => library.filterBy({ size: next })}
-          />
-        </TablePagination>
+      {page.data && (
+        <LibraryPager
+          library={library}
+          noun="item"
+          total={page.data.totalCount}
+          hasMore={page.data.hasMore}
+          busy={page.isPlaceholderData}
+        />
       )}
     </>
   );
@@ -276,33 +269,40 @@ function PagedEntries({
 
 /**
  * The organisation's documents, paged by a cursor as the Source views page them: the next page continues where
- * this one ended, so *Tải thêm* appends rather than replaces.
+ * this one ended, so *Tải thêm* appends rather than replaces. With no total to count, the page size is offered
+ * once the documents outgrow one default page; the whole list is read one page after another.
  */
-function DocumentEntries(props: ResultsProps) {
+function DocumentEntries({ library, ...props }: ResultsProps & { library: LibraryViewState }) {
   const ui = useAppTranslation();
+  const all = library.size === "all";
   const documents = useInfiniteQuery({
-    ...documentPagesOptions(props.filter, LIBRARY_PAGE_SIZE),
+    ...documentPagesOptions(props.filter, library.size === "all" ? LISTING_LIMIT : library.size),
     initialPageParam: undefined as unknown as string,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     placeholderData: keepPreviousData,
   });
+  const { hasNextPage, isFetchingNextPage, isPlaceholderData, fetchNextPage } = documents;
+  useEffect(() => {
+    if (all && hasNextPage && !isFetchingNextPage && !isPlaceholderData) void fetchNextPage();
+  }, [all, hasNextPage, isFetchingNextPage, isPlaceholderData, fetchNextPage]);
+  const entries = documents.data?.pages.flatMap((page) => page.items) ?? [];
   return (
     <>
-      <EntryResults
-        {...props}
-        state={documents}
-        entries={documents.data?.pages.flatMap((page) => page.items) ?? []}
-      />
-      {documents.hasNextPage && !documents.isPlaceholderData && (
-        <Button
-          size="sm"
-          prominence="secondary"
-          className="self-center"
-          pending={documents.isFetchingNextPage}
-          onClick={() => void documents.fetchNextPage()}
-        >
-          {ui("Tải thêm")}
-        </Button>
+      <EntryResults {...props} state={documents} entries={entries} />
+      {documents.data && (entries.length > LIBRARY_PAGE_SIZE || hasNextPage) && (
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <LibraryPageSizeSelect library={library} noun="item" disabled={isPlaceholderData} />
+          {hasNextPage && !all && !isPlaceholderData && (
+            <Button
+              size="sm"
+              prominence="secondary"
+              pending={isFetchingNextPage}
+              onClick={() => void fetchNextPage()}
+            >
+              {ui("Tải thêm")}
+            </Button>
+          )}
+        </div>
       )}
     </>
   );
@@ -361,6 +361,79 @@ function EntryResults({
   );
 }
 
+type EntryFilterGroup = {
+  label: string;
+  chips: { value: string; label: string }[];
+  value: string | undefined;
+  onChange: (next: string | undefined) => void;
+};
+
+/**
+ * The filters of a reference view behind one icon, as the owned files' filter is, with how many are on beside it:
+ * what kind of entry it is, what kind of file, and for the documents which Source they come from.
+ */
+function EntryFilterMenu({
+  groups,
+  sourceId,
+  onSourceId,
+  onClear,
+}: {
+  groups: EntryFilterGroup[];
+  /** Present on the documents view, which can also narrow to one Source. */
+  sourceId?: { value: string | undefined };
+  onSourceId: (next: string | undefined) => void;
+  onClear: () => void;
+}) {
+  const ui = useAppTranslation();
+  const pointer = usePointerOpenedTrigger();
+  const active = groups.filter((group) => group.value).length + (sourceId?.value ? 1 : 0);
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <TooltipIconButton
+          prominence="secondary"
+          aria-label={ui("Bộ lọc")}
+          className={active > 0 ? "w-auto px-2" : undefined}
+          {...pointer.trigger}
+        >
+          <ListFilter />
+          {active > 0 && (
+            <Badge variant="secondary" className="ml-1.5">
+              {active}
+            </Badge>
+          )}
+        </TooltipIconButton>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-80" {...pointer.content}>
+        <div className="flex flex-col gap-3">
+          {sourceId && (
+            <fieldset className="flex flex-col gap-2">
+              <legend className="font-secondary-body text-content-muted">{ui("Nguồn")}</legend>
+              <DocumentSourceSelect value={sourceId.value} onChange={onSourceId} />
+            </fieldset>
+          )}
+          {groups.map((group) => (
+            <fieldset key={group.label} className="flex flex-col gap-2">
+              <legend className="font-secondary-body text-content-muted">{group.label}</legend>
+              <FilterChips
+                label={group.label}
+                chips={group.chips}
+                value={group.value}
+                onChange={group.onChange}
+              />
+            </fieldset>
+          ))}
+          {active > 0 && (
+            <Button size="sm" prominence="internal" className="self-start" onClick={onClear}>
+              {ui("Xóa bộ lọc")}
+            </Button>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 /** Narrows the documents to one Source, from those Search offers the person. */
 function DocumentSourceSelect({
   value,
@@ -379,7 +452,7 @@ function DocumentSourceSelect({
       value={value ?? EVERY_SOURCE}
       onValueChange={(next) => onChange(next === EVERY_SOURCE ? undefined : next)}
     >
-      <SelectTrigger aria-label={ui("Nguồn")} className="w-48">
+      <SelectTrigger aria-label={ui("Nguồn")} focus="quiet" className="w-full">
         <SelectValue />
       </SelectTrigger>
       <SelectContent position="popper" align="end" sideOffset={4}>

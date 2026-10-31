@@ -145,6 +145,54 @@ function anchored(document: NormalizedText, needle: string): CitationLocation {
   return span(document, from, to, "approximate");
 }
 
+/**
+ * Every occurrence of a term in `document`, in reading order and without overlap, as offsets into the source
+ * it was normalized from. Terms are compared as passages are, so capitals, combining marks, soft hyphens and
+ * a line break inside a phrase do not hide a word; accents are not stripped. Where two terms start at the
+ * same character the longer wins. `within` limits the search to a span of the source, such as a located
+ * passage.
+ */
+export function matchTerms(
+  document: NormalizedText,
+  terms: readonly string[],
+  within?: { start: number; end: number },
+): { start: number; end: number }[] {
+  const needles = [...new Set(terms.map((term) => normalizeForMatch(term).text))]
+    .filter(Boolean)
+    .sort((left, right) => right.length - left.length);
+  const found: { start: number; end: number }[] = [];
+  if (!needles.length) return found;
+  const stop = within ? firstFrom(document.sources, within.end) : document.text.length;
+  let at = within ? firstFrom(document.sources, within.start) : 0;
+  while (at < stop) {
+    const from = at;
+    const needle = needles.find(
+      (candidate) => from + candidate.length <= stop && document.text.startsWith(candidate, from),
+    );
+    const start = document.sources[from];
+    const end = needle ? document.ends[from + needle.length - 1] : undefined;
+    if (!needle || start === undefined || end === undefined) {
+      at += 1;
+      continue;
+    }
+    found.push({ start, end });
+    at += needle.length;
+  }
+  return found;
+}
+
+/** The first normalized character that starts at or after `offset` of the source. */
+function firstFrom(sources: readonly number[], offset: number): number {
+  let low = 0;
+  let high = sources.length;
+  while (low < high) {
+    const middle = (low + high) >> 1;
+    if ((sources[middle] ?? 0) < offset) low = middle + 1;
+    else high = middle;
+  }
+  return low;
+}
+
 function span(
   document: NormalizedText,
   from: number,

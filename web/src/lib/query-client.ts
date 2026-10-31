@@ -1,4 +1,4 @@
-import { MutationCache, QueryCache, QueryClient } from "@tanstack/react-query";
+import { MutationCache, notifyManager, QueryCache, QueryClient } from "@tanstack/react-query";
 import { ApiError, isUnauthenticated } from "@/lib/api";
 import { getCurrentIdentityQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { CurrentIdentity } from "@/lib/hey-api/types.gen";
@@ -50,8 +50,11 @@ export function acceptCurrentIdentity(queryClient: QueryClient, identity: Curren
   if (acceptedFingerprint !== undefined && acceptedFingerprint !== nextFingerprint) {
     // Publish authority before resetting observers; otherwise an old-session
     // render can recreate private queries while the identity fetch is settling.
+    // The purge waits behind that notification: clearing the mutation cache
+    // re-renders useIsMutating observers at once, and a page of the old session
+    // reached before the boundary renders the new identity would fetch again.
     queryClient.setQueryData(currentIdentityQueryKey, identity);
-    purgePrivateClientState(queryClient);
+    notifyManager.schedule(() => purgePrivateClientState(queryClient));
   }
   acceptedSessionFingerprints.set(queryClient, nextFingerprint);
 }

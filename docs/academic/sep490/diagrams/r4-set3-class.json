@@ -1,0 +1,405 @@
+{
+  "schema_version": 1,
+  "diagram_type": "class",
+  "meta": {
+    "title": "Record a meeting and produce minutes: classes"
+  },
+  "types": [
+    {
+      "id": "ctrl",
+      "label": "MeetingController",
+      "kind": "class",
+      "row": 0,
+      "col": 0,
+      "methods": [
+        {
+          "name": "create",
+          "parameters": "identity, request",
+          "returns": "MeetingDetailResponse"
+        },
+        {
+          "name": "ticket",
+          "parameters": "identity, id, request",
+          "returns": "MeetingTicketResponse"
+        },
+        {
+          "name": "end",
+          "parameters": "identity, id",
+          "returns": "MeetingDetailResponse"
+        }
+      ]
+    },
+    {
+      "id": "ticket",
+      "label": "VoiceTicketStore",
+      "kind": "class",
+      "row": 0,
+      "col": 1,
+      "methods": [
+        {
+          "name": "issue",
+          "parameters": "actor, scope",
+          "returns": "Issued"
+        },
+        {
+          "name": "consume",
+          "parameters": "value, actor, scope",
+          "returns": "boolean"
+        }
+      ]
+    },
+    {
+      "id": "intercept",
+      "label": "MeetingHandshakeInterceptor",
+      "kind": "class",
+      "row": 0,
+      "col": 2,
+      "methods": [
+        {
+          "name": "beforeHandshake",
+          "parameters": "request, response, ...",
+          "returns": "boolean"
+        }
+      ]
+    },
+    {
+      "id": "svc",
+      "label": "MeetingService",
+      "kind": "class",
+      "row": 1,
+      "col": 0,
+      "methods": [
+        {
+          "name": "create",
+          "parameters": "actor, draft",
+          "returns": "Meeting.Detail"
+        },
+        {
+          "name": "openTrack",
+          "parameters": "actor, id, track, ...",
+          "returns": "TrackSession"
+        },
+        {
+          "name": "end",
+          "parameters": "actor, id",
+          "returns": "Meeting.Detail"
+        }
+      ]
+    },
+    {
+      "id": "ws",
+      "label": "MeetingStreamWebSocketHandler",
+      "kind": "class",
+      "row": 1,
+      "col": 1,
+      "methods": [
+        {
+          "name": "afterConnectionEstablished",
+          "parameters": "session",
+          "returns": "void"
+        },
+        {
+          "name": "handleBinaryMessage",
+          "parameters": "session, message",
+          "returns": "void",
+          "visibility": "protected"
+        },
+        {
+          "name": "handleTextMessage",
+          "parameters": "session, message",
+          "returns": "void",
+          "visibility": "protected"
+        }
+      ]
+    },
+    {
+      "id": "repo",
+      "label": "MeetingRepository",
+      "kind": "class",
+      "row": 2,
+      "col": 0,
+      "methods": [
+        {
+          "name": "insertUtterance",
+          "parameters": "tenant, meeting, utterance",
+          "returns": "void"
+        },
+        {
+          "name": "queueMinutes",
+          "parameters": "tenant, meeting",
+          "returns": "void"
+        },
+        {
+          "name": "claimMinutes",
+          "parameters": "lease, maxAttempts",
+          "returns": "Optional<MinutesClaim>"
+        },
+        {
+          "name": "writeMinutes",
+          "parameters": "tenant, meeting, attempt, ...",
+          "returns": "boolean"
+        }
+      ]
+    },
+    {
+      "id": "live",
+      "label": "LiveTranscriptionService",
+      "kind": "class",
+      "row": 2,
+      "col": 1,
+      "methods": [
+        {
+          "name": "open",
+          "parameters": "actor, options, offsetMs, listener",
+          "returns": "Opened"
+        }
+      ]
+    },
+    {
+      "id": "registry",
+      "label": "VoiceAdapterRegistry",
+      "kind": "class",
+      "row": 2,
+      "col": 2,
+      "methods": [
+        {
+          "name": "live",
+          "parameters": "provider",
+          "returns": "Optional<LiveTranscriptionAdapter>",
+          "visibility": "package"
+        }
+      ]
+    },
+    {
+      "id": "chunked",
+      "label": "ChunkedLiveTranscription",
+      "kind": "class",
+      "row": 2,
+      "col": 3,
+      "methods": [
+        {
+          "name": "append",
+          "parameters": "pcm",
+          "returns": "void"
+        }
+      ]
+    },
+    {
+      "id": "minsvc",
+      "label": "MeetingMinutesService",
+      "kind": "class",
+      "row": 3,
+      "col": 0,
+      "methods": [
+        {
+          "name": "writeNext",
+          "returns": "boolean"
+        }
+      ]
+    },
+    {
+      "id": "leased",
+      "label": "LeasedJob",
+      "kind": "class",
+      "row": 3,
+      "col": 1,
+      "methods": [
+        {
+          "name": "runNext",
+          "parameters": "log, job, steps",
+          "returns": "boolean",
+          "static": true
+        }
+      ]
+    },
+    {
+      "id": "adapter",
+      "label": "LiveTranscriptionAdapter",
+      "kind": "interface",
+      "row": 3,
+      "col": 2,
+      "methods": [
+        {
+          "name": "openLive",
+          "parameters": "connection, key, options, ...",
+          "returns": "LiveTranscription",
+          "abstract": true
+        }
+      ]
+    },
+    {
+      "id": "lt",
+      "label": "LiveTranscription",
+      "kind": "interface",
+      "row": 3,
+      "col": 3,
+      "methods": [
+        {
+          "name": "append",
+          "parameters": "pcm",
+          "returns": "void",
+          "abstract": true
+        },
+        {
+          "name": "finish",
+          "returns": "CompletableFuture<Void>",
+          "abstract": true
+        },
+        {
+          "name": "close",
+          "returns": "void",
+          "abstract": true
+        }
+      ]
+    },
+    {
+      "id": "jobs",
+      "label": "MeetingMinutes",
+      "kind": "class",
+      "row": 4,
+      "col": 0,
+      "methods": [
+        {
+          "name": "write",
+          "returns": "void"
+        }
+      ]
+    },
+    {
+      "id": "summarizer",
+      "label": "TranscriptSummarizer",
+      "kind": "class",
+      "row": 4,
+      "col": 1,
+      "methods": [
+        {
+          "name": "summarize",
+          "parameters": "actor, tenant, subject, lines",
+          "returns": "TranscriptSummary"
+        }
+      ]
+    },
+    {
+      "id": "soniox",
+      "label": "SonioxVoiceAdapter",
+      "kind": "class",
+      "row": 4,
+      "col": 2,
+      "methods": [
+        {
+          "name": "openLive",
+          "parameters": "connection, key, options, ...",
+          "returns": "LiveTranscription"
+        }
+      ]
+    },
+    {
+      "id": "sonioxlt",
+      "label": "SonioxLiveTranscription",
+      "kind": "class",
+      "row": 4,
+      "col": 3,
+      "methods": [
+        {
+          "name": "append",
+          "parameters": "pcm",
+          "returns": "void"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "from": "ctrl",
+      "to": "ticket",
+      "kind": "dependency",
+      "label": "issue"
+    },
+    {
+      "from": "intercept",
+      "to": "ticket",
+      "kind": "dependency",
+      "label": "consume"
+    },
+    {
+      "from": "ctrl",
+      "to": "svc",
+      "kind": "dependency",
+      "label": "create, end"
+    },
+    {
+      "from": "ws",
+      "to": "svc",
+      "kind": "dependency",
+      "label": "openTrack"
+    },
+    {
+      "from": "svc",
+      "to": "repo",
+      "kind": "dependency",
+      "label": "insertUtterance"
+    },
+    {
+      "from": "svc",
+      "to": "live",
+      "kind": "dependency",
+      "label": "open"
+    },
+    {
+      "from": "live",
+      "to": "registry",
+      "kind": "dependency",
+      "label": "live"
+    },
+    {
+      "from": "registry",
+      "to": "adapter",
+      "kind": "aggregation"
+    },
+    {
+      "from": "soniox",
+      "to": "adapter",
+      "kind": "realization"
+    },
+    {
+      "from": "adapter",
+      "to": "lt",
+      "kind": "dependency",
+      "label": "creates"
+    },
+    {
+      "from": "sonioxlt",
+      "to": "lt",
+      "kind": "realization"
+    },
+    {
+      "from": "chunked",
+      "to": "lt",
+      "kind": "realization"
+    },
+    {
+      "from": "minsvc",
+      "to": "repo",
+      "kind": "dependency",
+      "label": "claimMinutes"
+    },
+    {
+      "from": "minsvc",
+      "to": "leased",
+      "kind": "dependency",
+      "label": "runNext"
+    },
+    {
+      "from": "minsvc",
+      "to": "summarizer",
+      "kind": "dependency",
+      "label": "summarize"
+    },
+    {
+      "from": "jobs",
+      "to": "minsvc",
+      "kind": "dependency",
+      "label": "writeNext"
+    }
+  ]
+}

@@ -1,147 +1,226 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ChevronRight, WifiOff } from "lucide-react";
+import { MessageSquare, WifiOff } from "lucide-react";
+import { lazy, Suspense, useState, type ReactNode } from "react";
 import { AppShellHeader } from "@/components/app-shell/app-shell-header";
 import { BrandLoader } from "@/components/brand-loader";
+import { DetailBreadcrumb } from "@/components/composites/detail-header";
 import { EmptyState } from "@/components/composites/empty-state";
-import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Drawer, DrawerContent, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { personaOf, type Persona } from "@/features/chat/chat-personas-api";
 import { getChatPersonaOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { actionErrorText } from "@/lib/action-errors";
+import { useIsWide } from "@/hooks/use-mobile";
+import { hasBrief } from "./agent-builder-handoff";
+import type { AgentEditorTab } from "./agent-editor-search";
 import {
-  AdvancedSection,
-  GeneralSection,
+  DocumentsSection,
+  IdentitySection,
   InstructionsSection,
-  KnowledgeSection,
+  ModelSection,
+  OpeningSection,
   ToolsSection,
 } from "./agent-editor-sections";
-import { AgentPreview } from "./agent-preview";
-import { useAgentChoices, useAgentForm } from "./use-agent-editor";
+import { AgentChannelsPanel } from "./agent-channels-panel";
+import { AgentSharePanel } from "./agent-share-panel";
+import {
+  useAgentChoices,
+  useAgentForm,
+  useAgentRevision,
+  type AgentChoices,
+  type AgentFormApi,
+} from "./use-agent-editor";
 
-/** `/agents/create` and `/agents/$agentId/edit`: loads the agent, then renders the editor. */
-export function AgentEditorPage({ agentId }: { agentId?: string }) {
+const formId = "agent-editor";
+
+const AgentTestChat = lazy(() => import("./agent-test-chat"));
+
+type TabProps = { tab: AgentEditorTab; onTabChange: (tab: AgentEditorTab) => void };
+
+/** `/agents/$agentId/edit`: loads the assistant, then renders its editor on the tab its address names. */
+export function AgentEditorPage({ agentId, ...tabs }: { agentId: string } & TabProps) {
   const ui = useAppTranslation();
   const agent = useQuery({
-    ...getChatPersonaOptions({ path: { personaId: agentId ?? "" } }),
-    enabled: agentId !== undefined,
+    ...getChatPersonaOptions({ path: { personaId: agentId } }),
     select: personaOf,
   });
-  const title = agentId ? (agent.data?.name ?? ui("Sửa trợ lý")) : ui("Tạo trợ lý");
-  return (
-    <>
-      <AppShellHeader title={title} />
-      {agentId && agent.isPending ? (
-        <div role="status" className="flex justify-center px-(--page-gutter) pt-16">
-          <BrandLoader label={ui("Đang tải trợ lý…")} />
-        </div>
-      ) : agentId && agent.isError ? (
-        <div className="px-(--page-gutter) pt-10">
-          <EmptyState
-            role="alert"
-            icon={<WifiOff />}
-            title={ui("Không mở được trợ lý")}
-            detail={actionErrorText(agent.error)}
-            action={
-              <Button size="sm" prominence="secondary" onClick={() => void agent.refetch()}>
-                {ui("Tải lại")}
-              </Button>
-            }
-          />
-        </div>
-      ) : (
-        <AgentEditor key={agent.data?.revision ?? "new"} agent={agent.data} />
-      )}
-    </>
-  );
+  if (!agent.data)
+    return (
+      <>
+        <AppShellHeader
+          title={ui("Sửa trợ lý")}
+          breadcrumb={<DetailBreadcrumb parent={{ label: ui("Trợ lý"), to: "/agents" }} />}
+        />
+        {agent.isError ? (
+          <div className="px-(--page-gutter) pt-10">
+            <EmptyState
+              role="alert"
+              icon={<WifiOff />}
+              title={ui("Không mở được trợ lý")}
+              detail={actionErrorText(agent.error)}
+              action={
+                <Button size="sm" prominence="secondary" onClick={() => void agent.refetch()}>
+                  {ui("Tải lại")}
+                </Button>
+              }
+            />
+          </div>
+        ) : (
+          <div role="status" className="flex justify-center px-(--page-gutter) pt-16">
+            <BrandLoader label={ui("Đang tải trợ lý…")} />
+          </div>
+        )}
+      </>
+    );
+  return <AgentEditor agent={agent.data} {...tabs} />;
 }
 
-function AgentEditor({ agent }: { agent?: Persona }) {
+/**
+ * The editor of one assistant: Cấu hình, saved with the header's Lưu without leaving the page, then Kênh and Chia sẻ,
+ * which save each change at once (LobeHub `AgentProfileTabs`). The built-in assistant has no Kênh: a bot bound to
+ * nothing answers with it. The tab is kept in the address.
+ */
+function AgentEditor({ agent, tab, onTabChange }: { agent: Persona } & TabProps) {
   const ui = useAppTranslation();
-  const { form, dirty, editable, blocker, restored, discardDraft } = useAgentForm(agent);
+  const revision = useAgentRevision(agent);
   const choices = useAgentChoices(agent);
-  const sections = { form, agent, choices, editable };
+  const { form, dirty, saved, editable, blocker } = useAgentForm(agent, revision);
+  const shown = agent.builtin && tab === "channels" ? "config" : tab;
+  const status = !editable
+    ? ui("Chỉ xem")
+    : dirty
+      ? ui("Có thay đổi chưa lưu")
+      : saved
+        ? ui("Đã lưu")
+        : "";
   return (
-    <form
-      noValidate
-      className="min-h-full"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void form.handleSubmit();
-      }}
-    >
-      <div className="sticky top-0 z-20 border-b border-border-subtle bg-surface-base/90 backdrop-blur-sm">
-        <div className="mx-auto flex h-14 w-full max-w-(--page-width-wide) items-center gap-3 px-(--page-gutter)">
-          <nav aria-label={ui("Đường dẫn")} className="flex min-w-0 flex-1 items-center gap-1.5">
-            <Link
-              to="/agents"
-              className="shrink-0 font-main-ui-body text-content-muted outline-none hover:text-content-primary focus-visible:underline"
-            >
-              {ui("Trợ lý")}
-            </Link>
-            <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-content-faint" />
-            <span className="truncate font-main-ui-action text-content-primary" aria-current="page">
-              {agent ? agent.name : ui("Tạo trợ lý")}
+    <>
+      <AppShellHeader
+        title={agent.name}
+        breadcrumb={
+          <DetailBreadcrumb
+            parent={{ label: ui("Trợ lý"), to: "/agents" }}
+            title={agent.name}
+            oneLine
+          />
+        }
+        actions={
+          <div className="flex items-center gap-2">
+            <span role="status" className="hidden font-secondary-body text-content-muted sm:inline">
+              {status}
             </span>
-          </nav>
-          <span role="status" className="hidden font-secondary-body text-content-muted sm:inline">
-            {!editable
-              ? ui("Chỉ xem")
-              : !agent && dirty
-                ? ui("Đã lưu nháp trên trình duyệt")
-                : agent && dirty
-                  ? ui("Có thay đổi chưa lưu")
-                  : ""}
-          </span>
-          <Button asChild prominence="secondary">
-            <Link to="/agents">{editable ? ui("Hủy") : ui("Đóng")}</Link>
-          </Button>
-          {editable && (
-            <form.Subscribe selector={(state) => state.values.name.trim() !== ""}>
-              {(named) => (
-                <form.AppForm>
-                  <form.SubmitButton disabled={!dirty || !named}>
-                    {agent ? ui("Lưu") : ui("Tạo trợ lý")}
-                  </form.SubmitButton>
-                </form.AppForm>
-              )}
-            </form.Subscribe>
-          )}
-        </div>
-      </div>
-
-      <div className="mx-auto flex w-full max-w-(--page-width-wide) gap-10 px-(--page-gutter) pt-8 pb-24">
-        <fieldset disabled={!editable} className="flex min-w-0 flex-1 flex-col lg:max-w-3xl">
-          <legend className="sr-only">{agent ? agent.name : ui("Tạo trợ lý")}</legend>
-          <div className="mb-6 flex flex-col gap-3 empty:hidden">
-            <form.AppForm>
-              <form.FormError />
-            </form.AppForm>
-            {restored && (
-              <Alert>
-                <AlertDescription>{ui("Đã khôi phục bản nháp bạn đang tạo dở.")}</AlertDescription>
-                <AlertAction>
-                  <Button type="button" size="sm" prominence="tertiary" onClick={discardDraft}>
-                    {ui("Bỏ bản nháp")}
-                  </Button>
-                </AlertAction>
-              </Alert>
+            {/* Kênh and Chia sẻ save on change; Hủy and Lưu belong to the configuration form alone. */}
+            {shown === "config" && (
+              <Button asChild size="sm" prominence="secondary">
+                <Link to="/agents">{editable ? ui("Hủy") : ui("Đóng")}</Link>
+              </Button>
+            )}
+            {editable && shown === "config" && (
+              <form.Subscribe selector={(state) => state.values.name.trim() !== ""}>
+                {(named) => {
+                  const reason = !named
+                    ? ui("Cần nhập tên")
+                    : !dirty
+                      ? ui("Chưa có thay đổi")
+                      : undefined;
+                  return (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          {/* An unavailable Lưu stays in the tab order (aria-disabled, not disabled) and lets the
+                              pointer through to this wrapper, so focus and hover both reach its reason. */}
+                          <span className="inline-flex">
+                            {reason ? (
+                              <Button asChild size="sm">
+                                <button type="button" aria-disabled="true">
+                                  {ui("Lưu")}
+                                </button>
+                              </Button>
+                            ) : (
+                              <form.AppForm>
+                                <form.SubmitButton size="sm" form={formId}>
+                                  {ui("Lưu")}
+                                </form.SubmitButton>
+                              </form.AppForm>
+                            )}
+                          </span>
+                        </TooltipTrigger>
+                        {reason && <TooltipContent>{reason}</TooltipContent>}
+                      </Tooltip>
+                    </TooltipProvider>
+                  );
+                }}
+              </form.Subscribe>
             )}
           </div>
-          <GeneralSection {...sections} />
-          <InstructionsSection {...sections} />
-          <KnowledgeSection {...sections} />
-          <ToolsSection {...sections} />
-          <AdvancedSection {...sections} />
-        </fieldset>
-
-        <aside aria-label={ui("Xem trước")} className="hidden w-88 shrink-0 lg:block">
-          <form.Subscribe selector={(state) => state.values}>
-            {(values) => <AgentPreview values={values} agentId={agent?.id ?? "new"} />}
-          </form.Subscribe>
-        </aside>
+        }
+      />
+      <div className="flex h-full min-h-0 flex-col">
+        <Tabs
+          value={shown}
+          onValueChange={(value) => onTabChange(value as AgentEditorTab)}
+          className="min-h-0 flex-1"
+        >
+          <div className="shrink-0 border-b border-border-subtle px-(--page-gutter) pt-4">
+            <TabsList variant="line" aria-label={ui("Trợ lý")}>
+              <TabsTrigger value="config" className="flex-none">
+                {ui("Cấu hình")}
+              </TabsTrigger>
+              {!agent.builtin && (
+                <TabsTrigger value="channels" className="flex-none">
+                  {ui("Kênh")}
+                </TabsTrigger>
+              )}
+              <TabsTrigger value="share" className="flex-none">
+                {ui("Chia sẻ")}
+              </TabsTrigger>
+            </TabsList>
+          </div>
+          {/* The form stays mounted on the other tab, so unsaved changes survive a look at Chia sẻ. */}
+          <TabsContent
+            value="config"
+            forceMount
+            className="min-h-0 flex-1 data-[state=inactive]:hidden"
+          >
+            <ConfigLayout
+              agent={agent}
+              form={form}
+              dirty={dirty}
+              editable={editable}
+              choices={choices}
+            >
+              <form
+                id={formId}
+                noValidate
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void form.handleSubmit();
+                }}
+                className="px-(--page-gutter) pt-6 pb-24"
+              >
+                <ConfigSections agent={agent} choices={choices} form={form} editable={editable} />
+              </form>
+            </ConfigLayout>
+          </TabsContent>
+          {!agent.builtin && (
+            <TabsContent value="channels" className="relative min-h-0 flex-1 overflow-y-auto">
+              <div className="max-w-3xl px-(--page-gutter) pt-6 pb-24">
+                <AgentChannelsPanel agent={agent} />
+              </div>
+            </TabsContent>
+          )}
+          <TabsContent value="share" className="relative min-h-0 flex-1 overflow-y-auto">
+            <div className="max-w-3xl px-(--page-gutter) pt-6 pb-24">
+              <AgentSharePanel agent={agent} choices={choices} revision={revision} />
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
 
       <ConfirmDialog
@@ -155,6 +234,108 @@ function AgentEditor({ agent }: { agent?: Persona }) {
         pendingLabel={ui("Đang rời trang…")}
         onConfirm={async () => blocker.proceed?.()}
       />
-    </form>
+    </>
+  );
+}
+
+/**
+ * Cấu hình beside its test chat and Agent Builder (Dify, FastGPT, LobeHub): two resizable panes from `lg` up, and
+ * below it one column with a "Chat thử" button that opens the panel in a drawer, as Dify does on phones; a new
+ * assistant with a description opens it at once. Only an editor may test or build.
+ *
+ * Each scroller is `relative`: the visually hidden inputs behind switches and checkboxes are positioned absolutely,
+ * and without a positioned scroller they escape it, so focusing one scrolls the shell and pushes its header away.
+ */
+function ConfigLayout({
+  agent,
+  form,
+  dirty,
+  editable,
+  choices,
+  children,
+}: {
+  agent: Persona;
+  form: AgentFormApi;
+  dirty: boolean;
+  editable: boolean;
+  choices: AgentChoices;
+  children: ReactNode;
+}) {
+  const ui = useAppTranslation();
+  const wide = useIsWide();
+  const [drawer, setDrawer] = useState(() => hasBrief(agent.id));
+  const chat = (
+    <Suspense
+      fallback={
+        <div role="status" className="flex h-full items-center justify-center">
+          <BrandLoader label={ui("Đang mở chat thử…")} />
+        </div>
+      }
+    >
+      <AgentTestChat agent={agent} form={form} dirty={dirty} choices={choices} />
+    </Suspense>
+  );
+  if (!editable) return <div className="relative h-full overflow-y-auto">{children}</div>;
+  if (wide)
+    return (
+      <ResizablePanelGroup orientation="horizontal">
+        <ResizablePanel defaultSize="58%" minSize="40%">
+          <div className="relative h-full overflow-y-auto">{children}</div>
+        </ResizablePanel>
+        <ResizableHandle withHandle />
+        <ResizablePanel defaultSize="42%" minSize="28%" maxSize="60%">
+          {chat}
+        </ResizablePanel>
+      </ResizablePanelGroup>
+    );
+  return (
+    <div className="relative h-full overflow-y-auto">
+      {children}
+      <Drawer open={drawer} onOpenChange={setDrawer}>
+        <DrawerTrigger asChild>
+          <Button
+            type="button"
+            className="fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] z-30"
+          >
+            <MessageSquare aria-hidden="true" />
+            {ui("Chat thử")}
+          </Button>
+        </DrawerTrigger>
+        <DrawerContent className="h-4/5">
+          <DrawerTitle className="sr-only">{ui("Chat thử")}</DrawerTitle>
+          <div className="min-h-0 flex-1 bg-surface-base">{chat}</div>
+        </DrawerContent>
+      </Drawer>
+    </div>
+  );
+}
+
+function ConfigSections({
+  agent,
+  choices,
+  form,
+  editable,
+}: {
+  agent: Persona;
+  choices: AgentChoices;
+  form: AgentFormApi;
+  editable: boolean;
+}) {
+  const sections = { form, agent, choices, editable };
+  return (
+    <fieldset disabled={!editable} className="flex min-w-0 flex-col lg:max-w-3xl">
+      <legend className="sr-only">{agent.name}</legend>
+      <div className="mb-6 flex flex-col gap-3 empty:hidden">
+        <form.AppForm>
+          <form.FormError />
+        </form.AppForm>
+      </div>
+      <IdentitySection {...sections} />
+      <InstructionsSection {...sections} />
+      <OpeningSection {...sections} />
+      <DocumentsSection {...sections} />
+      <ToolsSection {...sections} />
+      <ModelSection {...sections} />
+    </fieldset>
   );
 }

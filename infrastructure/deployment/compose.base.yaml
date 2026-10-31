@@ -15,7 +15,7 @@ x-service-defaults: &service-defaults
 
 services:
   postgres:
-    image: ${MEMORYOS_POSTGRES_IMAGE:-postgres:18.6-bookworm@sha256:3725f4e2499eef5134592b3b4ab79a543ed7f8e533b05b5b637af926630f6650}
+    image: ${MEMORYOS_POSTGRES_IMAGE:-postgres:18.6-bookworm@sha256:afc7e2d441324c0388fa80c3d24f733b4194a4eb7f47dd8ee2b08eb1a24a647c}
     container_name: memoryos-postgres
     # Every one of these was the stock default until now, on a machine that has far more memory
     # than the defaults assume. The defaults here stay modest because one environment shares its
@@ -85,7 +85,7 @@ services:
 
 
   postgres-backup:
-    image: ${MEMORYOS_POSTGRES_IMAGE:-postgres:18.6-bookworm@sha256:3725f4e2499eef5134592b3b4ab79a543ed7f8e533b05b5b637af926630f6650}
+    image: ${MEMORYOS_POSTGRES_IMAGE:-postgres:18.6-bookworm@sha256:afc7e2d441324c0388fa80c3d24f733b4194a4eb7f47dd8ee2b08eb1a24a647c}
     profiles:
       - ops
     user: "${MEMORYOS_BACKUP_UID:-1000}:${MEMORYOS_BACKUP_GID:-1000}"
@@ -295,8 +295,13 @@ services:
       MEMORYOS_TENANT_DISPLAY_NAME: ${MEMORYOS_TENANT_DISPLAY_NAME:?Set MEMORYOS_TENANT_DISPLAY_NAME}
       MEMORYOS_INITIAL_TENANT_CHANGE_REFERENCE: ${MEMORYOS_INITIAL_TENANT_CHANGE_REFERENCE:?Set MEMORYOS_INITIAL_TENANT_CHANGE_REFERENCE}
       MEMORYOS_RELEASE: ${MEMORYOS_RELEASE:?Set MEMORYOS_RELEASE}
-      MEMORYOS_INTERPRETER_BASE_URL: http://memoryos-interpreter:8000
-      MEMORYOS_INTERPRETER_API_KEY_FILE: /run/secrets/interpreter_api_key
+      # MEM-270: the Chat sandbox server, its key and the image a conversation's sandbox starts from.
+      MEMORYOS_SANDBOX_ENDPOINT: http://memoryos-sandbox:8090
+      MEMORYOS_SANDBOX_API_KEY_FILE: /run/secrets/sandbox_api_key
+      MEMORYOS_SANDBOX_COMPUTER_IMAGE: ${MEMORYOS_SANDBOX_COMPUTER_IMAGE:?Set MEMORYOS_SANDBOX_COMPUTER_IMAGE}
+      # Sandboxes used in the last 30 minutes that may run at once, each capped at 1 CPU and 1 GiB: the application
+      # node has 12 vCPUs and 31 GiB. An idle one costs a few MiB.
+      MEMORYOS_SANDBOX_MAX_RUNNING: ${MEMORYOS_SANDBOX_MAX_RUNNING:-12}
       # MEM-26: Chat reply replay. The memoryos-api ACL user reaches only memoryos:chat:stream:* keys.
       MEMORYOS_REDIS_HOST: redis
       MEMORYOS_REDIS_PORT: "6379"
@@ -327,6 +332,7 @@ services:
       MEMORYOS_INVITATION_ACTIVATION_REDIRECT_URI: ${MEMORYOS_INVITATION_ACTIVATION_REDIRECT_URI:?Set MEMORYOS_INVITATION_ACTIVATION_REDIRECT_URI}
       MEMORYOS_GOOGLE_DRIVE_REDIRECT_URI: ${MEMORYOS_GOOGLE_DRIVE_REDIRECT_URI:?Set MEMORYOS_GOOGLE_DRIVE_REDIRECT_URI}
       MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION:?Set MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION}
+      MEMORYOS_LARK_CREDENTIAL_KEY_VERSION: ${MEMORYOS_LARK_CREDENTIAL_KEY_VERSION:?Set MEMORYOS_LARK_CREDENTIAL_KEY_VERSION}
       MEMORYOS_SHAREPOINT_CREDENTIAL_KEY_VERSION: ${MEMORYOS_SHAREPOINT_CREDENTIAL_KEY_VERSION:?Set MEMORYOS_SHAREPOINT_CREDENTIAL_KEY_VERSION}
       MEMORYOS_MCP_REDIRECT_URI: ${MEMORYOS_MCP_REDIRECT_URI:?Set MEMORYOS_MCP_REDIRECT_URI}
       # MEM-114: optional; unset, the deployment has no MCP endpoint and its switch stays locked.
@@ -341,6 +347,7 @@ services:
       MEMORYOS_OPENSEARCH_PASSWORD_FILE: /run/secrets/opensearch_password
       MEMORYOS_CHAT_CATALOG_ENCRYPTION_KEY_FILE: /run/secrets/chat_catalog_encryption_key
       MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/google_drive_credential_encryption_key
+      MEMORYOS_LARK_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/lark_credential_encryption_key
       MEMORYOS_SHAREPOINT_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/sharepoint_credential_encryption_key
       MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/mcp_credential_encryption_key
       # MEM-207: the memoryos-mcp-admin client secret, with which the API keeps the trusted apps in Keycloak.
@@ -350,7 +357,7 @@ services:
       MEMORYOS_EMBEDDING_ENDPOINT: ${MEMORYOS_EMBEDDING_ENDPOINT:-}
     secrets:
       - minio_api_secret_key
-      - interpreter_api_key
+      - sandbox_api_key
       - redis_tls_ca
       - redis_api_password
       - database_password
@@ -359,6 +366,7 @@ services:
       - opensearch_password
       - chat_catalog_encryption_key
       - google_drive_credential_encryption_key
+      - lark_credential_encryption_key
       - sharepoint_credential_encryption_key
       - mcp_credential_encryption_key
       - mcp_admin_client_secret
@@ -431,6 +439,10 @@ services:
       MEMORYOS_OBJECT_STORAGE_SECRET_KEY_FILE: /run/secrets/minio_worker_secret_key
       MEMORYOS_OBJECT_STORAGE_READINESS_KEY: ${MEMORYOS_OBJECT_STORAGE_READINESS_KEY:-system/readiness}
       MEMORYOS_RELEASE: ${MEMORYOS_RELEASE:?Set MEMORYOS_RELEASE}
+      # MEM-270: the Chat sandbox server, its key and the image a conversation's sandbox starts from.
+      MEMORYOS_SANDBOX_ENDPOINT: http://memoryos-sandbox:8090
+      MEMORYOS_SANDBOX_API_KEY_FILE: /run/secrets/sandbox_api_key
+      MEMORYOS_SANDBOX_COMPUTER_IMAGE: ${MEMORYOS_SANDBOX_COMPUTER_IMAGE:?Set MEMORYOS_SANDBOX_COMPUTER_IMAGE}
       MEMORYOS_REDIS_HOST: redis
       MEMORYOS_REDIS_PORT: "6379"
       MEMORYOS_REDIS_USERNAME: memoryos-worker
@@ -451,15 +463,19 @@ services:
       MEMORYOS_DATABASE_URL: jdbc:postgresql://memoryos-postgres:5432/${MEMORYOS_DATABASE_NAME:-memoryos}
       MEMORYOS_DATABASE_USERNAME: ${MEMORYOS_DATABASE_USERNAME:-memoryos_app}
       MEMORYOS_DATABASE_POOL_SIZE: ${MEMORYOS_WORKER_DATABASE_POOL_SIZE:-10}
+      # MEM-244: where the launcher looks for this release's JDK AOT cache, which worker-aot makes.
+      MEMORYOS_AOT_CACHE_DIR: /aot
       MEMORYOS_OPENSEARCH_ENDPOINT: https://opensearch:9200
       MEMORYOS_OPENSEARCH_USERNAME: ${MEMORYOS_OPENSEARCH_USERNAME:-memoryos-service}
       MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION:?Set MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION}
+      MEMORYOS_LARK_CREDENTIAL_KEY_VERSION: ${MEMORYOS_LARK_CREDENTIAL_KEY_VERSION:?Set MEMORYOS_LARK_CREDENTIAL_KEY_VERSION}
       MEMORYOS_SHAREPOINT_CREDENTIAL_KEY_VERSION: ${MEMORYOS_SHAREPOINT_CREDENTIAL_KEY_VERSION:?Set MEMORYOS_SHAREPOINT_CREDENTIAL_KEY_VERSION}
       MEMORYOS_SEARCH_REPLICAS: ${MEMORYOS_SEARCH_REPLICAS:?Set MEMORYOS_SEARCH_REPLICAS}
       MEMORYOS_DATABASE_PASSWORD_FILE: /run/secrets/database_password
       MEMORYOS_OPENSEARCH_PASSWORD_FILE: /run/secrets/opensearch_password
       MEMORYOS_EXTRACTION_DOCLING_API_KEY_FILE: /run/secrets/docling_api_key
       MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/google_drive_credential_encryption_key
+      MEMORYOS_LARK_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/lark_credential_encryption_key
       MEMORYOS_SHAREPOINT_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/sharepoint_credential_encryption_key
       MEMORYOS_EMBEDDING_ENDPOINT: ${MEMORYOS_EMBEDDING_ENDPOINT:-}
       # The embedding provider chosen on the Search settings page keeps its key encrypted with the
@@ -467,12 +483,14 @@ services:
       MEMORYOS_CHAT_CATALOG_ENCRYPTION_KEY_FILE: /run/secrets/chat_catalog_encryption_key
     secrets:
       - minio_worker_secret_key
+      - sandbox_api_key
       - redis_tls_ca
       - redis_worker_password
       - database_password
       - opensearch_password
       - docling_api_key
       - google_drive_credential_encryption_key
+      - lark_credential_encryption_key
       - sharepoint_credential_encryption_key
       - chat_catalog_encryption_key
     depends_on:
@@ -497,8 +515,13 @@ services:
     read_only: true
     tmpfs:
       - /tmp:size=256m,mode=1777
-    # The Worker lets started work finish within MEMORYOS_WORKER_SHUTDOWN_GRACE (100 s) before it stops.
-    stop_grace_period: 120s
+    volumes:
+      # Read-only: a Worker reads documents nobody vouches for, and a cache it could write would be code it runs
+      # again at its next start.
+      - memoryos_worker_aot:/aot:ro
+    # The Worker lets started work finish within MEMORYOS_WORKER_SHUTDOWN_GRACE (100 s) before it stops; the rest of
+    # its shutdown took 9 s when measured, and db-scheduler may wait up to 60 s more for a running task.
+    stop_grace_period: 180s
     cpu_shares: 512
     deploy:
       # Each replica holds MEMORYOS_WORKER_DATABASE_POOL_SIZE connections; deploy.sh refuses a count the role cannot hold.
@@ -506,6 +529,10 @@ services:
       resources:
         reservations:
           memory: 512m
+        # Each replica: a heap of half the limit, two Tika child JVMs of up to 512 MB of heap each
+        # (MEMORYOS_EXTRACTION_TIKA_MAX_PROCESSES) and the 256 MB tmpfs they are handed files through.
+        limits:
+          memory: ${MEMORYOS_WORKER_MEMORY_LIMIT:-4g}
 
   web:
     <<: *service-defaults
@@ -545,9 +572,29 @@ services:
         reservations:
           memory: 32m
 
+  # MEM-244: the one start that writes the Worker's JDK AOT cache. deploy.sh runs it once a deployment, before it
+  # stops the running Worker; Compose never starts it otherwise. It is the Worker's image and configuration with no
+  # stream readers, so it reads no document, no schema validation, because the deployment has not migrated the
+  # schema yet, and two database connections.
+  worker-aot:
+    extends:
+      service: worker
+    profiles:
+      - aot
+    restart: "no"
+    environment:
+      MEMORYOS_AOT_TRAIN: "true"
+      MEMORYOS_WORKER_ENABLED: "false"
+      SPRING_JPA_HIBERNATE_DDL_AUTO: none
+      MEMORYOS_DATABASE_POOL_SIZE: "2"
+    volumes:
+      - memoryos_worker_aot:/aot
+    deploy:
+      replicas: 1
+
   docling:
     <<: *service-defaults
-    image: ${MEMORYOS_DOCLING_IMAGE:-quay.io/docling-project/docling-serve-cpu:v1.36.0@sha256:225c8586e20d5d0fc6811a9e0e044fa602bcc4393f00389009bad42d6787b58f}
+    image: ${MEMORYOS_DOCLING_IMAGE:-quay.io/docling-project/docling-serve-cpu:v1.38.1@sha256:203c2ce82f19413bc3b83641962082165510352b9f93c1a840c0036be616eebf}
     environment:
       UVICORN_WORKERS: ${UVICORN_WORKERS:-1}
       DOCLING_SERVE_ENG_LOC_NUM_WORKERS: ${DOCLING_SERVE_ENG_LOC_NUM_WORKERS:-1}
@@ -625,45 +672,41 @@ services:
         reservations:
           memory: 128m
 
-  # MEM-110: runs Python for the Chat run_python tool. It starts one executor container per run
-  # on the host daemon through the socket, which grants host-level Docker control: keep it on the
-  # internal network without a host port. See the interpreter section of docs/runbooks/ci-cd.md.
-  interpreter:
+  # MEM-270: the OpenSandbox lifecycle server for the Chat sandbox. It starts one sandbox container per conversation
+  # from memoryos-sandbox-computer on the host daemon through the socket, which grants host-level Docker control: it is
+  # reached only on the internal network, with an API key, and has no host port. Sandboxes publish their ports on the
+  # default bridge's gateway alone, which the server reaches through memoryos-sandbox-control. See the sandbox section
+  # of docs/runbooks/ci-cd.md.
+  sandbox:
     <<: *service-defaults
-    image: ${MEMORYOS_INTERPRETER_IMAGE:?Set MEMORYOS_INTERPRETER_IMAGE}
-    container_name: memoryos-interpreter
+    image: ${MEMORYOS_SANDBOX_IMAGE:?Set MEMORYOS_SANDBOX_IMAGE}
+    container_name: memoryos-sandbox
     user: root
-    # Compose file secrets keep their host owner and mode (0600, owned by the operator), so root in this
-    # capability-dropped container needs DAC_OVERRIDE to read the API key, as the api service does.
+    # Compose file secrets keep their host owner and mode, so root in this capability-dropped container needs
+    # DAC_OVERRIDE to read the API key, as the api service does.
     cap_add:
       - DAC_OVERRIDE
     environment:
-      EXECUTOR_BACKEND: docker
-      PYTHON_EXECUTOR_DOCKER_IMAGE: ${MEMORYOS_INTERPRETER_EXECUTOR_IMAGE:?Set MEMORYOS_INTERPRETER_EXECUTOR_IMAGE}
-      PYTHON_EXECUTOR_DOCKER_NETWORK: none
-      LOG_FORMAT: json
-      # Each executor may use 1 GiB; this bounds executor memory on the host to about 4 GiB.
-      MAX_CONCURRENT_EXECUTIONS: ${MEMORYOS_INTERPRETER_MAX_CONCURRENT_EXECUTIONS:-4}
-      # deploy.sh pulls the executor with job-scoped registry credentials; the service has none.
-      PYTHON_EXECUTOR_DOCKER_IMAGE_WATCHDOG_INTERVAL_SEC: "0"
-      API_KEY_FILE: /run/secrets/interpreter_api_key
-      # A turn reuses its uploads for at most 2 minutes; expired files free the /tmp tmpfs.
-      FILE_TTL_SEC: "900"
+      SANDBOX_API_KEY_FILE: /run/secrets/sandbox_api_key
     secrets:
-      - interpreter_api_key
+      - sandbox_api_key
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
       memoryos-internal:
         aliases:
-          - memoryos-interpreter
+          - memoryos-sandbox
+      sandbox-control: {}
     read_only: true
     tmpfs:
-      - /tmp:size=512m,mode=1777
+      - /tmp:size=64m,mode=1777
+      - /root:size=64m,mode=0700
     healthcheck:
       test:
-        - CMD-SHELL
-        - curl -fsS http://127.0.0.1:8000/health | grep -q '"status":"ok"'
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/health', timeout=4)
       interval: 15s
       timeout: 5s
       retries: 8
@@ -678,6 +721,9 @@ networks:
   memoryos-internal:
     name: ${MEMORYOS_INTERNAL_NETWORK:-memoryos-internal}
     internal: true
+  # MEM-270: the sandbox server alone joins it, to reach the ports sandboxes publish on the default bridge's gateway.
+  sandbox-control:
+    name: ${MEMORYOS_SANDBOX_CONTROL_NETWORK:-memoryos-sandbox-control}
   proxy:
     name: ${MEMORYOS_PROXY_NETWORK:-proxy-network}
     external: true
@@ -700,6 +746,8 @@ secrets:
     file: ${MEMORYOS_CHAT_CATALOG_ENCRYPTION_KEY_SECRET_FILE:-/apps/memoryos/secrets/encryption/chat-catalog-key.txt}
   google_drive_credential_encryption_key:
     file: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY_SECRET_FILE:-/apps/memoryos/secrets/encryption/google-drive-credential-key.txt}
+  lark_credential_encryption_key:
+    file: ${MEMORYOS_LARK_CREDENTIAL_ENCRYPTION_KEY_SECRET_FILE:-/apps/memoryos/secrets/encryption/lark-credential-key.txt}
   sharepoint_credential_encryption_key:
     file: ${MEMORYOS_SHAREPOINT_CREDENTIAL_ENCRYPTION_KEY_SECRET_FILE:-/apps/memoryos/secrets/encryption/sharepoint-credential-key.txt}
   mcp_credential_encryption_key:
@@ -712,8 +760,8 @@ secrets:
     file: ${MEMORYOS_MINIO_API_SECRET_KEY_FILE:-/apps/memoryos/secrets/minio/api-secret-key.txt}
   minio_worker_secret_key:
     file: ${MEMORYOS_MINIO_WORKER_SECRET_KEY_FILE:-/apps/memoryos/secrets/minio/worker-secret-key.txt}
-  interpreter_api_key:
-    file: ${MEMORYOS_INTERPRETER_API_KEY_SECRET_FILE:-/apps/memoryos/secrets/interpreter/api-key.txt}
+  sandbox_api_key:
+    file: ${MEMORYOS_SANDBOX_API_KEY_SECRET_FILE:-/apps/memoryos/secrets/sandbox/api-key.txt}
   redis_admin_password:
     file: ${MEMORYOS_REDIS_ADMIN_PASSWORD_FILE:?Set MEMORYOS_REDIS_ADMIN_PASSWORD_FILE}
   redis_worker_password:
@@ -734,3 +782,6 @@ volumes:
     name: ${MEMORYOS_MINIO_VOLUME:-memoryos-minio-data}
   memoryos_redis:
     name: ${MEMORYOS_REDIS_VOLUME:-memoryos-redis-data}
+  # Two JDK AOT caches of the Worker, about 200 MB each; nothing in it is data, and it may be deleted at any time.
+  memoryos_worker_aot:
+    name: ${MEMORYOS_WORKER_AOT_VOLUME:-memoryos-worker-aot}

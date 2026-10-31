@@ -16,10 +16,15 @@ ROOT = Path(__file__).resolve().parents[2]
 DEPLOYMENT = ROOT / "infrastructure/deployment"
 
 # Each service and the resource directories whose configuration it loads.
+INTEGRATIONS = ("memoryos-integration-lark/src/main/resources", "memoryos-integration-google/src/main/resources", "memoryos-integration-microsoft/src/main/resources", "memoryos-extraction/src/main/resources")
 SERVICES = {
-    "api": ("api/src/main/resources", "core/src/main/resources", "sources/src/main/resources"),
-    "worker": ("worker/src/main/resources", "core/src/main/resources", "sources/src/main/resources"),
+    "api": ("memoryos-api/src/main/resources", "memoryos-core/src/main/resources", *INTEGRATIONS),
+    "worker": ("memoryos-worker/src/main/resources", "memoryos-core/src/main/resources", *INTEGRATIONS),
+    "channels": ("memoryos-channels/src/main/resources", "memoryos-core/src/main/resources", *INTEGRATIONS[:3]),
 }
+
+# MEM-246: the chat bots' process runs on staging only until the bot is accepted.
+SERVICE_ENVIRONMENTS = {"channels": ("staging",)}
 
 ENVIRONMENTS = ("staging", "production")
 
@@ -32,7 +37,8 @@ DERIVED = {"MEMORYOS_REDIS_TLS_CA_CERTIFICATE": "MEMORYOS_REDIS_TLS_CA_FILE"}
 # Keep this in step with the env block of "Verify deployment and monitoring configuration".
 RENDERED_BY_CI = {
     "MEMORYOS_RELEASE", "MEMORYOS_API_IMAGE", "MEMORYOS_WORKER_IMAGE", "MEMORYOS_WEB_IMAGE",
-    "MEMORYOS_INTERPRETER_IMAGE", "MEMORYOS_INTERPRETER_EXECUTOR_IMAGE", "MEMORYOS_KEYCLOAK_IMAGE",
+    "MEMORYOS_KEYCLOAK_IMAGE",
+    "MEMORYOS_CHANNELS_IMAGE", "MEMORYOS_SANDBOX_IMAGE", "MEMORYOS_SANDBOX_COMPUTER_IMAGE",
     "MEMORYOS_POSTGRES_ADMIN_PASSWORD", "MEMORYOS_DATABASE_PASSWORD",
     "MEMORYOS_KEYCLOAK_DATABASE_PASSWORD", "MEMORYOS_KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD",
     "MEMORYOS_TENANT_ID", "MEMORYOS_TENANT_SLUG", "MEMORYOS_TENANT_DISPLAY_NAME",
@@ -75,6 +81,8 @@ class ConfigurationReachesTheContainerTest(unittest.TestCase):
         # it did the first time the vault stopped supplying configuration.
         for environment in ENVIRONMENTS:
             for service, directories in SERVICES.items():
+                if environment not in SERVICE_ENVIRONMENTS.get(service, ENVIRONMENTS):
+                    continue
                 named = named_by_compose(service, environment)
                 for name in sorted(required(directories)):
                     reached = (name in named

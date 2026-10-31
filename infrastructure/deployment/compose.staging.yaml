@@ -64,6 +64,15 @@ services:
       SPRING_PROFILES_ACTIVE: staging
       # Labels this host's telemetry; the worker's profiles cannot, as it runs the production profile too.
       MEMORYOS_ENVIRONMENT: staging
+      # MEM-246: administrators store a bot's app secret with this key; bots run on staging only until accepted.
+      MEMORYOS_CHANNEL_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/channel_credential_encryption_key
+      MEMORYOS_CHANNEL_CREDENTIAL_KEY_VERSION: ${MEMORYOS_CHANNEL_CREDENTIAL_KEY_VERSION:?Set MEMORYOS_CHANNEL_CREDENTIAL_KEY_VERSION}
+      # MEM-263: a Zalo bot may receive by webhook only where this public address is set.
+      MEMORYOS_CHANNEL_WEB_URL: ${MEMORYOS_CHANNEL_WEB_URL:-}
+      # MEM-270: this host has about 4 GiB free beside the stack; each sandbox may use 1 GiB.
+      MEMORYOS_SANDBOX_MAX_RUNNING: ${MEMORYOS_SANDBOX_MAX_RUNNING:-6}
+    secrets:
+      - channel_credential_encryption_key
     depends_on:
       postgres-inspector-bootstrap:
         condition: service_completed_successfully
@@ -79,6 +88,109 @@ services:
       MEMORYOS_RELEASE: ${MEMORYOS_RELEASE:?Set MEMORYOS_RELEASE}
       SPRING_PROFILES_ACTIVE: production,staging
       MEMORYOS_ENVIRONMENT: staging
+
+  # MEM-246: the chat bots' process. It holds each bot's connection and runs Chat turns in process, so it reaches
+  # what the API's turns reach, with the API's Redis user and object-storage identity, whose rights are exactly a
+  # turn's. Staging only until the bot is accepted; it starts after the API, which migrates the schema.
+  channels:
+    <<: *staging-service-defaults
+    image: ${MEMORYOS_CHANNELS_IMAGE:?Set MEMORYOS_CHANNELS_IMAGE}
+    container_name: memoryos-channels
+    # docker-init forwards SIGTERM to the process, which drops to its own user (MEM-244).
+    cap_add:
+      - DAC_OVERRIDE
+      - KILL
+      - SETGID
+      - SETUID
+    environment:
+      MEMORYOS_RELEASE: ${MEMORYOS_RELEASE:?Set MEMORYOS_RELEASE}
+      SPRING_PROFILES_ACTIVE: staging
+      MEMORYOS_ENVIRONMENT: staging
+      MEMORYOS_OTLP_BASE_URL: http://memoryos-otel-collector:4318
+      MEMORYOS_OBJECT_STORAGE_SERVICE_ENDPOINT: http://memoryos-minio:9000
+      MEMORYOS_OBJECT_STORAGE_UPLOAD_ENDPOINT: ${MEMORYOS_OBJECT_STORAGE_UPLOAD_ENDPOINT:?Set MEMORYOS_OBJECT_STORAGE_UPLOAD_ENDPOINT}
+      MEMORYOS_OBJECT_STORAGE_BUCKET: ${MEMORYOS_OBJECT_STORAGE_BUCKET:-memoryos}
+      MEMORYOS_OBJECT_STORAGE_ACCESS_KEY: ${MEMORYOS_OBJECT_STORAGE_API_ACCESS_KEY:-memoryos-api}
+      MEMORYOS_OBJECT_STORAGE_SECRET_KEY_FILE: /run/secrets/minio_api_secret_key
+      MEMORYOS_OBJECT_STORAGE_READINESS_KEY: ${MEMORYOS_OBJECT_STORAGE_READINESS_KEY:-system/readiness}
+      MEMORYOS_CHAT_STORAGE_LIBRARY_BYTES: ${MEMORYOS_CHAT_STORAGE_LIBRARY_BYTES:-536870912}
+      MEMORYOS_SANDBOX_ENDPOINT: http://memoryos-sandbox:8090
+      MEMORYOS_SANDBOX_API_KEY_FILE: /run/secrets/sandbox_api_key
+      MEMORYOS_SANDBOX_COMPUTER_IMAGE: ${MEMORYOS_SANDBOX_COMPUTER_IMAGE:?Set MEMORYOS_SANDBOX_COMPUTER_IMAGE}
+      MEMORYOS_SANDBOX_MAX_RUNNING: ${MEMORYOS_SANDBOX_MAX_RUNNING:-6}
+      MEMORYOS_REDIS_HOST: redis
+      MEMORYOS_REDIS_PORT: "6379"
+      MEMORYOS_REDIS_USERNAME: memoryos-api
+      MEMORYOS_REDIS_SSL_ENABLED: "true"
+      MEMORYOS_REDIS_TLS_CA_FILE: /run/secrets/redis_tls_ca
+      MEMORYOS_REDIS_PASSWORD_FILE: /run/secrets/redis_api_password
+      MEMORYOS_REDIS_CONNECT_TIMEOUT: ${MEMORYOS_REDIS_CONNECT_TIMEOUT:-2s}
+      MEMORYOS_REDIS_COMMAND_TIMEOUT: ${MEMORYOS_REDIS_COMMAND_TIMEOUT:-2s}
+      MEMORYOS_DATABASE_URL: jdbc:postgresql://memoryos-postgres:5432/${MEMORYOS_DATABASE_NAME:-memoryos}
+      MEMORYOS_DATABASE_USERNAME: ${MEMORYOS_DATABASE_USERNAME:-memoryos_app}
+      MEMORYOS_DATABASE_POOL_SIZE: ${MEMORYOS_CHANNELS_DATABASE_POOL_SIZE:-5}
+      # The web address a direct answer links to its session with, and a Zalo webhook's address; empty for neither.
+      MEMORYOS_CHANNEL_WEB_URL: ${MEMORYOS_CHANNEL_WEB_URL:-}
+      MEMORYOS_OPENSEARCH_ENDPOINT: https://opensearch:9200
+      MEMORYOS_OPENSEARCH_USERNAME: ${MEMORYOS_OPENSEARCH_USERNAME:-memoryos-service}
+      MEMORYOS_SEARCH_REPLICAS: ${MEMORYOS_SEARCH_REPLICAS:?Set MEMORYOS_SEARCH_REPLICAS}
+      MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION:?Set MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION}
+      MEMORYOS_LARK_CREDENTIAL_KEY_VERSION: ${MEMORYOS_LARK_CREDENTIAL_KEY_VERSION:?Set MEMORYOS_LARK_CREDENTIAL_KEY_VERSION}
+      MEMORYOS_CHANNEL_CREDENTIAL_KEY_VERSION: ${MEMORYOS_CHANNEL_CREDENTIAL_KEY_VERSION:?Set MEMORYOS_CHANNEL_CREDENTIAL_KEY_VERSION}
+      MEMORYOS_DATABASE_PASSWORD_FILE: /run/secrets/database_password
+      MEMORYOS_OPENSEARCH_PASSWORD_FILE: /run/secrets/opensearch_password
+      MEMORYOS_CHAT_CATALOG_ENCRYPTION_KEY_FILE: /run/secrets/chat_catalog_encryption_key
+      MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/google_drive_credential_encryption_key
+      MEMORYOS_LARK_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/lark_credential_encryption_key
+      MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/mcp_credential_encryption_key
+      MEMORYOS_CHANNEL_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/channel_credential_encryption_key
+    secrets:
+      - minio_api_secret_key
+      - sandbox_api_key
+      - redis_tls_ca
+      - redis_api_password
+      - database_password
+      - opensearch_password
+      - chat_catalog_encryption_key
+      - google_drive_credential_encryption_key
+      - lark_credential_encryption_key
+      - mcp_credential_encryption_key
+      - channel_credential_encryption_key
+    depends_on:
+      api:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # memoryos-internal reaches the stores and is internal; shared-infra is the egress the API's turns use, to the
+    # model providers and to Lark, whose long connection this process opens.
+    networks:
+      memoryos-internal:
+        aliases:
+          - memoryos-channels
+      memoryos-telemetry:
+      shared-infra:
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          wget -q -O - http://127.0.0.1:8082/actuator/health/readiness
+          | grep -q '"status":"UP"'
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 45s
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    # Long enough to close every connection and let the turns in progress end (ChannelSupervisor waits 30 s).
+    stop_grace_period: 45s
+    cpu_shares: 512
+    deploy:
+      resources:
+        reservations:
+          memory: 256m
+        limits:
+          memory: ${MEMORYOS_CHANNELS_MEMORY_LIMIT:-1536m}
 
   mailpit:
     <<: *staging-service-defaults
@@ -180,7 +292,7 @@ services:
           - redis
 
   postgres-inspector-bootstrap:
-    image: ${MEMORYOS_POSTGRES_IMAGE:-postgres:18.6-bookworm@sha256:3725f4e2499eef5134592b3b4ab79a543ed7f8e533b05b5b637af926630f6650}
+    image: ${MEMORYOS_POSTGRES_IMAGE:-postgres:18.6-bookworm@sha256:afc7e2d441324c0388fa80c3d24f733b4194a4eb7f47dd8ee2b08eb1a24a647c}
     container_name: memoryos-postgres-inspector-bootstrap
     entrypoint:
       - /bin/sh
@@ -427,7 +539,7 @@ services:
   # answers. It listens only on its access network, reached through the OAuth2 Proxy below.
   promptfoo:
     <<: *staging-service-defaults
-    image: ${MEMORYOS_PROMPTFOO_IMAGE:-ghcr.io/promptfoo/promptfoo:0.123.1@sha256:2dfddde000886e9a0bcce799478095a2e7d1e4438a6c6669ac04001e8ae29b85}
+    image: ${MEMORYOS_PROMPTFOO_IMAGE:-ghcr.io/promptfoo/promptfoo:0.125.1@sha256:3ddd7be2b8b043a5c48f0df048b074396de8e60282b0a3b392c299c430b74134}
     container_name: memoryos-promptfoo
     # The viewer creates and runs evals too: the OpenAI-compatible provider is 9Router under the benchmark's
     # own key, read from its secret file so it never sits in the environment file.
@@ -550,6 +662,8 @@ networks:
     name: ${MEMORYOS_PROMPTFOO_EGRESS_NETWORK:-memoryos-promptfoo-egress}
 
 secrets:
+  channel_credential_encryption_key:
+    file: ${MEMORYOS_CHANNEL_CREDENTIAL_ENCRYPTION_KEY_SECRET_FILE:-/apps/memoryos/secrets/encryption/channel-credential-key.txt}
   minio_console_oidc_client_secret:
     file: ${MEMORYOS_MINIO_CONSOLE_OIDC_CLIENT_SECRET_FILE:?Set MEMORYOS_MINIO_CONSOLE_OIDC_CLIENT_SECRET_FILE}
   mailpit_oauth2_allowed_emails:

@@ -1,0 +1,496 @@
+{
+  "schema_version": 1,
+  "diagram_type": "class",
+  "meta": {
+    "title": "Ask a question and get a cited answer: classes"
+  },
+  "types": [
+    {
+      "id": "stream",
+      "label": "ChatStreamController",
+      "kind": "class",
+      "row": 0,
+      "col": 0,
+      "methods": [
+        {
+          "name": "events",
+          "parameters": "identity, sessionId, assistantMessageId, ...",
+          "returns": "ResponseEntity<Flux<...>>"
+        }
+      ]
+    },
+    {
+      "id": "ctrl",
+      "label": "ChatTurnController",
+      "kind": "class",
+      "row": 0,
+      "col": 1,
+      "methods": [
+        {
+          "name": "send",
+          "parameters": "identity, sessionId, request",
+          "returns": "ChatTurnAcceptedResponse"
+        },
+        {
+          "name": "decide",
+          "parameters": "identity, sessionId, ...",
+          "returns": "void"
+        }
+      ]
+    },
+    {
+      "id": "sbw",
+      "label": "StreamBufferWriter",
+      "kind": "class",
+      "row": 0,
+      "col": 2,
+      "methods": [
+        {
+          "name": "append",
+          "parameters": "id, text",
+          "returns": "void"
+        },
+        {
+          "name": "finish",
+          "parameters": "id, status, ...",
+          "returns": "void"
+        },
+        {
+          "name": "subscribe",
+          "parameters": "id, after, running",
+          "returns": "Reader"
+        }
+      ]
+    },
+    {
+      "id": "limit",
+      "label": "AiUsageLimitService",
+      "kind": "class",
+      "row": 1,
+      "col": 0,
+      "methods": [
+        {
+          "name": "enforce",
+          "parameters": "actor",
+          "returns": "void"
+        }
+      ]
+    },
+    {
+      "id": "turn",
+      "label": "ChatTurnService",
+      "kind": "class",
+      "row": 1,
+      "col": 1,
+      "methods": [
+        {
+          "name": "command",
+          "parameters": "actor, session, command, ...",
+          "returns": "Accepted"
+        },
+        {
+          "name": "subscribe",
+          "parameters": "actor, session, assistant, after",
+          "returns": "Supplier<Reader>"
+        },
+        {
+          "name": "decide",
+          "parameters": "actor, session, ...",
+          "returns": "void"
+        }
+      ]
+    },
+    {
+      "id": "selector",
+      "label": "ChatModelSelector",
+      "kind": "class",
+      "row": 1,
+      "col": 2,
+      "methods": [
+        {
+          "name": "resolve",
+          "parameters": "actor, session, requested, agent",
+          "returns": "Resolved"
+        }
+      ]
+    },
+    {
+      "id": "resolver",
+      "label": "ModelResolver",
+      "kind": "class",
+      "row": 1,
+      "col": 3,
+      "methods": [
+        {
+          "name": "acquire",
+          "parameters": "selection",
+          "returns": "Resolved"
+        }
+      ]
+    },
+    {
+      "id": "persist",
+      "label": "ChatTurnPersistence",
+      "kind": "class",
+      "row": 2,
+      "col": 0,
+      "methods": [
+        {
+          "name": "reserve",
+          "parameters": "actor, session, command, ...",
+          "returns": "Reservation"
+        },
+        {
+          "name": "finishAndRead",
+          "parameters": "...",
+          "returns": "TerminalOutcome"
+        }
+      ]
+    },
+    {
+      "id": "exec",
+      "label": "ChatModelExecutor",
+      "kind": "class",
+      "row": 2,
+      "col": 1,
+      "methods": [
+        {
+          "name": "execute",
+          "parameters": "setup, checkActive, ...",
+          "returns": "void"
+        }
+      ]
+    },
+    {
+      "id": "gate",
+      "label": "CitationGate",
+      "kind": "class",
+      "row": 2,
+      "col": 2,
+      "methods": [
+        {
+          "name": "accept",
+          "parameters": "chunk",
+          "returns": "String"
+        },
+        {
+          "name": "finish",
+          "returns": "Ending"
+        }
+      ]
+    },
+    {
+      "id": "registry",
+      "label": "ProviderAdapterRegistry",
+      "kind": "class",
+      "row": 2,
+      "col": 3,
+      "methods": [
+        {
+          "name": "require",
+          "parameters": "type",
+          "returns": "ProviderAdapter"
+        }
+      ]
+    },
+    {
+      "id": "jdbc",
+      "label": "JdbcChatRepository",
+      "kind": "class",
+      "row": 3,
+      "col": 0,
+      "methods": [
+        {
+          "name": "insertPair",
+          "parameters": "...",
+          "returns": "void"
+        },
+        {
+          "name": "finishAndRead",
+          "parameters": "...",
+          "returns": "Control"
+        }
+      ]
+    },
+    {
+      "id": "search",
+      "label": "SearchTool",
+      "kind": "class",
+      "row": 3,
+      "col": 1,
+      "methods": [
+        {
+          "name": "searchKnowledge",
+          "parameters": "queries, filters",
+          "returns": "String"
+        }
+      ]
+    },
+    {
+      "id": "mcptools",
+      "label": "McpTools",
+      "kind": "class",
+      "row": 3,
+      "col": 2,
+      "methods": [
+        {
+          "name": "tools",
+          "returns": "List<Tool>"
+        }
+      ]
+    },
+    {
+      "id": "adapter",
+      "label": "ProviderAdapter",
+      "kind": "interface",
+      "row": 3,
+      "col": 3,
+      "methods": [
+        {
+          "name": "create",
+          "parameters": "connection, modelName, ...",
+          "returns": "Client",
+          "abstract": true
+        }
+      ]
+    },
+    {
+      "id": "sss",
+      "label": "SourceSearchService",
+      "kind": "class",
+      "row": 4,
+      "col": 0,
+      "methods": [
+        {
+          "name": "scope",
+          "parameters": "actor",
+          "returns": "SourceSearchScope"
+        },
+        {
+          "name": "readableMetadata",
+          "parameters": "...",
+          "returns": "Map<UUID, List<...>>"
+        }
+      ]
+    },
+    {
+      "id": "dss",
+      "label": "DocumentSearchService",
+      "kind": "class",
+      "row": 4,
+      "col": 1,
+      "methods": [
+        {
+          "name": "scope",
+          "parameters": "actor",
+          "returns": "SourceSearchScope"
+        },
+        {
+          "name": "ranked",
+          "parameters": "scope, queries, filters, check",
+          "returns": "SearchResults"
+        }
+      ]
+    },
+    {
+      "id": "turntools",
+      "label": "McpTurnTools",
+      "kind": "class",
+      "row": 4,
+      "col": 2,
+      "methods": [
+        {
+          "name": "decide",
+          "parameters": "binding, callId, args",
+          "returns": "Decision"
+        },
+        {
+          "name": "call",
+          "parameters": "binding, arguments, deadline",
+          "returns": "Outcome"
+        }
+      ]
+    },
+    {
+      "id": "openai",
+      "label": "OpenAiProviderAdapter",
+      "kind": "class",
+      "row": 4,
+      "col": 3,
+      "methods": [
+        {
+          "name": "create",
+          "parameters": "connection, modelName, ...",
+          "returns": "Client"
+        }
+      ]
+    },
+    {
+      "id": "anthropic",
+      "label": "AnthropicProviderAdapter",
+      "kind": "class",
+      "row": 4,
+      "col": 4,
+      "methods": [
+        {
+          "name": "create",
+          "parameters": "connection, modelName, ...",
+          "returns": "Client"
+        }
+      ]
+    },
+    {
+      "id": "osidx",
+      "label": "OpenSearchIndexService",
+      "kind": "class",
+      "row": 5,
+      "col": 1,
+      "methods": [
+        {
+          "name": "batch",
+          "parameters": "scope, queries, filters, check",
+          "returns": "List<List<SearchHit>>"
+        }
+      ]
+    },
+    {
+      "id": "clients",
+      "label": "McpClients",
+      "kind": "class",
+      "row": 5,
+      "col": 2,
+      "methods": [
+        {
+          "name": "open",
+          "parameters": "url, headers, timeout",
+          "returns": "McpSession"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "from": "ctrl",
+      "to": "turn",
+      "kind": "dependency",
+      "label": "command"
+    },
+    {
+      "from": "stream",
+      "to": "turn",
+      "kind": "dependency",
+      "label": "subscribe"
+    },
+    {
+      "from": "turn",
+      "to": "sbw",
+      "kind": "dependency",
+      "label": "append"
+    },
+    {
+      "from": "turn",
+      "to": "limit",
+      "kind": "dependency",
+      "label": "enforce"
+    },
+    {
+      "from": "turn",
+      "to": "selector",
+      "kind": "dependency",
+      "label": "resolve"
+    },
+    {
+      "from": "turn",
+      "to": "persist",
+      "kind": "dependency",
+      "label": "reserve"
+    },
+    {
+      "from": "turn",
+      "to": "exec",
+      "kind": "dependency",
+      "label": "execute"
+    },
+    {
+      "from": "turn",
+      "to": "gate",
+      "kind": "dependency",
+      "label": "accept"
+    },
+    {
+      "from": "selector",
+      "to": "resolver",
+      "kind": "dependency",
+      "label": "acquire"
+    },
+    {
+      "from": "resolver",
+      "to": "registry",
+      "kind": "dependency",
+      "label": "require"
+    },
+    {
+      "from": "registry",
+      "to": "adapter",
+      "kind": "aggregation"
+    },
+    {
+      "from": "openai",
+      "to": "adapter",
+      "kind": "realization"
+    },
+    {
+      "from": "anthropic",
+      "to": "adapter",
+      "kind": "realization"
+    },
+    {
+      "from": "persist",
+      "to": "jdbc",
+      "kind": "dependency",
+      "label": "insertPair"
+    },
+    {
+      "from": "exec",
+      "to": "search",
+      "kind": "dependency",
+      "label": "registers"
+    },
+    {
+      "from": "exec",
+      "to": "mcptools",
+      "kind": "dependency",
+      "label": "registers"
+    },
+    {
+      "from": "search",
+      "to": "dss",
+      "kind": "dependency",
+      "label": "ranked"
+    },
+    {
+      "from": "dss",
+      "to": "sss",
+      "kind": "dependency",
+      "label": "scope"
+    },
+    {
+      "from": "dss",
+      "to": "osidx",
+      "kind": "dependency",
+      "label": "batch"
+    },
+    {
+      "from": "mcptools",
+      "to": "turntools",
+      "kind": "dependency",
+      "label": "call"
+    },
+    {
+      "from": "turntools",
+      "to": "clients",
+      "kind": "dependency",
+      "label": "open"
+    }
+  ]
+}

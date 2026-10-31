@@ -7,6 +7,7 @@ import {
   listChatPromptShortcutsQueryKey,
   listPublicChatPromptShortcutsQueryKey,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
+import { foldText } from "@/lib/fold-text";
 import type { PromptShortcut } from "@/lib/hey-api/types.gen";
 
 /**
@@ -65,15 +66,7 @@ export function useComposerShortcuts() {
 }
 
 /** Vietnamese users often type without diacritics: "/tom tat" finds "Tóm tắt hợp đồng". */
-function fold(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "")
-    .replace(/[đĐ]/g, "d")
-    .toLocaleLowerCase("vi");
-}
-
 export function matchingShortcuts(items: Shortcut[], query: string) {
-  const folded = fold(query.trim());
-  return folded ? items.filter((shortcut) => fold(shortcut.name).includes(folded)) : items;
+  const folded = foldText(query.trim());
+  return folded ? items.filter((shortcut) => foldText(shortcut.name).includes(folded)) : items;
 }

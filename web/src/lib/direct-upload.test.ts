@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SourceUploadAuthorization } from "@/lib/hey-api/types.gen";
 import { DirectUploadError, putAuthorizedObject, sha256 } from "./direct-upload";

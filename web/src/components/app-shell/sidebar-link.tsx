@@ -5,6 +5,7 @@ import { SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
 /** One sidebar row that opens a page; folded to the rail it keeps its name and shows it as a tooltip. */
 export function SidebarLink({
   to,
+  params,
   label,
   icon,
   selected = false,
@@ -13,6 +14,7 @@ export function SidebarLink({
   onNavigate,
 }: {
   to: LinkProps["to"];
+  params?: LinkProps["params"];
   label: string;
   icon: ReactNode;
   selected?: boolean;
@@ -26,6 +28,7 @@ export function SidebarLink({
       <SidebarMenuButton asChild isActive={selected} variant={variant} tooltip={label}>
         <Link
           to={to}
+          params={params}
           activeOptions={activeOptions}
           aria-current={selected ? "page" : undefined}
           onClick={onNavigate}

@@ -3,6 +3,7 @@ import type { ChatTransport, UIMessageChunk } from "ai";
 import { ApiError } from "@/lib/api";
 import {
   cancelChatMessage,
+  decideChatToolCall,
   getChatHistory,
   pinChatReasoningEffort,
   sendChatMessage,
@@ -12,6 +13,7 @@ import type {
   Accepted,
   ChatMessage,
   ChatSession,
+  PersonaInput,
   ReasoningSelection,
 } from "@/lib/hey-api/types.gen";
 import { newChatSession, type ChatUiMessage } from "@/features/chat/chat-api";
@@ -46,7 +48,12 @@ import {
   online,
   outcomeSchema,
   pause,
+  waitingSchema,
+  assistantChangeSchema,
+  mcpUnavailableSchema,
+  type AssistantChange,
   textSchema,
+  toolApprovalSchema,
 } from "./chat-stream-events";
 import {
   ActivityChunks,
@@ -54,6 +61,7 @@ import {
   reasoningEventSchema,
   toolEventSchema,
   type ChatActivity,
+  type UnavailableApp,
 } from "@/features/chat/activity/chat-activity";
 import {
   ResearchChunks,
@@ -64,6 +72,16 @@ import {
   researchReportEventSchema,
   type ResearchState,
 } from "@/features/chat/research/chat-research";
+
+/**
+ * The answers a person who manages MCP servers can give a call that asks first (MEM-267): once, always (the tool then
+ * runs without asking), or not. assistant-ui reads them from the gate's descriptor.
+ */
+const ALWAYS_ALLOW_OPTIONS = [
+  { id: "allow-once", kind: "allow-once" },
+  { id: "allow-always", kind: "allow-always" },
+  { id: "reject-once", kind: "reject-once" },
+];
 
 export type ConnectionState = "ready" | "sending" | "streaming" | "recovering" | "uncertain";
 type Callbacks = {
@@ -133,6 +151,19 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
   private onModelAccepted?: (selection: Accepted) => void;
   /** Project for the session created by the first send; ignored once the session exists. */
   projectId?: string;
+  /** Assistant of the session created by the first send; the default assistant when unset. */
+  personaId?: string;
+  /**
+   * The assistant editor's unsaved settings, read at each send of its test chat (MEM-273): the turn runs them in place
+   * of the saved ones. Only a temporary conversation may carry them.
+   */
+  draftPersona?: () => PersonaInput;
+  /**
+   * MEM-280: each turn runs the Agent Builder on {@link draftPersona} instead of the assistant, with no search, web,
+   * image or MCP tool, and its changes to the form come to {@link onAssistantChange}.
+   */
+  builder = false;
+  onAssistantChange?: (change: AssistantChange) => void;
   onSessionCreated?: (session: ChatSession) => void;
   /** Any failure before the first session exists, so thread initialization can be retried. */
   onSessionFailed?: (error: unknown) => void;
@@ -231,6 +262,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
       (id) => !allowed?.mcpServerIds || allowed.mcpServerIds.includes(id),
     );
     const deepResearch = this.deepResearch;
+    const draftPersona = this.draftPersona?.();
     const creating = !this.session;
     try {
       return await this.submit(
@@ -241,6 +273,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
         mcpServerIds,
         deepResearch,
         reasoningEffort,
+        draftPersona,
       );
     } catch (error) {
       if (creating && !this.session) this.onSessionFailed?.(error);
@@ -256,6 +289,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     mcpServerIds: string[],
     deepResearch: boolean,
     reasoningEffort: ReasoningSelection["reasoningEffort"] | undefined,
+    draftPersona: PersonaInput | undefined,
   ) {
     if (options.trigger !== "submit-message")
       throw new Error("Use the conversation's message actions to create a saved version");
@@ -284,7 +318,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
         this.session = await newChatSession(
           text,
           signal,
-          undefined,
+          this.personaId,
           this.projectId,
           this.temporary,
         );
@@ -312,11 +346,18 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
         clientRequestId: message.id,
         text,
         modelConfigurationId,
-        webSearch,
-        deepResearch,
         fileIds: fileIds as string[],
-        mcpServerIds,
-        image,
+        // The builder has only its own tools; the server refuses a builder turn that asks for others.
+        ...(this.builder
+          ? {
+              webSearch: "off" as const,
+              deepResearch: false,
+              mcpServerIds: [],
+              image: "off" as const,
+              builder: true,
+            }
+          : { webSearch, deepResearch, mcpServerIds, image }),
+        ...(draftPersona && { draftPersona }),
       };
       const { data } = await sendChatMessage({
         path: { sessionId: this.session.id },
@@ -351,6 +392,16 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
   ) {
     if (!this.runId || !this.session) return null;
     return this.read(this.openReader(options.abortSignal));
+  }
+
+  /** The person's answer to a tool call of the running reply that waits for approval (MEM-253). */
+  async decideToolCall(toolCallId: string, approved: boolean, alwaysAllow = false): Promise<void> {
+    if (!this.runId || !this.session) throw new Error("No running reply to answer");
+    await decideChatToolCall({
+      path: { sessionId: this.session.id, assistantMessageId: this.runId, toolCallId },
+      body: { approved, ...(alwaysAllow && { alwaysAllow }) },
+      throwOnError: true,
+    });
   }
 
   stop(): Promise<void> {
@@ -404,7 +455,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     let sources: ChatSource[] = [];
     let artifacts: ChatArtifact[] = [];
     let hasArtifacts = false;
-    const activity = new ActivityChunks(runId);
+    const activity = new ActivityChunks(runId, sessionId);
     const research = new ResearchChunks(runId);
     let committedResearch: ResearchState | undefined;
     let committedActivity: ChatActivity | undefined;
@@ -412,8 +463,11 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     let imageGenerating = false;
     let codeRuns: Record<string, CodeRun> = {};
     let generatedFiles: GeneratedFile[] = [];
+    let unavailableApps: UnavailableApp[] = [];
+    let assistantChanges: string[] = [];
     let outcome: "COMPLETED" | "CANCELED" | "FAILED" | undefined;
     let failureCode: string | undefined;
+    let context: { tokens: number; limit: number } | undefined;
     let fallback = false;
     const createdAt = this.runCreatedAt;
     yield {
@@ -483,6 +537,8 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
             } else if (envelope.event === "outcome") {
               const terminal = outcomeSchema.parse(data);
               outcome = terminal.status;
+              if (terminal.contextTokens != null && terminal.contextLimit != null)
+                context = { tokens: terminal.contextTokens, limit: terminal.contextLimit };
               failureCode = terminal.failureCode ?? undefined;
               hasArtifacts = terminal.hasArtifacts;
               break;
@@ -538,6 +594,52 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
                 codeSchema.parse(data),
               ));
               yield { type: "message-metadata", messageMetadata: { codeRuns, generatedFiles } };
+            } else if (envelope.event === "tool_approval") {
+              // MEM-253: the AI SDK's own approval gate on the tool part; assistant-ui adds respondToApproval to it,
+              // and the runtime's onRespondToToolApproval sends the answer to the server, which owns the paused call.
+              // MEM-267: the decided event settles the gate too, so an answer from another tab or a replay after a
+              // reconnect shows on the card, and a call nobody answered in time stops offering its buttons.
+              const approval = toolApprovalSchema.parse(data);
+              const descriptor = {
+                serverName: approval.serverName,
+                toolName: approval.toolName,
+                toolTitle: approval.toolTitle ?? undefined,
+                arguments: approval.arguments,
+              };
+              if (!approval.decision || approval.decision === "NO_DECISION")
+                yield {
+                  type: "tool-approval-request",
+                  approvalId: approval.toolCallId,
+                  toolCallId: approval.toolCallId,
+                  approvalDescriptor: approval.decision
+                    ? { ...descriptor, resolution: "expired" }
+                    : approval.alwaysAllowable
+                      ? { ...descriptor, options: ALWAYS_ALLOW_OPTIONS }
+                      : descriptor,
+                };
+              else
+                yield {
+                  type: "tool-approval-response",
+                  approvalId: approval.toolCallId,
+                  approved: approval.decision === "APPROVED",
+                };
+            } else if (envelope.event === "assistant_change") {
+              // A builder turn is temporary, so a change arrives only live: the form takes it once, by its call,
+              // even when a reconnect replays the event.
+              const change = assistantChangeSchema.parse(data);
+              if (!assistantChanges.includes(change.toolCallId)) {
+                this.onAssistantChange?.(change);
+                assistantChanges = [...assistantChanges, change.toolCallId];
+                yield { type: "message-metadata", messageMetadata: { assistantChanges } };
+              }
+            } else if (envelope.event === "mcp_unavailable") {
+              unavailableApps = mcpUnavailableSchema.parse(data).apps;
+              yield { type: "message-metadata", messageMetadata: { unavailableApps } };
+            } else if (envelope.event === "waiting") {
+              yield {
+                type: "message-metadata",
+                messageMetadata: { waiting: waitingSchema.parse(data).waiting },
+              };
             }
             // Other event types from a newer server are skipped; the committed history stays authoritative.
           }
@@ -577,6 +679,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
             sources = sourcesSchema.parse(message.sources);
             artifacts = artifactsSchema.parse(message.artifacts);
             committedActivity = activitySchema.parse(message.activity);
+            unavailableApps = committedActivity.unavailableApps ?? [];
             committedResearch = historyResearch(message.research);
             images = parseGeneratedImages(message.images);
             imageGenerating = false;
@@ -604,12 +707,16 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
         messageMetadata: {
           serverStatus: outcome,
           failureCode,
+          ...(context && { context }),
           sources,
           artifacts,
           images,
           imageGenerating: false,
+          waiting: false,
           codeRuns,
           generatedFiles,
+          ...(unavailableApps.length > 0 && { unavailableApps }),
+          ...(assistantChanges.length > 0 && { assistantChanges }),
         },
       };
       yield* research.finish(committedResearch);

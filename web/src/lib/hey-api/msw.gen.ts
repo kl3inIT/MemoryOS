@@ -2,7 +2,7 @@
 
 import { http, type HttpHandler, HttpResponse, type HttpResponseResolver, type RequestHandlerOptions as RequestHandlerOptions2 } from 'msw';
 
-import type { AcceptAllMeetingCorrectionsData, AcceptAllMeetingCorrectionsResponses, AcceptMeetingCorrectionData, AcceptMeetingCorrectionResponses, ActivateUserResponses, AddGroupMembersData, AddGroupMembersResponses, AddMcpTrustedAppData, AddMcpTrustedAppResponses, AddMeetingMinutesItemData, AddMeetingMinutesItemResponses, ArchiveAllChatSessionsResponses, ArchiveChatSessionResponses, AssignGroupManagerResponses, AssignSourceManagerData, AssignSourceManagerResponses, BookmarkMeetingMomentData, BookmarkMeetingMomentResponses, BranchChatSessionData, BranchChatSessionResponses, CancelChatMessageResponses, CancelSearchFutureGenerationResponses, ChangeChatLibraryFileData, ChangeChatLibraryFileResponses, ClientOptions, ConfigureChatSessionData, ConfigureChatSessionResponses, CopyChatLibraryFileResponses, CorrectMeetingWordsData, CorrectMeetingWordsResponses, CreateAiUsageLimitData, CreateAiUsageLimitResponses, CreateChatModelData, CreateChatModelResponses, CreateChatPersonaData, CreateChatPersonaLabelData, CreateChatPersonaLabelResponses, CreateChatPersonaResponses, CreateChatProjectData, CreateChatProjectResponses, CreateChatPromptShortcutData, CreateChatPromptShortcutResponses, CreateChatProviderData, CreateChatProviderResponses, CreateChatSessionData, CreateChatSessionResponses, CreateChatVoiceTicketData, CreateChatVoiceTicketResponses, CreateDocumentSetData, CreateDocumentSetResponses, CreateEmbeddingProviderData, CreateEmbeddingProviderResponses, CreateFileSourceData, CreateFileSourceResponses, CreateGoogleDriveServiceAccountData, CreateGoogleDriveServiceAccountResponses, CreateGoogleDriveSourceData, CreateGoogleDriveSourceResponses, CreateGroupData, CreateGroupResponses, CreateIdentityProviderData, CreateIdentityProviderResponses, CreateInvitationData, CreateInvitationResponses, CreateMcpServerData, CreateMcpServerOAuthClientData, CreateMcpServerOAuthClientResponses, CreateMcpServerResponses, CreateMeetingData, CreateMeetingResponses, CreateMeetingTicketData, CreateMeetingTicketResponses, CreateProjectChatSessionData, CreateProjectChatSessionResponses, CreatePublicChatPromptShortcutData, CreatePublicChatPromptShortcutResponses, CreateSearchFutureGenerationData, CreateSearchFutureGenerationResponses, CreateSharePointCredentialData, CreateSharePointCredentialResponses, CreateSharePointSourceData, CreateSharePointSourceResponses, CreateSystemOneConnectionData, CreateSystemOneConnectionResponses, DeactivateUserResponses, DeleteAiUsageLimitResponses, DeleteAllChatSessionsResponses, DeleteChatFileArtifactResponses, DeleteChatFileResponses, DeleteChatImageArtifactResponses, DeleteChatModelResponses, DeleteChatPersonaLabelResponses, DeleteChatPersonaResponses, DeleteChatProjectResponses, DeleteChatPromptShortcutResponses, DeleteChatProviderResponses, DeleteChatSessionResponses, DeleteChatVoiceConnectionResponses, DeleteDocumentSetResponses, DeleteEmbeddingProviderResponses, DeleteGoogleDriveCredentialResponses, DeleteGroupResponses, DeleteIdentityProviderResponses, DeleteMcpServerOAuthClientResponses, DeleteMcpServerResponses, DeleteMeetingResponses, DeletePublicChatPromptShortcutResponses, DeleteSharePointCredentialResponses, DeleteSourceResponses, DeleteSystemOneConnectionResponses, DisconnectMcpConnectionResponses, DisconnectMcpServerOAuthResponses, DiscoverGoogleDriveLinkedDocumentsResponses, DiscoverIdentityProviderData, DiscoverIdentityProviderResponses, DiscoverMcpServerOAuthResponses, DismissMeetingSpeakerSuggestionResponses, DownloadChatExportResponses, DownloadChatFileResponses, DownloadChatLibraryArchiveResponses, DownloadUsageReportResponses, EditChatMessageData, EditChatMessageResponses, EditMeetingMinutesItemData, EditMeetingMinutesItemResponses, EditMeetingMinutesSummaryData, EditMeetingMinutesSummaryResponses, EmptyChatLibraryTrashResponses, EndMeetingResponses, ExportAuditEventsResponses, ExportChatHistoryResponses, ExportMeetingMinutesData, ExportMeetingMinutesResponses, ExportMeetingTranscriptResponses, FinalizeChatFileUploadResponses, FinalizeMeetingRecordingResponses, FinalizeSourceUploadResponses, GenerateChatTitleResponses, GetAiCostDetailResponses, GetAiCostSummaryResponses, GetAuditCatalogResponses, GetAuditEventResponses, GetChatBranchesResponses, GetChatExportResponses, GetChatFeedbackResponses, GetChatFileArtifactChartResponses, GetChatFileArtifactPdfPreviewResponses, GetChatFileArtifactResponses, GetChatFilePolicyResponses, GetChatFileResponses, GetChatFileThumbnailResponses, GetChatGuardrailsResponses, GetChatHistoryResponses, GetChatHistoryTranscriptResponses, GetChatImageArtifactResponses, GetChatImageAvailabilityResponses, GetChatInterpreterHealthResponses, GetChatInterpreterSettingsResponses, GetChatLibraryArchiveResponses, GetChatLibraryTrashWindowResponses, GetChatLibraryUsageResponses, GetChatModelDefaultResponses, GetChatPersonaAvatarResponses, GetChatPersonaResponses, GetChatPreferencesResponses, GetChatProjectResponses, GetChatPromptShortcutPreferencesResponses, GetChatRetentionResponses, GetChatSessionResponses, GetChatSettingsResponses, GetChatSharingResponses, GetChatVoiceAvailabilityResponses, GetChatVoiceSettingsResponses, GetChatWebAvailabilityResponses, GetCurrentIdentityResponses, GetCurrentInvitationResponses, GetDocumentSetResponses, GetGoogleDriveConfigurationResponses, GetGoogleDriveSelectionDraftResponses, GetGoogleDriveSelectionPolicyResponses, GetGoogleDriveSelectionRequestResponses, GetGoogleDriveSelectionResponses, GetGoogleDriveSelectionTreeResponses, GetGroupResponses, GetMcpEndpointConnectionResponses, GetMcpEndpointInsightsResponses, GetMcpEndpointSettingsResponses, GetMcpServerResponses, GetMeetingMinutesHeadingResponses, GetMeetingResponses, GetMyAiCostsResponses, GetMyAiUsageStandingResponses, GetPersonaModelResponses, GetSearchDocumentResponses, GetSearchSettingsResponses, GetSharedChatHistoryResponses, GetSharedChatSessionResponses, GetSharePointConfigurationResponses, GetSharePointRootsResponses, GetSharePointSelectionPolicyResponses, GetSharePointSelectionRequestResponses, GetSourceOperationResponses, GetSourceResponses, GetSourceRunResponses, HideChatPromptShortcutData, HideChatPromptShortcutResponses, InitiateChatFileUploadData, InitiateChatFileUploadResponses, InitiateSourceUploadData, InitiateSourceUploadResponses, KeepMeetingWordingResponses, LeaveChatPersonaResponses, ListAiCostBreakdownResponses, ListAiCostDaysResponses, ListAiUsageLimitsResponses, ListAuditEventsResponses, ListAvailableChatModelsResponses, ListChatExportsResponses, ListChatFilesResponses, ListChatGroupOptionsResponses, ListChatHistoryResponses, ListChatImageConnectionsResponses, ListChatImageProvidersResponses, ListChatLibraryArchivesResponses, ListChatLibraryDocumentSourcesResponses, ListChatLibraryDocumentsResponses, ListChatLibraryRecentResponses, ListChatLibraryResponses, ListChatLibrarySharedResponses, ListChatLibrarySourcesResponses, ListChatLibraryStarredResponses, ListChatModelFlowsResponses, ListChatModelPersonasResponses, ListChatPersonaLabelsResponses, ListChatPersonaModelsResponses, ListChatPersonaPinsResponses, ListChatPersonasForAdministrationResponses, ListChatPersonaSourcesResponses, ListChatPersonasResponses, ListChatProjectsResponses, ListChatPromptShortcutsResponses, ListChatProviderAdaptersResponses, ListChatProvidersResponses, ListChatSessionsResponses, ListChatVoiceConnectionsResponses, ListChatVoiceProvidersResponses, ListChatWebConnectionsResponses, ListChatWebEnginesData, ListChatWebEnginesResponses, ListConfiguredChatModelsResponses, ListDocumentSetsResponses, ListEmbeddingModelPresetsResponses, ListEmbeddingProvidersResponses, ListGoogleDriveCredentialsResponses, ListGroupCandidatesResponses, ListGroupCapabilitiesResponses, ListGroupMembersResponses, ListGroupSourcesResponses, ListGroupsResponses, ListIdentityProvidersResponses, ListInvitationsResponses, ListMcpClientGrantsResponses, ListMcpConnectionsResponses, ListMcpEndpointActivityResponses, ListMcpGroupOptionsResponses, ListMcpServerOAuthClientsResponses, ListMcpServersResponses, ListMcpServerToolsResponses, ListMcpTrustedAppsResponses, ListMeetingCorrectionsResponses, ListMeetingsResponses, ListMeetingTranscribersResponses, ListOcrConnectionsResponses, ListOcrProvidersResponses, ListProjectChatSessionsResponses, ListPublicChatPromptShortcutsResponses, ListReportedProviderModelsData, ListReportedProviderModelsResponses, ListSharePointCredentialsResponses, ListSourceGroupOptionsResponses, ListSourceGroupsResponses, ListSourceIndexAttemptsResponses, ListSourceItemsResponses, ListSourceRunErrorsResponses, ListSourceRunsResponses, ListSourcesResponses, ListSystemOneConnectionsResponses, ListSystemOneTypesResponses, ListUsageReportsResponses, ListUsersResponses, MarkMeetingMinutesItemData, MarkMeetingMinutesItemResponses, MoveChatProjectData, MoveChatProjectResponses, NameMeetingSpeakerData, NameMeetingSpeakerResponses, PauseSourceResponses, PinChatReasoningEffortData, PinChatReasoningEffortResponses, PreviewChatFileArtifactSpreadsheetResponses, PreviewChatFileSpreadsheetResponses, PreviewChatRetentionResponses, ProposeMeetingCorrectionsResponses, PublishMeetingMinutesResponses, PurgeChatLibraryFileResponses, ReadChatDocumentOriginalResponses, ReadChatDocumentPassagesResponses, ReadChatDocumentSpreadsheetResponses, ReadChatFilePassagesResponses, ReadChatFileTextResponses, ReadSearchDocumentOriginalResponses, ReadSearchDocumentSpreadsheetResponses, RecordChatLibraryEntryOpenedResponses, RefreshMcpServerToolsResponses, RegenerateChatMessageData, RegenerateChatMessageResponses, RegisterMcpServerOAuthClientData, RegisterMcpServerOAuthClientResponses, ReindexSourceItemResponses, RemoveChatFeedbackResponses, RemoveGroupManagerResponses, RemoveGroupMemberResponses, RemoveGroupSourceResponses, RemoveMcpTrustedAppResponses, RemoveMeetingBookmarkResponses, RemoveMeetingMinutesItemResponses, RemoveSourceItemResponses, RenameChatPersonaLabelData, RenameChatPersonaLabelResponses, RenameChatSessionData, RenameChatSessionResponses, RenameGroupData, RenameGroupResponses, RenameSharePointCredentialData, RenameSharePointCredentialResponses, RenameSourceData, RenameSourceResponses, ReorderChatPersonasData, ReorderChatPersonasResponses, ReplaceChatPersonaPinsData, ReplaceChatPersonaPinsResponses, ReplaceGoogleDriveRootsData, ReplaceGoogleDriveRootsResponses, ReplaceGoogleDriveServiceAccountData, ReplaceGoogleDriveServiceAccountResponses, ReplaceGroupCapabilitiesData, ReplaceGroupCapabilitiesResponses, ReplaceSharePointCredentialAuthenticationData, ReplaceSharePointCredentialAuthenticationResponses, ReplaceSharePointScopeData, ReplaceSharePointScopeResponses, ReplaceUserGroupsData, ReplaceUserGroupsResponses, RequestChatExportResponses, RequestChatLibraryArchiveData, RequestChatLibraryArchiveResponses, RequestUsageReportData, RequestUsageReportResponses, RerunMeetingMinutesResponses, ReserveMeetingRecordingData, ReserveMeetingRecordingResponses, RestoreChatLibraryFileResponses, RestoreChatPersonaResponses, RestoreSearchPastGenerationResponses, ResumeSourceResponses, RetryChatFileResponses, RevertAllMeetingCorrectionsData, RevertAllMeetingCorrectionsResponses, RevertMeetingCorrectionResponses, RevokeGoogleDriveCredentialData, RevokeGoogleDriveCredentialResponses, RevokeInvitationResponses, RevokeMcpClientGrantResponses, RotateInvitationResponses, SaveChatGroundedData, SaveChatGroundedResponses, SaveChatGuardrailsData, SaveChatGuardrailsResponses, SaveChatHistoryVisibilityData, SaveChatHistoryVisibilityResponses, SaveChatImageConnectionData, SaveChatImageConnectionResponses, SaveChatPreferencesData, SaveChatPreferencesResponses, SaveChatRetentionData, SaveChatRetentionResponses, SaveChatSettingsData, SaveChatSettingsResponses, SaveChatVoiceConnectionData, SaveChatVoiceConnectionResponses, SaveChatWebConnectionData, SaveChatWebConnectionResponses, SaveMcpConnectionApiKeyData, SaveMcpConnectionApiKeyResponses, SaveMeetingMinutesHeadingData, SaveMeetingMinutesHeadingResponses, SaveOcrConnectionData, SaveOcrConnectionResponses, SaveSystemOneConnectionData, SaveSystemOneConnectionResponses, SearchChatLibraryContentResponses, SearchChatSessionsResponses, SearchDocumentsData, SearchDocumentsResponses, SearchPrincipalsResponses, SelectChatBranchData, SelectChatBranchResponses, SelectChatImageProviderData, SelectChatImageProviderResponses, SelectChatPersonaData, SelectChatPersonaResponses, SelectChatVoiceProviderData, SelectChatVoiceProviderResponses, SelectChatWebProviderData, SelectChatWebProviderResponses, SelectOcrProviderData, SelectOcrProviderResponses, SendChatMessageData, SendChatMessageResponses, SetAllMcpServerToolsEnabledData, SetAllMcpServerToolsEnabledResponses, SetChatFeedbackData, SetChatFeedbackResponses, SetChatModelDefaultResponses, SetChatModelFlowResponses, SetChatPersonaListingData, SetChatPersonaListingResponses, SetChatPromptShortcutPreferencesData, SetChatPromptShortcutPreferencesResponses, SetChatSharingData, SetChatSharingResponses, SetCurrentIdentityLanguageData, SetCurrentIdentityLanguageResponses, SetMcpServerToolEnabledData, SetMcpServerToolEnabledResponses, SetMcpTrustedAppEnabledData, SetMcpTrustedAppEnabledResponses, SetPersonaModelResponses, SetSystemOneTaskData, SetSystemOneTaskResponses, ShareChatPersonaData, ShareChatPersonaResponses, ShareDocumentSetData, ShareDocumentSetResponses, ShareMeetingData, ShareMeetingResponses, StarChatLibraryEntryResponses, StarMeetingUtteranceResponses, StartGoogleDriveAuthorizationData, StartGoogleDriveAuthorizationResponses, StartMcpConnectionAuthorizationData, StartMcpConnectionAuthorizationResponses, StartMcpServerOAuthAuthorizationData, StartMcpServerOAuthAuthorizationResponses, StreamChatMessageResponses, SwitchSearchFutureGenerationResponses, SynchronizeGoogleDriveSourceResponses, SynchronizeSharePointSourceResponses, SynthesizeChatVoiceData, SynthesizeChatVoiceResponses, TestChatImageConnectionData, TestChatImageConnectionResponses, TestChatProviderData, TestChatProviderResponses, TestChatVoiceConnectionResponses, TestChatWebConnectionData, TestChatWebConnectionResponses, TestEmbeddingProviderData, TestEmbeddingProviderResponses, TestOcrConnectionData, TestOcrConnectionResponses, TestSharePointCredentialResponses, TestSystemOneConnectionResponses, TransferChatPersonaData, TransferChatPersonaResponses, UnarchiveChatSessionResponses, UnstarChatLibraryEntryResponses, UnstarMeetingUtteranceResponses, UpdateAiUsageLimitData, UpdateAiUsageLimitResponses, UpdateChatInterpreterSettingsData, UpdateChatInterpreterSettingsResponses, UpdateChatModelData, UpdateChatModelResponses, UpdateChatPersonaData, UpdateChatPersonaResponses, UpdateChatProjectData, UpdateChatProjectResponses, UpdateChatPromptShortcutData, UpdateChatPromptShortcutResponses, UpdateChatProviderData, UpdateChatProviderResponses, UpdateChatVoiceSettingsData, UpdateChatVoiceSettingsResponses, UpdateDocumentSetData, UpdateDocumentSetResponses, UpdateEmbeddingProviderData, UpdateEmbeddingProviderResponses, UpdateGoogleDrivePauseData, UpdateGoogleDrivePauseResponses, UpdateGoogleDriveScheduleData, UpdateGoogleDriveScheduleResponses, UpdateIdentityProviderData, UpdateIdentityProviderResponses, UpdateMcpEndpointSettingsData, UpdateMcpEndpointSettingsResponses, UpdateMcpServerData, UpdateMcpServerOAuthClientData, UpdateMcpServerOAuthClientResponses, UpdateMcpServerResponses, UpdateMeetingData, UpdateMeetingNotesData, UpdateMeetingNotesResponses, UpdateMeetingResponses, UpdatePublicChatPromptShortcutData, UpdatePublicChatPromptShortcutResponses, UpdateSharePointPauseData, UpdateSharePointPauseResponses, UpdateSharePointScheduleData, UpdateSharePointScheduleResponses, UpdateSourceAccessData, UpdateSourceAccessResponses, UpdateSourceGroupsData, UpdateSourceGroupsResponses, ValidateChatModelResponses } from './types.gen';
+import type { AcceptAllMeetingCorrectionsData, AcceptAllMeetingCorrectionsResponses, AcceptMeetingCorrectionData, AcceptMeetingCorrectionResponses, ActivateUserResponses, AddGroupMembersData, AddGroupMembersResponses, AddMcpTrustedAppData, AddMcpTrustedAppResponses, AddMeetingMinutesItemData, AddMeetingMinutesItemResponses, AllowChannelGroupData, AllowChannelGroupResponses, ArchiveAllChatSessionsResponses, ArchiveChatSessionResponses, AssignGroupManagerResponses, AssignSourceManagerData, AssignSourceManagerResponses, BindChannelAssistantData, BindChannelAssistantResponses, BindChannelGroupAssistantData, BindChannelGroupAssistantResponses, BookmarkMeetingMomentData, BookmarkMeetingMomentResponses, BranchChatSessionData, BranchChatSessionResponses, CancelChatMessageResponses, CancelSearchFutureGenerationResponses, ChangeChatLibraryFileData, ChangeChatLibraryFileResponses, ClearChatMemoryResponses, ClientOptions, ConfigureChatSessionData, ConfigureChatSessionResponses, CopyChatLibraryFileResponses, CopyChatPersonaTemplateResponses, CorrectMeetingWordsData, CorrectMeetingWordsResponses, CreateAiUsageLimitData, CreateAiUsageLimitResponses, CreateChannelLinkCodeData, CreateChannelLinkCodeResponses, CreateChatModelData, CreateChatModelResponses, CreateChatPersonaData, CreateChatPersonaLabelData, CreateChatPersonaLabelResponses, CreateChatPersonaResponses, CreateChatProjectData, CreateChatProjectResponses, CreateChatPromptShortcutData, CreateChatPromptShortcutResponses, CreateChatProviderData, CreateChatProviderResponses, CreateChatSessionData, CreateChatSessionResponses, CreateChatVoiceTicketData, CreateChatVoiceTicketResponses, CreateDocumentSetData, CreateDocumentSetResponses, CreateEmbeddingProviderData, CreateEmbeddingProviderResponses, CreateFileSourceData, CreateFileSourceResponses, CreateGoogleDriveServiceAccountData, CreateGoogleDriveServiceAccountResponses, CreateGoogleDriveSourceData, CreateGoogleDriveSourceResponses, CreateGroupData, CreateGroupResponses, CreateIdentityProviderData, CreateIdentityProviderResponses, CreateInvitationData, CreateInvitationResponses, CreateLarkChannelData, CreateLarkChannelResponses, CreateLarkCredentialData, CreateLarkCredentialResponses, CreateLarkSourceData, CreateLarkSourceResponses, CreateMcpServerData, CreateMcpServerOAuthClientData, CreateMcpServerOAuthClientResponses, CreateMcpServerResponses, CreateMeetingData, CreateMeetingResponses, CreateMeetingTicketData, CreateMeetingTicketResponses, CreateProjectChatSessionData, CreateProjectChatSessionResponses, CreatePublicChatPromptShortcutData, CreatePublicChatPromptShortcutResponses, CreateSearchFutureGenerationData, CreateSearchFutureGenerationResponses, CreateSharePointCredentialData, CreateSharePointCredentialResponses, CreateSharePointSourceData, CreateSharePointSourceResponses, CreateSystemOneConnectionData, CreateSystemOneConnectionResponses, CreateWhatsAppChannelData, CreateWhatsAppChannelResponses, CreateZaloChannelData, CreateZaloChannelResponses, DeactivateUserResponses, DecideChatToolCallData, DecideChatToolCallResponses, DeleteAiUsageLimitResponses, DeleteAllChatSessionsResponses, DeleteChannelLinkResponses, DeleteChannelResponses, DeleteChatFileArtifactResponses, DeleteChatFileResponses, DeleteChatImageArtifactResponses, DeleteChatModelResponses, DeleteChatPersonaLabelResponses, DeleteChatPersonaResponses, DeleteChatProjectResponses, DeleteChatPromptShortcutResponses, DeleteChatProviderResponses, DeleteChatSessionResponses, DeleteChatVoiceConnectionResponses, DeleteDocumentSetResponses, DeleteEmbeddingProviderResponses, DeleteGoogleDriveCredentialResponses, DeleteGroupResponses, DeleteIdentityProviderResponses, DeleteLarkCredentialResponses, DeleteMcpServerOAuthClientResponses, DeleteMcpServerResponses, DeleteMeetingResponses, DeletePublicChatPromptShortcutResponses, DeleteSharePointCredentialResponses, DeleteSourceResponses, DeleteSystemOneConnectionResponses, DisconnectMcpConnectionResponses, DisconnectMcpServerOAuthResponses, DiscoverGoogleDriveLinkedDocumentsResponses, DiscoverIdentityProviderData, DiscoverIdentityProviderResponses, DiscoverMcpServerOAuthResponses, DismissMeetingSpeakerSuggestionResponses, DownloadChatExportResponses, DownloadChatFileResponses, DownloadChatLibraryArchiveResponses, DownloadUsageReportResponses, EditChatMessageData, EditChatMessageResponses, EditMeetingMinutesItemData, EditMeetingMinutesItemResponses, EditMeetingMinutesSummaryData, EditMeetingMinutesSummaryResponses, EmptyChatLibraryTrashResponses, EndMeetingResponses, ExportAuditEventsResponses, ExportChatHistoryResponses, ExportMeetingMinutesData, ExportMeetingMinutesResponses, ExportMeetingTranscriptResponses, FinalizeChatFileUploadResponses, FinalizeMeetingRecordingResponses, FinalizeSourceUploadResponses, ForgetChannelGroupResponses, GenerateChatTitleResponses, GetAiCostDetailResponses, GetAiCostSummaryResponses, GetAuditCatalogResponses, GetAuditEventResponses, GetChannelPairingResponses, GetChatBranchesResponses, GetChatExportResponses, GetChatFeedbackResponses, GetChatFileArtifactChartResponses, GetChatFileArtifactPdfPreviewResponses, GetChatFileArtifactResponses, GetChatFilePolicyResponses, GetChatFileResponses, GetChatFileThumbnailResponses, GetChatGuardrailsResponses, GetChatHistoryResponses, GetChatHistoryTranscriptResponses, GetChatImageArtifactResponses, GetChatImageAvailabilityResponses, GetChatLibraryArchiveResponses, GetChatLibraryTrashWindowResponses, GetChatLibraryUsageResponses, GetChatMemoryResponses, GetChatModelDefaultResponses, GetChatPersonaAvatarResponses, GetChatPersonaResponses, GetChatPreferencesResponses, GetChatProjectResponses, GetChatPromptShortcutPreferencesResponses, GetChatRetentionResponses, GetChatSandboxHealthResponses, GetChatSandboxSettingsResponses, GetChatSessionResponses, GetChatSettingsResponses, GetChatSharingResponses, GetChatVoiceAvailabilityResponses, GetChatVoiceSettingsResponses, GetChatWebAvailabilityResponses, GetCurrentIdentityResponses, GetCurrentInvitationResponses, GetDocumentSetResponses, GetGoogleDriveConfigurationResponses, GetGoogleDriveSelectionDraftResponses, GetGoogleDriveSelectionPolicyResponses, GetGoogleDriveSelectionRequestResponses, GetGoogleDriveSelectionResponses, GetGoogleDriveSelectionTreeResponses, GetGroupResponses, GetLarkConfigurationResponses, GetLarkRootsResponses, GetLarkSelectionRequestResponses, GetMcpEndpointConnectionResponses, GetMcpEndpointInsightsResponses, GetMcpEndpointSettingsResponses, GetMcpServerResponses, GetMeetingMinutesHeadingResponses, GetMeetingResponses, GetMyAiCostsResponses, GetMyAiUsageStandingResponses, GetPersonaModelResponses, GetSearchDocumentResponses, GetSearchSettingsResponses, GetSharedChatHistoryResponses, GetSharedChatSessionResponses, GetSharePointConfigurationResponses, GetSharePointRootsResponses, GetSharePointSelectionPolicyResponses, GetSharePointSelectionRequestResponses, GetSourceOperationResponses, GetSourceResponses, GetSourceRunResponses, HideChatPromptShortcutData, HideChatPromptShortcutResponses, HostChatToolAppData, HostChatToolAppResponses, InitiateChatFileUploadData, InitiateChatFileUploadResponses, InitiateSourceUploadData, InitiateSourceUploadResponses, KeepMeetingWordingResponses, LabelChannelGroupData, LabelChannelGroupResponses, LeaveChatPersonaResponses, ListAiCostBreakdownResponses, ListAiCostDaysResponses, ListAiUsageLimitsResponses, ListAssistantChannelsResponses, ListAuditEventsResponses, ListAvailableChatModelsResponses, ListChannelGroupsResponses, ListChannelLinksResponses, ListChannelsResponses, ListChatAssistantsResponses, ListChatExportsResponses, ListChatFilesResponses, ListChatGroupOptionsResponses, ListChatHistoryResponses, ListChatImageConnectionsResponses, ListChatImageProvidersResponses, ListChatLibraryArchivesResponses, ListChatLibraryDocumentSourcesResponses, ListChatLibraryDocumentsResponses, ListChatLibraryRecentResponses, ListChatLibraryResponses, ListChatLibrarySharedResponses, ListChatLibrarySourcesResponses, ListChatLibraryStarredResponses, ListChatModelFlowsResponses, ListChatModelPersonasResponses, ListChatPersonaLabelsResponses, ListChatPersonaModelsResponses, ListChatPersonaPinsResponses, ListChatPersonasForAdministrationResponses, ListChatPersonaSourcesResponses, ListChatPersonasResponses, ListChatProjectsResponses, ListChatPromptShortcutsResponses, ListChatProviderAdaptersResponses, ListChatProvidersResponses, ListChatSessionsResponses, ListChatVoiceConnectionsResponses, ListChatVoiceProvidersResponses, ListChatWebConnectionsResponses, ListChatWebEnginesData, ListChatWebEnginesResponses, ListConfiguredChatModelsResponses, ListDocumentSetsResponses, ListEmbeddingModelPresetsResponses, ListEmbeddingProvidersResponses, ListGoogleDriveCredentialsResponses, ListGroupCandidatesResponses, ListGroupCapabilitiesResponses, ListGroupMembersResponses, ListGroupSourcesResponses, ListGroupsResponses, ListIdentityProvidersResponses, ListInvitationsResponses, ListLarkCredentialsResponses, ListLarkSpacesResponses, ListMcpClientGrantsResponses, ListMcpConnectionsResponses, ListMcpEndpointActivityResponses, ListMcpGroupOptionsResponses, ListMcpServerOAuthClientsResponses, ListMcpServersResponses, ListMcpServerToolsResponses, ListMcpTrustedAppsResponses, ListMeetingCorrectionsResponses, ListMeetingsResponses, ListMeetingTranscribersResponses, ListOcrConnectionsResponses, ListOcrProvidersResponses, ListProjectChatSessionsResponses, ListPublicChatPromptShortcutsResponses, ListReportedProviderModelsData, ListReportedProviderModelsResponses, ListSharePointCredentialsResponses, ListSourceGroupOptionsResponses, ListSourceGroupsResponses, ListSourceIndexAttemptsResponses, ListSourceItemsResponses, ListSourceRunErrorsResponses, ListSourceRunsResponses, ListSourcesResponses, ListSystemOneConnectionsResponses, ListSystemOneTypesResponses, ListUsageReportsResponses, ListUsersResponses, MarkMeetingMinutesItemData, MarkMeetingMinutesItemResponses, MoveChatProjectData, MoveChatProjectResponses, NameMeetingSpeakerData, NameMeetingSpeakerResponses, PauseSourceResponses, PinChatReasoningEffortData, PinChatReasoningEffortResponses, PreviewChatFileArtifactSpreadsheetResponses, PreviewChatFileSpreadsheetResponses, PreviewChatRetentionResponses, ProposeMeetingCorrectionsResponses, PublishMeetingMinutesResponses, PurgeChatLibraryFileResponses, ReadChatDocumentOriginalResponses, ReadChatDocumentPassagesResponses, ReadChatDocumentSpreadsheetResponses, ReadChatFilePassagesResponses, ReadChatFileTextResponses, ReadSearchDocumentOriginalResponses, ReadSearchDocumentSpreadsheetResponses, RecordChatLibraryEntryOpenedResponses, RefreshMcpServerToolsResponses, RegenerateChatMessageData, RegenerateChatMessageResponses, RegisterMcpServerOAuthClientData, RegisterMcpServerOAuthClientResponses, ReindexSourceItemResponses, RelinkChannelResponses, RemoveChatFeedbackResponses, RemoveGroupManagerResponses, RemoveGroupMemberResponses, RemoveGroupSourceResponses, RemoveMcpTrustedAppResponses, RemoveMeetingBookmarkResponses, RemoveMeetingMinutesItemResponses, RemoveSourceItemResponses, RenameChatPersonaLabelData, RenameChatPersonaLabelResponses, RenameChatSessionData, RenameChatSessionResponses, RenameGroupData, RenameGroupResponses, RenameLarkCredentialData, RenameLarkCredentialResponses, RenameSharePointCredentialData, RenameSharePointCredentialResponses, RenameSourceData, RenameSourceResponses, ReorderChatPersonasData, ReorderChatPersonasResponses, ReorderChatProjectsData, ReorderChatProjectsResponses, ReplaceChannelSecretData, ReplaceChannelSecretResponses, ReplaceChatPersonaPinsData, ReplaceChatPersonaPinsResponses, ReplaceGoogleDriveRootsData, ReplaceGoogleDriveRootsResponses, ReplaceGoogleDriveServiceAccountData, ReplaceGoogleDriveServiceAccountResponses, ReplaceGroupCapabilitiesData, ReplaceGroupCapabilitiesResponses, ReplaceLarkCredentialSecretData, ReplaceLarkCredentialSecretResponses, ReplaceLarkScopeData, ReplaceLarkScopeResponses, ReplaceSharePointCredentialAuthenticationData, ReplaceSharePointCredentialAuthenticationResponses, ReplaceSharePointScopeData, ReplaceSharePointScopeResponses, ReplaceUserGroupsData, ReplaceUserGroupsResponses, RequestChatExportResponses, RequestChatLibraryArchiveData, RequestChatLibraryArchiveResponses, RequestUsageReportData, RequestUsageReportResponses, RerunMeetingMinutesResponses, ReserveMeetingRecordingData, ReserveMeetingRecordingResponses, ResetMcpServerToolPoliciesResponses, RestoreChatLibraryFileResponses, RestoreChatPersonaResponses, RestoreSearchPastGenerationResponses, ResumeSourceResponses, RetryChatFileResponses, RevertAllMeetingCorrectionsData, RevertAllMeetingCorrectionsResponses, RevertMeetingCorrectionResponses, RevokeGoogleDriveCredentialData, RevokeGoogleDriveCredentialResponses, RevokeInvitationResponses, RevokeMcpClientGrantResponses, RotateInvitationResponses, SaveChatGroundedData, SaveChatGroundedResponses, SaveChatGuardrailsData, SaveChatGuardrailsResponses, SaveChatHistoryVisibilityData, SaveChatHistoryVisibilityResponses, SaveChatImageConnectionData, SaveChatImageConnectionResponses, SaveChatMemoryData, SaveChatMemoryResponses, SaveChatPreferencesData, SaveChatPreferencesResponses, SaveChatRetentionData, SaveChatRetentionResponses, SaveChatSettingsData, SaveChatSettingsResponses, SaveChatVoiceConnectionData, SaveChatVoiceConnectionResponses, SaveChatWebConnectionData, SaveChatWebConnectionResponses, SaveMcpConnectionApiKeyData, SaveMcpConnectionApiKeyResponses, SaveMeetingMinutesHeadingData, SaveMeetingMinutesHeadingResponses, SaveOcrConnectionData, SaveOcrConnectionResponses, SaveSystemOneConnectionData, SaveSystemOneConnectionResponses, SearchChatLibraryContentResponses, SearchChatSessionsResponses, SearchDocumentsData, SearchDocumentsResponses, SearchPrincipalsResponses, SelectChatBranchData, SelectChatBranchResponses, SelectChatImageProviderData, SelectChatImageProviderResponses, SelectChatPersonaData, SelectChatPersonaResponses, SelectChatVoiceProviderData, SelectChatVoiceProviderResponses, SelectChatWebProviderData, SelectChatWebProviderResponses, SelectOcrProviderData, SelectOcrProviderResponses, SendChatMessageData, SendChatMessageResponses, SetChatFeedbackData, SetChatFeedbackResponses, SetChatMemoryEnabledData, SetChatMemoryEnabledResponses, SetChatModelDefaultResponses, SetChatModelFlowResponses, SetChatPersonaListingData, SetChatPersonaListingResponses, SetChatPromptShortcutPreferencesData, SetChatPromptShortcutPreferencesResponses, SetChatSharingData, SetChatSharingResponses, SetCurrentIdentityLanguageData, SetCurrentIdentityLanguageResponses, SetMcpServerToolGroupPolicyData, SetMcpServerToolGroupPolicyResponses, SetMcpServerToolPolicyData, SetMcpServerToolPolicyResponses, SetMcpTrustedAppEnabledData, SetMcpTrustedAppEnabledResponses, SetPersonaModelResponses, SetSystemOneTaskData, SetSystemOneTaskResponses, ShareChatPersonaData, ShareChatPersonaResponses, ShareDocumentSetData, ShareDocumentSetResponses, ShareMeetingData, ShareMeetingResponses, StarChatLibraryEntryResponses, StarMeetingUtteranceResponses, StartGoogleDriveAuthorizationData, StartGoogleDriveAuthorizationResponses, StartMcpConnectionAuthorizationData, StartMcpConnectionAuthorizationResponses, StartMcpServerOAuthAuthorizationData, StartMcpServerOAuthAuthorizationResponses, StreamChatMessageResponses, SwitchSearchFutureGenerationResponses, SynchronizeGoogleDriveSourceResponses, SynchronizeLarkSourceResponses, SynchronizeSharePointSourceResponses, SynthesizeChatVoiceData, SynthesizeChatVoiceResponses, TestChatImageConnectionData, TestChatImageConnectionResponses, TestChatProviderData, TestChatProviderResponses, TestChatVoiceConnectionResponses, TestChatWebConnectionData, TestChatWebConnectionResponses, TestEmbeddingProviderData, TestEmbeddingProviderResponses, TestLarkChannelAppData, TestLarkChannelAppResponses, TestLarkCredentialResponses, TestOcrConnectionData, TestOcrConnectionResponses, TestSharePointCredentialResponses, TestSystemOneConnectionResponses, TestZaloChannelBotData, TestZaloChannelBotResponses, TransferChatPersonaData, TransferChatPersonaResponses, UnarchiveChatSessionResponses, UnstarChatLibraryEntryResponses, UnstarMeetingUtteranceResponses, UpdateAiUsageLimitData, UpdateAiUsageLimitResponses, UpdateChannelEnabledData, UpdateChannelEnabledResponses, UpdateChannelPublicData, UpdateChannelPublicResponses, UpdateChannelTransportData, UpdateChannelTransportResponses, UpdateChatModelData, UpdateChatModelResponses, UpdateChatPersonaData, UpdateChatPersonaResponses, UpdateChatProjectData, UpdateChatProjectResponses, UpdateChatPromptShortcutData, UpdateChatPromptShortcutResponses, UpdateChatProviderData, UpdateChatProviderResponses, UpdateChatSandboxSettingsData, UpdateChatSandboxSettingsResponses, UpdateChatVoiceSettingsData, UpdateChatVoiceSettingsResponses, UpdateDocumentSetData, UpdateDocumentSetResponses, UpdateEmbeddingProviderData, UpdateEmbeddingProviderResponses, UpdateGoogleDrivePauseData, UpdateGoogleDrivePauseResponses, UpdateGoogleDriveScheduleData, UpdateGoogleDriveScheduleResponses, UpdateIdentityProviderData, UpdateIdentityProviderResponses, UpdateLarkPauseData, UpdateLarkPauseResponses, UpdateLarkScheduleData, UpdateLarkScheduleResponses, UpdateMcpEndpointSettingsData, UpdateMcpEndpointSettingsResponses, UpdateMcpServerData, UpdateMcpServerOAuthClientData, UpdateMcpServerOAuthClientResponses, UpdateMcpServerResponses, UpdateMeetingData, UpdateMeetingNotesData, UpdateMeetingNotesResponses, UpdateMeetingResponses, UpdatePublicChatPromptShortcutData, UpdatePublicChatPromptShortcutResponses, UpdateSharePointPauseData, UpdateSharePointPauseResponses, UpdateSharePointScheduleData, UpdateSharePointScheduleResponses, UpdateSourceAccessData, UpdateSourceAccessResponses, UpdateSourceGroupsData, UpdateSourceGroupsResponses, ValidateChatModelResponses } from './types.gen';
 
 export type RequestHandlerOptions = RequestHandlerOptions2 & {
     baseUrl?: ClientOptions['baseUrl'];
@@ -794,22 +794,20 @@ export function handleUpdateMcpServer(response?: HandleUpdateMcpServerResponse |
     }, options);
 }
 
-export type HandleSetMcpServerToolEnabledResponse = {
-    body: SetMcpServerToolEnabledResponses[200];
+export type HandleResetMcpServerToolPoliciesResponse = {
+    body: ResetMcpServerToolPoliciesResponses[200];
     status?: 200;
 };
 
 /**
- * Handler for the `PUT /api/mcp/servers/{serverId}/tools/{toolId}/enabled` operation.
+ * Handler for the `DELETE /api/mcp/servers/{serverId}/tools/policy` operation.
  */
-export function handleSetMcpServerToolEnabled(response?: HandleSetMcpServerToolEnabledResponse | HttpResponseResolver<{
+export function handleResetMcpServerToolPolicies(response?: HandleResetMcpServerToolPoliciesResponse | HttpResponseResolver<{
     serverId: string;
-    toolId: string;
-}, SetMcpServerToolEnabledData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.put<{
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.delete<{
         serverId: string;
-        toolId: string;
-    }, SetMcpServerToolEnabledData['body']>(`${options?.baseUrl ?? '*'}/api/mcp/servers/:serverId/tools/:toolId/enabled`, info => {
+    }, never>(`${options?.baseUrl ?? '*'}/api/mcp/servers/:serverId/tools/policy`, info => {
         if (typeof response === 'function') {
             return response(info);
         }
@@ -827,20 +825,53 @@ export function handleSetMcpServerToolEnabled(response?: HandleSetMcpServerToolE
     }, options);
 }
 
-export type HandleSetAllMcpServerToolsEnabledResponse = {
-    body: SetAllMcpServerToolsEnabledResponses[200];
+export type HandleSetMcpServerToolGroupPolicyResponse = {
+    body: SetMcpServerToolGroupPolicyResponses[200];
     status?: 200;
 };
 
 /**
- * Handler for the `PUT /api/mcp/servers/{serverId}/tools/enabled` operation.
+ * Handler for the `PUT /api/mcp/servers/{serverId}/tools/policy` operation.
  */
-export function handleSetAllMcpServerToolsEnabled(response?: HandleSetAllMcpServerToolsEnabledResponse | HttpResponseResolver<{
+export function handleSetMcpServerToolGroupPolicy(response?: HandleSetMcpServerToolGroupPolicyResponse | HttpResponseResolver<{
     serverId: string;
-}, SetAllMcpServerToolsEnabledData['body']>, options?: RequestHandlerOptions): HttpHandler {
+}, SetMcpServerToolGroupPolicyData['body']>, options?: RequestHandlerOptions): HttpHandler {
     return http.put<{
         serverId: string;
-    }, SetAllMcpServerToolsEnabledData['body']>(`${options?.baseUrl ?? '*'}/api/mcp/servers/:serverId/tools/enabled`, info => {
+    }, SetMcpServerToolGroupPolicyData['body']>(`${options?.baseUrl ?? '*'}/api/mcp/servers/:serverId/tools/policy`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleSetMcpServerToolPolicyResponse = {
+    body: SetMcpServerToolPolicyResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/mcp/servers/{serverId}/tools/{toolId}/policy` operation.
+ */
+export function handleSetMcpServerToolPolicy(response?: HandleSetMcpServerToolPolicyResponse | HttpResponseResolver<{
+    serverId: string;
+    toolId: string;
+}, SetMcpServerToolPolicyData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        serverId: string;
+        toolId: string;
+    }, SetMcpServerToolPolicyData['body']>(`${options?.baseUrl ?? '*'}/api/mcp/servers/:serverId/tools/:toolId/policy`, info => {
         if (typeof response === 'function') {
             return response(info);
         }
@@ -2449,6 +2480,33 @@ export function handleUpdateChatProject(response?: HandleUpdateChatProjectRespon
     }, options);
 }
 
+export type HandleReorderChatProjectsResponse = {
+    body: ReorderChatProjectsResponses[204];
+    status?: 204;
+};
+
+/**
+ * Handler for the `PUT /api/chat/projects/order` operation.
+ */
+export function handleReorderChatProjects(response?: HandleReorderChatProjectsResponse | HttpResponseResolver<never, ReorderChatProjectsData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<never, ReorderChatProjectsData['body']>(`${options?.baseUrl ?? '*'}/api/chat/projects/order`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return new HttpResponse(body, { status: response?.status ?? 204 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
 export type HandleGetChatPreferencesResponse = {
     body: GetChatPreferencesResponses[200];
     status?: 200;
@@ -2703,6 +2761,33 @@ export function handleSetChatPersonaListing(response?: HandleSetChatPersonaListi
     return http.put<{
         personaId: string;
     }, SetChatPersonaListingData['body']>(`${options?.baseUrl ?? '*'}/api/chat/personas/:personaId/listing`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleListChatAssistantsResponse = {
+    body: ListChatAssistantsResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/chat/assistants` operation.
+ */
+export function handleListChatAssistants(response?: HandleListChatAssistantsResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/chat/assistants`, info => {
         if (typeof response === 'function') {
             return response(info);
         }
@@ -3076,16 +3161,16 @@ export function handleStarChatLibraryEntry(response?: HandleStarChatLibraryEntry
     }, options);
 }
 
-export type HandleGetChatInterpreterSettingsResponse = {
-    body: GetChatInterpreterSettingsResponses[200];
+export type HandleGetChatSandboxSettingsResponse = {
+    body: GetChatSandboxSettingsResponses[200];
     status?: 200;
 };
 
 /**
- * Handler for the `GET /api/chat/interpreter` operation.
+ * Handler for the `GET /api/chat/sandbox` operation.
  */
-export function handleGetChatInterpreterSettings(response?: HandleGetChatInterpreterSettingsResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/chat/interpreter`, info => {
+export function handleGetChatSandboxSettings(response?: HandleGetChatSandboxSettingsResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/chat/sandbox`, info => {
         if (typeof response === 'function') {
             return response(info);
         }
@@ -3103,16 +3188,16 @@ export function handleGetChatInterpreterSettings(response?: HandleGetChatInterpr
     }, options);
 }
 
-export type HandleUpdateChatInterpreterSettingsResponse = {
-    body: UpdateChatInterpreterSettingsResponses[200];
+export type HandleUpdateChatSandboxSettingsResponse = {
+    body: UpdateChatSandboxSettingsResponses[200];
     status?: 200;
 };
 
 /**
- * Handler for the `PUT /api/chat/interpreter` operation.
+ * Handler for the `PUT /api/chat/sandbox` operation.
  */
-export function handleUpdateChatInterpreterSettings(response?: HandleUpdateChatInterpreterSettingsResponse | HttpResponseResolver<never, UpdateChatInterpreterSettingsData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.put<never, UpdateChatInterpreterSettingsData['body']>(`${options?.baseUrl ?? '*'}/api/chat/interpreter`, info => {
+export function handleUpdateChatSandboxSettings(response?: HandleUpdateChatSandboxSettingsResponse | HttpResponseResolver<never, UpdateChatSandboxSettingsData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<never, UpdateChatSandboxSettingsData['body']>(`${options?.baseUrl ?? '*'}/api/chat/sandbox`, info => {
         if (typeof response === 'function') {
             return response(info);
         }
@@ -3295,6 +3380,37 @@ export function handleShareDocumentSet(response?: HandleShareDocumentSetResponse
     return http.put<{
         documentSetId: string;
     }, ShareDocumentSetData['body']>(`${options?.baseUrl ?? '*'}/api/chat/document-sets/:documentSetId/sharing`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleUpdateChannelTransportResponse = {
+    body: UpdateChannelTransportResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/channels/{channelId}/transport` operation.
+ */
+export function handleUpdateChannelTransport(response?: HandleUpdateChannelTransportResponse | HttpResponseResolver<{
+    channelId: string;
+}, UpdateChannelTransportData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        channelId: string;
+    }, UpdateChannelTransportData['body']>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/transport`, info => {
         if (typeof response === 'function') {
             return response(info);
         }
@@ -6436,6 +6552,76 @@ export function handleBranchChatSession(response?: HandleBranchChatSessionRespon
     }, options);
 }
 
+export type HandleHostChatToolAppResponse = {
+    body: HostChatToolAppResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `POST /api/chat/sessions/{sessionId}/messages/{messageId}/apps/{callId}` operation.
+ */
+export function handleHostChatToolApp(response?: HandleHostChatToolAppResponse | HttpResponseResolver<{
+    sessionId: string;
+    messageId: string;
+    callId: string;
+}, HostChatToolAppData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<{
+        sessionId: string;
+        messageId: string;
+        callId: string;
+    }, HostChatToolAppData['body']>(`${options?.baseUrl ?? '*'}/api/chat/sessions/:sessionId/messages/:messageId/apps/:callId`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleDecideChatToolCallResponse = {
+    body: DecideChatToolCallResponses[204];
+    status?: 204;
+};
+
+/**
+ * Handler for the `POST /api/chat/sessions/{sessionId}/messages/{assistantMessageId}/tool-calls/{toolCallId}/decision` operation.
+ */
+export function handleDecideChatToolCall(response?: HandleDecideChatToolCallResponse | HttpResponseResolver<{
+    sessionId: string;
+    assistantMessageId: string;
+    toolCallId: string;
+}, DecideChatToolCallData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<{
+        sessionId: string;
+        assistantMessageId: string;
+        toolCallId: string;
+    }, DecideChatToolCallData['body']>(`${options?.baseUrl ?? '*'}/api/chat/sessions/:sessionId/messages/:assistantMessageId/tool-calls/:toolCallId/decision`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return new HttpResponse(body, { status: response?.status ?? 204 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
 export type HandleCancelChatMessageResponse = {
     body: CancelChatMessageResponses[202];
     status?: 202;
@@ -7037,6 +7223,37 @@ export function handleTransferChatPersona(response?: HandleTransferChatPersonaRe
     }, options);
 }
 
+export type HandleCopyChatPersonaTemplateResponse = {
+    body: CopyChatPersonaTemplateResponses[201];
+    status?: 201;
+};
+
+/**
+ * Handler for the `POST /api/chat/personas/{personaId}/copy` operation.
+ */
+export function handleCopyChatPersonaTemplate(response?: HandleCopyChatPersonaTemplateResponse | HttpResponseResolver<{
+    personaId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<{
+        personaId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/chat/personas/:personaId/copy`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 201 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
 export type HandleListChatPersonaLabelsResponse = {
     body: ListChatPersonaLabelsResponses[200];
     status?: 200;
@@ -7552,6 +7769,60 @@ export function handleCreateDocumentSet(response?: HandleCreateDocumentSetRespon
         const body = response?.body;
         if (body !== undefined) {
             return HttpResponse.json(body, { status: response?.status ?? 201 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleCreateZaloChannelResponse = {
+    body: CreateZaloChannelResponses[201];
+    status?: 201;
+};
+
+/**
+ * Handler for the `POST /api/channels/zalo` operation.
+ */
+export function handleCreateZaloChannel(response?: HandleCreateZaloChannelResponse | HttpResponseResolver<never, CreateZaloChannelData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<never, CreateZaloChannelData['body']>(`${options?.baseUrl ?? '*'}/api/channels/zalo`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 201 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleTestZaloChannelBotResponse = {
+    body: TestZaloChannelBotResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `POST /api/channels/zalo/test` operation.
+ */
+export function handleTestZaloChannelBot(response?: HandleTestZaloChannelBotResponse | HttpResponseResolver<never, TestZaloChannelBotData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<never, TestZaloChannelBotData['body']>(`${options?.baseUrl ?? '*'}/api/channels/zalo/test`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
         }
         if (options?.responseFallback === 'passthrough') {
             return;
@@ -9538,6 +9809,114 @@ export function handlePreviewChatRetention(response?: HandlePreviewChatRetention
     }, options);
 }
 
+export type HandleClearChatMemoryResponse = {
+    body: ClearChatMemoryResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `DELETE /api/chat/memory` operation.
+ */
+export function handleClearChatMemory(response?: HandleClearChatMemoryResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.delete<never, never>(`${options?.baseUrl ?? '*'}/api/chat/memory`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleGetChatMemoryResponse = {
+    body: GetChatMemoryResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/chat/memory` operation.
+ */
+export function handleGetChatMemory(response?: HandleGetChatMemoryResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/chat/memory`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleSaveChatMemoryResponse = {
+    body: SaveChatMemoryResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/chat/memory` operation.
+ */
+export function handleSaveChatMemory(response?: HandleSaveChatMemoryResponse | HttpResponseResolver<never, SaveChatMemoryData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<never, SaveChatMemoryData['body']>(`${options?.baseUrl ?? '*'}/api/chat/memory`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleSetChatMemoryEnabledResponse = {
+    body: SetChatMemoryEnabledResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/chat/memory/enabled` operation.
+ */
+export function handleSetChatMemoryEnabled(response?: HandleSetChatMemoryEnabledResponse | HttpResponseResolver<never, SetChatMemoryEnabledData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<never, SetChatMemoryEnabledData['body']>(`${options?.baseUrl ?? '*'}/api/chat/memory/enabled`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
 export type HandleListChatProviderAdaptersResponse = {
     body: ListChatProviderAdaptersResponses[200];
     status?: 200;
@@ -9579,6 +9958,37 @@ export function handleListChatPersonaModels(response?: HandleListChatPersonaMode
     return http.get<{
         personaId: string;
     }, never>(`${options?.baseUrl ?? '*'}/api/chat/personas/:personaId/models`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleListAssistantChannelsResponse = {
+    body: ListAssistantChannelsResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/chat/personas/{personaId}/channels` operation.
+ */
+export function handleListAssistantChannels(response?: HandleListAssistantChannelsResponse | HttpResponseResolver<{
+    personaId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<{
+        personaId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/chat/personas/:personaId/channels`, info => {
         if (typeof response === 'function') {
             return response(info);
         }
@@ -10094,16 +10504,16 @@ export function handleDownloadChatLibraryArchive(response?: HandleDownloadChatLi
     }, options);
 }
 
-export type HandleGetChatInterpreterHealthResponse = {
-    body: GetChatInterpreterHealthResponses[200];
+export type HandleGetChatSandboxHealthResponse = {
+    body: GetChatSandboxHealthResponses[200];
     status?: 200;
 };
 
 /**
- * Handler for the `GET /api/chat/interpreter/health` operation.
+ * Handler for the `GET /api/chat/sandbox/health` operation.
  */
-export function handleGetChatInterpreterHealth(response?: HandleGetChatInterpreterHealthResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/chat/interpreter/health`, info => {
+export function handleGetChatSandboxHealth(response?: HandleGetChatSandboxHealthResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/chat/sandbox/health`, info => {
         if (typeof response === 'function') {
             return response(info);
         }
@@ -11454,6 +11864,1032 @@ export function handleDeleteChatFileArtifact(response?: HandleDeleteChatFileArti
     }, options);
 }
 
+export type HandleListLarkCredentialsResponse = {
+    body: ListLarkCredentialsResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/credentials/lark` operation.
+ */
+export function handleListLarkCredentials(response?: HandleListLarkCredentialsResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/credentials/lark`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleCreateLarkCredentialResponse = {
+    body: CreateLarkCredentialResponses[201];
+    status?: 201;
+};
+
+/**
+ * Handler for the `POST /api/credentials/lark` operation.
+ */
+export function handleCreateLarkCredential(response?: HandleCreateLarkCredentialResponse | HttpResponseResolver<never, CreateLarkCredentialData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<never, CreateLarkCredentialData['body']>(`${options?.baseUrl ?? '*'}/api/credentials/lark`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 201 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleDeleteLarkCredentialResponse = {
+    body: DeleteLarkCredentialResponses[204];
+    status?: 204;
+};
+
+/**
+ * Handler for the `DELETE /api/credentials/lark/{credentialId}` operation.
+ */
+export function handleDeleteLarkCredential(response?: HandleDeleteLarkCredentialResponse | HttpResponseResolver<{
+    credentialId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.delete<{
+        credentialId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/credentials/lark/:credentialId`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return new HttpResponse(body, { status: response?.status ?? 204 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleRenameLarkCredentialResponse = {
+    body: RenameLarkCredentialResponses[204];
+    status?: 204;
+};
+
+/**
+ * Handler for the `PUT /api/credentials/lark/{credentialId}` operation.
+ */
+export function handleRenameLarkCredential(response?: HandleRenameLarkCredentialResponse | HttpResponseResolver<{
+    credentialId: string;
+}, RenameLarkCredentialData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        credentialId: string;
+    }, RenameLarkCredentialData['body']>(`${options?.baseUrl ?? '*'}/api/credentials/lark/:credentialId`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return new HttpResponse(body, { status: response?.status ?? 204 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleReplaceLarkCredentialSecretResponse = {
+    body: ReplaceLarkCredentialSecretResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/credentials/lark/{credentialId}/secret` operation.
+ */
+export function handleReplaceLarkCredentialSecret(response?: HandleReplaceLarkCredentialSecretResponse | HttpResponseResolver<{
+    credentialId: string;
+}, ReplaceLarkCredentialSecretData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        credentialId: string;
+    }, ReplaceLarkCredentialSecretData['body']>(`${options?.baseUrl ?? '*'}/api/credentials/lark/:credentialId/secret`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleTestLarkCredentialResponse = {
+    body: TestLarkCredentialResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `POST /api/credentials/lark/{credentialId}/test` operation.
+ */
+export function handleTestLarkCredential(response?: HandleTestLarkCredentialResponse | HttpResponseResolver<{
+    credentialId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<{
+        credentialId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/credentials/lark/:credentialId/test`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleCreateLarkSourceResponse = {
+    body: CreateLarkSourceResponses[202];
+    status?: 202;
+};
+
+/**
+ * Handler for the `POST /api/sources/lark` operation.
+ */
+export function handleCreateLarkSource(response?: HandleCreateLarkSourceResponse | HttpResponseResolver<never, CreateLarkSourceData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<never, CreateLarkSourceData['body']>(`${options?.baseUrl ?? '*'}/api/sources/lark`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 202 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleGetLarkConfigurationResponse = {
+    body: GetLarkConfigurationResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/sources/{sourceId}/lark` operation.
+ */
+export function handleGetLarkConfiguration(response?: HandleGetLarkConfigurationResponse | HttpResponseResolver<{
+    sourceId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<{
+        sourceId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/lark`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleGetLarkSelectionRequestResponse = {
+    body: GetLarkSelectionRequestResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/sources/lark/selection-requests/{requestId}` operation.
+ */
+export function handleGetLarkSelectionRequest(response?: HandleGetLarkSelectionRequestResponse | HttpResponseResolver<{
+    requestId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<{
+        requestId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/sources/lark/selection-requests/:requestId`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleReplaceLarkScopeResponse = {
+    body: ReplaceLarkScopeResponses[202];
+    status?: 202;
+};
+
+/**
+ * Handler for the `PUT /api/sources/{sourceId}/lark/scope` operation.
+ */
+export function handleReplaceLarkScope(response?: HandleReplaceLarkScopeResponse | HttpResponseResolver<{
+    sourceId: string;
+}, ReplaceLarkScopeData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        sourceId: string;
+    }, ReplaceLarkScopeData['body']>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/lark/scope`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 202 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleUpdateLarkScheduleResponse = {
+    body: UpdateLarkScheduleResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/sources/{sourceId}/lark/schedule` operation.
+ */
+export function handleUpdateLarkSchedule(response?: HandleUpdateLarkScheduleResponse | HttpResponseResolver<{
+    sourceId: string;
+}, UpdateLarkScheduleData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        sourceId: string;
+    }, UpdateLarkScheduleData['body']>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/lark/schedule`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleUpdateLarkPauseResponse = {
+    body: UpdateLarkPauseResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `POST /api/sources/{sourceId}/lark/pause` operation.
+ */
+export function handleUpdateLarkPause(response?: HandleUpdateLarkPauseResponse | HttpResponseResolver<{
+    sourceId: string;
+}, UpdateLarkPauseData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<{
+        sourceId: string;
+    }, UpdateLarkPauseData['body']>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/lark/pause`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleSynchronizeLarkSourceResponse = {
+    body: SynchronizeLarkSourceResponses[202];
+    status?: 202;
+};
+
+/**
+ * Handler for the `POST /api/sources/{sourceId}/lark/sync` operation.
+ */
+export function handleSynchronizeLarkSource(response?: HandleSynchronizeLarkSourceResponse | HttpResponseResolver<{
+    sourceId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<{
+        sourceId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/lark/sync`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 202 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleGetLarkRootsResponse = {
+    body: GetLarkRootsResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/sources/{sourceId}/lark/roots` operation.
+ */
+export function handleGetLarkRoots(response?: HandleGetLarkRootsResponse | HttpResponseResolver<{
+    sourceId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<{
+        sourceId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/lark/roots`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleListLarkSpacesResponse = {
+    body: ListLarkSpacesResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/sources/lark/credentials/{credentialId}/spaces` operation.
+ */
+export function handleListLarkSpaces(response?: HandleListLarkSpacesResponse | HttpResponseResolver<{
+    credentialId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<{
+        credentialId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/sources/lark/credentials/:credentialId/spaces`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleReplaceChannelSecretResponse = {
+    body: ReplaceChannelSecretResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/channels/{channelId}/secret` operation.
+ */
+export function handleReplaceChannelSecret(response?: HandleReplaceChannelSecretResponse | HttpResponseResolver<{
+    channelId: string;
+}, ReplaceChannelSecretData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        channelId: string;
+    }, ReplaceChannelSecretData['body']>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/secret`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleUpdateChannelPublicResponse = {
+    body: UpdateChannelPublicResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/channels/{channelId}/public` operation.
+ */
+export function handleUpdateChannelPublic(response?: HandleUpdateChannelPublicResponse | HttpResponseResolver<{
+    channelId: string;
+}, UpdateChannelPublicData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        channelId: string;
+    }, UpdateChannelPublicData['body']>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/public`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleBindChannelAssistantResponse = {
+    body: BindChannelAssistantResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/channels/{channelId}/persona` operation.
+ */
+export function handleBindChannelAssistant(response?: HandleBindChannelAssistantResponse | HttpResponseResolver<{
+    channelId: string;
+}, BindChannelAssistantData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        channelId: string;
+    }, BindChannelAssistantData['body']>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/persona`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleBindChannelGroupAssistantResponse = {
+    body: BindChannelGroupAssistantResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/channels/{channelId}/groups/{groupId}/persona` operation.
+ */
+export function handleBindChannelGroupAssistant(response?: HandleBindChannelGroupAssistantResponse | HttpResponseResolver<{
+    channelId: string;
+    groupId: string;
+}, BindChannelGroupAssistantData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        channelId: string;
+        groupId: string;
+    }, BindChannelGroupAssistantData['body']>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/groups/:groupId/persona`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleLabelChannelGroupResponse = {
+    body: LabelChannelGroupResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/channels/{channelId}/groups/{groupId}/label` operation.
+ */
+export function handleLabelChannelGroup(response?: HandleLabelChannelGroupResponse | HttpResponseResolver<{
+    channelId: string;
+    groupId: string;
+}, LabelChannelGroupData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        channelId: string;
+        groupId: string;
+    }, LabelChannelGroupData['body']>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/groups/:groupId/label`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleAllowChannelGroupResponse = {
+    body: AllowChannelGroupResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/channels/{channelId}/groups/{groupId}/permission` operation.
+ */
+export function handleAllowChannelGroup(response?: HandleAllowChannelGroupResponse | HttpResponseResolver<{
+    channelId: string;
+    groupId: string;
+}, AllowChannelGroupData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        channelId: string;
+        groupId: string;
+    }, AllowChannelGroupData['body']>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/groups/:groupId/permission`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleUpdateChannelEnabledResponse = {
+    body: UpdateChannelEnabledResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/channels/{channelId}/enabled` operation.
+ */
+export function handleUpdateChannelEnabled(response?: HandleUpdateChannelEnabledResponse | HttpResponseResolver<{
+    channelId: string;
+}, UpdateChannelEnabledData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        channelId: string;
+    }, UpdateChannelEnabledData['body']>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/enabled`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleCreateLarkChannelResponse = {
+    body: CreateLarkChannelResponses[201];
+    status?: 201;
+};
+
+/**
+ * Handler for the `POST /api/channels/lark` operation.
+ */
+export function handleCreateLarkChannel(response?: HandleCreateLarkChannelResponse | HttpResponseResolver<never, CreateLarkChannelData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<never, CreateLarkChannelData['body']>(`${options?.baseUrl ?? '*'}/api/channels/lark`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 201 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleTestLarkChannelAppResponse = {
+    body: TestLarkChannelAppResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `POST /api/channels/lark/test` operation.
+ */
+export function handleTestLarkChannelApp(response?: HandleTestLarkChannelAppResponse | HttpResponseResolver<never, TestLarkChannelAppData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<never, TestLarkChannelAppData['body']>(`${options?.baseUrl ?? '*'}/api/channels/lark/test`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleListChannelsResponse = {
+    body: ListChannelsResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/channels` operation.
+ */
+export function handleListChannels(response?: HandleListChannelsResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/channels`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleListChannelGroupsResponse = {
+    body: ListChannelGroupsResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/channels/{channelId}/groups` operation.
+ */
+export function handleListChannelGroups(response?: HandleListChannelGroupsResponse | HttpResponseResolver<{
+    channelId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<{
+        channelId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/groups`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleCreateWhatsAppChannelResponse = {
+    body: CreateWhatsAppChannelResponses[201];
+    status?: 201;
+};
+
+/**
+ * Handler for the `POST /api/channels/whatsapp` operation.
+ */
+export function handleCreateWhatsAppChannel(response?: HandleCreateWhatsAppChannelResponse | HttpResponseResolver<never, CreateWhatsAppChannelData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<never, CreateWhatsAppChannelData['body']>(`${options?.baseUrl ?? '*'}/api/channels/whatsapp`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 201 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleGetChannelPairingResponse = {
+    body: GetChannelPairingResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/channels/{channelId}/pairing` operation.
+ */
+export function handleGetChannelPairing(response?: HandleGetChannelPairingResponse | ToResponseUnion<GetChannelPairingResponses> | HttpResponseResolver<{
+    channelId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<{
+        channelId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/pairing`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleRelinkChannelResponse = {
+    body: RelinkChannelResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `POST /api/channels/{channelId}/pairing` operation.
+ */
+export function handleRelinkChannel(response?: HandleRelinkChannelResponse | HttpResponseResolver<{
+    channelId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<{
+        channelId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/pairing`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleDeleteChannelResponse = {
+    body: DeleteChannelResponses[204];
+    status?: 204;
+};
+
+/**
+ * Handler for the `DELETE /api/channels/{channelId}` operation.
+ */
+export function handleDeleteChannel(response?: HandleDeleteChannelResponse | HttpResponseResolver<{
+    channelId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.delete<{
+        channelId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/channels/:channelId`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return new HttpResponse(body, { status: response?.status ?? 204 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleForgetChannelGroupResponse = {
+    body: ForgetChannelGroupResponses[204];
+    status?: 204;
+};
+
+/**
+ * Handler for the `DELETE /api/channels/{channelId}/groups/{groupId}` operation.
+ */
+export function handleForgetChannelGroup(response?: HandleForgetChannelGroupResponse | HttpResponseResolver<{
+    channelId: string;
+    groupId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.delete<{
+        channelId: string;
+        groupId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/groups/:groupId`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return new HttpResponse(body, { status: response?.status ?? 204 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleListChannelLinksResponse = {
+    body: ListChannelLinksResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/channel-links` operation.
+ */
+export function handleListChannelLinks(response?: HandleListChannelLinksResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/channel-links`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleCreateChannelLinkCodeResponse = {
+    body: CreateChannelLinkCodeResponses[201];
+    status?: 201;
+};
+
+/**
+ * Handler for the `POST /api/channel-links` operation.
+ */
+export function handleCreateChannelLinkCode(response?: HandleCreateChannelLinkCodeResponse | HttpResponseResolver<never, CreateChannelLinkCodeData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<never, CreateChannelLinkCodeData['body']>(`${options?.baseUrl ?? '*'}/api/channel-links`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 201 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleDeleteChannelLinkResponse = {
+    body: DeleteChannelLinkResponses[204];
+    status?: 204;
+};
+
+/**
+ * Handler for the `DELETE /api/channel-links/{connectionId}` operation.
+ */
+export function handleDeleteChannelLink(response?: HandleDeleteChannelLinkResponse | HttpResponseResolver<{
+    connectionId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.delete<{
+        connectionId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/channel-links/:connectionId`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return new HttpResponse(body, { status: response?.status ?? 204 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
 export type MswHandlerFactories = {
     /**
      * Handler for the `PUT /api/sources/{sourceId}/sharepoint/scope` operation.
@@ -11556,13 +12992,17 @@ export type MswHandlerFactories = {
      */
     updateMcpServer: typeof handleUpdateMcpServer;
     /**
-     * Handler for the `PUT /api/mcp/servers/{serverId}/tools/{toolId}/enabled` operation.
+     * Handler for the `DELETE /api/mcp/servers/{serverId}/tools/policy` operation.
      */
-    setMcpServerToolEnabled: typeof handleSetMcpServerToolEnabled;
+    resetMcpServerToolPolicies: typeof handleResetMcpServerToolPolicies;
     /**
-     * Handler for the `PUT /api/mcp/servers/{serverId}/tools/enabled` operation.
+     * Handler for the `PUT /api/mcp/servers/{serverId}/tools/policy` operation.
      */
-    setAllMcpServerToolsEnabled: typeof handleSetAllMcpServerToolsEnabled;
+    setMcpServerToolGroupPolicy: typeof handleSetMcpServerToolGroupPolicy;
+    /**
+     * Handler for the `PUT /api/mcp/servers/{serverId}/tools/{toolId}/policy` operation.
+     */
+    setMcpServerToolPolicy: typeof handleSetMcpServerToolPolicy;
     /**
      * Handler for the `DELETE /api/mcp/servers/{serverId}/oauth/clients/{clientId}` operation.
      */
@@ -11776,6 +13216,10 @@ export type MswHandlerFactories = {
      */
     updateChatProject: typeof handleUpdateChatProject;
     /**
+     * Handler for the `PUT /api/chat/projects/order` operation.
+     */
+    reorderChatProjects: typeof handleReorderChatProjects;
+    /**
      * Handler for the `GET /api/chat/preferences` operation.
      */
     getChatPreferences: typeof handleGetChatPreferences;
@@ -11811,6 +13255,10 @@ export type MswHandlerFactories = {
      * Handler for the `PUT /api/chat/personas/{personaId}/listing` operation.
      */
     setChatPersonaListing: typeof handleSetChatPersonaListing;
+    /**
+     * Handler for the `GET /api/chat/assistants` operation.
+     */
+    listChatAssistants: typeof handleListChatAssistants;
     /**
      * Handler for the `GET /api/chat/persona-pins` operation.
      */
@@ -11860,13 +13308,13 @@ export type MswHandlerFactories = {
      */
     starChatLibraryEntry: typeof handleStarChatLibraryEntry;
     /**
-     * Handler for the `GET /api/chat/interpreter` operation.
+     * Handler for the `GET /api/chat/sandbox` operation.
      */
-    getChatInterpreterSettings: typeof handleGetChatInterpreterSettings;
+    getChatSandboxSettings: typeof handleGetChatSandboxSettings;
     /**
-     * Handler for the `PUT /api/chat/interpreter` operation.
+     * Handler for the `PUT /api/chat/sandbox` operation.
      */
-    updateChatInterpreterSettings: typeof handleUpdateChatInterpreterSettings;
+    updateChatSandboxSettings: typeof handleUpdateChatSandboxSettings;
     /**
      * Handler for the `PUT /api/chat/images/selection` operation.
      */
@@ -11891,6 +13339,10 @@ export type MswHandlerFactories = {
      * Handler for the `PUT /api/chat/document-sets/{documentSetId}/sharing` operation.
      */
     shareDocumentSet: typeof handleShareDocumentSet;
+    /**
+     * Handler for the `PUT /api/channels/{channelId}/transport` operation.
+     */
+    updateChannelTransport: typeof handleUpdateChannelTransport;
     /**
      * Handler for the `DELETE /api/ai-costs/limits/{limitId}` operation.
      */
@@ -12308,6 +13760,14 @@ export type MswHandlerFactories = {
      */
     branchChatSession: typeof handleBranchChatSession;
     /**
+     * Handler for the `POST /api/chat/sessions/{sessionId}/messages/{messageId}/apps/{callId}` operation.
+     */
+    hostChatToolApp: typeof handleHostChatToolApp;
+    /**
+     * Handler for the `POST /api/chat/sessions/{sessionId}/messages/{assistantMessageId}/tool-calls/{toolCallId}/decision` operation.
+     */
+    decideChatToolCall: typeof handleDecideChatToolCall;
+    /**
      * Handler for the `POST /api/chat/sessions/{sessionId}/messages/{assistantMessageId}/cancel` operation.
      */
     cancelChatMessage: typeof handleCancelChatMessage;
@@ -12392,6 +13852,10 @@ export type MswHandlerFactories = {
      */
     transferChatPersona: typeof handleTransferChatPersona;
     /**
+     * Handler for the `POST /api/chat/personas/{personaId}/copy` operation.
+     */
+    copyChatPersonaTemplate: typeof handleCopyChatPersonaTemplate;
+    /**
      * Handler for the `GET /api/chat/persona-labels` operation.
      */
     listChatPersonaLabels: typeof handleListChatPersonaLabels;
@@ -12463,6 +13927,14 @@ export type MswHandlerFactories = {
      * Handler for the `POST /api/chat/document-sets` operation.
      */
     createDocumentSet: typeof handleCreateDocumentSet;
+    /**
+     * Handler for the `POST /api/channels/zalo` operation.
+     */
+    createZaloChannel: typeof handleCreateZaloChannel;
+    /**
+     * Handler for the `POST /api/channels/zalo/test` operation.
+     */
+    testZaloChannelBot: typeof handleTestZaloChannelBot;
     /**
      * Handler for the `GET /api/ai-costs/reports` operation.
      */
@@ -12736,6 +14208,22 @@ export type MswHandlerFactories = {
      */
     previewChatRetention: typeof handlePreviewChatRetention;
     /**
+     * Handler for the `DELETE /api/chat/memory` operation.
+     */
+    clearChatMemory: typeof handleClearChatMemory;
+    /**
+     * Handler for the `GET /api/chat/memory` operation.
+     */
+    getChatMemory: typeof handleGetChatMemory;
+    /**
+     * Handler for the `PUT /api/chat/memory` operation.
+     */
+    saveChatMemory: typeof handleSaveChatMemory;
+    /**
+     * Handler for the `PUT /api/chat/memory/enabled` operation.
+     */
+    setChatMemoryEnabled: typeof handleSetChatMemoryEnabled;
+    /**
      * Handler for the `GET /api/chat/provider-adapters` operation.
      */
     listChatProviderAdapters: typeof handleListChatProviderAdapters;
@@ -12743,6 +14231,10 @@ export type MswHandlerFactories = {
      * Handler for the `GET /api/chat/personas/{personaId}/models` operation.
      */
     listChatPersonaModels: typeof handleListChatPersonaModels;
+    /**
+     * Handler for the `GET /api/chat/personas/{personaId}/channels` operation.
+     */
+    listAssistantChannels: typeof handleListAssistantChannels;
     /**
      * Handler for the `GET /api/chat/personas/{personaId}/avatar` operation.
      */
@@ -12816,9 +14308,9 @@ export type MswHandlerFactories = {
      */
     downloadChatLibraryArchive: typeof handleDownloadChatLibraryArchive;
     /**
-     * Handler for the `GET /api/chat/interpreter/health` operation.
+     * Handler for the `GET /api/chat/sandbox/health` operation.
      */
-    getChatInterpreterHealth: typeof handleGetChatInterpreterHealth;
+    getChatSandboxHealth: typeof handleGetChatSandboxHealth;
     /**
      * Handler for the `GET /api/chat/images` operation.
      */
@@ -12999,6 +14491,142 @@ export type MswHandlerFactories = {
      * Handler for the `DELETE /api/chat/file-artifacts/{artifactId}` operation.
      */
     deleteChatFileArtifact: typeof handleDeleteChatFileArtifact;
+    /**
+     * Handler for the `GET /api/credentials/lark` operation.
+     */
+    listLarkCredentials: typeof handleListLarkCredentials;
+    /**
+     * Handler for the `POST /api/credentials/lark` operation.
+     */
+    createLarkCredential: typeof handleCreateLarkCredential;
+    /**
+     * Handler for the `DELETE /api/credentials/lark/{credentialId}` operation.
+     */
+    deleteLarkCredential: typeof handleDeleteLarkCredential;
+    /**
+     * Handler for the `PUT /api/credentials/lark/{credentialId}` operation.
+     */
+    renameLarkCredential: typeof handleRenameLarkCredential;
+    /**
+     * Handler for the `PUT /api/credentials/lark/{credentialId}/secret` operation.
+     */
+    replaceLarkCredentialSecret: typeof handleReplaceLarkCredentialSecret;
+    /**
+     * Handler for the `POST /api/credentials/lark/{credentialId}/test` operation.
+     */
+    testLarkCredential: typeof handleTestLarkCredential;
+    /**
+     * Handler for the `POST /api/sources/lark` operation.
+     */
+    createLarkSource: typeof handleCreateLarkSource;
+    /**
+     * Handler for the `GET /api/sources/{sourceId}/lark` operation.
+     */
+    getLarkConfiguration: typeof handleGetLarkConfiguration;
+    /**
+     * Handler for the `GET /api/sources/lark/selection-requests/{requestId}` operation.
+     */
+    getLarkSelectionRequest: typeof handleGetLarkSelectionRequest;
+    /**
+     * Handler for the `PUT /api/sources/{sourceId}/lark/scope` operation.
+     */
+    replaceLarkScope: typeof handleReplaceLarkScope;
+    /**
+     * Handler for the `PUT /api/sources/{sourceId}/lark/schedule` operation.
+     */
+    updateLarkSchedule: typeof handleUpdateLarkSchedule;
+    /**
+     * Handler for the `POST /api/sources/{sourceId}/lark/pause` operation.
+     */
+    updateLarkPause: typeof handleUpdateLarkPause;
+    /**
+     * Handler for the `POST /api/sources/{sourceId}/lark/sync` operation.
+     */
+    synchronizeLarkSource: typeof handleSynchronizeLarkSource;
+    /**
+     * Handler for the `GET /api/sources/{sourceId}/lark/roots` operation.
+     */
+    getLarkRoots: typeof handleGetLarkRoots;
+    /**
+     * Handler for the `GET /api/sources/lark/credentials/{credentialId}/spaces` operation.
+     */
+    listLarkSpaces: typeof handleListLarkSpaces;
+    /**
+     * Handler for the `PUT /api/channels/{channelId}/secret` operation.
+     */
+    replaceChannelSecret: typeof handleReplaceChannelSecret;
+    /**
+     * Handler for the `PUT /api/channels/{channelId}/public` operation.
+     */
+    updateChannelPublic: typeof handleUpdateChannelPublic;
+    /**
+     * Handler for the `PUT /api/channels/{channelId}/persona` operation.
+     */
+    bindChannelAssistant: typeof handleBindChannelAssistant;
+    /**
+     * Handler for the `PUT /api/channels/{channelId}/groups/{groupId}/persona` operation.
+     */
+    bindChannelGroupAssistant: typeof handleBindChannelGroupAssistant;
+    /**
+     * Handler for the `PUT /api/channels/{channelId}/groups/{groupId}/label` operation.
+     */
+    labelChannelGroup: typeof handleLabelChannelGroup;
+    /**
+     * Handler for the `PUT /api/channels/{channelId}/groups/{groupId}/permission` operation.
+     */
+    allowChannelGroup: typeof handleAllowChannelGroup;
+    /**
+     * Handler for the `PUT /api/channels/{channelId}/enabled` operation.
+     */
+    updateChannelEnabled: typeof handleUpdateChannelEnabled;
+    /**
+     * Handler for the `POST /api/channels/lark` operation.
+     */
+    createLarkChannel: typeof handleCreateLarkChannel;
+    /**
+     * Handler for the `POST /api/channels/lark/test` operation.
+     */
+    testLarkChannelApp: typeof handleTestLarkChannelApp;
+    /**
+     * Handler for the `GET /api/channels` operation.
+     */
+    listChannels: typeof handleListChannels;
+    /**
+     * Handler for the `GET /api/channels/{channelId}/groups` operation.
+     */
+    listChannelGroups: typeof handleListChannelGroups;
+    /**
+     * Handler for the `POST /api/channels/whatsapp` operation.
+     */
+    createWhatsAppChannel: typeof handleCreateWhatsAppChannel;
+    /**
+     * Handler for the `GET /api/channels/{channelId}/pairing` operation.
+     */
+    getChannelPairing: typeof handleGetChannelPairing;
+    /**
+     * Handler for the `POST /api/channels/{channelId}/pairing` operation.
+     */
+    relinkChannel: typeof handleRelinkChannel;
+    /**
+     * Handler for the `DELETE /api/channels/{channelId}` operation.
+     */
+    deleteChannel: typeof handleDeleteChannel;
+    /**
+     * Handler for the `DELETE /api/channels/{channelId}/groups/{groupId}` operation.
+     */
+    forgetChannelGroup: typeof handleForgetChannelGroup;
+    /**
+     * Handler for the `GET /api/channel-links` operation.
+     */
+    listChannelLinks: typeof handleListChannelLinks;
+    /**
+     * Handler for the `POST /api/channel-links` operation.
+     */
+    createChannelLinkCode: typeof handleCreateChannelLinkCode;
+    /**
+     * Handler for the `DELETE /api/channel-links/{connectionId}` operation.
+     */
+    deleteChannelLink: typeof handleDeleteChannelLink;
 };
 
 export type CreateMswHandlersResult = {
@@ -13041,8 +14669,9 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         deleteMcpServer: wrap(handleDeleteMcpServer),
         getMcpServer: wrap(handleGetMcpServer),
         updateMcpServer: wrap(handleUpdateMcpServer),
-        setMcpServerToolEnabled: wrap(handleSetMcpServerToolEnabled),
-        setAllMcpServerToolsEnabled: wrap(handleSetAllMcpServerToolsEnabled),
+        resetMcpServerToolPolicies: wrap(handleResetMcpServerToolPolicies),
+        setMcpServerToolGroupPolicy: wrap(handleSetMcpServerToolGroupPolicy),
+        setMcpServerToolPolicy: wrap(handleSetMcpServerToolPolicy),
         deleteMcpServerOAuthClient: wrap(handleDeleteMcpServerOAuthClient),
         updateMcpServerOAuthClient: wrap(handleUpdateMcpServerOAuthClient),
         getMcpEndpointSettings: wrap(handleGetMcpEndpointSettings),
@@ -13096,6 +14725,7 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         deleteChatProject: wrap(handleDeleteChatProject),
         getChatProject: wrap(handleGetChatProject),
         updateChatProject: wrap(handleUpdateChatProject),
+        reorderChatProjects: wrap(handleReorderChatProjects),
         getChatPreferences: wrap(handleGetChatPreferences),
         saveChatPreferences: wrap(handleSaveChatPreferences),
         deleteChatPersona: wrap(handleDeleteChatPersona),
@@ -13105,6 +14735,7 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         getPersonaModel: wrap(handleGetPersonaModel),
         setPersonaModel: wrap(handleSetPersonaModel),
         setChatPersonaListing: wrap(handleSetChatPersonaListing),
+        listChatAssistants: wrap(handleListChatAssistants),
         listChatPersonaPins: wrap(handleListChatPersonaPins),
         replaceChatPersonaPins: wrap(handleReplaceChatPersonaPins),
         reorderChatPersonas: wrap(handleReorderChatPersonas),
@@ -13117,14 +14748,15 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         setChatModelDefault: wrap(handleSetChatModelDefault),
         unstarChatLibraryEntry: wrap(handleUnstarChatLibraryEntry),
         starChatLibraryEntry: wrap(handleStarChatLibraryEntry),
-        getChatInterpreterSettings: wrap(handleGetChatInterpreterSettings),
-        updateChatInterpreterSettings: wrap(handleUpdateChatInterpreterSettings),
+        getChatSandboxSettings: wrap(handleGetChatSandboxSettings),
+        updateChatSandboxSettings: wrap(handleUpdateChatSandboxSettings),
         selectChatImageProvider: wrap(handleSelectChatImageProvider),
         saveChatImageConnection: wrap(handleSaveChatImageConnection),
         deleteDocumentSet: wrap(handleDeleteDocumentSet),
         getDocumentSet: wrap(handleGetDocumentSet),
         updateDocumentSet: wrap(handleUpdateDocumentSet),
         shareDocumentSet: wrap(handleShareDocumentSet),
+        updateChannelTransport: wrap(handleUpdateChannelTransport),
         deleteAiUsageLimit: wrap(handleDeleteAiUsageLimit),
         updateAiUsageLimit: wrap(handleUpdateAiUsageLimit),
         replaceUserGroups: wrap(handleReplaceUserGroups),
@@ -13229,6 +14861,8 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         regenerateChatMessage: wrap(handleRegenerateChatMessage),
         editChatMessage: wrap(handleEditChatMessage),
         branchChatSession: wrap(handleBranchChatSession),
+        hostChatToolApp: wrap(handleHostChatToolApp),
+        decideChatToolCall: wrap(handleDecideChatToolCall),
         cancelChatMessage: wrap(handleCancelChatMessage),
         archiveChatSession: wrap(handleArchiveChatSession),
         archiveAllChatSessions: wrap(handleArchiveAllChatSessions),
@@ -13250,6 +14884,7 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         createChatPersona: wrap(handleCreateChatPersona),
         restoreChatPersona: wrap(handleRestoreChatPersona),
         transferChatPersona: wrap(handleTransferChatPersona),
+        copyChatPersonaTemplate: wrap(handleCopyChatPersonaTemplate),
         listChatPersonaLabels: wrap(handleListChatPersonaLabels),
         createChatPersonaLabel: wrap(handleCreateChatPersonaLabel),
         validateChatModel: wrap(handleValidateChatModel),
@@ -13268,6 +14903,8 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         requestChatExport: wrap(handleRequestChatExport),
         listDocumentSets: wrap(handleListDocumentSets),
         createDocumentSet: wrap(handleCreateDocumentSet),
+        createZaloChannel: wrap(handleCreateZaloChannel),
+        testZaloChannelBot: wrap(handleTestZaloChannelBot),
         listUsageReports: wrap(handleListUsageReports),
         requestUsageReport: wrap(handleRequestUsageReport),
         listAiUsageLimits: wrap(handleListAiUsageLimits),
@@ -13336,8 +14973,13 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         getChatBranches: wrap(handleGetChatBranches),
         searchChatSessions: wrap(handleSearchChatSessions),
         previewChatRetention: wrap(handlePreviewChatRetention),
+        clearChatMemory: wrap(handleClearChatMemory),
+        getChatMemory: wrap(handleGetChatMemory),
+        saveChatMemory: wrap(handleSaveChatMemory),
+        setChatMemoryEnabled: wrap(handleSetChatMemoryEnabled),
         listChatProviderAdapters: wrap(handleListChatProviderAdapters),
         listChatPersonaModels: wrap(handleListChatPersonaModels),
+        listAssistantChannels: wrap(handleListAssistantChannels),
         getChatPersonaAvatar: wrap(handleGetChatPersonaAvatar),
         listChatPersonaSources: wrap(handleListChatPersonaSources),
         listChatPersonasForAdministration: wrap(handleListChatPersonasForAdministration),
@@ -13356,7 +14998,7 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         listChatLibraryDocumentSources: wrap(handleListChatLibraryDocumentSources),
         getChatLibraryArchive: wrap(handleGetChatLibraryArchive),
         downloadChatLibraryArchive: wrap(handleDownloadChatLibraryArchive),
-        getChatInterpreterHealth: wrap(handleGetChatInterpreterHealth),
+        getChatSandboxHealth: wrap(handleGetChatSandboxHealth),
         getChatImageAvailability: wrap(handleGetChatImageAvailability),
         listChatImageProviders: wrap(handleListChatImageProviders),
         listChatImageConnections: wrap(handleListChatImageConnections),
@@ -13401,7 +15043,41 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         deleteGoogleDriveCredential: wrap(handleDeleteGoogleDriveCredential),
         leaveChatPersona: wrap(handleLeaveChatPersona),
         deleteChatImageArtifact: wrap(handleDeleteChatImageArtifact),
-        deleteChatFileArtifact: wrap(handleDeleteChatFileArtifact)
+        deleteChatFileArtifact: wrap(handleDeleteChatFileArtifact),
+        listLarkCredentials: wrap(handleListLarkCredentials),
+        createLarkCredential: wrap(handleCreateLarkCredential),
+        deleteLarkCredential: wrap(handleDeleteLarkCredential),
+        renameLarkCredential: wrap(handleRenameLarkCredential),
+        replaceLarkCredentialSecret: wrap(handleReplaceLarkCredentialSecret),
+        testLarkCredential: wrap(handleTestLarkCredential),
+        createLarkSource: wrap(handleCreateLarkSource),
+        getLarkConfiguration: wrap(handleGetLarkConfiguration),
+        getLarkSelectionRequest: wrap(handleGetLarkSelectionRequest),
+        replaceLarkScope: wrap(handleReplaceLarkScope),
+        updateLarkSchedule: wrap(handleUpdateLarkSchedule),
+        updateLarkPause: wrap(handleUpdateLarkPause),
+        synchronizeLarkSource: wrap(handleSynchronizeLarkSource),
+        getLarkRoots: wrap(handleGetLarkRoots),
+        listLarkSpaces: wrap(handleListLarkSpaces),
+        replaceChannelSecret: wrap(handleReplaceChannelSecret),
+        updateChannelPublic: wrap(handleUpdateChannelPublic),
+        bindChannelAssistant: wrap(handleBindChannelAssistant),
+        bindChannelGroupAssistant: wrap(handleBindChannelGroupAssistant),
+        labelChannelGroup: wrap(handleLabelChannelGroup),
+        allowChannelGroup: wrap(handleAllowChannelGroup),
+        updateChannelEnabled: wrap(handleUpdateChannelEnabled),
+        createLarkChannel: wrap(handleCreateLarkChannel),
+        testLarkChannelApp: wrap(handleTestLarkChannelApp),
+        listChannels: wrap(handleListChannels),
+        listChannelGroups: wrap(handleListChannelGroups),
+        createWhatsAppChannel: wrap(handleCreateWhatsAppChannel),
+        getChannelPairing: wrap(handleGetChannelPairing),
+        relinkChannel: wrap(handleRelinkChannel),
+        deleteChannel: wrap(handleDeleteChannel),
+        forgetChannelGroup: wrap(handleForgetChannelGroup),
+        listChannelLinks: wrap(handleListChannelLinks),
+        createChannelLinkCode: wrap(handleCreateChannelLinkCode),
+        deleteChannelLink: wrap(handleDeleteChannelLink)
     };
     const all: CreateMswHandlersResult['all'] = (options = {}) => {
         type OverrideValue<R> = R | [
@@ -13413,13 +15089,15 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         }
         const overrides = options.pick ?? {};
         return [
+            invoke(pick.decideChatToolCall, overrides.decideChatToolCall),
+            invoke(pick.hostChatToolApp, overrides.hostChatToolApp),
             invoke(pick.unstarChatLibraryEntry, overrides.unstarChatLibraryEntry),
             invoke(pick.starChatLibraryEntry, overrides.starChatLibraryEntry),
             invoke(pick.recordChatLibraryEntryOpened, overrides.recordChatLibraryEntryOpened),
             invoke(pick.registerMcpServerOAuthClient, overrides.registerMcpServerOAuthClient),
             invoke(pick.deleteMcpServerOAuthClient, overrides.deleteMcpServerOAuthClient),
             invoke(pick.updateMcpServerOAuthClient, overrides.updateMcpServerOAuthClient),
-            invoke(pick.setMcpServerToolEnabled, overrides.setMcpServerToolEnabled),
+            invoke(pick.setMcpServerToolPolicy, overrides.setMcpServerToolPolicy),
             invoke(pick.removeChatFeedback, overrides.removeChatFeedback),
             invoke(pick.setChatFeedback, overrides.setChatFeedback),
             invoke(pick.regenerateChatMessage, overrides.regenerateChatMessage),
@@ -13436,7 +15114,9 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.testSystemOneConnection, overrides.testSystemOneConnection),
             invoke(pick.testChatImageConnection, overrides.testChatImageConnection),
             invoke(pick.downloadChatLibraryArchive, overrides.downloadChatLibraryArchive),
-            invoke(pick.setAllMcpServerToolsEnabled, overrides.setAllMcpServerToolsEnabled),
+            invoke(pick.listLarkSpaces, overrides.listLarkSpaces),
+            invoke(pick.resetMcpServerToolPolicies, overrides.resetMcpServerToolPolicies),
+            invoke(pick.setMcpServerToolGroupPolicy, overrides.setMcpServerToolGroupPolicy),
             invoke(pick.refreshMcpServerTools, overrides.refreshMcpServerTools),
             invoke(pick.discoverMcpServerOAuth, overrides.discoverMcpServerOAuth),
             invoke(pick.listMcpServerOAuthClients, overrides.listMcpServerOAuthClients),
@@ -13464,6 +15144,9 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.removeGroupManager, overrides.removeGroupManager),
             invoke(pick.assignGroupManager, overrides.assignGroupManager),
             invoke(pick.listSourceRunErrors, overrides.listSourceRunErrors),
+            invoke(pick.bindChannelGroupAssistant, overrides.bindChannelGroupAssistant),
+            invoke(pick.labelChannelGroup, overrides.labelChannelGroup),
+            invoke(pick.allowChannelGroup, overrides.allowChannelGroup),
             invoke(pick.nameMeetingSpeaker, overrides.nameMeetingSpeaker),
             invoke(pick.switchSearchFutureGeneration, overrides.switchSearchFutureGeneration),
             invoke(pick.emptyChatLibraryTrash, overrides.emptyChatLibraryTrash),
@@ -13482,6 +15165,7 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.getSharePointSelectionRequest, overrides.getSharePointSelectionRequest),
             invoke(pick.getGoogleDriveSelectionRequest, overrides.getGoogleDriveSelectionRequest),
             invoke(pick.getChatLibraryArchive, overrides.getChatLibraryArchive),
+            invoke(pick.getLarkSelectionRequest, overrides.getLarkSelectionRequest),
             invoke(pick.saveMcpConnectionApiKey, overrides.saveMcpConnectionApiKey),
             invoke(pick.replaceSharePointCredentialAuthentication, overrides.replaceSharePointCredentialAuthentication),
             invoke(pick.replaceGoogleDriveServiceAccount, overrides.replaceGoogleDriveServiceAccount),
@@ -13514,6 +15198,7 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.createProjectChatSession, overrides.createProjectChatSession),
             invoke(pick.restoreChatPersona, overrides.restoreChatPersona),
             invoke(pick.transferChatPersona, overrides.transferChatPersona),
+            invoke(pick.copyChatPersonaTemplate, overrides.copyChatPersonaTemplate),
             invoke(pick.validateChatModel, overrides.validateChatModel),
             invoke(pick.retryChatFile, overrides.retryChatFile),
             invoke(pick.finalizeChatFileUpload, overrides.finalizeChatFileUpload),
@@ -13524,6 +15209,7 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.getChatFeedback, overrides.getChatFeedback),
             invoke(pick.getChatBranches, overrides.getChatBranches),
             invoke(pick.listChatPersonaModels, overrides.listChatPersonaModels),
+            invoke(pick.listAssistantChannels, overrides.listAssistantChannels),
             invoke(pick.getChatPersonaAvatar, overrides.getChatPersonaAvatar),
             invoke(pick.getChatImageArtifact, overrides.getChatImageArtifact),
             invoke(pick.getChatFileThumbnail, overrides.getChatFileThumbnail),
@@ -13540,6 +15226,8 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.readChatDocumentOriginal, overrides.readChatDocumentOriginal),
             invoke(pick.downloadUsageReport, overrides.downloadUsageReport),
             invoke(pick.disconnectMcpConnection, overrides.disconnectMcpConnection),
+            invoke(pick.replaceLarkCredentialSecret, overrides.replaceLarkCredentialSecret),
+            invoke(pick.testLarkCredential, overrides.testLarkCredential),
             invoke(pick.changeChatLibraryFile, overrides.changeChatLibraryFile),
             invoke(pick.replaceSharePointScope, overrides.replaceSharePointScope),
             invoke(pick.updateSharePointSchedule, overrides.updateSharePointSchedule),
@@ -13561,9 +15249,15 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.getGoogleDriveSelection, overrides.getGoogleDriveSelection),
             invoke(pick.getGoogleDriveSelectionTree, overrides.getGoogleDriveSelectionTree),
             invoke(pick.getGoogleDriveSelectionDraft, overrides.getGoogleDriveSelectionDraft),
+            invoke(pick.replaceLarkScope, overrides.replaceLarkScope),
+            invoke(pick.updateLarkSchedule, overrides.updateLarkSchedule),
+            invoke(pick.updateLarkPause, overrides.updateLarkPause),
+            invoke(pick.synchronizeLarkSource, overrides.synchronizeLarkSource),
+            invoke(pick.getLarkRoots, overrides.getLarkRoots),
             invoke(pick.markMeetingMinutesItem, overrides.markMeetingMinutesItem),
             invoke(pick.getSourceRun, overrides.getSourceRun),
             invoke(pick.removeMeetingBookmark, overrides.removeMeetingBookmark),
+            invoke(pick.forgetChannelGroup, overrides.forgetChannelGroup),
             invoke(pick.setCurrentIdentityLanguage, overrides.setCurrentIdentityLanguage),
             invoke(pick.selectChatWebProvider, overrides.selectChatWebProvider),
             invoke(pick.selectChatVoiceProvider, overrides.selectChatVoiceProvider),
@@ -13573,6 +15267,7 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.saveChatGrounded, overrides.saveChatGrounded),
             invoke(pick.getChatPromptShortcutPreferences, overrides.getChatPromptShortcutPreferences),
             invoke(pick.setChatPromptShortcutPreferences, overrides.setChatPromptShortcutPreferences),
+            invoke(pick.reorderChatProjects, overrides.reorderChatProjects),
             invoke(pick.selectChatImageProvider, overrides.selectChatImageProvider),
             invoke(pick.cancelSearchFutureGeneration, overrides.cancelSearchFutureGeneration),
             invoke(pick.createSearchFutureGeneration, overrides.createSearchFutureGeneration),
@@ -13591,6 +15286,7 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.listChatLibraryArchives, overrides.listChatLibraryArchives),
             invoke(pick.requestChatLibraryArchive, overrides.requestChatLibraryArchive),
             invoke(pick.initiateChatFileUpload, overrides.initiateChatFileUpload),
+            invoke(pick.testZaloChannelBot, overrides.testZaloChannelBot),
             invoke(pick.getChatVoiceSettings, overrides.getChatVoiceSettings),
             invoke(pick.updateChatVoiceSettings, overrides.updateChatVoiceSettings),
             invoke(pick.getSharePointSelectionPolicy, overrides.getSharePointSelectionPolicy),
@@ -13605,6 +15301,7 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.listSystemOneConnections, overrides.listSystemOneConnections),
             invoke(pick.searchChatSessions, overrides.searchChatSessions),
             invoke(pick.previewChatRetention, overrides.previewChatRetention),
+            invoke(pick.setChatMemoryEnabled, overrides.setChatMemoryEnabled),
             invoke(pick.listChatPersonaSources, overrides.listChatPersonaSources),
             invoke(pick.listChatPersonasForAdministration, overrides.listChatPersonasForAdministration),
             invoke(pick.getChatLibraryUsage, overrides.getChatLibraryUsage),
@@ -13615,12 +15312,13 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.searchChatLibraryContent, overrides.searchChatLibraryContent),
             invoke(pick.listChatLibraryRecent, overrides.listChatLibraryRecent),
             invoke(pick.listChatLibraryDocuments, overrides.listChatLibraryDocuments),
-            invoke(pick.getChatInterpreterHealth, overrides.getChatInterpreterHealth),
+            invoke(pick.getChatSandboxHealth, overrides.getChatSandboxHealth),
             invoke(pick.listChatImageProviders, overrides.listChatImageProviders),
             invoke(pick.listChatImageConnections, overrides.listChatImageConnections),
             invoke(pick.exportChatHistory, overrides.exportChatHistory),
             invoke(pick.getChatFilePolicy, overrides.getChatFilePolicy),
             invoke(pick.getMyAiUsageStanding, overrides.getMyAiUsageStanding),
+            invoke(pick.testLarkChannelApp, overrides.testLarkChannelApp),
             invoke(pick.deleteEmbeddingProvider, overrides.deleteEmbeddingProvider),
             invoke(pick.updateEmbeddingProvider, overrides.updateEmbeddingProvider),
             invoke(pick.saveOcrConnection, overrides.saveOcrConnection),
@@ -13662,8 +15360,11 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.deleteGoogleDriveCredential, overrides.deleteGoogleDriveCredential),
             invoke(pick.deleteChatImageArtifact, overrides.deleteChatImageArtifact),
             invoke(pick.deleteChatFileArtifact, overrides.deleteChatFileArtifact),
+            invoke(pick.deleteLarkCredential, overrides.deleteLarkCredential),
+            invoke(pick.renameLarkCredential, overrides.renameLarkCredential),
             invoke(pick.shareMeeting, overrides.shareMeeting),
             invoke(pick.updateMeetingNotes, overrides.updateMeetingNotes),
+            invoke(pick.updateChannelTransport, overrides.updateChannelTransport),
             invoke(pick.replaceUserGroups, overrides.replaceUserGroups),
             invoke(pick.deactivateUser, overrides.deactivateUser),
             invoke(pick.activateUser, overrides.activateUser),
@@ -13699,6 +15400,14 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.exportMeetingTranscript, overrides.exportMeetingTranscript),
             invoke(pick.listGroupSources, overrides.listGroupSources),
             invoke(pick.listGroupCandidates, overrides.listGroupCandidates),
+            invoke(pick.getLarkConfiguration, overrides.getLarkConfiguration),
+            invoke(pick.replaceChannelSecret, overrides.replaceChannelSecret),
+            invoke(pick.updateChannelPublic, overrides.updateChannelPublic),
+            invoke(pick.bindChannelAssistant, overrides.bindChannelAssistant),
+            invoke(pick.updateChannelEnabled, overrides.updateChannelEnabled),
+            invoke(pick.listChannelGroups, overrides.listChannelGroups),
+            invoke(pick.getChannelPairing, overrides.getChannelPairing),
+            invoke(pick.relinkChannel, overrides.relinkChannel),
             invoke(pick.selectOcrProvider, overrides.selectOcrProvider),
             invoke(pick.getMcpEndpointSettings, overrides.getMcpEndpointSettings),
             invoke(pick.updateMcpEndpointSettings, overrides.updateMcpEndpointSettings),
@@ -13708,13 +15417,14 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.saveChatRetention, overrides.saveChatRetention),
             invoke(pick.getChatPreferences, overrides.getChatPreferences),
             invoke(pick.saveChatPreferences, overrides.saveChatPreferences),
+            invoke(pick.listChatAssistants, overrides.listChatAssistants),
             invoke(pick.listChatPersonaPins, overrides.listChatPersonaPins),
             invoke(pick.replaceChatPersonaPins, overrides.replaceChatPersonaPins),
             invoke(pick.reorderChatPersonas, overrides.reorderChatPersonas),
             invoke(pick.getChatModelDefault, overrides.getChatModelDefault),
             invoke(pick.setChatModelDefault, overrides.setChatModelDefault),
-            invoke(pick.getChatInterpreterSettings, overrides.getChatInterpreterSettings),
-            invoke(pick.updateChatInterpreterSettings, overrides.updateChatInterpreterSettings),
+            invoke(pick.getChatSandboxSettings, overrides.getChatSandboxSettings),
+            invoke(pick.updateChatSandboxSettings, overrides.updateChatSandboxSettings),
             invoke(pick.createSharePointSource, overrides.createSharePointSource),
             invoke(pick.createGoogleDriveSource, overrides.createGoogleDriveSource),
             invoke(pick.createFileSource, overrides.createFileSource),
@@ -13742,6 +15452,7 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.requestChatExport, overrides.requestChatExport),
             invoke(pick.listDocumentSets, overrides.listDocumentSets),
             invoke(pick.createDocumentSet, overrides.createDocumentSet),
+            invoke(pick.createZaloChannel, overrides.createZaloChannel),
             invoke(pick.listUsageReports, overrides.listUsageReports),
             invoke(pick.requestUsageReport, overrides.requestUsageReport),
             invoke(pick.listAiUsageLimits, overrides.listAiUsageLimits),
@@ -13763,6 +15474,9 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.listGoogleDriveCredentials, overrides.listGoogleDriveCredentials),
             invoke(pick.getChatWebAvailability, overrides.getChatWebAvailability),
             invoke(pick.getChatVoiceAvailability, overrides.getChatVoiceAvailability),
+            invoke(pick.clearChatMemory, overrides.clearChatMemory),
+            invoke(pick.getChatMemory, overrides.getChatMemory),
+            invoke(pick.saveChatMemory, overrides.saveChatMemory),
             invoke(pick.listChatProviderAdapters, overrides.listChatProviderAdapters),
             invoke(pick.listAvailableChatModels, overrides.listAvailableChatModels),
             invoke(pick.listChatModelPersonas, overrides.listChatModelPersonas),
@@ -13780,6 +15494,11 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.getAiCostDetail, overrides.getAiCostDetail),
             invoke(pick.listAiCostDays, overrides.listAiCostDays),
             invoke(pick.listAiCostBreakdown, overrides.listAiCostBreakdown),
+            invoke(pick.listLarkCredentials, overrides.listLarkCredentials),
+            invoke(pick.createLarkCredential, overrides.createLarkCredential),
+            invoke(pick.createLarkSource, overrides.createLarkSource),
+            invoke(pick.createLarkChannel, overrides.createLarkChannel),
+            invoke(pick.createWhatsAppChannel, overrides.createWhatsAppChannel),
             invoke(pick.deleteMeeting, overrides.deleteMeeting),
             invoke(pick.getMeeting, overrides.getMeeting),
             invoke(pick.updateMeeting, overrides.updateMeeting),
@@ -13788,6 +15507,8 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.getSource, overrides.getSource),
             invoke(pick.getSourceOperation, overrides.getSourceOperation),
             invoke(pick.getGroup, overrides.getGroup),
+            invoke(pick.deleteChannel, overrides.deleteChannel),
+            invoke(pick.deleteChannelLink, overrides.deleteChannelLink),
             invoke(pick.searchDocuments, overrides.searchDocuments),
             invoke(pick.listMeetings, overrides.listMeetings),
             invoke(pick.createMeeting, overrides.createMeeting),
@@ -13798,7 +15519,10 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.listGroups, overrides.listGroups),
             invoke(pick.createGroup, overrides.createGroup),
             invoke(pick.listUsers, overrides.listUsers),
-            invoke(pick.listSources, overrides.listSources)
+            invoke(pick.listSources, overrides.listSources),
+            invoke(pick.listChannels, overrides.listChannels),
+            invoke(pick.listChannelLinks, overrides.listChannelLinks),
+            invoke(pick.createChannelLinkCode, overrides.createChannelLinkCode)
         ];
     };
     return { all, pick };

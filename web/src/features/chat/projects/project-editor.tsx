@@ -29,8 +29,20 @@ import { invalidateProjects, projectOf, type Project } from "./chat-projects-api
 import { ProjectIconPicker } from "./project-icon";
 import { withRequestTimeout } from "@/lib/api";
 
-/** Creates a Project (name and icon) or edits one (name, icon and instructions) in a dialog. */
-export function ProjectEditor({ project, onClose }: { project?: Project; onClose: () => void }) {
+/**
+ * Creates a Project (name and icon) or edits one (name, icon and instructions) in a dialog. A created
+ * Project opens its page, unless the caller passes `onCreated` to decide what follows; the dialog is
+ * already closed by then, so `onCreated` reports its own failures.
+ */
+export function ProjectEditor({
+  project,
+  onClose,
+  onCreated,
+}: {
+  project?: Project;
+  onClose: () => void;
+  onCreated?: (project: Project) => void | Promise<void>;
+}) {
   const ui = useAppTranslation();
   const { t: errorText } = useTranslation("errors");
   const { t: common } = useTranslation("common");
@@ -61,7 +73,8 @@ export function ProjectEditor({ project, onClose }: { project?: Project; onClose
         description: project?.description ?? "",
         instructions: value.instructions,
         fileIds: project?.fileIds ?? [],
-        iconName: value.iconName,
+        // The picker's default tile is no icon.
+        iconName: value.iconName || undefined,
       };
       try {
         if (project) {
@@ -77,7 +90,8 @@ export function ProjectEditor({ project, onClose }: { project?: Project; onClose
         const created = projectOf(await create.mutateAsync({ body }));
         await invalidateProjects(cache);
         onClose();
-        await navigate({ to: "/projects/$projectId", params: { projectId: created.id } });
+        if (onCreated) await onCreated(created);
+        else await navigate({ to: "/projects/$projectId", params: { projectId: created.id } });
       } catch (cause) {
         // Field violations go on their fields; the form says whether the outcome is known.
         setServerErrors(formApi, {
@@ -205,6 +219,7 @@ function ProjectInstructionsField({ disabled }: { disabled: boolean }) {
         name={field.name}
         maxLength={32000}
         rows={6}
+        focus="quiet"
         disabled={disabled}
         value={field.state.value}
         aria-invalid={invalid || undefined}

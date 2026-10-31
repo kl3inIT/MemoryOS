@@ -1,0 +1,642 @@
+{
+ "code": 0,
+ "data": {
+  "has_more": false,
+  "items": [
+   {
+    "block_id": "docx-doanh-thu-q3",
+    "block_type": 1,
+    "children": [
+     "doxjp7mAe2dpLD4Lg50xNwOG4Zb",
+     "doxjpF6AWG8aCWOTYbMPjjQD4Je",
+     "doxjpJNKmm6LAGacL8xqIwdat3d",
+     "doxjpiJAs7NnCAlbGVxi2o9PRbe",
+     "doxjpiDdn8TOt3xe37pMzg5e3ne"
+    ],
+    "page": {
+     "elements": [
+      {
+       "text_run": {
+        "content": "Báo cáo doanh thu Q3 2026",
+        "text_element_style": {
+         "bold": false,
+         "inline_code": false,
+         "italic": false,
+         "strikethrough": false,
+         "underline": false
+        }
+       }
+      }
+     ],
+     "style": {
+      "align": 1
+     }
+    },
+    "parent_id": ""
+   },
+   {
+    "block_id": "doxjp7mAe2dpLD4Lg50xNwOG4Zb",
+    "block_type": 3,
+    "heading1": {
+     "elements": [
+      {
+       "text_run": {
+        "content": "Báo cáo doanh thu Q3 2026",
+        "text_element_style": {
+         "bold": false,
+         "inline_code": false,
+         "italic": false,
+         "strikethrough": false,
+         "underline": false
+        }
+       }
+      }
+     ],
+     "style": {
+      "align": 1,
+      "folded": false
+     }
+    },
+    "parent_id": "docx-doanh-thu-q3"
+   },
+   {
+    "block_id": "doxjpF6AWG8aCWOTYbMPjjQD4Je",
+    "block_type": 2,
+    "parent_id": "docx-doanh-thu-q3",
+    "text": {
+     "elements": [
+      {
+       "text_run": {
+        "content": "Doanh thu quý 3 năm 2026 đạt 18,4 tỷ đồng, tăng 12% so với cùng kỳ năm trước và đạt 96% kế hoạch quý.",
+        "text_element_style": {
+         "bold": false,
+         "inline_code": false,
+         "italic": false,
+         "strikethrough": false,
+         "underline": false
+        }
+       }
+      }
+     ],
+     "style": {
+      "align": 1,
+      "folded": false
+     }
+    }
+   },
+   {
+    "block_id": "doxjpJNKmm6LAGacL8xqIwdat3d",
+    "block_type": 31,
+    "children": [
+     "doxjpkyn89p88klfeIZLAGIJCNb",
+     "doxjp7dTKPGtXmKDhOJKSnNYcUf",
+     "doxjpFPh7shiVDXhDXhP2xybKHg",
+     "doxjpSnKEhKzxi6yE9c5kOkXhNh",
+     "doxjpcG8n18DyKUa3im1KH12Bfh",
+     "doxjpyFfekbtR287rOUAzhD82wc",
+     "doxjpxxS5ieS7rI7Il5fWBzUwgb",
+     "doxjpkYU4lx9oBqefYaAhgFDvfd",
+     "doxjpZ8kKoB7LS2y9Km1aSffNig",
+     "doxjpNk0UHqvSax02hX5MRmk3Xg",
+     "doxjpr4WRl7rmes5N7J4xkugwob",
+     "doxjpHSJNAUxwmoTZFPt4fLchIf"
+    ],
+    "parent_id": "docx-doanh-thu-q3",
+    "table": {
+     "cells": [
+      "doxjpkyn89p88klfeIZLAGIJCNb",
+      "doxjp7dTKPGtXmKDhOJKSnNYcUf",
+      "doxjpFPh7shiVDXhDXhP2xybKHg",
+      "doxjpSnKEhKzxi6yE9c5kOkXhNh",
+      "doxjpcG8n18DyKUa3im1KH12Bfh",
+      "doxjpyFfekbtR287rOUAzhD82wc",
+      "doxjpxxS5ieS7rI7Il5fWBzUwgb",
+      "doxjpkYU4lx9oBqefYaAhgFDvfd",
+      "doxjpZ8kKoB7LS2y9Km1aSffNig",
+      "doxjpNk0UHqvSax02hX5MRmk3Xg",
+      "doxjpr4WRl7rmes5N7J4xkugwob",
+      "doxjpHSJNAUxwmoTZFPt4fLchIf"
+     ],
+     "property": {
+      "column_size": 3,
+      "column_width": [
+       244,
+       244,
+       244
+      ],
+      "merge_info": [
+       {
+        "col_span": 1,
+        "row_span": 1
+       },
+       {
+        "col_span": 1,
+        "row_span": 1
+       },
+       {
+        "col_span": 1,
+        "row_span": 1
+       },
+       {
+        "col_span": 1,
+        "row_span": 1
+       },
+       {
+        "col_span": 1,
+        "row_span": 1
+       },
+       {
+        "col_span": 1,
+        "row_span": 1
+       },
+       {
+        "col_span": 1,
+        "row_span": 1
+       },
+       {
+        "col_span": 1,
+        "row_span": 1
+       },
+       {
+        "col_span": 1,
+        "row_span": 1
+       },
+       {
+        "col_span": 1,
+        "row_span": 1
+       },
+       {
+        "col_span": 1,
+        "row_span": 1
+       },
+       {
+        "col_span": 1,
+        "row_span": 1
+       }
+      ],
+      "row_size": 4
+     }
+    }
+   },
+   {
+    "block_id": "doxjpkyn89p88klfeIZLAGIJCNb",
+    "block_type": 32,
+    "children": [
+     "doxjp2lnAD6u5NOKQxOVv4THNie"
+    ],
+    "parent_id": "doxjpJNKmm6LAGacL8xqIwdat3d",
+    "table_cell": {}
+   },
+   {
+    "block_id": "doxjp2lnAD6u5NOKQxOVv4THNie",
+    "block_type": 2,
+    "parent_id": "doxjpkyn89p88klfeIZLAGIJCNb",
+    "text": {
+     "elements": [
+      {
+       "text_run": {
+        "content": "Khu vực",
+        "text_element_style": {
+         "bold": false,
+         "inline_code": false,
+         "italic": false,
+         "strikethrough": false,
+         "underline": false
+        }
+       }
+      }
+     ],
+     "style": {
+      "align": 1,
+      "folded": false
+     }
+    }
+   },
+   {
+    "block_id": "doxjp7dTKPGtXmKDhOJKSnNYcUf",
+    "block_type": 32,
+    "children": [
+     "doxjpNIXpvARJ7kftMUGhnkpaLb"
+    ],
+    "parent_id": "doxjpJNKmm6LAGacL8xqIwdat3d",
+    "table_cell": {}
+   },
+   {
+    "block_id": "doxjpNIXpvARJ7kftMUGhnkpaLb",
+    "block_type": 2,
+    "parent_id": "doxjp7dTKPGtXmKDhOJKSnNYcUf",
+    "text": {
+     "elements": [
+      {
+       "text_run": {
+        "content": "Doanh thu (tỷ đồng)",
+        "text_element_style": {
+         "bold": false,
+         "inline_code": false,
+         "italic": false,
+         "strikethrough": false,
+         "underline": false
+        }
+       }
+      }
+     ],
+     "style": {
+      "align": 1,
+      "folded": false
+     }
+    }
+   },
+   {
+    "block_id": "doxjpFPh7shiVDXhDXhP2xybKHg",
+    "block_type": 32,
+    "children": [
+     "doxjpk4rfadFyPE8TJiCqsvsufg"
+    ],
+    "parent_id": "doxjpJNKmm6LAGacL8xqIwdat3d",
+    "table_cell": {}
+   },
+   {
+    "block_id": "doxjpk4rfadFyPE8TJiCqsvsufg",
+    "block_type": 2,
+    "parent_id": "doxjpFPh7shiVDXhDXhP2xybKHg",
+    "text": {
+     "elements": [
+      {
+       "text_run": {
+        "content": "So với Q3 2025",
+        "text_element_style": {
+         "bold": false,
+         "inline_code": false,
+         "italic": false,
+         "strikethrough": false,
+         "underline": false
+        }
+       }
+      }
+     ],
+     "style": {
+      "align": 1,
+      "folded": false
+     }
+    }
+   },
+   {
+    "block_id": "doxjpSnKEhKzxi6yE9c5kOkXhNh",
+    "block_type": 32,
+    "children": [
+     "doxjpAIRirVdYTRoOQn99wb8Prf"
+    ],
+    "parent_id": "doxjpJNKmm6LAGacL8xqIwdat3d",
+    "table_cell": {}
+   },
+   {
+    "block_id": "doxjpAIRirVdYTRoOQn99wb8Prf",
+    "block_type": 2,
+    "parent_id": "doxjpSnKEhKzxi6yE9c5kOkXhNh",
+    "text": {
+     "elements": [
+      {
+       "text_run": {
+        "content": "Hà Nội",
+        "text_element_style": {
+         "bold": false,
+         "inline_code": false,
+         "italic": false,
+         "strikethrough": false,
+         "underline": false
+        }
+       }
+      }
+     ],
+     "style": {
+      "align": 1,
+      "folded": false
+     }
+    }
+   },
+   {
+    "block_id": "doxjpcG8n18DyKUa3im1KH12Bfh",
+    "block_type": 32,
+    "children": [
+     "doxjpc1I9CZAiNcDuhNhf5pCjTe"
+    ],
+    "parent_id": "doxjpJNKmm6LAGacL8xqIwdat3d",
+    "table_cell": {}
+   },
+   {
+    "block_id": "doxjpc1I9CZAiNcDuhNhf5pCjTe",
+    "block_type": 2,
+    "parent_id": "doxjpcG8n18DyKUa3im1KH12Bfh",
+    "text": {
+     "elements": [
+      {
+       "text_run": {
+        "content": "7,9",
+        "text_element_style": {
+         "bold": false,
+         "inline_code": false,
+         "italic": false,
+         "strikethrough": false,
+         "underline": false
+        }
+       }
+      }
+     ],
+     "style": {
+      "align": 1,
+      "folded": false
+     }
+    }
+   },
+   {
+    "block_id": "doxjpyFfekbtR287rOUAzhD82wc",
+    "block_type": 32,
+    "children": [
+     "doxjp4pzzAjlN6SJUXcMgX40LNc"
+    ],
+    "parent_id": "doxjpJNKmm6LAGacL8xqIwdat3d",
+    "table_cell": {}
+   },
+   {
+    "block_id": "doxjp4pzzAjlN6SJUXcMgX40LNc",
+    "block_type": 2,
+    "parent_id": "doxjpyFfekbtR287rOUAzhD82wc",
+    "text": {
+     "elements": [
+      {
+       "text_run": {
+        "content": "+15%",
+        "text_element_style": {
+         "bold": false,
+         "inline_code": false,
+         "italic": false,
+         "strikethrough": false,
+         "underline": false
+        }
+       }
+      }
+     ],
+     "style": {
+      "align": 1,
+      "folded": false
+     }
+    }
+   },
+   {
+    "block_id": "doxjpxxS5ieS7rI7Il5fWBzUwgb",
+    "block_type": 32,
+    "children": [
+     "doxjpFJVjHycfj7ZrBvToH9h6qe"
+    ],
+    "parent_id": "doxjpJNKmm6LAGacL8xqIwdat3d",
+    "table_cell": {}
+   },
+   {
+    "block_id": "doxjpFJVjHycfj7ZrBvToH9h6qe",
+    "block_type": 2,
+    "parent_id": "doxjpxxS5ieS7rI7Il5fWBzUwgb",
+    "text": {
+     "elements": [
+      {
+       "text_run": {
+        "content": "TP. Hồ Chí Minh",
+        "text_element_style": {
+         "bold": false,
+         "inline_code": false,
+         "italic": false,
+         "strikethrough": false,
+         "underline": false
+        }
+       }
+      }
+     ],
+     "style": {
+      "align": 1,
+      "folded": false
+     }
+    }
+   },
+   {
+    "block_id": "doxjpkYU4lx9oBqefYaAhgFDvfd",
+    "block_type": 32,
+    "children": [
+     "doxjpApvuuqCiAoNTAxF3NfCrRf"
+    ],
+    "parent_id": "doxjpJNKmm6LAGacL8xqIwdat3d",
+    "table_cell": {}
+   },
+   {
+    "block_id": "doxjpApvuuqCiAoNTAxF3NfCrRf",
+    "block_type": 2,
+    "parent_id": "doxjpkYU4lx9oBqefYaAhgFDvfd",
+    "text": {
+     "elements": [
+      {
+       "text_run": {
+        "content": "8,1",
+        "text_element_style": {
+         "bold": false,
+         "inline_code": false,
+         "italic": false,
+         "strikethrough": false,
+         "underline": false
+        }
+       }
+      }
+     ],
+     "style": {
+      "align": 1,
+      "folded": false
+     }
+    }
+   },
+   {
+    "block_id": "doxjpZ8kKoB7LS2y9Km1aSffNig",
+    "block_type": 32,
+    "children": [
+     "doxjpVKGXOpc7fqYtXjbc3Mzokh"
+    ],
+    "parent_id": "doxjpJNKmm6LAGacL8xqIwdat3d",
+    "table_cell": {}
+   },
+   {
+    "block_id": "doxjpVKGXOpc7fqYtXjbc3Mzokh",
+    "block_type": 2,
+    "parent_id": "doxjpZ8kKoB7LS2y9Km1aSffNig",
+    "text": {
+     "elements": [
+      {
+       "text_run": {
+        "content": "+11%",
+        "text_element_style": {
+         "bold": false,
+         "inline_code": false,
+         "italic": false,
+         "strikethrough": false,
+         "underline": false
+        }
+       }
+      }
+     ],
+     "style": {
+      "align": 1,
+      "folded": false
+     }
+    }
+   },
+   {
+    "block_id": "doxjpNk0UHqvSax02hX5MRmk3Xg",
+    "block_type": 32,
+    "children": [
+     "doxjpRGaImmr3XbILZ0WqA9alTf"
+    ],
+    "parent_id": "doxjpJNKmm6LAGacL8xqIwdat3d",
+    "table_cell": {}
+   },
+   {
+    "block_id": "doxjpRGaImmr3XbILZ0WqA9alTf",
+    "block_type": 2,
+    "parent_id": "doxjpNk0UHqvSax02hX5MRmk3Xg",
+    "text": {
+     "elements": [
+      {
+       "text_run": {
+        "content": "Đà Nẵng",
+        "text_element_style": {
+         "bold": false,
+         "inline_code": false,
+         "italic": false,
+         "strikethrough": false,
+         "underline": false
+        }
+       }
+      }
+     ],
+     "style": {
+      "align": 1,
+      "folded": false
+     }
+    }
+   },
+   {
+    "block_id": "doxjpr4WRl7rmes5N7J4xkugwob",
+    "block_type": 32,
+    "children": [
+     "doxjpKGghXbtyAiLBuqM1KmxvHc"
+    ],
+    "parent_id": "doxjpJNKmm6LAGacL8xqIwdat3d",
+    "table_cell": {}
+   },
+   {
+    "block_id": "doxjpKGghXbtyAiLBuqM1KmxvHc",
+    "block_type": 2,
+    "parent_id": "doxjpr4WRl7rmes5N7J4xkugwob",
+    "text": {
+     "elements": [
+      {
+       "text_run": {
+        "content": "2,4",
+        "text_element_style": {
+         "bold": false,
+         "inline_code": false,
+         "italic": false,
+         "strikethrough": false,
+         "underline": false
+        }
+       }
+      }
+     ],
+     "style": {
+      "align": 1,
+      "folded": false
+     }
+    }
+   },
+   {
+    "block_id": "doxjpHSJNAUxwmoTZFPt4fLchIf",
+    "block_type": 32,
+    "children": [
+     "doxjpbMrkCOuzJ2TfHUp2tYU0Vg"
+    ],
+    "parent_id": "doxjpJNKmm6LAGacL8xqIwdat3d",
+    "table_cell": {}
+   },
+   {
+    "block_id": "doxjpbMrkCOuzJ2TfHUp2tYU0Vg",
+    "block_type": 2,
+    "parent_id": "doxjpHSJNAUxwmoTZFPt4fLchIf",
+    "text": {
+     "elements": [
+      {
+       "text_run": {
+        "content": "+6%",
+        "text_element_style": {
+         "bold": false,
+         "inline_code": false,
+         "italic": false,
+         "strikethrough": false,
+         "underline": false
+        }
+       }
+      }
+     ],
+     "style": {
+      "align": 1,
+      "folded": false
+     }
+    }
+   },
+   {
+    "block_id": "doxjpiJAs7NnCAlbGVxi2o9PRbe",
+    "block_type": 4,
+    "heading2": {
+     "elements": [
+      {
+       "text_run": {
+        "content": "Nhận xét",
+        "text_element_style": {
+         "bold": false,
+         "inline_code": false,
+         "italic": false,
+         "strikethrough": false,
+         "underline": false
+        }
+       }
+      }
+     ],
+     "style": {
+      "align": 1,
+      "folded": false
+     }
+    },
+    "parent_id": "docx-doanh-thu-q3"
+   },
+   {
+    "block_id": "doxjpiDdn8TOt3xe37pMzg5e3ne",
+    "block_type": 2,
+    "parent_id": "docx-doanh-thu-q3",
+    "text": {
+     "elements": [
+      {
+       "text_run": {
+        "content": "Khu vực Hà Nội tăng mạnh nhất nhờ hợp đồng với hai khách hàng ngân hàng mới. Đà Nẵng chưa đạt kế hoạch do dự án khách sạn lùi sang Q4.",
+        "text_element_style": {
+         "bold": false,
+         "inline_code": false,
+         "italic": false,
+         "strikethrough": false,
+         "underline": false
+        }
+       }
+      }
+     ],
+     "style": {
+      "align": 1,
+      "folded": false
+     }
+    }
+   }
+  ]
+ },
+ "msg": "success"
+}

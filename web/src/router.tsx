@@ -22,4 +22,11 @@ declare module "@tanstack/react-router" {
   interface Register {
     router: typeof router;
   }
+  interface HistoryState {
+    /**
+     * A first question for a new topic, sent once. It travels in history state, never in the URL, so a link cannot
+     * make a person send a message they did not write.
+     */
+    ask?: string;
+  }
 }

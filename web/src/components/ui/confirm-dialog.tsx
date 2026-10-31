@@ -32,6 +32,8 @@ type ConfirmDialogProps = {
   confirmTone?: ActionTone;
   onConfirm: () => Promise<void>;
   errorMessage?: (error: unknown) => AppCopy | ErrorMessage;
+  /** What the description cannot hold, such as a list, shown under it. */
+  children?: React.ReactNode;
 };
 
 function ConfirmDialog({
@@ -48,6 +50,7 @@ function ConfirmDialog({
   confirmTone = "danger",
   onConfirm,
   errorMessage,
+  children,
 }: ConfirmDialogProps) {
   const { t } = useTranslation("common");
   const ui = useAppTranslation();
@@ -125,6 +128,8 @@ function ConfirmDialog({
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
+
+        {children}
 
         {error ? (
           <Alert variant="destructive">

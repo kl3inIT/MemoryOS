@@ -20,10 +20,9 @@ mkdir -p "$state"
 exec 9>"$state/lock"
 flock --nonblock 9 || { echo "Another $environment operation owns the lock" >&2; exit 1; }
 
-# Release images in images.env order. The interpreter starts executor containers from
-# interpreter-executor on the host daemon, so it is pulled and verified here but is not a Compose
-# service.
-images=(api worker web interpreter interpreter-executor keycloak)
+# Release images in images.env order. The sandbox server starts a conversation's sandbox from sandbox-computer on
+# the host daemon, so it is pulled and verified here but is not a Compose service.
+images=(api worker web keycloak channels sandbox sandbox-computer)
 
 image_key() {
   local key=${1//-/_}
@@ -34,14 +33,31 @@ image_reference() {
   sed -n "s/^$(image_key "$1")=//p" "$2"
 }
 
-# A runtime accepted before MEM-110 has no interpreter.
+# A runtime accepted from MEM-110 to MEM-271 has the interpreter; a release no longer does, and a rollback to such a
+# runtime starts it again from that runtime's Compose files.
 has_interpreter() {
   grep -q "^$(image_key interpreter)=" "$1"
+}
+
+# MEM-270: a runtime accepted before the Chat sandbox has no sandbox server.
+has_sandbox() {
+  grep -q "^$(image_key sandbox)=" "$1"
 }
 
 # A runtime accepted before Keycloak joined the release has none of its own to capture or restore.
 has_keycloak() {
   grep -q "^$(image_key keycloak)=" "$1"
+}
+
+# MEM-246: the chat bots' process runs where the target's Compose files define it, from a release that carries its
+# image; production defines none until the bot is accepted, and a release accepted before it has no image.
+# The services are read whole before they are searched: under pipefail, grep -q leaving a pipe early makes Compose
+# die of SIGPIPE, and the answer would then turn on timing.
+has_channels() {
+  local services
+  grep -q "^$(image_key channels)=" "$tx/$target.env" || return 1
+  services=$(compose config --services)
+  grep -qx channels <<< "$services"
 }
 
 # Empty before the first deployment: Flyway creates its history table when it first runs, and
@@ -67,6 +83,15 @@ compose() {
   "${args[@]}" "$@"
 }
 
+# MEM-244: the candidate Worker image makes its JDK AOT cache while the running Worker still works, so the new
+# Worker starts from it. worker-aot is the only container that can write the cache, and it reads no document. A
+# failure only costs the cache: the JVM ignores a cache that is missing or does not match, and the Worker starts
+# as it did before.
+train_worker_aot() {
+  target=candidate
+  compose --profile aot run --rm --no-deps -T worker-aot > /dev/null
+}
+
 rollout() {
   # Every service is recreated from this transaction's files, even when Compose sees no change in
   # it, as when the running release is deployed again: the containers then all name one transaction.
@@ -76,8 +101,26 @@ rollout() {
   fi
   compose up -d --no-deps --pull never --force-recreate --wait --wait-timeout 240 api
   compose up -d --no-deps --pull never --force-recreate --wait --wait-timeout 240 worker web
+  # After the API, which migrates the schema this process only validates.
+  if has_channels; then
+    compose up -d --no-deps --pull never --force-recreate --wait --wait-timeout 240 channels
+  fi
   if has_interpreter "$tx/$target.env"; then
     compose up -d --no-deps --pull never --force-recreate --wait --wait-timeout 240 interpreter
+  fi
+  if has_sandbox "$tx/$target.env"; then
+    compose up -d --no-deps --pull never --force-recreate --wait --wait-timeout 240 sandbox
+  fi
+  # MEM-271: a runtime without the interpreter takes down the one a runtime before it left. Its Compose files no longer
+  # name the service, so it is found by its Compose labels.
+  if ! has_interpreter "$tx/$target.env"; then
+    local left
+    left=$(docker ps --all --quiet --filter label=com.docker.compose.project=memoryos \
+      --filter label=com.docker.compose.service=interpreter)
+    if [[ -n "$left" ]]; then
+      # shellcheck disable=SC2086
+      docker stop --time 65 $left > /dev/null && docker rm $left > /dev/null
+    fi
   fi
 }
 
@@ -94,6 +137,16 @@ verify_runtime() {
   fi
   if has_keycloak "$tx/$target.env"; then
     components+=(keycloak)
+  fi
+  if has_channels; then
+    components+=(channels)
+  fi
+  if has_sandbox "$tx/$target.env"; then
+    components+=(sandbox)
+    reference=$(image_reference sandbox-computer "$tx/$target.env")
+    docker image inspect "$reference" | jq --exit-status --arg sha "$sha" '
+      .[0].Config.Labels["org.opencontainers.image.revision"] == $sha
+    ' > /dev/null
   fi
   local containers container
   for component in "${components[@]}"; do
@@ -124,20 +177,22 @@ env_number() {
 # a rollout must fit under the application role's real limit. A role created with a smaller limit than the file states
 # once left the Worker on five of its ten connections with nothing in any log.
 check_database_budget() {
-  local role api worker replicas limit needed
+  local role api worker replicas channels limit needed
   role=$(sed -n 's/^MEMORYOS_DATABASE_USERNAME=//p' "$tx/candidate.base.env" | tail -n 1)
   role=${role:-memoryos_app}
   [[ "$role" =~ ^[a-z_][a-z0-9_]*$ ]] || { echo "Unexpected database role name: $role" >&2; exit 1; }
   api=$(env_number MEMORYOS_API_DATABASE_POOL_SIZE 15)
   worker=$(env_number MEMORYOS_WORKER_DATABASE_POOL_SIZE 10)
   replicas=$(env_number MEMORYOS_WORKER_REPLICAS 1)
+  channels=0
+  if has_channels; then channels=$(env_number MEMORYOS_CHANNELS_DATABASE_POOL_SIZE 5); fi
   # shellcheck disable=SC2016
   limit=$(docker exec memoryos-postgres sh -c \
     "exec psql -U \"\$POSTGRES_USER\" -d memoryos -At -c \"SELECT rolconnlimit FROM pg_roles WHERE rolname = '$role'\"")
   [[ "$limit" =~ ^-?[0-9]+$ ]] || { echo "No connection limit read for $role" >&2; exit 1; }
-  needed=$(( api + replicas * worker + 10 ))
+  needed=$(( api + replicas * worker + channels + 10 ))
   (( limit < 0 || needed <= limit )) || {
-    echo "The pools need $needed connections (API $api, $replicas Worker x $worker, 10 spare); $role allows $limit" >&2
+    echo "The pools need $needed connections (API $api, $replicas Worker x $worker, channels $channels, 10 spare); $role allows $limit" >&2
     exit 1
   }
 }
@@ -193,10 +248,19 @@ if [[ "$mode" == deploy ]]; then
     if [[ -f "$state/current.env" ]] && has_interpreter "$state/current.env"; then
       previous_components+=(interpreter)
     fi
+    if [[ -f "$state/current.env" ]] && has_sandbox "$state/current.env"; then
+      previous_components+=(sandbox)
+    fi
     # Only once a release put it there: before that, Keycloak carries another image's revision
     # label and another Compose project's files, and would read as a mixed runtime.
     if [[ -f "$state/current.env" ]] && has_keycloak "$state/current.env"; then
       previous_components+=(keycloak)
+    fi
+    # MEM-246: only where the chat bots' process ran; production defines none until the bot is accepted.
+    if [[ -f "$state/current.env" ]] && grep -q "^$(image_key channels)=" "$state/current.env" \
+        && [[ -n "$(docker ps --quiet --filter label=com.docker.compose.project=memoryos \
+          --filter label=com.docker.compose.service=channels)" ]]; then
+      previous_components+=(channels)
     fi
     # One release's Compose files may carry two transactions' paths: a runtime last deployed before
     # rollouts forced recreation kept the containers Compose saw no change in, labelled with an
@@ -235,6 +299,12 @@ if [[ "$mode" == deploy ]]; then
       [[ "$reference" =~ ^ghcr.io/kl3init/memoryos-interpreter-executor@sha256:[0-9a-f]{64}$ ]] || { echo 'Unexpected interpreter-executor reference in the accepted record' >&2; exit 1; }
       printf '%s=%s\n' "$(image_key interpreter-executor)" "$reference" >> "$tx/previous.env"
     fi
+    if has_sandbox "$tx/previous.env"; then
+      # Sandboxes come and go with conversations; the accepted record holds their image.
+      reference=$(image_reference sandbox-computer "$state/current.env")
+      [[ "$reference" =~ ^ghcr.io/kl3init/memoryos-sandbox-computer@sha256:[0-9a-f]{64}$ ]] || { echo 'Unexpected sandbox-computer reference in the accepted record' >&2; exit 1; }
+      printf '%s=%s\n' "$(image_key sandbox-computer)" "$reference" >> "$tx/previous.env"
+    fi
     printf 'MEMORYOS_RELEASE=%s\n' "$previous_sha" >> "$tx/previous.env"
     jq --raw-output '.[0].labels["com.docker.compose.project.config_files"] | split(",")[]' <<< "$previous" > "$tx/previous.compose"
     while IFS= read -r file; do
@@ -258,7 +328,7 @@ if [[ "$mode" == deploy ]]; then
   if has_schema_history; then schema > "$tx/schema.before"; else : > "$tx/schema.before"; fi
   while IFS='|' read -r version _checksum success; do
     [[ "$success" == t && "$version" =~ ^[0-9]+$ ]] || { echo "Applied migration is failed or malformed: $version" >&2; exit 1; }
-    compgen -G "$tx/source/core/src/main/resources/db/migration/V${version}__*.sql" > /dev/null || {
+    compgen -G "$tx/source/memoryos-core/src/main/resources/db/migration/V${version}__*.sql" > /dev/null || {
       echo 'Candidate predates an applied migration; operator compatibility review is required' >&2; exit 1;
     }
   done < "$tx/schema.before"
@@ -267,12 +337,16 @@ if [[ "$mode" == deploy ]]; then
   mkdir "$DOCKER_CONFIG"
   trap 'rm -f -- "$DOCKER_CONFIG/config.json"; rmdir -- "$DOCKER_CONFIG"' EXIT
   docker login ghcr.io --username "${4:?registry user}" --password-stdin
-  compose pull api worker web interpreter
+  compose pull api worker web sandbox
+  if has_channels; then compose pull channels; fi
   if has_keycloak "$tx/candidate.env"; then compose pull keycloak; fi
-  docker pull --quiet "$(image_reference interpreter-executor "$tx/candidate.env")" > /dev/null
+  docker pull --quiet "$(image_reference sandbox-computer "$tx/candidate.env")" > /dev/null
   for component in "${images[@]}"; do
     reference=$(image_reference "$component" "$tx/candidate.env")
     [[ -n "$reference" ]] || continue
+    # A release names the chat bots' image everywhere, but only an environment that defines the service pulls it:
+    # production's 2026-10-18 promotion stopped here on an image it never pulled (MEM-246).
+    if [[ "$component" == channels ]] && ! has_channels; then continue; fi
     docker image inspect "$reference" | jq --exit-status --arg sha "${release:0:40}" '
       .[0].Config.Labels["org.opencontainers.image.revision"] == $sha
     ' > /dev/null
@@ -283,12 +357,17 @@ if [[ "$mode" == deploy ]]; then
   available=$(df --output=avail --block-size=1 "$root" | tail -n 1)
   (( available > 2 * database_size + 2000000000 )) || { echo "Not enough free space under $root for the backup" >&2; exit 1; }
   check_database_budget
+  if [[ ! -f "$tx/first-deployment" ]]; then
+    train_worker_aot || echo "deploy.sh: the Worker's AOT cache was not made; it starts without one" >&2
+  fi
 
   # Keep this reservation until health/revision verification and finalization.
   printf '%s\n' "$release" > "$state/pending"
   touch "$tx/writers-changing"
-  # A Worker finishes the work it started within its shutdown grace (100 s), so it gets the 120 s its container states.
-  if [[ ! -f "$tx/first-deployment" ]]; then target=previous; compose stop --timeout 120 worker; compose stop --timeout 45 api; fi
+  # A Worker finishes the work it started within its shutdown grace (100 s), so it gets the 180 s its container states.
+  # The chat bots' process runs turns against the schema the API is about to migrate, so it stops with the writers.
+  if [[ ! -f "$tx/first-deployment" ]]; then target=previous; if has_channels; then compose stop --timeout 45 channels; fi; fi
+  if [[ ! -f "$tx/first-deployment" ]]; then target=previous; compose stop --timeout 180 worker; compose stop --timeout 45 api; fi
   # The database user expands inside the existing PostgreSQL container.
   # shellcheck disable=SC2016
   timeout 300 docker exec memoryos-postgres sh -c \
@@ -319,19 +398,20 @@ elif [[ "$mode" == rollback ]]; then
     # keeps saying that somebody has to look. The database was empty when this began, so recovery
     # is to take the stack down, discard its volumes and deploy again, not to restore anything.
     echo 'First deployment on this host: no previous runtime exists to restore.' >&2
-    echo 'Stop the candidate api, worker, web and interpreter, then remove the reservation.' >&2
+    echo 'Stop the candidate api, worker, web and sandbox, then remove the reservation.' >&2
     echo 'Keep the database: the same volume holds the identity realm, and migrations already applied' >&2
     echo 'are carried by the next release as well. See the CI/CD runbook.' >&2
     exit 1
   fi
-  target=candidate; compose stop --timeout 120 worker; compose stop --timeout 45 api
+  target=candidate; if has_channels; then compose stop --timeout 45 channels; fi
+  target=candidate; compose stop --timeout 180 worker; compose stop --timeout 45 api
   if has_schema_history; then schema > "$tx/schema.after-failure"; else : > "$tx/schema.after-failure"; fi
   cmp --silent "$tx/schema.before" "$tx/schema.after-failure" || {
     echo 'Schema changed: writers stopped; operator recovery is required. No database restore was attempted.' >&2; exit 1;
   }
-  if ! has_interpreter "$tx/previous.env"; then
-    # The previous Compose files have no interpreter service to restore; leave the candidate one stopped.
-    target=candidate; compose stop --timeout 65 interpreter
+  if ! has_sandbox "$tx/previous.env"; then
+    # The previous Compose files have no sandbox server to restore; leave the candidate one stopped.
+    target=candidate; compose stop --timeout 30 sandbox
   fi
   # A previous runtime without a release Keycloak leaves the candidate's running: stopping it would
   # sign nobody in, and restoring the operator's image is the operator's call.
@@ -353,6 +433,13 @@ elif [[ "$mode" == finish ]]; then
   printf '%s %s\n' "$release" "$target" > "$tx/result"
   rm -- "$state/pending"
   echo "Finalized $target runtime for workflow $release; business acceptance remains separate"
+  # A release brings about 6 GB of images, and a day of merges filled staging's disk before the daily prune ran
+  # (2026-10-03, 2026-10-16), so the next deployment failed in its pull. The record just written names what to keep.
+  # The prune takes the lock itself, so this invocation lets it go first; a prune that fails leaves the release
+  # accepted, and the daily timer tries again.
+  exec 9>&-
+  MEMORYOS_ROOT=$root bash "$tx/source/infrastructure/deployment/prune-release-images.sh" \
+    || echo 'deploy.sh: superseded release images were not removed; the daily prune retries' >&2
 else
   echo 'Expected deploy, rollback or finish' >&2
   exit 1

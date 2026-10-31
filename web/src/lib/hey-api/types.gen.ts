@@ -4,6 +4,13 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+export type AllowChannelGroupRequest = {
+    /**
+     * True allows the bot to answer there, false withdraws it
+     */
+    allowed: boolean;
+};
+
 export type ReplaceSharePointScopeRequest = {
     requestId: string;
     /**
@@ -390,6 +397,14 @@ export type McpServerInput = {
     sharedApiKey: McpSecretChange;
     tenantWide: boolean;
     groupIds: Array<string>;
+    /**
+     * Assistants the server is open through alone; empty or absent for any other access
+     */
+    personaIds?: Array<string> | null;
+    /**
+     * Whether public bots may use the server; only with a shared connection or none
+     */
+    publicBots?: boolean | null;
 };
 
 /**
@@ -412,6 +427,14 @@ export type McpServerView = {
     sharedCredentialConfigured: boolean;
     tenantWide: boolean;
     groupIds: Array<string>;
+    /**
+     * Assistants the server is open through alone; empty for any other access
+     */
+    personaIds: Array<string>;
+    /**
+     * Whether public bots may use the server
+     */
+    publicBots: boolean;
     status: 'CREATED' | 'AWAITING_AUTH' | 'FETCHING_TOOLS' | 'CONNECTED' | 'DISCONNECTED';
     lastRefreshedAt: string | null;
     toolCount: number;
@@ -419,8 +442,8 @@ export type McpServerView = {
     revision: number;
 };
 
-export type McpToolEnablement = {
-    enabled: boolean;
+export type McpToolPolicyChange = {
+    policy: 'ALWAYS' | 'ASK' | 'OFF';
 };
 
 /**
@@ -437,10 +460,32 @@ export type McpToolView = {
     description: string;
     readOnlyHint: boolean | null;
     destructiveHint: boolean | null;
-    enabled: boolean;
+    /**
+     * From the annotations: READ, WRITE or DESTRUCTIVE
+     */
+    risk: 'READ' | 'WRITE' | 'DESTRUCTIVE';
+    /**
+     * ALWAYS runs, ASK waits for the person, OFF is never offered
+     */
+    policy: 'ALWAYS' | 'ASK' | 'OFF';
+    /**
+     * An administrator chose the policy; refreshes keep it
+     */
+    policyCustomized: boolean;
     exposable: boolean;
     snapshotAt: string;
     revision: number;
+};
+
+export type McpToolGroupPolicyChange = {
+    /**
+     * The group of tools to change
+     */
+    risk: 'READ' | 'WRITE' | 'DESTRUCTIVE';
+    /**
+     * DESTRUCTIVE refuses ALWAYS
+     */
+    policy: 'ALWAYS' | 'ASK' | 'OFF';
 };
 
 /**
@@ -640,6 +685,131 @@ export type SharePointCredentialResponse = {
     actions: Array<string>;
 };
 
+export type RenameLarkCredentialRequest = {
+    name: string;
+};
+
+export type LarkCredentialRequest = {
+    name: string;
+    /**
+     * Lark international or Feishu
+     */
+    region: 'LARK' | 'FEISHU';
+    /**
+     * App ID of the custom app, starting with cli_
+     */
+    appId: string;
+    /**
+     * App Secret of the custom app
+     */
+    appSecret: string;
+};
+
+export type LarkCredentialResponse = {
+    id: string;
+    name: string;
+    region: string;
+    appId: string;
+    status: string;
+    /**
+     * The bot Lark named at the last verification: what is added to a space or a folder
+     */
+    botName?: string;
+    /**
+     * Read scopes Lark refused to the app's tenant token at the last verification
+     */
+    missingScopes: Array<string>;
+    credentialRevision: number;
+    createdAt: string;
+    updatedAt: string;
+    sourceCount: number;
+    actions: Array<string>;
+};
+
+export type LarkCredentialTestResponse = {
+    botName: string;
+    missingScopes: Array<string>;
+};
+
+export type LarkRootRequest = {
+    kind: 'WIKI_SPACE' | 'DRIVE_FOLDER';
+    /**
+     * A Wiki space ID, or the link or token of a Drive folder
+     */
+    value: string;
+};
+
+export type LarkScopeRequest = {
+    roots: Array<LarkRootRequest>;
+    syncIntervalMinutes: number;
+};
+
+export type CreateLarkSourceRequest = {
+    /**
+     * Identifies the request so a retry recovers its receipt
+     */
+    requestId: string;
+    name: string;
+    credentialId: string;
+    scope: LarkScopeRequest;
+    access: 'PUBLIC' | 'PRIVATE' | 'SYNC';
+    groupIds?: Array<string>;
+};
+
+export type ReplaceLarkScopeRequest = {
+    requestId: string;
+    /**
+     * Credential revision the scope was reviewed against
+     */
+    expectedCredentialRevision: number;
+    scope: LarkScopeRequest;
+};
+
+export type UpdateLarkPauseRequest = {
+    expectedRevision: number;
+    paused: boolean;
+};
+
+export type UpdateLarkScheduleRequest = {
+    syncIntervalMinutes: number;
+};
+
+export type LarkSelectionReceiptResponse = {
+    sourceId: string;
+    operation: SourceOperation;
+};
+
+export type LarkRootResponse = {
+    kind: 'WIKI_SPACE' | 'DRIVE_FOLDER';
+    token: string;
+    /**
+     * The name Lark gave the space or the folder when it was verified
+     */
+    displayName?: string;
+};
+
+export type LarkSpaceOptionResponse = {
+    spaceId: string;
+    name: string;
+};
+
+export type LarkConfigurationResponse = {
+    sourceId: string;
+    credentialId: string;
+    credentialName: string;
+    credentialStatus: string;
+    credentialRevision: number;
+    scopeRevision: number;
+    rootCount: number;
+    syncIntervalMinutes: number;
+    scheduleRevision: number;
+    syncPaused: boolean;
+    lastSyncedAt?: string;
+    pendingWork: boolean;
+    errorCode?: string;
+    pendingSelectionOperation?: SourceOperation;
+};
+
 export type GoogleDriveServiceAccountRequest = {
     name: string;
     /**
@@ -731,7 +901,7 @@ export type SystemOneTaskRequest = {
  * What one task runs on: a Tenant model, a System One connection for a classifying task, or with neither the conversation model
  */
 export type ModelFlow = {
-    flow: 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
+    flow: 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'AGENT_BUILDER' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     modelConfigurationId: string | null;
     /**
      * False when the model is set but no longer eligible; the task then uses the conversation model
@@ -876,6 +1046,57 @@ export type Title = {
     title: string;
 };
 
+/**
+ * One row of the caller's list of assistants: the built-in assistant first, then their pins in order
+ */
+export type ChatAssistant = {
+    id: string;
+    name: string;
+    /**
+     * The role line under the name; null when unset or the assistant is not usable
+     */
+    title: string | null;
+    /**
+     * Empty when the assistant is not usable
+     */
+    description: string;
+    /**
+     * Seed of the assistant's generated face
+     */
+    avatarSeed: string;
+    /**
+     * An uploaded image replaces the face; false when the assistant is not usable
+     */
+    hasAvatar: boolean;
+    builtin: boolean;
+    /**
+     * The owning group's name, else the owner's name or email; null for the built-in assistant or an unusable one
+     */
+    ownerName: string | null;
+    /**
+     * False once the assistant was deleted or is no longer shared with the caller; its topics stay readable
+     */
+    usable: boolean;
+    /**
+     * The caller's newest web topic with this assistant; null before the first
+     */
+    latestTopic: ChatAssistantTopic | null;
+};
+
+export type ChatAssistantTopic = {
+    sessionId: string;
+    title: string;
+    /**
+     * When its last question or finished answer was written
+     */
+    lastMessageAt: string;
+    /**
+     * That message as one line of plain text, at most 120 characters; empty before anyone wrote
+     */
+    preview: string;
+    replyRunning: boolean;
+};
+
 export type ChatSession = {
     id: string;
     personaId: string;
@@ -904,6 +1125,10 @@ export type ChatSession = {
      * A temporary conversation: listed nowhere, and deleted with its uploads after its window
      */
     temporary: boolean;
+    /**
+     * An answer is being written in it
+     */
+    replyRunning: boolean;
 };
 
 export type Sharing = {
@@ -1038,6 +1263,13 @@ export type ProjectView = {
     iconName?: string;
 };
 
+/**
+ * Every project of the actor exactly once, in the chosen order
+ */
+export type ProjectOrderRequest = {
+    projectIds?: Array<string>;
+};
+
 export type ChatPreferencesInput = {
     workRole: string;
     personalPreferences: string;
@@ -1045,6 +1277,44 @@ export type ChatPreferencesInput = {
     temperatureDefault?: number | null;
     reasoningEffortDefault?: 'OFF' | 'LOW' | 'MEDIUM' | 'HIGH';
     autoScroll: boolean;
+    /**
+     * The assistant the member's direct messages to a bot answer with; null keeps the bot's own
+     */
+    channelPersonaId?: string | null;
+};
+
+export type ChatMemory = {
+    /**
+     * The memory document; empty when nothing is remembered
+     */
+    content: string;
+    /**
+     * Whether Chat reads and writes the memory
+     */
+    enabled: boolean;
+    /**
+     * Send it back when saving the text, so a newer change is not overwritten
+     */
+    revision: number;
+    /**
+     * The longest memory accepted, in characters
+     */
+    maxLength: number;
+};
+
+export type ChatMemoryEnabledInput = {
+    enabled: boolean;
+};
+
+export type ChatMemoryInput = {
+    /**
+     * The whole memory, at most 4000 characters
+     */
+    content: string;
+    /**
+     * The revision this text was edited from
+     */
+    revision: number;
 };
 
 export type ChatPreferences = {
@@ -1054,29 +1324,47 @@ export type ChatPreferences = {
     temperatureDefault: number | null;
     reasoningEffortDefault: 'OFF' | 'LOW' | 'MEDIUM' | 'HIGH';
     autoScroll: boolean;
+    /**
+     * The assistant the member's direct messages to a bot answer with; absent for the bot's own
+     */
+    channelPersonaId?: string | null;
     displayName: string | null;
     email: string | null;
 };
 
 export type PersonaInput = {
     name?: string;
+    /**
+     * The role line under the name; null or blank clears it
+     */
+    title?: string | null;
     description?: string;
     instructions?: string;
-    taskPrompt?: string;
+    /**
+     * What an empty conversation opens with; null or blank shows the default heading
+     */
+    greeting?: string | null;
     starterPrompts?: Array<string>;
     sourceIds?: Array<string>;
     documentSetIds?: Array<string>;
     tools?: Array<string>;
     mcpServerIds?: Array<string>;
     modelConfigurationId?: string | null;
-    contextTokenLimit?: number | null;
-    outputTokenLimit?: number | null;
+    /**
+     * The agent's own reasoning level; null leaves it to the conversation, the member and the model
+     */
+    reasoningEffort?: 'OFF' | 'LOW' | 'MEDIUM' | 'HIGH';
     fileIds?: Array<string>;
-    iconName?: string;
+    /**
+     * The seed of the agent's face; null keeps it, and a new agent gets a random one
+     */
+    avatarSeed?: string | null;
     avatarFileId?: string;
+    /**
+     * True drops the uploaded image so the face shows
+     */
+    removeAvatar?: boolean | null;
     labelIds?: Array<string>;
-    replaceBaseSystemPrompt?: boolean;
-    knowledgeCutoff?: string;
     grounded?: boolean;
 };
 
@@ -1129,12 +1417,14 @@ export type PersonaPermissions = {
 export type PersonaView = {
     id?: string;
     builtin?: boolean;
+    templateKey?: string;
     permissions?: PersonaPermissions;
     revision?: number;
     name?: string;
+    title?: string;
     description?: string;
     instructions?: string;
-    taskPrompt?: string;
+    greeting?: string;
     starterPrompts?: Array<string>;
     sourceIds?: Array<string>;
     sources?: Array<AgentSourceRef>;
@@ -1143,10 +1433,9 @@ export type PersonaView = {
     tools?: Array<string>;
     mcpServers?: Array<AgentRef>;
     modelConfigurationId?: string | null;
-    contextTokenLimit?: number | null;
-    outputTokenLimit?: number | null;
+    reasoningEffort?: 'OFF' | 'LOW' | 'MEDIUM' | 'HIGH' | null;
     fileIds?: Array<string>;
-    iconName?: string;
+    avatarSeed?: string;
     hasAvatar?: boolean;
     labels?: Array<AgentRef>;
     owner?: AgentOwner;
@@ -1158,11 +1447,11 @@ export type PersonaView = {
     listed?: boolean;
     featured?: boolean;
     displayPriority?: number;
-    replaceBaseSystemPrompt?: boolean;
     grounded?: boolean;
-    knowledgeCutoff?: string;
     pinned?: boolean;
     deletedAt?: string;
+    openMcpServers?: Array<AgentRef>;
+    publicBotMcpServers?: Array<AgentRef>;
 };
 
 export type GroupShareInput = {
@@ -1281,36 +1570,56 @@ export type Default = {
     revision: number;
 };
 
-export type InterpreterSettingsRequest = {
+export type SandboxSettingsRequest = {
     enabled: boolean;
     revision: number;
 };
 
-export type InterpreterSettingsResponse = {
+export type SandboxSettingsResponse = {
     /**
-     * Whether this deployment has a Code Interpreter service
+     * Whether this deployment has a sandbox
      */
     configured: boolean;
     enabled: boolean;
     revision: number;
+    /**
+     * The only domains a sandbox may reach, set by the deployment; empty denies all egress
+     */
+    allowedDomains: Array<string>;
 };
 
 export type ImageSelectionRequest = {
-    provider?: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI';
+    provider?: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI' | 'GEMINI_IMAGE' | 'OPENROUTER_IMAGE' | 'XAI_IMAGE' | 'FAL_AI' | 'CUSTOM_HTTP';
+};
+
+export type ImageTemplate = {
+    authHeader: string;
+    authPrefix: string;
+    generate: ImageTemplateStep;
+    edit?: ImageTemplateStep;
+};
+
+export type ImageTemplateStep = {
+    path: string;
+    body: string;
+    imagePointer: string;
+    imageFormat: 'BASE64' | 'DATA_URI' | 'RAW';
 };
 
 export type ImageConnectionRequest = {
     endpoint: string;
     model: string;
+    template?: ImageTemplate;
     credentialAction: 'KEEP' | 'REPLACE' | 'REMOVE';
     credentialValue?: string;
     revision?: number;
 };
 
 export type ImageConnectionResponse = {
-    provider: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI';
+    provider: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI' | 'GEMINI_IMAGE' | 'OPENROUTER_IMAGE' | 'XAI_IMAGE' | 'FAL_AI' | 'CUSTOM_HTTP';
     endpoint: string;
     model: string;
+    template?: ImageTemplate;
     credentialConfigured?: boolean;
     active?: boolean;
     revision?: number;
@@ -1354,6 +1663,15 @@ export type View = {
 export type DocumentSetSharingInput = {
     actorIds?: Array<string>;
     groupIds?: Array<string>;
+};
+
+export type UpdateChannelTransportRequest = {
+    transport: 'WEBHOOK' | 'POLLING';
+};
+
+export type ChannelAssistantResponse = {
+    id: string;
+    name: string;
 };
 
 export type AiUsageLimitRequest = {
@@ -1557,7 +1875,7 @@ export type SearchRequest = {
     updatedTo?: string;
     page?: number;
     pageSize?: number;
-    sourceTypes?: Array<'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT'>;
+    sourceTypes?: Array<'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT' | 'LARK'>;
     documentSetIds?: Array<string>;
 };
 
@@ -1574,7 +1892,7 @@ export type Result = {
     updatedAt: string;
     score: number;
     sections: Array<Section>;
-    sourceTypes: Array<'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT'>;
+    sourceTypes: Array<'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT' | 'LARK'>;
     authors: Array<string>;
     providerUrl: string | null;
 };
@@ -1615,7 +1933,7 @@ export type SourceFacets = {
 };
 
 export type SourceTypeFacet = {
-    type: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT';
+    type: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT' | 'LARK';
     count: number;
 };
 
@@ -2085,7 +2403,7 @@ export type GroupSummary = {
     systemKey: GroupSystemKey | null;
     memberCount: number;
     managerCount: number;
-    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ' | 'CHAT_HISTORY_READ'>;
+    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'CHANNELS_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ' | 'CHAT_HISTORY_READ'>;
     permissions: GroupPermissions;
 };
 
@@ -2100,7 +2418,7 @@ export type AddGroupMembersRequest = {
 };
 
 export type ReplaceGroupCapabilitiesRequest = {
-    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ' | 'CHAT_HISTORY_READ'>;
+    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'CHANNELS_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ' | 'CHAT_HISTORY_READ'>;
 };
 
 export type SharePointCredentialTestResponse = {
@@ -2173,6 +2491,14 @@ export type Send = {
      */
     deepResearch?: boolean;
     mcpServerIds?: Array<string>;
+    /**
+     * The assistant's unsaved settings for this turn: only in a temporary conversation, for a person who may edit its assistant; checked as a save is, never stored
+     */
+    draftPersona?: PersonaInput;
+    /**
+     * Run the Agent Builder on draftPersona instead of the assistant: it edits the unsaved settings through assistant_change events and stores nothing; absent means false
+     */
+    builder?: boolean;
 };
 
 export type Accepted = {
@@ -2213,6 +2539,25 @@ export type BranchChatSessionRequest = {
      * What to call the branch; the server names it after its origin when absent
      */
     title?: string;
+};
+
+export type ChatToolAppRequest = {
+    method: 'mcp-apps/read-resource' | 'tools/call' | 'resources/read' | 'resources/list';
+    params?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * The person approved this call of a tool that asks first
+     */
+    approved?: boolean | null;
+};
+
+export type ChatToolDecision = {
+    approved: boolean;
+    /**
+     * With approved, the tool also runs without asking from now on; needs MCP_MANAGE and a tool that is not destructive
+     */
+    alwaysAllow?: boolean | null;
 };
 
 export type Cancellation = {
@@ -2323,6 +2668,7 @@ export type ChatLibraryArchive = {
 export type ImageConnectionTestRequest = {
     endpoint: string;
     model: string;
+    template?: ImageTemplate;
     credentialValue?: string;
 };
 
@@ -2364,6 +2710,32 @@ export type ChatExport = {
     failure: string | null;
     createdAt: string;
     expiresAt: string | null;
+};
+
+export type CreateZaloChannelRequest = {
+    /**
+     * The bot's name here, and its account's
+     */
+    name: string;
+    /**
+     * The bot's token from Zalo Bot Creator
+     */
+    token: string;
+    /**
+     * The language of the bot's notices
+     */
+    noticeLanguage: 'vi' | 'en';
+    /**
+     * How the bot receives: WEBHOOK where the deployment has a public address, which is the default there, else POLLING
+     */
+    transport?: 'WEBHOOK' | 'POLLING';
+};
+
+export type ZaloBotRequest = {
+    /**
+     * The bot's token from Zalo Bot Creator
+     */
+    token: string;
 };
 
 /**
@@ -2469,7 +2841,7 @@ export type ChatLibraryFileUsage = {
     name: string;
 };
 
-export type AccountType = 'STANDARD';
+export type AccountType = 'STANDARD' | 'SERVICE';
 
 export type TenantMembershipRole = 'OWNER' | 'MEMBER';
 
@@ -2940,11 +3312,11 @@ export type CurrentIdentity = {
     /**
      * Expanded global capabilities backed by current server enforcement.
      */
-    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ' | 'CHAT_HISTORY_READ'>;
+    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'CHANNELS_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ' | 'CHAT_HISTORY_READ'>;
     /**
      * Eligible capabilities available only within resources managed by this actor.
      */
-    scopedCapabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ' | 'CHAT_HISTORY_READ'>;
+    scopedCapabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'CHANNELS_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ' | 'CHAT_HISTORY_READ'>;
     /**
      * Monotonic Tenant IAM revision used only to invalidate private client data.
      */
@@ -2986,7 +3358,7 @@ export type GroupMember = {
     actorId: string;
     displayName: string | null;
     email: string | null;
-    accountType: 'STANDARD';
+    accountType: 'STANDARD' | 'SERVICE';
     status: 'ACTIVE' | 'INACTIVE';
     isManager: boolean;
     protectedOwner: boolean;
@@ -3005,11 +3377,11 @@ export type GroupCapabilities = {
 };
 
 export type GroupCapability = {
-    id: 'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ' | 'CHAT_HISTORY_READ';
+    id: 'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'CHANNELS_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ' | 'CHAT_HISTORY_READ';
     label: string;
     description: string;
     editable: boolean;
-    implies: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ' | 'CHAT_HISTORY_READ'>;
+    implies: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'CHANNELS_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ' | 'CHAT_HISTORY_READ'>;
 };
 
 export type WebAvailabilityResponse = {
@@ -3079,12 +3451,13 @@ export type ActivityStep = {
     filters?: SearchFilters;
     documents?: Array<ReadingDocument>;
     citations?: Array<number>;
-    failure?: 'AUTHORIZATION_REQUIRED' | 'TIMEOUT' | 'UNAVAILABLE';
+    failure?: 'AUTHORIZATION_REQUIRED' | 'TIMEOUT' | 'UNAVAILABLE' | 'DECLINED' | 'NO_DECISION';
 };
 
 export type ChatActivity = {
     steps?: Array<ActivityStep>;
     reasoning?: Array<ReasoningSegment>;
+    unavailableApps?: Array<UnavailableApp>;
 };
 
 export type ChatArtifact = {
@@ -3116,6 +3489,10 @@ export type ChatMessage = {
     activity: ChatActivity;
     images: Array<ImageRef>;
     generatedFiles: Array<GeneratedFileRef>;
+    /**
+     * The MCP Apps views of the answer's tool calls
+     */
+    apps: Array<ChatToolApp>;
     research: ChatMessageResearch;
     /**
      * Why a FAILED reply ended, for example CHAT_MODEL_OUTPUT_LIMIT; null otherwise
@@ -3125,6 +3502,14 @@ export type ChatMessage = {
      * Why a COMPLETED reply declined instead of answering: no_evidence, uncited or blocked_topic (answers from documents only, sensitive topics); null otherwise
      */
     refusalReason: string | null;
+    /**
+     * Estimated input tokens of the reply's last model call; null when unknown
+     */
+    contextTokens: number | null;
+    /**
+     * The model's input limit for that call; null when unknown
+     */
+    contextLimit: number | null;
 };
 
 export type ChatMessageResearch = {
@@ -3162,8 +3547,15 @@ export type ChatSource = {
     fileLocation?: FileLocation;
     web?: WebLocation;
     mediaType?: string;
-    sourceTypes: Array<'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT'>;
+    sourceTypes: Array<'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT' | 'LARK'>;
     providerUrl?: string;
+};
+
+export type ChatToolApp = {
+    toolCallId: string;
+    resourceUri: string;
+    input: string;
+    output: string;
 };
 
 export type FileLocation = {
@@ -3223,9 +3615,15 @@ export type ReasoningSegment = {
 };
 
 export type SearchFilters = {
-    sources?: Array<'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT'>;
+    sources?: Array<'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT' | 'LARK'>;
     created?: Interval;
     updated?: Interval;
+};
+
+export type UnavailableApp = {
+    serverId?: string;
+    serverName?: string;
+    reason?: 'NOT_CONNECTED' | 'REAUTH_REQUIRED';
 };
 
 export type WebLocation = {
@@ -3246,6 +3644,14 @@ export type OutcomeEvent = {
     status: 'COMPLETED' | 'CANCELED' | 'FAILED';
     failureCode: string | null;
     hasArtifacts: boolean;
+    /**
+     * Estimated input tokens of the reply's last model call
+     */
+    contextTokens: number | null;
+    /**
+     * The model's input limit for that call
+     */
+    contextLimit: number | null;
 };
 
 export type ResetEvent = {
@@ -3274,6 +3680,10 @@ export type ToolEvent = {
      * Why a FAILED step failed when the person can act on it; a category only.
      */
     failure: 'AUTHORIZATION_REQUIRED' | 'TIMEOUT' | 'UNAVAILABLE';
+    /**
+     * The MCP Apps view of a COMPLETED MCP call whose tool has one
+     */
+    app: ChatToolApp | null;
 };
 
 export type ReasoningEvent = {
@@ -3302,6 +3712,10 @@ export type CodeEvent = {
     output: string | null;
     files: Array<GeneratedFile>;
     stream: 'stdout' | 'stderr';
+    /**
+     * A sandbox command's title, on its running stage
+     */
+    title: string | null;
 };
 
 export type GeneratedFile = {
@@ -3349,6 +3763,66 @@ export type IntermediateReportCitationsEvent = {
 export type ResearchCitation = {
     marker: number;
     citationId: number;
+};
+
+export type WaitingEvent = {
+    assistantMessageId: string;
+    sequence: number;
+    waiting: boolean;
+};
+
+export type ToolApprovalEvent = {
+    assistantMessageId: string;
+    sequence: number;
+    toolCallId: string;
+    serverName: string;
+    toolName: string;
+    /**
+     * The tool's display name, when the server gives one
+     */
+    toolTitle?: string;
+    /**
+     * The call's JSON arguments, cut at 4,000 characters
+     */
+    arguments: string;
+    /**
+     * Absent while the call waits
+     */
+    decision?: 'APPROVED' | 'DECLINED' | 'NO_DECISION';
+    /**
+     * The reply's owner may answer with always allow
+     */
+    alwaysAllowable: boolean;
+};
+
+export type McpUnavailableEvent = {
+    assistantMessageId: string;
+    sequence: number;
+    apps: Array<UnavailableApp>;
+};
+
+export type AssistantChangeEvent = {
+    assistantMessageId: string;
+    sequence: number;
+    toolCallId: string;
+    change: AssistantPatch;
+};
+
+export type AssistantPatch = {
+    name?: string;
+    title?: string;
+    description?: string;
+    avatarSeed?: string;
+    instructions?: string;
+    greeting?: string;
+    starterPrompts?: Array<string>;
+    tools?: Array<string>;
+    sourceIds?: Array<string>;
+    documentSetIds?: Array<string>;
+    mcpServerIds?: Array<string>;
+    modelConfigurationId?: string;
+    reasoningEffort?: string;
+    grounded?: boolean;
 };
 
 export type ChatBranch = {
@@ -3412,10 +3886,48 @@ export type AvailableModel = {
     isDefault: boolean;
 };
 
+export type AssistantChannelGroupResponse = {
+    /**
+     * The platform's id of the group chat
+     */
+    id: string;
+    /**
+     * The administrator's own name for the group
+     */
+    label?: string;
+    /**
+     * The group's name on the platform; absent when the platform gives none
+     */
+    name?: string;
+};
+
+export type AssistantChannelResponse = {
+    id: string;
+    provider: 'LARK' | 'ZALO_BOT' | 'WHATSAPP';
+    name: string;
+    /**
+     * The bot the platform named at the last check
+     */
+    botName?: string;
+    enabled: boolean;
+    /**
+     * Whether the bot answers anyone, so whatever the assistant is given is read by anyone who messages it
+     */
+    publicAccess: boolean;
+    /**
+     * Whether the assistant is the bot's default, used where no group chat has its own
+     */
+    byDefault: boolean;
+    /**
+     * The bot's group chats given the assistant as their own
+     */
+    groups: Array<AssistantChannelGroupResponse>;
+};
+
 export type SourceOption = {
     id?: string;
     name?: string;
-    type?: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT';
+    type?: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT' | 'LARK';
 };
 
 export type ChatPersona = {
@@ -3548,7 +4060,7 @@ export type ChatLibraryEntryDocument = {
     title: string | null;
     sourceId: string;
     sourceName: string;
-    sourceType: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT';
+    sourceType: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT' | 'LARK';
     /**
      * The document in its provider, when it has one
      */
@@ -3600,7 +4112,7 @@ export type ChatLibraryEntryReason = {
 export type ChatLibrarySource = {
     id: string;
     name: string;
-    type: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT';
+    type: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT' | 'LARK';
     /**
      * What admits the viewer: every member, a Group of theirs, or the provider's own grants
      */
@@ -3654,10 +4166,10 @@ export type ChatLibraryDocumentPage = {
 export type ChatLibrarySourceOption = {
     id: string;
     name: string;
-    type: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT';
+    type: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT' | 'LARK';
 };
 
-export type InterpreterHealthResponse = {
+export type SandboxHealthResponse = {
     connected: boolean;
     error: string;
     version: string;
@@ -3665,7 +4177,7 @@ export type InterpreterHealthResponse = {
 
 export type ImageAvailabilityResponse = {
     available: boolean;
-    provider?: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI';
+    provider?: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI' | 'GEMINI_IMAGE' | 'OPENROUTER_IMAGE' | 'XAI_IMAGE' | 'FAL_AI' | 'CUSTOM_HTTP';
     model?: string;
 };
 
@@ -3679,7 +4191,7 @@ export type ImageKnownModelResponse = {
 };
 
 export type ImageProviderResponse = {
-    provider: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI';
+    provider: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI' | 'GEMINI_IMAGE' | 'OPENROUTER_IMAGE' | 'XAI_IMAGE' | 'FAL_AI' | 'CUSTOM_HTTP';
     credentialRequired: boolean;
     defaultEndpoint?: string;
     endpointRequired: boolean;
@@ -3706,6 +4218,10 @@ export type ChatHistoryEntry = {
      */
     deleted: boolean;
     updatedAt: string;
+    /**
+     * Where the conversation is held
+     */
+    surface: 'WEB' | 'CHANNEL';
 };
 
 export type ChatHistoryPage = {
@@ -3939,6 +4455,215 @@ export type ApiProblem = {
         id: string;
         name: string;
     }>;
+};
+
+export type ReplaceChannelSecretRequest = {
+    appSecret: string;
+};
+
+export type UpdateChannelPublicRequest = {
+    publicAccess: boolean;
+};
+
+export type BindChannelAssistantRequest = {
+    /**
+     * The assistant; null answers with the built-in one, and a bot bound elsewhere moves
+     */
+    personaId?: string | null;
+};
+
+export type BindChannelGroupAssistantRequest = {
+    /**
+     * The assistant, the built-in one included; null answers with the bot's default
+     */
+    personaId?: string | null;
+};
+
+export type ChannelGroupResponse = {
+    /**
+     * The platform's id of the group chat
+     */
+    id: string;
+    /**
+     * The administrator's own name for the group, shown before the platform's
+     */
+    label?: string;
+    /**
+     * The group's name on the platform; absent when the platform gives none (Zalo)
+     */
+    name?: string;
+    /**
+     * When the group became known: the bot's first answer there, or on Lark the bot joining it
+     */
+    firstMessageAt: string;
+    /**
+     * When the bot last answered there; absent for a Lark group nobody has asked in yet
+     */
+    lastMessageAt?: string;
+    /**
+     * The assistant the group answers with; absent when it answers with the bot's default
+     */
+    assistant?: ChannelAssistantResponse;
+    /**
+     * Whether the bot answers there only once an administrator allows it, as on Zalo, which cannot tell who is in a group (MEM-285)
+     */
+    permission: 'NOT_NEEDED' | 'ALLOWED' | 'WAITING';
+};
+
+export type LabelChannelGroupRequest = {
+    /**
+     * The name; blank or null clears it
+     */
+    label?: string | null;
+};
+
+export type CreateWhatsAppChannelRequest = {
+    /**
+     * The bot's name here, and its account's
+     */
+    name: string;
+    /**
+     * The bot's WhatsApp number in international form; only this number may link it
+     */
+    phone: string;
+    /**
+     * The language of the bot's notices
+     */
+    noticeLanguage: 'vi' | 'en';
+};
+
+export type ChannelPairingResponse = {
+    /**
+     * The QR code's content
+     */
+    code: string;
+    expiresAt: string;
+};
+
+export type ChannelResponse = {
+    id: string;
+    provider: 'LARK' | 'ZALO_BOT' | 'WHATSAPP';
+    name: string;
+    /**
+     * Where a Lark bot's app is hosted; absent for another platform
+     */
+    region?: 'LARK' | 'FEISHU';
+    /**
+     * How a Zalo bot receives; absent for a platform with one way of its own
+     */
+    transport?: 'WEBHOOK' | 'POLLING';
+    /**
+     * The platform's id of the bot's app
+     */
+    appId: string;
+    noticeLanguage: string;
+    enabled: boolean;
+    /**
+     * Whether the bot answers anyone who addresses it, as its own account, from its assistant's attachments only
+     */
+    publicAccess: boolean;
+    /**
+     * The account a group question runs as
+     */
+    serviceAccountId: string;
+    /**
+     * The bot the platform named at the last check
+     */
+    botName?: string;
+    /**
+     * Scopes the bot needs that the platform refused at the last check
+     */
+    missingScopes: Array<string>;
+    /**
+     * OFF when switched off; NOT_RUNNING when no process holds it; PAIRING while it shows a code to scan; else CONNECTING, CONNECTED or FAILED
+     */
+    status: 'OFF' | 'NOT_RUNNING' | 'CONNECTING' | 'PAIRING' | 'CONNECTED' | 'FAILED';
+    /**
+     * The typed code of the last failure to open the connection
+     */
+    failureCode?: string;
+    /**
+     * When that failure happened
+     */
+    failedAt?: string;
+    /**
+     * Since when the connection has been open
+     */
+    connectedAt?: string;
+    /**
+     * When the bot last received a message
+     */
+    lastMessageAt?: string;
+    /**
+     * The assistant the bot answers with; absent when it answers with the built-in one
+     */
+    assistant?: ChannelAssistantResponse;
+    revision: number;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type UpdateChannelEnabledRequest = {
+    enabled: boolean;
+};
+
+export type CreateChannelRequest = {
+    /**
+     * The bot's name here, and its account's
+     */
+    name: string;
+    /**
+     * Lark international or Feishu
+     */
+    region: 'LARK' | 'FEISHU';
+    /**
+     * App ID of the custom app, starting with cli_
+     */
+    appId: string;
+    /**
+     * App Secret of the custom app
+     */
+    appSecret: string;
+    /**
+     * The language of the bot's notices
+     */
+    noticeLanguage: 'vi' | 'en';
+};
+
+export type ChannelAppRequest = {
+    /**
+     * Lark international or Feishu
+     */
+    region: 'LARK' | 'FEISHU';
+    /**
+     * App ID of the custom app, starting with cli_
+     */
+    appId: string;
+    /**
+     * App Secret of the custom app
+     */
+    appSecret: string;
+};
+
+export type ChannelAppCheckResponse = {
+    botName: string;
+    missingScopes: Array<string>;
+};
+
+export type CreateChannelLinkCodeRequest = {
+    connectionId: string;
+};
+
+export type ChannelLinkCodeResponse = {
+    code: string;
+    expiresAt: string;
+};
+
+export type ChannelLinkResponse = {
+    connectionId: string;
+    botName: string;
+    provider: 'LARK' | 'ZALO_BOT' | 'WHATSAPP';
+    linkedAt?: string;
 };
 
 export type ReplaceSharePointScopeData = {
@@ -4963,8 +5688,102 @@ export type UpdateMcpServerResponses = {
 
 export type UpdateMcpServerResponse = UpdateMcpServerResponses[keyof UpdateMcpServerResponses];
 
-export type SetMcpServerToolEnabledData = {
-    body: McpToolEnablement;
+export type ResetMcpServerToolPoliciesData = {
+    body?: never;
+    path: {
+        serverId: string;
+    };
+    query?: never;
+    url: '/api/mcp/servers/{serverId}/tools/policy';
+};
+
+export type ResetMcpServerToolPoliciesErrors = {
+    /**
+     * Invalid MCP configuration or tool snapshot
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or tool not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision, duplicate slug, missing credential or server authorization required
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ResetMcpServerToolPoliciesError = ResetMcpServerToolPoliciesErrors[keyof ResetMcpServerToolPoliciesErrors];
+
+export type ResetMcpServerToolPoliciesResponses = {
+    /**
+     * Tools with their default policies
+     */
+    200: Array<McpToolView>;
+};
+
+export type ResetMcpServerToolPoliciesResponse = ResetMcpServerToolPoliciesResponses[keyof ResetMcpServerToolPoliciesResponses];
+
+export type SetMcpServerToolGroupPolicyData = {
+    body: McpToolGroupPolicyChange;
+    path: {
+        serverId: string;
+    };
+    query?: never;
+    url: '/api/mcp/servers/{serverId}/tools/policy';
+};
+
+export type SetMcpServerToolGroupPolicyErrors = {
+    /**
+     * Invalid MCP configuration or tool snapshot
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or tool not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision, duplicate slug, missing credential or server authorization required
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SetMcpServerToolGroupPolicyError = SetMcpServerToolGroupPolicyErrors[keyof SetMcpServerToolGroupPolicyErrors];
+
+export type SetMcpServerToolGroupPolicyResponses = {
+    /**
+     * Saved tools
+     */
+    200: Array<McpToolView>;
+};
+
+export type SetMcpServerToolGroupPolicyResponse = SetMcpServerToolGroupPolicyResponses[keyof SetMcpServerToolGroupPolicyResponses];
+
+export type SetMcpServerToolPolicyData = {
+    body: McpToolPolicyChange;
     path: {
         serverId: string;
         toolId: string;
@@ -4972,10 +5791,10 @@ export type SetMcpServerToolEnabledData = {
     query: {
         revision: number;
     };
-    url: '/api/mcp/servers/{serverId}/tools/{toolId}/enabled';
+    url: '/api/mcp/servers/{serverId}/tools/{toolId}/policy';
 };
 
-export type SetMcpServerToolEnabledErrors = {
+export type SetMcpServerToolPolicyErrors = {
     /**
      * Invalid MCP configuration or tool snapshot
      */
@@ -5002,63 +5821,16 @@ export type SetMcpServerToolEnabledErrors = {
     503: ApiProblem;
 };
 
-export type SetMcpServerToolEnabledError = SetMcpServerToolEnabledErrors[keyof SetMcpServerToolEnabledErrors];
+export type SetMcpServerToolPolicyError = SetMcpServerToolPolicyErrors[keyof SetMcpServerToolPolicyErrors];
 
-export type SetMcpServerToolEnabledResponses = {
+export type SetMcpServerToolPolicyResponses = {
     /**
      * Saved tool
      */
     200: McpToolView;
 };
 
-export type SetMcpServerToolEnabledResponse = SetMcpServerToolEnabledResponses[keyof SetMcpServerToolEnabledResponses];
-
-export type SetAllMcpServerToolsEnabledData = {
-    body: McpToolEnablement;
-    path: {
-        serverId: string;
-    };
-    query?: never;
-    url: '/api/mcp/servers/{serverId}/tools/enabled';
-};
-
-export type SetAllMcpServerToolsEnabledErrors = {
-    /**
-     * Invalid MCP configuration or tool snapshot
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * MCP management, Tenant membership or CSRF requirement not met
-     */
-    403: ApiProblem;
-    /**
-     * MCP server or tool not accessible
-     */
-    404: ApiProblem;
-    /**
-     * Stale revision, duplicate slug, missing credential or server authorization required
-     */
-    409: ApiProblem;
-    /**
-     * MCP server or credential encryption key unavailable
-     */
-    503: ApiProblem;
-};
-
-export type SetAllMcpServerToolsEnabledError = SetAllMcpServerToolsEnabledErrors[keyof SetAllMcpServerToolsEnabledErrors];
-
-export type SetAllMcpServerToolsEnabledResponses = {
-    /**
-     * Saved tools
-     */
-    200: Array<McpToolView>;
-};
-
-export type SetAllMcpServerToolsEnabledResponse = SetAllMcpServerToolsEnabledResponses[keyof SetAllMcpServerToolsEnabledResponses];
+export type SetMcpServerToolPolicyResponse = SetMcpServerToolPolicyResponses[keyof SetMcpServerToolPolicyResponses];
 
 export type DeleteMcpServerOAuthClientData = {
     body?: never;
@@ -5873,7 +6645,7 @@ export type SaveChatVoiceConnectionResponse = SaveChatVoiceConnectionResponses[k
 export type SetSystemOneTaskData = {
     body: SystemOneTaskRequest;
     path: {
-        flow: 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
+        flow: 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'AGENT_BUILDER' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     };
     query?: never;
     url: '/api/chat/system-one/tasks/{flow}';
@@ -7338,6 +8110,47 @@ export type UpdateChatProjectResponses = {
 
 export type UpdateChatProjectResponse = UpdateChatProjectResponses[keyof UpdateChatProjectResponses];
 
+export type ReorderChatProjectsData = {
+    body: ProjectOrderRequest;
+    path?: never;
+    query?: never;
+    url: '/api/chat/projects/order';
+};
+
+export type ReorderChatProjectsErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type ReorderChatProjectsError = ReorderChatProjectsErrors[keyof ReorderChatProjectsErrors];
+
+export type ReorderChatProjectsResponses = {
+    /**
+     * Order saved
+     */
+    204: void;
+};
+
+export type ReorderChatProjectsResponse = ReorderChatProjectsResponses[keyof ReorderChatProjectsResponses];
+
 export type GetChatPreferencesData = {
     body?: never;
     path?: never;
@@ -7732,6 +8545,47 @@ export type SetChatPersonaListingResponses = {
 
 export type SetChatPersonaListingResponse = SetChatPersonaListingResponses[keyof SetChatPersonaListingResponses];
 
+export type ListChatAssistantsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/assistants';
+};
+
+export type ListChatAssistantsErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type ListChatAssistantsError = ListChatAssistantsErrors[keyof ListChatAssistantsErrors];
+
+export type ListChatAssistantsResponses = {
+    /**
+     * The assistants in order
+     */
+    200: Array<ChatAssistant>;
+};
+
+export type ListChatAssistantsResponse = ListChatAssistantsResponses[keyof ListChatAssistantsResponses];
+
 export type ListChatPersonaPinsData = {
     body?: never;
     path?: never;
@@ -8042,7 +8896,7 @@ export type UpdateChatModelResponse = UpdateChatModelResponses[keyof UpdateChatM
 export type SetChatModelFlowData = {
     body?: never;
     path: {
-        flow: 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
+        flow: 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'AGENT_BUILDER' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     };
     query: {
         modelConfigurationId?: string;
@@ -8271,16 +9125,16 @@ export type StarChatLibraryEntryResponses = {
 
 export type StarChatLibraryEntryResponse = StarChatLibraryEntryResponses[keyof StarChatLibraryEntryResponses];
 
-export type GetChatInterpreterSettingsData = {
+export type GetChatSandboxSettingsData = {
     body?: never;
     path?: never;
     query?: never;
-    url: '/api/chat/interpreter';
+    url: '/api/chat/sandbox';
 };
 
-export type GetChatInterpreterSettingsErrors = {
+export type GetChatSandboxSettingsErrors = {
     /**
-     * Invalid Code Interpreter setting
+     * Invalid Sandbox setting
      */
     400: ApiProblem;
     /**
@@ -8296,36 +9150,36 @@ export type GetChatInterpreterSettingsErrors = {
      */
     404: ApiProblem;
     /**
-     * Code Interpreter setting changed
+     * Sandbox setting changed
      */
     409: ApiProblem;
     /**
-     * Code Interpreter is not configured
+     * Sandbox is not configured
      */
     503: ApiProblem;
 };
 
-export type GetChatInterpreterSettingsError = GetChatInterpreterSettingsErrors[keyof GetChatInterpreterSettingsErrors];
+export type GetChatSandboxSettingsError = GetChatSandboxSettingsErrors[keyof GetChatSandboxSettingsErrors];
 
-export type GetChatInterpreterSettingsResponses = {
+export type GetChatSandboxSettingsResponses = {
     /**
-     * Code Interpreter setting
+     * Sandbox setting
      */
-    200: InterpreterSettingsResponse;
+    200: SandboxSettingsResponse;
 };
 
-export type GetChatInterpreterSettingsResponse = GetChatInterpreterSettingsResponses[keyof GetChatInterpreterSettingsResponses];
+export type GetChatSandboxSettingsResponse = GetChatSandboxSettingsResponses[keyof GetChatSandboxSettingsResponses];
 
-export type UpdateChatInterpreterSettingsData = {
-    body: InterpreterSettingsRequest;
+export type UpdateChatSandboxSettingsData = {
+    body: SandboxSettingsRequest;
     path?: never;
     query?: never;
-    url: '/api/chat/interpreter';
+    url: '/api/chat/sandbox';
 };
 
-export type UpdateChatInterpreterSettingsErrors = {
+export type UpdateChatSandboxSettingsErrors = {
     /**
-     * Invalid Code Interpreter setting
+     * Invalid Sandbox setting
      */
     400: ApiProblem;
     /**
@@ -8341,25 +9195,25 @@ export type UpdateChatInterpreterSettingsErrors = {
      */
     404: ApiProblem;
     /**
-     * Code Interpreter setting changed
+     * Sandbox setting changed
      */
     409: ApiProblem;
     /**
-     * Code Interpreter is not configured
+     * Sandbox is not configured
      */
     503: ApiProblem;
 };
 
-export type UpdateChatInterpreterSettingsError = UpdateChatInterpreterSettingsErrors[keyof UpdateChatInterpreterSettingsErrors];
+export type UpdateChatSandboxSettingsError = UpdateChatSandboxSettingsErrors[keyof UpdateChatSandboxSettingsErrors];
 
-export type UpdateChatInterpreterSettingsResponses = {
+export type UpdateChatSandboxSettingsResponses = {
     /**
-     * Saved Code Interpreter setting
+     * Saved Sandbox setting
      */
-    200: InterpreterSettingsResponse;
+    200: SandboxSettingsResponse;
 };
 
-export type UpdateChatInterpreterSettingsResponse = UpdateChatInterpreterSettingsResponses[keyof UpdateChatInterpreterSettingsResponses];
+export type UpdateChatSandboxSettingsResponse = UpdateChatSandboxSettingsResponses[keyof UpdateChatSandboxSettingsResponses];
 
 export type SelectChatImageProviderData = {
     body: ImageSelectionRequest;
@@ -8409,7 +9263,7 @@ export type SelectChatImageProviderResponse = SelectChatImageProviderResponses[k
 export type SaveChatImageConnectionData = {
     body: ImageConnectionRequest;
     path: {
-        provider: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI';
+        provider: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI' | 'GEMINI_IMAGE' | 'OPENROUTER_IMAGE' | 'XAI_IMAGE' | 'FAL_AI' | 'CUSTOM_HTTP';
     };
     query?: never;
     url: '/api/chat/images/connections/{provider}';
@@ -8598,6 +9452,56 @@ export type ShareDocumentSetResponses = {
 };
 
 export type ShareDocumentSetResponse = ShareDocumentSetResponses[keyof ShareDocumentSetResponses];
+
+export type UpdateChannelTransportData = {
+    body: UpdateChannelTransportRequest;
+    headers: {
+        'If-Match': string;
+    };
+    path: {
+        channelId: string;
+    };
+    query?: never;
+    url: '/api/channels/{channelId}/transport';
+};
+
+export type UpdateChannelTransportErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type UpdateChannelTransportError = UpdateChannelTransportErrors[keyof UpdateChannelTransportErrors];
+
+export type UpdateChannelTransportResponses = {
+    /**
+     * Updated bot
+     */
+    200: ChannelResponse;
+};
+
+export type UpdateChannelTransportResponse = UpdateChannelTransportResponses[keyof UpdateChannelTransportResponses];
 
 export type DeleteAiUsageLimitData = {
     body?: never;
@@ -11887,6 +12791,10 @@ export type ListChatSessionsData = {
          * List the conversations the caller archived instead of the sidebar's
          */
         archived?: boolean;
+        /**
+         * Only the topics of this assistant
+         */
+        personaId?: string;
         offset?: number;
         limit?: number;
     };
@@ -12223,6 +13131,102 @@ export type BranchChatSessionResponses = {
 };
 
 export type BranchChatSessionResponse = BranchChatSessionResponses[keyof BranchChatSessionResponses];
+
+export type HostChatToolAppData = {
+    body: ChatToolAppRequest;
+    path: {
+        sessionId: string;
+        messageId: string;
+        callId: string;
+    };
+    query?: never;
+    url: '/api/chat/sessions/{sessionId}/messages/{messageId}/apps/{callId}';
+};
+
+export type HostChatToolAppErrors = {
+    /**
+     * Invalid view request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership, CSRF requirement or tool policy not met
+     */
+    403: ApiProblem;
+    /**
+     * View not accessible
+     */
+    404: ApiProblem;
+    /**
+     * The tool asks first, or the server must be connected again
+     */
+    409: ApiProblem;
+};
+
+export type HostChatToolAppError = HostChatToolAppErrors[keyof HostChatToolAppErrors];
+
+export type HostChatToolAppResponses = {
+    /**
+     * The MCP result, or the view's document for mcp-apps/read-resource
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type HostChatToolAppResponse = HostChatToolAppResponses[keyof HostChatToolAppResponses];
+
+export type DecideChatToolCallData = {
+    body: ChatToolDecision;
+    path: {
+        sessionId: string;
+        assistantMessageId: string;
+        toolCallId: string;
+    };
+    query?: never;
+    url: '/api/chat/sessions/{sessionId}/messages/{assistantMessageId}/tool-calls/{toolCallId}/decision';
+};
+
+export type DecideChatToolCallErrors = {
+    /**
+     * Invalid request or cursor
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Conversation or message not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conflicting request or active reply
+     */
+    409: ApiProblem;
+    /**
+     * Chat capacity exhausted or provider unavailable
+     */
+    503: ApiProblem;
+};
+
+export type DecideChatToolCallError = DecideChatToolCallErrors[keyof DecideChatToolCallErrors];
+
+export type DecideChatToolCallResponses = {
+    /**
+     * Decision delivered to the running reply
+     */
+    204: void;
+};
+
+export type DecideChatToolCallResponse = DecideChatToolCallResponses[keyof DecideChatToolCallResponses];
 
 export type CancelChatMessageData = {
     body?: never;
@@ -13138,6 +14142,49 @@ export type TransferChatPersonaResponses = {
 
 export type TransferChatPersonaResponse = TransferChatPersonaResponses[keyof TransferChatPersonaResponses];
 
+export type CopyChatPersonaTemplateData = {
+    body?: never;
+    path: {
+        personaId: string;
+    };
+    query?: never;
+    url: '/api/chat/personas/{personaId}/copy';
+};
+
+export type CopyChatPersonaTemplateErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type CopyChatPersonaTemplateError = CopyChatPersonaTemplateErrors[keyof CopyChatPersonaTemplateErrors];
+
+export type CopyChatPersonaTemplateResponses = {
+    /**
+     * Successful chat operation
+     */
+    201: PersonaView;
+};
+
+export type CopyChatPersonaTemplateResponse = CopyChatPersonaTemplateResponses[keyof CopyChatPersonaTemplateResponses];
+
 export type ListChatPersonaLabelsData = {
     body?: never;
     path?: never;
@@ -13569,7 +14616,7 @@ export type RequestChatLibraryArchiveResponse = RequestChatLibraryArchiveRespons
 export type TestChatImageConnectionData = {
     body?: ImageConnectionTestRequest;
     path: {
-        provider: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI';
+        provider: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI' | 'GEMINI_IMAGE' | 'OPENROUTER_IMAGE' | 'XAI_IMAGE' | 'FAL_AI' | 'CUSTOM_HTTP';
     };
     query?: never;
     url: '/api/chat/images/connections/{provider}/test';
@@ -13902,6 +14949,96 @@ export type CreateDocumentSetResponses = {
 };
 
 export type CreateDocumentSetResponse = CreateDocumentSetResponses[keyof CreateDocumentSetResponses];
+
+export type CreateZaloChannelData = {
+    body: CreateZaloChannelRequest;
+    path?: never;
+    query?: never;
+    url: '/api/channels/zalo';
+};
+
+export type CreateZaloChannelErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type CreateZaloChannelError = CreateZaloChannelErrors[keyof CreateZaloChannelErrors];
+
+export type CreateZaloChannelResponses = {
+    /**
+     * Added bot
+     */
+    201: ChannelResponse;
+};
+
+export type CreateZaloChannelResponse = CreateZaloChannelResponses[keyof CreateZaloChannelResponses];
+
+export type TestZaloChannelBotData = {
+    body: ZaloBotRequest;
+    path?: never;
+    query?: never;
+    url: '/api/channels/zalo/test';
+};
+
+export type TestZaloChannelBotErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type TestZaloChannelBotError = TestZaloChannelBotErrors[keyof TestZaloChannelBotErrors];
+
+export type TestZaloChannelBotResponses = {
+    /**
+     * Zalo accepts the token
+     */
+    200: ChannelAppCheckResponse;
+};
+
+export type TestZaloChannelBotResponse = TestZaloChannelBotResponses[keyof TestZaloChannelBotResponses];
 
 export type ListUsageReportsData = {
     body?: never;
@@ -16073,7 +17210,7 @@ export type StreamChatMessageResponses = {
     /**
      * SSE frames; the schema describes each data payload
      */
-    200: TextEvent | OutcomeEvent | ResetEvent | ToolEvent | ReasoningEvent | ImageEvent | CodeEvent | ResearchPlanEvent | TopLevelBranchingEvent | ResearchAgentStartEvent | IntermediateReportEvent | IntermediateReportCitationsEvent;
+    200: TextEvent | OutcomeEvent | ResetEvent | ToolEvent | ReasoningEvent | ImageEvent | CodeEvent | ResearchPlanEvent | TopLevelBranchingEvent | ResearchAgentStartEvent | IntermediateReportEvent | IntermediateReportCitationsEvent | WaitingEvent | ToolApprovalEvent | McpUnavailableEvent | AssistantChangeEvent;
 };
 
 export type StreamChatMessageResponse = StreamChatMessageResponses[keyof StreamChatMessageResponses];
@@ -16171,6 +17308,10 @@ export type SearchChatSessionsData = {
     path?: never;
     query?: {
         query?: string;
+        /**
+         * Only the topics of this assistant
+         */
+        personaId?: string;
         offset?: number;
         limit?: number;
     };
@@ -16245,6 +17386,158 @@ export type PreviewChatRetentionResponses = {
 };
 
 export type PreviewChatRetentionResponse = PreviewChatRetentionResponses[keyof PreviewChatRetentionResponses];
+
+export type ClearChatMemoryData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/memory';
+};
+
+export type ClearChatMemoryErrors = {
+    /**
+     * Invalid memory
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Membership unavailable
+     */
+    404: ApiProblem;
+};
+
+export type ClearChatMemoryError = ClearChatMemoryErrors[keyof ClearChatMemoryErrors];
+
+export type ClearChatMemoryResponses = {
+    /**
+     * The emptied memory
+     */
+    200: ChatMemory;
+};
+
+export type ClearChatMemoryResponse = ClearChatMemoryResponses[keyof ClearChatMemoryResponses];
+
+export type GetChatMemoryData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/memory';
+};
+
+export type GetChatMemoryErrors = {
+    /**
+     * Invalid memory
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Membership unavailable
+     */
+    404: ApiProblem;
+};
+
+export type GetChatMemoryError = GetChatMemoryErrors[keyof GetChatMemoryErrors];
+
+export type GetChatMemoryResponses = {
+    /**
+     * Your memory
+     */
+    200: ChatMemory;
+};
+
+export type GetChatMemoryResponse = GetChatMemoryResponses[keyof GetChatMemoryResponses];
+
+export type SaveChatMemoryData = {
+    body: ChatMemoryInput;
+    path?: never;
+    query?: never;
+    url: '/api/chat/memory';
+};
+
+export type SaveChatMemoryErrors = {
+    /**
+     * Invalid memory
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Membership unavailable
+     */
+    404: ApiProblem;
+    /**
+     * The memory changed since it was read
+     */
+    409: ApiProblem;
+};
+
+export type SaveChatMemoryError = SaveChatMemoryErrors[keyof SaveChatMemoryErrors];
+
+export type SaveChatMemoryResponses = {
+    /**
+     * The saved memory
+     */
+    200: ChatMemory;
+};
+
+export type SaveChatMemoryResponse = SaveChatMemoryResponses[keyof SaveChatMemoryResponses];
+
+export type SetChatMemoryEnabledData = {
+    body: ChatMemoryEnabledInput;
+    path?: never;
+    query?: never;
+    url: '/api/chat/memory/enabled';
+};
+
+export type SetChatMemoryEnabledErrors = {
+    /**
+     * Invalid memory
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Membership unavailable
+     */
+    404: ApiProblem;
+};
+
+export type SetChatMemoryEnabledError = SetChatMemoryEnabledErrors[keyof SetChatMemoryEnabledErrors];
+
+export type SetChatMemoryEnabledResponses = {
+    /**
+     * The memory with its switch
+     */
+    200: ChatMemory;
+};
+
+export type SetChatMemoryEnabledResponse = SetChatMemoryEnabledResponses[keyof SetChatMemoryEnabledResponses];
 
 export type ListChatProviderAdaptersData = {
     body?: never;
@@ -16333,6 +17626,45 @@ export type ListChatPersonaModelsResponses = {
 };
 
 export type ListChatPersonaModelsResponse = ListChatPersonaModelsResponses[keyof ListChatPersonaModelsResponses];
+
+export type ListAssistantChannelsData = {
+    body?: never;
+    path: {
+        personaId: string;
+    };
+    query?: never;
+    url: '/api/chat/personas/{personaId}/channels';
+};
+
+export type ListAssistantChannelsErrors = {
+    /**
+     * Invalid assistant id
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership required
+     */
+    403: ApiProblem;
+    /**
+     * Assistant unavailable
+     */
+    404: ApiProblem;
+};
+
+export type ListAssistantChannelsError = ListAssistantChannelsErrors[keyof ListAssistantChannelsErrors];
+
+export type ListAssistantChannelsResponses = {
+    /**
+     * Bots
+     */
+    200: Array<AssistantChannelResponse>;
+};
+
+export type ListAssistantChannelsResponse = ListAssistantChannelsResponses[keyof ListAssistantChannelsResponses];
 
 export type GetChatPersonaAvatarData = {
     body?: never;
@@ -17174,16 +18506,16 @@ export type DownloadChatLibraryArchiveResponses = {
 
 export type DownloadChatLibraryArchiveResponse = DownloadChatLibraryArchiveResponses[keyof DownloadChatLibraryArchiveResponses];
 
-export type GetChatInterpreterHealthData = {
+export type GetChatSandboxHealthData = {
     body?: never;
     path?: never;
     query?: never;
-    url: '/api/chat/interpreter/health';
+    url: '/api/chat/sandbox/health';
 };
 
-export type GetChatInterpreterHealthErrors = {
+export type GetChatSandboxHealthErrors = {
     /**
-     * Invalid Code Interpreter setting
+     * Invalid Sandbox setting
      */
     400: ApiProblem;
     /**
@@ -17199,25 +18531,25 @@ export type GetChatInterpreterHealthErrors = {
      */
     404: ApiProblem;
     /**
-     * Code Interpreter setting changed
+     * Sandbox setting changed
      */
     409: ApiProblem;
     /**
-     * Code Interpreter is not configured
+     * Sandbox is not configured
      */
     503: ApiProblem;
 };
 
-export type GetChatInterpreterHealthError = GetChatInterpreterHealthErrors[keyof GetChatInterpreterHealthErrors];
+export type GetChatSandboxHealthError = GetChatSandboxHealthErrors[keyof GetChatSandboxHealthErrors];
 
-export type GetChatInterpreterHealthResponses = {
+export type GetChatSandboxHealthResponses = {
     /**
-     * Live Code Interpreter service health
+     * Live sandbox runtime health
      */
-    200: InterpreterHealthResponse;
+    200: SandboxHealthResponse;
 };
 
-export type GetChatInterpreterHealthResponse = GetChatInterpreterHealthResponses[keyof GetChatInterpreterHealthResponses];
+export type GetChatSandboxHealthResponse = GetChatSandboxHealthResponses[keyof GetChatSandboxHealthResponses];
 
 export type GetChatImageAvailabilityData = {
     body?: never;
@@ -18078,7 +19410,7 @@ export type GetChatFileArtifactPdfPreviewErrors = {
      */
     404: ApiProblem;
     /**
-     * The interpreter is busy
+     * Every short-lived sandbox is in use
      */
     429: ApiProblem;
     /**
@@ -18575,7 +19907,7 @@ export type GetAiCostSummaryData = {
         from: string;
         to: string;
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'AGENT_BUILDER' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
     };
     url: '/api/ai-costs/summary';
 };
@@ -18760,7 +20092,7 @@ export type ListAiCostDaysData = {
         to: string;
         split?: 'BOUNDARY' | 'MODEL' | 'NONE';
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'AGENT_BUILDER' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
     };
     url: '/api/ai-costs/daily';
 };
@@ -18800,7 +20132,7 @@ export type ListAiCostBreakdownData = {
         by: 'ACTOR' | 'GROUP' | 'MODEL' | 'FLOW' | 'PROVIDER';
         limit?: number;
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'AGENT_BUILDER' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
     };
     url: '/api/ai-costs/breakdown';
 };
@@ -19155,3 +20487,1565 @@ export type DeleteChatFileArtifactResponses = {
 };
 
 export type DeleteChatFileArtifactResponse = DeleteChatFileArtifactResponses[keyof DeleteChatFileArtifactResponses];
+
+export type ListLarkCredentialsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/credentials/lark';
+};
+
+export type ListLarkCredentialsErrors = {
+    /**
+     * Invalid Lark credential
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Lark credential unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Lark credential changed
+     */
+    409: ApiProblem;
+    /**
+     * Lark did not answer
+     */
+    503: ApiProblem;
+};
+
+export type ListLarkCredentialsError = ListLarkCredentialsErrors[keyof ListLarkCredentialsErrors];
+
+export type ListLarkCredentialsResponses = {
+    /**
+     * Lark credentials
+     */
+    200: Array<LarkCredentialResponse>;
+};
+
+export type ListLarkCredentialsResponse = ListLarkCredentialsResponses[keyof ListLarkCredentialsResponses];
+
+export type CreateLarkCredentialData = {
+    body: LarkCredentialRequest;
+    path?: never;
+    query?: never;
+    url: '/api/credentials/lark';
+};
+
+export type CreateLarkCredentialErrors = {
+    /**
+     * Invalid Lark credential
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Lark credential unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Lark credential changed
+     */
+    409: ApiProblem;
+    /**
+     * Lark did not answer
+     */
+    503: ApiProblem;
+};
+
+export type CreateLarkCredentialError = CreateLarkCredentialErrors[keyof CreateLarkCredentialErrors];
+
+export type CreateLarkCredentialResponses = {
+    /**
+     * Stored Lark credential
+     */
+    201: LarkCredentialResponse;
+};
+
+export type CreateLarkCredentialResponse = CreateLarkCredentialResponses[keyof CreateLarkCredentialResponses];
+
+export type DeleteLarkCredentialData = {
+    body?: never;
+    headers: {
+        'If-Match': string;
+    };
+    path: {
+        credentialId: string;
+    };
+    query?: never;
+    url: '/api/credentials/lark/{credentialId}';
+};
+
+export type DeleteLarkCredentialErrors = {
+    /**
+     * Invalid Lark credential
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Lark credential unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Lark credential changed
+     */
+    409: ApiProblem;
+    /**
+     * Lark did not answer
+     */
+    503: ApiProblem;
+};
+
+export type DeleteLarkCredentialError = DeleteLarkCredentialErrors[keyof DeleteLarkCredentialErrors];
+
+export type DeleteLarkCredentialResponses = {
+    /**
+     * Lark credential deleted
+     */
+    204: void;
+};
+
+export type DeleteLarkCredentialResponse = DeleteLarkCredentialResponses[keyof DeleteLarkCredentialResponses];
+
+export type RenameLarkCredentialData = {
+    body: RenameLarkCredentialRequest;
+    headers: {
+        'If-Match': string;
+    };
+    path: {
+        credentialId: string;
+    };
+    query?: never;
+    url: '/api/credentials/lark/{credentialId}';
+};
+
+export type RenameLarkCredentialErrors = {
+    /**
+     * Invalid Lark credential
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Lark credential unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Lark credential changed
+     */
+    409: ApiProblem;
+    /**
+     * Lark did not answer
+     */
+    503: ApiProblem;
+};
+
+export type RenameLarkCredentialError = RenameLarkCredentialErrors[keyof RenameLarkCredentialErrors];
+
+export type RenameLarkCredentialResponses = {
+    /**
+     * Lark credential renamed
+     */
+    204: void;
+};
+
+export type RenameLarkCredentialResponse = RenameLarkCredentialResponses[keyof RenameLarkCredentialResponses];
+
+export type ReplaceLarkCredentialSecretData = {
+    body: LarkCredentialRequest;
+    headers: {
+        'If-Match': string;
+    };
+    path: {
+        credentialId: string;
+    };
+    query?: never;
+    url: '/api/credentials/lark/{credentialId}/secret';
+};
+
+export type ReplaceLarkCredentialSecretErrors = {
+    /**
+     * Invalid Lark credential
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Lark credential unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Lark credential changed
+     */
+    409: ApiProblem;
+    /**
+     * Lark did not answer
+     */
+    503: ApiProblem;
+};
+
+export type ReplaceLarkCredentialSecretError = ReplaceLarkCredentialSecretErrors[keyof ReplaceLarkCredentialSecretErrors];
+
+export type ReplaceLarkCredentialSecretResponses = {
+    /**
+     * Updated Lark credential
+     */
+    200: LarkCredentialResponse;
+};
+
+export type ReplaceLarkCredentialSecretResponse = ReplaceLarkCredentialSecretResponses[keyof ReplaceLarkCredentialSecretResponses];
+
+export type TestLarkCredentialData = {
+    body?: never;
+    path: {
+        credentialId: string;
+    };
+    query?: never;
+    url: '/api/credentials/lark/{credentialId}/test';
+};
+
+export type TestLarkCredentialErrors = {
+    /**
+     * Invalid Lark credential
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Lark credential unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Lark credential changed
+     */
+    409: ApiProblem;
+    /**
+     * Lark did not answer
+     */
+    503: ApiProblem;
+};
+
+export type TestLarkCredentialError = TestLarkCredentialErrors[keyof TestLarkCredentialErrors];
+
+export type TestLarkCredentialResponses = {
+    /**
+     * Lark credential works
+     */
+    200: LarkCredentialTestResponse;
+};
+
+export type TestLarkCredentialResponse = TestLarkCredentialResponses[keyof TestLarkCredentialResponses];
+
+export type CreateLarkSourceData = {
+    body: CreateLarkSourceRequest;
+    path?: never;
+    query?: never;
+    url: '/api/sources/lark';
+};
+
+export type CreateLarkSourceErrors = {
+    /**
+     * Invalid Lark scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type CreateLarkSourceError = CreateLarkSourceErrors[keyof CreateLarkSourceErrors];
+
+export type CreateLarkSourceResponses = {
+    /**
+     * Scope accepted for verification
+     */
+    202: LarkSelectionReceiptResponse;
+};
+
+export type CreateLarkSourceResponse = CreateLarkSourceResponses[keyof CreateLarkSourceResponses];
+
+export type GetLarkConfigurationData = {
+    body?: never;
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/lark';
+};
+
+export type GetLarkConfigurationErrors = {
+    /**
+     * Invalid Lark scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type GetLarkConfigurationError = GetLarkConfigurationErrors[keyof GetLarkConfigurationErrors];
+
+export type GetLarkConfigurationResponses = {
+    /**
+     * Lark configuration
+     */
+    200: LarkConfigurationResponse;
+};
+
+export type GetLarkConfigurationResponse = GetLarkConfigurationResponses[keyof GetLarkConfigurationResponses];
+
+export type GetLarkSelectionRequestData = {
+    body?: never;
+    path: {
+        requestId: string;
+    };
+    query?: never;
+    url: '/api/sources/lark/selection-requests/{requestId}';
+};
+
+export type GetLarkSelectionRequestErrors = {
+    /**
+     * Invalid Lark scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type GetLarkSelectionRequestError = GetLarkSelectionRequestErrors[keyof GetLarkSelectionRequestErrors];
+
+export type GetLarkSelectionRequestResponses = {
+    /**
+     * Lark scope receipt
+     */
+    200: LarkSelectionReceiptResponse;
+};
+
+export type GetLarkSelectionRequestResponse = GetLarkSelectionRequestResponses[keyof GetLarkSelectionRequestResponses];
+
+export type ReplaceLarkScopeData = {
+    body: ReplaceLarkScopeRequest;
+    headers: {
+        'If-Match': string;
+    };
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/lark/scope';
+};
+
+export type ReplaceLarkScopeErrors = {
+    /**
+     * Invalid Lark scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type ReplaceLarkScopeError = ReplaceLarkScopeErrors[keyof ReplaceLarkScopeErrors];
+
+export type ReplaceLarkScopeResponses = {
+    /**
+     * Scope accepted for verification
+     */
+    202: LarkSelectionReceiptResponse;
+};
+
+export type ReplaceLarkScopeResponse = ReplaceLarkScopeResponses[keyof ReplaceLarkScopeResponses];
+
+export type UpdateLarkScheduleData = {
+    body: UpdateLarkScheduleRequest;
+    headers: {
+        'If-Match': string;
+    };
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/lark/schedule';
+};
+
+export type UpdateLarkScheduleErrors = {
+    /**
+     * Invalid Lark scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type UpdateLarkScheduleError = UpdateLarkScheduleErrors[keyof UpdateLarkScheduleErrors];
+
+export type UpdateLarkScheduleResponses = {
+    /**
+     * Updated Lark configuration
+     */
+    200: LarkConfigurationResponse;
+};
+
+export type UpdateLarkScheduleResponse = UpdateLarkScheduleResponses[keyof UpdateLarkScheduleResponses];
+
+export type UpdateLarkPauseData = {
+    body: UpdateLarkPauseRequest;
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/lark/pause';
+};
+
+export type UpdateLarkPauseErrors = {
+    /**
+     * Invalid Lark scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type UpdateLarkPauseError = UpdateLarkPauseErrors[keyof UpdateLarkPauseErrors];
+
+export type UpdateLarkPauseResponses = {
+    /**
+     * Updated Lark configuration
+     */
+    200: LarkConfigurationResponse;
+};
+
+export type UpdateLarkPauseResponse = UpdateLarkPauseResponses[keyof UpdateLarkPauseResponses];
+
+export type SynchronizeLarkSourceData = {
+    body?: never;
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/lark/sync';
+};
+
+export type SynchronizeLarkSourceErrors = {
+    /**
+     * Invalid Lark scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type SynchronizeLarkSourceError = SynchronizeLarkSourceErrors[keyof SynchronizeLarkSourceErrors];
+
+export type SynchronizeLarkSourceResponses = {
+    /**
+     * Run scheduled
+     */
+    202: SourceOperation;
+};
+
+export type SynchronizeLarkSourceResponse = SynchronizeLarkSourceResponses[keyof SynchronizeLarkSourceResponses];
+
+export type GetLarkRootsData = {
+    body?: never;
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/lark/roots';
+};
+
+export type GetLarkRootsErrors = {
+    /**
+     * Invalid Lark scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type GetLarkRootsError = GetLarkRootsErrors[keyof GetLarkRootsErrors];
+
+export type GetLarkRootsResponses = {
+    /**
+     * Lark roots
+     */
+    200: Array<LarkRootResponse>;
+};
+
+export type GetLarkRootsResponse = GetLarkRootsResponses[keyof GetLarkRootsResponses];
+
+export type ListLarkSpacesData = {
+    body?: never;
+    path: {
+        credentialId: string;
+    };
+    query?: never;
+    url: '/api/sources/lark/credentials/{credentialId}/spaces';
+};
+
+export type ListLarkSpacesErrors = {
+    /**
+     * Invalid Lark scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+    /**
+     * Lark did not answer
+     */
+    503: ApiProblem;
+};
+
+export type ListLarkSpacesError = ListLarkSpacesErrors[keyof ListLarkSpacesErrors];
+
+export type ListLarkSpacesResponses = {
+    /**
+     * Wiki spaces a source may name
+     */
+    200: Array<LarkSpaceOptionResponse>;
+};
+
+export type ListLarkSpacesResponse = ListLarkSpacesResponses[keyof ListLarkSpacesResponses];
+
+export type ReplaceChannelSecretData = {
+    body: ReplaceChannelSecretRequest;
+    headers: {
+        'If-Match': string;
+    };
+    path: {
+        channelId: string;
+    };
+    query?: never;
+    url: '/api/channels/{channelId}/secret';
+};
+
+export type ReplaceChannelSecretErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type ReplaceChannelSecretError = ReplaceChannelSecretErrors[keyof ReplaceChannelSecretErrors];
+
+export type ReplaceChannelSecretResponses = {
+    /**
+     * Updated bot
+     */
+    200: ChannelResponse;
+};
+
+export type ReplaceChannelSecretResponse = ReplaceChannelSecretResponses[keyof ReplaceChannelSecretResponses];
+
+export type UpdateChannelPublicData = {
+    body: UpdateChannelPublicRequest;
+    headers: {
+        'If-Match': string;
+    };
+    path: {
+        channelId: string;
+    };
+    query?: never;
+    url: '/api/channels/{channelId}/public';
+};
+
+export type UpdateChannelPublicErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type UpdateChannelPublicError = UpdateChannelPublicErrors[keyof UpdateChannelPublicErrors];
+
+export type UpdateChannelPublicResponses = {
+    /**
+     * Updated bot
+     */
+    200: ChannelResponse;
+};
+
+export type UpdateChannelPublicResponse = UpdateChannelPublicResponses[keyof UpdateChannelPublicResponses];
+
+export type BindChannelAssistantData = {
+    body: BindChannelAssistantRequest;
+    path: {
+        channelId: string;
+    };
+    query?: never;
+    url: '/api/channels/{channelId}/persona';
+};
+
+export type BindChannelAssistantErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type BindChannelAssistantError = BindChannelAssistantErrors[keyof BindChannelAssistantErrors];
+
+export type BindChannelAssistantResponses = {
+    /**
+     * Updated bot
+     */
+    200: ChannelResponse;
+};
+
+export type BindChannelAssistantResponse = BindChannelAssistantResponses[keyof BindChannelAssistantResponses];
+
+export type BindChannelGroupAssistantData = {
+    body: BindChannelGroupAssistantRequest;
+    path: {
+        channelId: string;
+        groupId: string;
+    };
+    query?: never;
+    url: '/api/channels/{channelId}/groups/{groupId}/persona';
+};
+
+export type BindChannelGroupAssistantErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type BindChannelGroupAssistantError = BindChannelGroupAssistantErrors[keyof BindChannelGroupAssistantErrors];
+
+export type BindChannelGroupAssistantResponses = {
+    /**
+     * Updated group chat
+     */
+    200: ChannelGroupResponse;
+};
+
+export type BindChannelGroupAssistantResponse = BindChannelGroupAssistantResponses[keyof BindChannelGroupAssistantResponses];
+
+export type LabelChannelGroupData = {
+    body: LabelChannelGroupRequest;
+    path: {
+        channelId: string;
+        groupId: string;
+    };
+    query?: never;
+    url: '/api/channels/{channelId}/groups/{groupId}/label';
+};
+
+export type LabelChannelGroupErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type LabelChannelGroupError = LabelChannelGroupErrors[keyof LabelChannelGroupErrors];
+
+export type LabelChannelGroupResponses = {
+    /**
+     * Updated group chat
+     */
+    200: ChannelGroupResponse;
+};
+
+export type LabelChannelGroupResponse = LabelChannelGroupResponses[keyof LabelChannelGroupResponses];
+
+export type AllowChannelGroupData = {
+    body: AllowChannelGroupRequest;
+    path: {
+        channelId: string;
+        groupId: string;
+    };
+    query?: never;
+    url: '/api/channels/{channelId}/groups/{groupId}/permission';
+};
+
+export type AllowChannelGroupErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type AllowChannelGroupError = AllowChannelGroupErrors[keyof AllowChannelGroupErrors];
+
+export type AllowChannelGroupResponses = {
+    /**
+     * Updated group chat
+     */
+    200: ChannelGroupResponse;
+};
+
+export type AllowChannelGroupResponse = AllowChannelGroupResponses[keyof AllowChannelGroupResponses];
+
+export type UpdateChannelEnabledData = {
+    body: UpdateChannelEnabledRequest;
+    headers: {
+        'If-Match': string;
+    };
+    path: {
+        channelId: string;
+    };
+    query?: never;
+    url: '/api/channels/{channelId}/enabled';
+};
+
+export type UpdateChannelEnabledErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type UpdateChannelEnabledError = UpdateChannelEnabledErrors[keyof UpdateChannelEnabledErrors];
+
+export type UpdateChannelEnabledResponses = {
+    /**
+     * Updated bot
+     */
+    200: ChannelResponse;
+};
+
+export type UpdateChannelEnabledResponse = UpdateChannelEnabledResponses[keyof UpdateChannelEnabledResponses];
+
+export type CreateLarkChannelData = {
+    body: CreateChannelRequest;
+    path?: never;
+    query?: never;
+    url: '/api/channels/lark';
+};
+
+export type CreateLarkChannelErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type CreateLarkChannelError = CreateLarkChannelErrors[keyof CreateLarkChannelErrors];
+
+export type CreateLarkChannelResponses = {
+    /**
+     * Added bot
+     */
+    201: ChannelResponse;
+};
+
+export type CreateLarkChannelResponse = CreateLarkChannelResponses[keyof CreateLarkChannelResponses];
+
+export type TestLarkChannelAppData = {
+    body: ChannelAppRequest;
+    path?: never;
+    query?: never;
+    url: '/api/channels/lark/test';
+};
+
+export type TestLarkChannelAppErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type TestLarkChannelAppError = TestLarkChannelAppErrors[keyof TestLarkChannelAppErrors];
+
+export type TestLarkChannelAppResponses = {
+    /**
+     * Lark accepts the app
+     */
+    200: ChannelAppCheckResponse;
+};
+
+export type TestLarkChannelAppResponse = TestLarkChannelAppResponses[keyof TestLarkChannelAppResponses];
+
+export type ListChannelsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/channels';
+};
+
+export type ListChannelsErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type ListChannelsError = ListChannelsErrors[keyof ListChannelsErrors];
+
+export type ListChannelsResponses = {
+    /**
+     * Bots
+     */
+    200: Array<ChannelResponse>;
+};
+
+export type ListChannelsResponse = ListChannelsResponses[keyof ListChannelsResponses];
+
+export type ListChannelGroupsData = {
+    body?: never;
+    path: {
+        channelId: string;
+    };
+    query?: never;
+    url: '/api/channels/{channelId}/groups';
+};
+
+export type ListChannelGroupsErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type ListChannelGroupsError = ListChannelGroupsErrors[keyof ListChannelGroupsErrors];
+
+export type ListChannelGroupsResponses = {
+    /**
+     * Group chats
+     */
+    200: Array<ChannelGroupResponse>;
+};
+
+export type ListChannelGroupsResponse = ListChannelGroupsResponses[keyof ListChannelGroupsResponses];
+
+export type CreateWhatsAppChannelData = {
+    body: CreateWhatsAppChannelRequest;
+    path?: never;
+    query?: never;
+    url: '/api/channels/whatsapp';
+};
+
+export type CreateWhatsAppChannelErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type CreateWhatsAppChannelError = CreateWhatsAppChannelErrors[keyof CreateWhatsAppChannelErrors];
+
+export type CreateWhatsAppChannelResponses = {
+    /**
+     * Added bot
+     */
+    201: ChannelResponse;
+};
+
+export type CreateWhatsAppChannelResponse = CreateWhatsAppChannelResponses[keyof CreateWhatsAppChannelResponses];
+
+export type GetChannelPairingData = {
+    body?: never;
+    path: {
+        channelId: string;
+    };
+    query?: never;
+    url: '/api/channels/{channelId}/pairing';
+};
+
+export type GetChannelPairingErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type GetChannelPairingError = GetChannelPairingErrors[keyof GetChannelPairingErrors];
+
+export type GetChannelPairingResponses = {
+    /**
+     * The code shown now
+     */
+    200: ChannelPairingResponse;
+    /**
+     * No code is shown
+     */
+    204: void;
+};
+
+export type GetChannelPairingResponse = GetChannelPairingResponses[keyof GetChannelPairingResponses];
+
+export type RelinkChannelData = {
+    body?: never;
+    headers: {
+        'If-Match': string;
+    };
+    path: {
+        channelId: string;
+    };
+    query?: never;
+    url: '/api/channels/{channelId}/pairing';
+};
+
+export type RelinkChannelErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type RelinkChannelError = RelinkChannelErrors[keyof RelinkChannelErrors];
+
+export type RelinkChannelResponses = {
+    /**
+     * Updated bot
+     */
+    200: ChannelResponse;
+};
+
+export type RelinkChannelResponse = RelinkChannelResponses[keyof RelinkChannelResponses];
+
+export type DeleteChannelData = {
+    body?: never;
+    headers: {
+        'If-Match': string;
+    };
+    path: {
+        channelId: string;
+    };
+    query?: never;
+    url: '/api/channels/{channelId}';
+};
+
+export type DeleteChannelErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type DeleteChannelError = DeleteChannelErrors[keyof DeleteChannelErrors];
+
+export type DeleteChannelResponses = {
+    /**
+     * Bot removed
+     */
+    204: void;
+};
+
+export type DeleteChannelResponse = DeleteChannelResponses[keyof DeleteChannelResponses];
+
+export type ForgetChannelGroupData = {
+    body?: never;
+    path: {
+        channelId: string;
+        groupId: string;
+    };
+    query?: never;
+    url: '/api/channels/{channelId}/groups/{groupId}';
+};
+
+export type ForgetChannelGroupErrors = {
+    /**
+     * Invalid bot, or an app the platform rejected
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Bot unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Bot changed, or its app already serves a bot
+     */
+    409: ApiProblem;
+    /**
+     * The platform did not answer, or bots are not configured
+     */
+    503: ApiProblem;
+};
+
+export type ForgetChannelGroupError = ForgetChannelGroupErrors[keyof ForgetChannelGroupErrors];
+
+export type ForgetChannelGroupResponses = {
+    /**
+     * Group chat forgotten
+     */
+    204: void;
+};
+
+export type ForgetChannelGroupResponse = ForgetChannelGroupResponses[keyof ForgetChannelGroupResponses];
+
+export type ListChannelLinksData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/channel-links';
+};
+
+export type ListChannelLinksErrors = {
+    /**
+     * Invalid request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * No bot of the Tenant that takes a linked account
+     */
+    404: ApiProblem;
+};
+
+export type ListChannelLinksError = ListChannelLinksErrors[keyof ListChannelLinksErrors];
+
+export type ListChannelLinksResponses = {
+    /**
+     * Bots and links
+     */
+    200: Array<ChannelLinkResponse>;
+};
+
+export type ListChannelLinksResponse = ListChannelLinksResponses[keyof ListChannelLinksResponses];
+
+export type CreateChannelLinkCodeData = {
+    body: CreateChannelLinkCodeRequest;
+    path?: never;
+    query?: never;
+    url: '/api/channel-links';
+};
+
+export type CreateChannelLinkCodeErrors = {
+    /**
+     * Invalid request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * No bot of the Tenant that takes a linked account
+     */
+    404: ApiProblem;
+};
+
+export type CreateChannelLinkCodeError = CreateChannelLinkCodeErrors[keyof CreateChannelLinkCodeErrors];
+
+export type CreateChannelLinkCodeResponses = {
+    /**
+     * Linking code
+     */
+    201: ChannelLinkCodeResponse;
+};
+
+export type CreateChannelLinkCodeResponse = CreateChannelLinkCodeResponses[keyof CreateChannelLinkCodeResponses];
+
+export type DeleteChannelLinkData = {
+    body?: never;
+    path: {
+        connectionId: string;
+    };
+    query?: never;
+    url: '/api/channel-links/{connectionId}';
+};
+
+export type DeleteChannelLinkErrors = {
+    /**
+     * Invalid request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * No bot of the Tenant that takes a linked account
+     */
+    404: ApiProblem;
+};
+
+export type DeleteChannelLinkError = DeleteChannelLinkErrors[keyof DeleteChannelLinkErrors];
+
+export type DeleteChannelLinkResponses = {
+    /**
+     * Link removed
+     */
+    204: void;
+};
+
+export type DeleteChannelLinkResponse = DeleteChannelLinkResponses[keyof DeleteChannelLinkResponses];

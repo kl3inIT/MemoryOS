@@ -57,7 +57,6 @@ import { useAdminAccess } from "@/features/identity/application-session-context"
 import { AccessDeniedScreen } from "@/features/identity/session-states";
 import { appText, type AppText } from "@/i18n/app-text";
 import { cn } from "@/lib/utils";
-import { ChatHistorySearch } from "@/features/chat/session/chat-history-search";
 import { ChatNavigation } from "@/features/chat/session/chat-navigation";
 import { MeetingsTab } from "@/features/meetings/meetings-tab";
 
@@ -78,7 +77,12 @@ const settingsPages: readonly SettingsEntry[] = [
   generalSettings,
   { id: "chat", to: "/settings/chat", label: appText("Chat"), icon: MessageSquare },
   { id: "storage", to: "/settings/storage", label: appText("Bộ nhớ lưu trữ"), icon: HardDrive },
-  { id: "connections", to: "/settings/connections", label: appText("Connections"), icon: Blocks },
+  {
+    id: "connections",
+    to: "/settings/connections",
+    label: appText("Ứng dụng"),
+    icon: Blocks,
+  },
   { id: "mcp", to: "/settings/mcp", label: appText("MemoryOS MCP"), icon: Cable },
   { id: "usage", to: "/settings/usage", label: appText("Usage"), icon: ChartColumn },
 ];
@@ -210,9 +214,6 @@ function SidebarContents({ area, adminPage, settingsPage, sourceSetup }: Sidebar
             >
               <Brand />
             </Link>
-            {appArea && sourceSetup === undefined ? (
-              <ChatHistorySearch variant="icon" onNavigate={onNavigate} />
-            ) : null}
             {isMobile ? (
               <SheetClose asChild>
                 <IconButton prominence="internal" size="md" aria-label={ui("Close navigation")}>
@@ -444,10 +445,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           <ShellBarTitleSetter value={setSlotTitle}>
             <ShellBarTitle value={barTitle ?? slotTitle}>
               <ShellBarTitleClaim value={pageTitle === undefined ? null : setClaimedTitle}>
+                {/* Positioned, so an absolutely placed descendant (a switch's hidden input, an sr-only label)
+                    overflows into this scroller rather than into the frame around the header. */}
                 <main
                   id="main-content"
                   tabIndex={-1}
-                  className="min-h-0 min-w-0 flex-1 scrollbar-stable overflow-auto outline-none"
+                  className="relative min-h-0 min-w-0 flex-1 scrollbar-stable overflow-auto outline-none"
                 >
                   {children}
                 </main>

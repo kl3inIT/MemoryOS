@@ -1,6 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { AgentEditorPage } from "@/features/agents/agent-editor";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
+/** An assistant is created from a short dialog on the agents page; this address opens it there. */
 export const Route = createFileRoute("/_authenticated/agents_/create")({
-  component: () => <AgentEditorPage />,
+  beforeLoad: () => {
+    throw redirect({ to: "/agents", search: { create: true }, replace: true });
+  },
 });

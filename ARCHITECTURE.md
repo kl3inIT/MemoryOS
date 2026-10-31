@@ -18,7 +18,7 @@ flowchart LR
     API --> OS[(OpenSearch)]
     API --> LLM[Configured model and embedding providers]
     API --> RS[(Redis Streams)]
-    API --> INTERP[Code interpreter]
+    API --> SANDBOX[Chat sandbox: OpenSandbox]
 
     PG --> RELAY[Worker db-scheduler relay]
     RELAY --> RS
@@ -29,9 +29,18 @@ flowchart LR
     WORKER --> PVL[PaddleOCR-VL]
     WORKER --> OS
     WORKER --> LLM
+
+    LARK[Lark] <-->|long connection| CH[Channels process]
+    WA[WhatsApp] <-->|linked device| WAB[WhatsApp bridge, child process]
+    WAB <-->|stdin/stdout| CH
+    WAB --> PG
+    CH --> PG
+    CH --> RS
+    CH --> OS
+    CH --> LLM
 ```
 
-The API and worker are separate deployables. The API owns HTTP, browser sessions, authorization, business commands, Chat inference and Flyway. The worker owns durable background execution for source synchronization, ingestion, cleanup and Search projection. The web application is a separate Vite/React deployable served by Nginx.
+The API and worker are separate deployables. The API owns HTTP, browser sessions, authorization, business commands, Chat inference and Flyway. The worker owns durable background execution for source synchronization, ingestion, cleanup and Search projection. The web application is a separate Vite/React deployable served by Nginx. On staging, `memoryos-channels` runs the chat bots: it holds a connection to Lark, Zalo or WhatsApp for each bot switched on and leased to it, and runs their Chat turns in process; any number of its processes share the bots, each held by one under a lease; WhatsApp's protocol runs in a bridge it starts as a child process; it and the API never call each other and share only PostgreSQL and Redis ([channel](docs/specs/channel.md), [ADR 0028](docs/decisions/0028-chat-channels-in-their-own-process.md), [ADR 0031](docs/decisions/0031-whatsapp-bridge-and-bot-leases.md)).
 
 ## Why the system has these components
 
@@ -66,6 +75,7 @@ flowchart TB
     MEET[meeting]
     USAGE[usage]
     AUD[audit]
+    SBX[sandbox]
     SHARED[shared kernel]
 
     MCP --> IAM
@@ -92,6 +102,8 @@ flowchart TB
     CHAT --> OBJ
     CHAT --> DOC
     CHAT --> USAGE
+    CHAT --> SBX
+    SBX --> OBJ
     LIB --> IAM
     LIB --> OBJ
     LIB --> CON
@@ -140,18 +152,25 @@ flowchart TB
     WORKER --> RET
     WORKER --> LIB
     WORKER --> CHAT
+    WORKER --> SBX
     WORKER --> USAGE
+    WORKER --> AI
+    WORKER --> MCP
     WORKER --> AUD
 ```
 
-Arrows show allowed use of public capability contracts: a capability's arrows are the `allowedDependencies` of the `@ApplicationModule` in its `package-info.java`, and the composition-root arrows are the modules `api` and `worker` import. Every module depends on `shared`, the shared kernel that holds `TenantId` and `ActorId` and a few technical utilities without domain; only the `audit` arrow to it is drawn. A module that needs IAM depends on `iam`, whose root package is its published API (Tenant access, the authorization decision, Groups, identity, users and the people-and-Group search every sharing picker uses, invitations and identity providers); IAM's feature packages are internal and it declares no named interfaces. `objectstorage`, `document` and `ingestion` do not depend on IAM at all. `chat`, `voice` and `meeting` run on `ai`, the model catalog and its providers; `meeting` records through `voice` and publishes its minutes to `library`. `ai` knows Chat's agents only by id, through the `AgentDirectory` port and the `ModelsRemoved` event that `chat` serves. `library` holds a person's files and never depends on `chat`: `chat`, `meeting` and `ingestion` (the extraction of an upload) depend on it, and it asks Chat which agents grant an upload and what attaches one through the `FileAttachments` port, and changes Chat's generated files and images through the `LibraryArtifacts` port, both of which `chat` implements; its listing reads Chat's artifact tables by SQL, because one statement pages across both. `audit` sits below every capability that records into it (`iam`, `connector`, `chat`, `ai`, `voice`, `mcp`, `usage`) and depends only on `shared`: it carries typed Tenant and actor identifiers, and asks IAM who may read the stream through the `AuditReaders` port that `iam` implements. Capability internals, persistence models and provider-specific types do not cross these boundaries. Application services own authorization, validation, orchestration and transaction boundaries. Concrete capability repositories own SQL/JPA persistence, row mapping, locks, claims and bulk writes. Cross-capability JPA relationships and single-implementation repository interfaces are avoided. The `api` and `worker` composition roots use only published module APIs, never a `persistence` package, and map core types to their own HTTP contracts. [ADR 0015](docs/decisions/0015-capability-module-map.md) records the target module map (`ai`, `voice`, `audit` and `library` are extracted) and the layout rule this structure is moving to.
+Arrows show allowed use of public capability contracts: a capability's arrows are the `allowedDependencies` of the `@ApplicationModule` in its `package-info.java`, and the composition-root arrows are the modules `api` and `worker` import. The API scans all of `io.memoryos`; the Worker scans only its own package and imports one `<Module>WorkerComponents` class a module, in which the module names the beans, entities and repositories the Worker runs (`WorkerDependencyRulesTest`). Every module depends on `shared`, the shared kernel that holds `TenantId` and `ActorId` and a few technical utilities without domain; only the `audit` arrow to it is drawn. A module that needs IAM depends on `iam`, whose root package is its published API (Tenant access, the authorization decision, Groups, identity, users and the people-and-Group search every sharing picker uses, invitations and identity providers); IAM's feature packages are internal and it declares no named interfaces. `objectstorage`, `document` and `ingestion` do not depend on IAM at all. `chat`, `voice` and `meeting` run on `ai`, the model catalog and its providers; `meeting` records through `voice` and publishes its minutes to `library`. `ai` knows Chat's agents only by id, through the `AgentDirectory` port and the `ModelsRemoved` event that `chat` serves. `library` holds a person's files and never depends on `chat`: `chat`, `meeting` and `ingestion` (the extraction of an upload) depend on it, and it asks Chat which agents grant an upload and what attaches one through the `FileAttachments` port, and changes Chat's generated files and images through the `LibraryArtifacts` port, both of which `chat` implements; its listing reads Chat's artifact tables by SQL, because one statement pages across both. `audit` sits below every capability that records into it (`iam`, `connector`, `chat`, `ai`, `voice`, `mcp`, `usage`) and depends only on `shared`: it carries typed Tenant and actor identifiers, and asks IAM who may read the stream through the `AuditReaders` port that `iam` implements. Capability internals, persistence models and provider-specific types do not cross these boundaries. Application services own authorization, validation, orchestration and transaction boundaries. Concrete capability repositories own SQL/JPA persistence, row mapping, locks, claims and bulk writes. Cross-capability JPA relationships and single-implementation repository interfaces are avoided. The `api` and `worker` composition roots use only published module APIs, never a `persistence` package, and map core types to their own HTTP contracts. [ADR 0015](docs/decisions/0015-capability-module-map.md) records the target module map (`ai`, `voice`, `audit` and `library` are extracted) and the layout rule this structure is moving to.
 
 | Gradle module | Responsibility |
 | --- | --- |
-| `core` | Fourteen capability implementations, the `shared` kernel of identifier types and technical utilities, and their public contracts; no dependency on `sources` or a deployable |
-| `sources` | Shared integration bundle: the Google Drive and SharePoint adapters (`io.memoryos.connector.adapter`; SharePoint through the Microsoft Graph SDK on a guarded OkHttp client, Google Drive through Google's API clients on a guarded `google-http-client`), including the Google account consent protocol the API's callback uses and bounded content extraction (`io.memoryos.ingestion.extraction`); depends only on public `core` APIs ([ADR 0016](docs/decisions/0016-integration-bundle-named-sources.md)) |
-| `api` | HTTP, security, migrations and interactive Chat composition |
-| `worker` | Redis/db-scheduler composition and durable background work |
+| `memoryos-core` | Fifteen capability implementations, the `shared` kernel of identifier types and technical utilities, and their public contracts; no dependency on an integration, on extraction or on a deployable |
+| `memoryos-integration-lark`, `-google`, `-microsoft`, `-zalo` | One module a platform, holding everything that calls it (`io.memoryos.integration.<platform>`): Lark through the official `oapi-sdk` on a transport of the JDK client, Google Drive through Google's API clients on a guarded `google-http-client` with the account consent protocol the API's callback uses, SharePoint through the Microsoft Graph SDK on a guarded OkHttp client, the Zalo bot through an `@HttpExchange` client on `shared.OutboundHttp`, since no Zalo SDK is maintained. Each depends only on public `core` APIs and on no other platform ([ADR 0027](docs/decisions/0027-integrations-by-platform-and-memoryos-module-names.md)) |
+| `memoryos-integration-whatsapp` | The WhatsApp bot (`io.memoryos.integration.whatsapp`): the adapter and the Go bridge on whatsmeow in `bridge/`, which `memoryos-channels` starts as a child process and speaks to over its standard streams; sessions in the `whatsapp` schema ([ADR 0031](docs/decisions/0031-whatsapp-bridge-and-bot-leases.md)) |
+| `memoryos-integration-opensandbox` | The Chat sandbox's runtime (`io.memoryos.integration.opensandbox`): `OpenSandboxRuntime` implements `sandbox.SandboxRuntime` through the official OpenSandbox SDK, every call after creation through the server's proxy ([ADR 0029](docs/decisions/0029-chat-sandbox-through-opensandbox.md)) |
+| `memoryos-extraction` | Bounded content extraction (`io.memoryos.ingestion.extraction`): Tika, Docling, the OCR adapters and the spreadsheet readers; a provider's snapshot is read by the reader its integration registers for that input format, so extraction names no platform |
+| `memoryos-api` | HTTP, security, migrations and interactive Chat composition |
+| `memoryos-worker` | Redis/db-scheduler composition and durable background work |
+| `memoryos-channels` | The chat bots' process: imports `ChannelRuntimeComponents`, holds each bot it leases through `ChannelSupervisor`, passes a webhook request for a bot held elsewhere to its holder, starts the WhatsApp bridge and runs Chat turns in process; no HTTP API, health on 8082, no migrations; deployed on staging only ([runbook](docs/runbooks/lark-bot.md), MEM-246, MEM-283) |
 
 | Capability | Owns | Detailed contract |
 | --- | --- | --- |
@@ -169,6 +188,8 @@ Arrows show allowed use of public capability contracts: a capability's arrows ar
 | `voice` | Tenant voice connections, batch and live transcription and speech synthesis; audio is never stored | [MEM-91 design](docs/increments/completed/mem-91-chat-voice/design.md) |
 | `mcp` | Tenant-registered remote MCP servers, their OAuth clients, tool snapshots, sealed credentials and the Streamable HTTP client; the MemoryOS MCP endpoint's switch, the apps trusted to connect to it (projected to Keycloak) and its activity log | [MEM-112 design](docs/increments/completed/mem-112-chat-mcp-client/design.md) · [MemoryOS MCP endpoint](docs/specs/mcp-endpoint.md) |
 | `meeting` | Owner-private meetings: live track recording or an uploaded recording through `voice`, stored utterances, speaker names and notes, leased minutes written by the API from the transcript through `ai`, minutes published to the owner's file library, and the library's `MeetingShelf` port listing the meetings a person may read; audio is never stored, and an uploaded recording is deleted once it has been transcribed | [Meetings](docs/specs/meeting.md) |
+| `channel` | The Tenant's chat bots on messaging platforms (the Lark bot first): their connections, each with a service account its group questions run as, the assistant it answers with by default and the group chats it answered in, each of which may have an assistant of its own, and how a received message becomes a Chat turn with the assistant its bot and group resolve to through a platform adapter (Lark, Zalo, WhatsApp), administered through `/api/channels`; each bot is held by one process under a lease | [Channel](docs/specs/channel.md) |
+| `sandbox` | One runtime sandbox a Chat conversation (MEM-270): its `sandbox_workspaces` row, found or started under the row's lock, renewed on every use, replaced when gone or past four hours, a deployment-wide running bound, its `/workspace` archived in Object Storage after each turn that used it and restored into the next sandbox, and the Worker's reconciliation | [Sandbox](docs/specs/sandbox.md) |
 | `usage` | Daily AI usage ledger for every AI flow, the AI costs report, and usage reports (a period's CSV and PDF export, built by the Worker and stored through `objectstorage`) | [AI usage and costs](docs/specs/ai-usage.md) |
 
 **Provider families.** Where an administrator or the deployment chooses among interchangeable protocols, each provider is one adapter class behind a registry ([ADR 0019](docs/decisions/0019-provider-families-use-adapters-behind-a-registry.md)): `WebAdapterRegistry` (eight Web providers in `chat.web.adapter`), `ImageAdapterRegistry` (two in `chat.image.adapter`), `VoiceAdapterRegistry` (five in `voice`, beside its package-private provider clients) and `ai.ProviderAdapterRegistry` (chat models, an open family keyed by the adapter's string type). The closed registries hold exactly one adapter per provider enum constant and fail startup on a missing or duplicate one; the enum is identity only, and what a provider needs, suggests and offers is a capabilities record from its adapter. Each family's client owns transport, bounds and one observation per provider call. `shared.Tokenizers` holds the process's one O200K and one CL100K token counter. Connectors still dispatch on `SourceType` until MEM-118.
@@ -239,13 +260,13 @@ flowchart LR
     LOOP --> OUTCOME[Persist terminal or partial outcome]
 ```
 
-Chat inference runs in the API process and does not use the ingestion worker or its Redis work streams. PostgreSQL owns sessions, message branches, command identity, outcome, run lease and model metadata. A bounded per-reply Redis Stream (`memoryos:chat:stream:*`, TTL-bound) supports live SSE and replay from any API process; committed database state remains the recovery boundary. Stop is local cancellation for the active process, with persisted partial/terminal outcome semantics.
+Chat inference runs in the API process, and for the chat bots in `memoryos-channels`, and does not use the ingestion worker or its Redis work streams. Each process bounds the turns it runs at once (80 in the API with 3 a person, 24 in `memoryos-channels`); a turn beyond the bound waits, and the sum stays under the model provider's limit ([chat](docs/specs/chat.md)). PostgreSQL owns sessions, message branches, command identity, outcome, run lease and model metadata. A bounded per-reply Redis Stream (`memoryos:chat:stream:*`, TTL-bound) supports live SSE and replay from any API process; committed database state remains the recovery boundary. Stop is local cancellation for the active process, with persisted partial/terminal outcome semantics.
 
 Custom agents (Personas) are Chat-owned, Tenant-scoped configurations Onyx calls agents: instructions, an optional task prompt and knowledge cutoff, a tool policy (`search`, `web_search`, `image_generation`, `code_interpreter` and attached MCP servers), Source attachments, labels, pins and prompt shortcuts. Every use and edit check comes from one SQL predicate in `AgentAccessSql`, reused by listing, session selection, turn admission and the model catalog, so an agent a member can no longer use fails the next admission while an admitted turn keeps its captured context. `ChatTurnService` reads the session agent's tool policy under that authority before the Web, image and MCP checks, and registers only the tools the agent allows. Mutations lock the persona row and check its revision. Authority tokens are in the [identity contract](docs/specs/identity.md); behavior in the [Chat contract](docs/specs/chat.md).
 
 Deep research is the one Chat mode where MemoryOS owns the inference loop: `ResearchExecutor` runs clarification, plan, orchestrator cycles, up to three parallel research agents and the final report as single guarded `streamInference` calls, executing agent tools directly and merging agent citations into the turn sources. It runs in the same turn, lease, Stop scope and budget as other answers; see the [Deep research contract](docs/specs/chat.md#deep-research).
 
-Code Interpreter (`run_python`) calls the separate `memoryos-interpreter` service from the same tool loop. The service is vendored from Onyx python-sandbox under `interpreter/`. It is reachable only on the internal network with a shared API key, and it starts a disposable, network-less executor container per run. Generated files are copied into Object Storage as owner-authorized Chat artifacts. See the [Chat contract](docs/specs/chat.md#code-interpreter) and the [interpreter runtime](docs/runbooks/ci-cd.md#interpreter-runtime).
+Code Interpreter (`run_python`) runs `python3` in the conversation's sandbox from the same tool loop, beside the Sandbox tools (MEM-271), so its files stay in the conversation's workspace; a presentation preview converts in a short-lived sandbox of no conversation. What a run writes or changes is copied into Object Storage as owner-authorized Chat artifacts. The `memoryos-interpreter` service vendored from Onyx python-sandbox that ran it before is kept as source under `memoryos-interpreter/` and is neither built nor deployed. See the [Chat contract](docs/specs/chat.md#code-interpreter) and the [sandbox contract](docs/specs/sandbox.md).
 
 Private Chat files reuse Object Storage, Document extraction and passage readers while remaining Chat-owned and owner-authorized. General Search excludes private file chunks. Sharing exposes allowed transcript descriptors without granting access to underlying private bytes or passages.
 
@@ -283,6 +304,8 @@ Keycloak is the browser credential store and enterprise identity broker. The API
 Protected Admin/Basic Groups persist `SYSTEM_ADMIN`/`SYSTEM_BASIC`. Admin expands to every enum capability; Basic implies `SEARCH_READ`, `CHAT_READ`, `CHAT_WRITE`, `IMAGE_GENERATE` and `LLM_GATEWAY_USE`. Only Users, Groups, Sources and Models management are assignable ordinary grants. Chat retains its membership/resource policy rather than granular Chat-token enforcement; image/gateway vocabulary does not claim feature delivery. The [Identity contract](docs/specs/identity.md) defines protected memberships, peer-manager restrictions, Onyx identity presentation and the `manage_grants` gate that hides ordinary Group Permissions and its registry query.
 
 SharePoint Sources synchronize as an Entra application: the credential is verified with Microsoft before it is stored, addresses resolve to Graph identifiers before a scope applies, a refresh follows each library's change log including its tombstones, and a prune removes what a completed listing no longer finds. Site pages are collected as JSON snapshots read into canonical blocks. The [Connector contract](docs/specs/connector.md#sharepoint-credential-authority) owns the policy.
+
+Lark Sources synchronize as one custom app of a Lark tenant, whose App ID and encrypted App Secret are a credential of the Tenant: the app is verified with Lark before it is stored, a scope names Wiki spaces the app's bot is a member of and Drive folders shared with it, and every run lists them whole, reads Docx and Sheets as JSON snapshots and files through extraction, and removes what a completed listing no longer finds. A Source read by Lark's own sharing also records who each object is shared with and advances the credential's directory of chat, department and space members. The [Connector contract](docs/specs/connector.md#lark-credential-authority) owns the policy.
 
 Source associations contain ordinary Groups only: global managers may save `[]`, the recorded Source manager may add or remove only the Groups they manage, and no Source defaults to Admin. Scoped operations, including detaching a Source from a Group, require the Source's recorded manager rather than management of every associated Group, so another manager of that Group cannot touch it; deep Drive selection/discovery, FILE visibility and existing OAuth client replacement remain global-only, with callback and post-provider rechecks. Shared deletion remains global, apart from the narrow existing private groupless-creator cleanup rule. The [Connector matrix](docs/specs/connector.md#management-authority-and-group-associations) owns the exact policy; the catalog settings shortcut requires nonempty projected Source actions.
 
@@ -330,7 +353,7 @@ flowchart TB
     API --> MINIO
     API --> REDIS[(Redis)]
     API --> OPENSEARCH[(OpenSearch)]
-    API --> INTERP[Code interpreter]
+    API --> SANDBOX[Chat sandbox: OpenSandbox]
     WORKER[Worker] --> PG
     WORKER --> REDIS
     WORKER --> MINIO
@@ -339,11 +362,16 @@ flowchart TB
     WORKER --> PADDLE[PaddleOCR-VL on the serving node]
     API --> OTEL[OTel collector]
     WORKER --> OTEL
+    CHANNELS[Channels, staging only] --> PG
+    CHANNELS --> REDIS
+    CHANNELS --> MINIO
+    CHANNELS --> OPENSEARCH
+    CHANNELS --> LARKWS[Lark long connections]
 ```
 
-Base Compose owns PostgreSQL, MinIO, Keycloak, TLS Redis, Docling, the code interpreter, API, worker and web; OpenSearch comes from a separate `compose.search.<environment>.yaml`. Production's GPU services run on a second node from `compose.serving.yaml`, published on its private address and admitted to the application node alone by a `DOCKER-USER` rule; the production deployment rolls that node out first. Staging adds protected inspection and observability surfaces; production exposes none of them. API and worker images remain distinct, use bounded resources and report readiness for their owned dependencies. Exact deployment, recovery and evidence boundaries are in the [CI/CD runbook](docs/runbooks/ci-cd.md) and [delivery matrix](docs/tests/delivery.md).
+Base Compose owns PostgreSQL, MinIO, Keycloak, TLS Redis, Docling, the Chat sandbox server (OpenSandbox, [ADR 0029](docs/decisions/0029-chat-sandbox-through-opensandbox.md)), API, worker and web; OpenSearch comes from a separate `compose.search.<environment>.yaml`. Production's GPU services run on a second node from `compose.serving.yaml`, published on its private address and admitted to the application node alone by a `DOCKER-USER` rule; the production deployment rolls that node out first. Staging adds protected inspection and observability surfaces; production exposes none of them. API and worker images remain distinct, use bounded resources and report readiness for their owned dependencies. Exact deployment, recovery and evidence boundaries are in the [CI/CD runbook](docs/runbooks/ci-cd.md) and [delivery matrix](docs/tests/delivery.md).
 
-The deployment is an explicit overlay contract. `compose.base.yaml` owns PostgreSQL, private MinIO with a durable volume, one-shot bucket/policy/sentinel bootstrap, shared Keycloak, TLS Redis, Docling, the code interpreter, API, worker, and web. The Keycloak service receives the versioned MemoryOS theme through one read-only repository bind mount; production theme and template caches stay enabled. MinIO receives distinct least-privilege API and worker identities from mounted secret files; its browser CORS allowlist and the web `connect-src` are configured to exact origins. The API signs against a browser-reachable endpoint but inspects through the internal service endpoint. `compose.staging.yaml` adds Mailpit, read-only PostgreSQL/Redis inspectors, native MinIO Console OIDC, and file-backed inspection secrets. pgweb and Redis Insight remain behind separate OAuth2 Proxies on loopback ports `18026` and `18027`; MinIO's container-only port `9001` is reached through a dedicated HTTPS proxy host and receives no host binding. `compose.production.yaml` adds production profiles and no inspection exposure or MinIO OIDC configuration. API and worker remain separate image targets; worker starts after API and Redis health, exposes datasource/Redis/db-scheduler/object-storage readiness internally, and runs with bounded resources and shutdown.
+The deployment is an explicit overlay contract. `compose.base.yaml` owns PostgreSQL, private MinIO with a durable volume, one-shot bucket/policy/sentinel bootstrap, shared Keycloak, TLS Redis, Docling, the sandbox server, API, worker, and web. The Keycloak service receives the versioned MemoryOS theme through one read-only repository bind mount; production theme and template caches stay enabled. MinIO receives distinct least-privilege API and worker identities from mounted secret files; its browser CORS allowlist and the web `connect-src` are configured to exact origins. The API signs against a browser-reachable endpoint but inspects through the internal service endpoint. `compose.staging.yaml` adds `memoryos-channels` ([runbook](docs/runbooks/lark-bot.md)), Mailpit, read-only PostgreSQL/Redis inspectors, native MinIO Console OIDC, and file-backed inspection secrets. pgweb and Redis Insight remain behind separate OAuth2 Proxies on loopback ports `18026` and `18027`; MinIO's container-only port `9001` is reached through a dedicated HTTPS proxy host and receives no host binding. `compose.production.yaml` adds production profiles and no inspection exposure or MinIO OIDC configuration. API and worker remain separate image targets; worker starts after API and Redis health, exposes datasource/Redis/db-scheduler/object-storage readiness internally, and runs with bounded resources and shutdown.
 
 Structured logs, metrics and traces flow through OpenTelemetry to the independently operated LGTM stack. Telemetry carries correlation and operation-origin identifiers but never changes authorization, durable claims or acknowledgement semantics. See the [observability policy](docs/guidelines/observability.md).
 

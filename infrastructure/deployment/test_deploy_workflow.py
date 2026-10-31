@@ -19,6 +19,7 @@ CALLERS = (STAGING_CALLER, PRODUCTION_CALLER)
 CI_WORKFLOW = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 PUSH_ACTION = (ROOT / ".github/actions/push-release-images/action.yml").read_text(encoding="utf-8")
 SCRIPT = (ROOT / "infrastructure/deployment/deploy.sh").read_text(encoding="utf-8")
+PRUNE_SCRIPT = (ROOT / "infrastructure/deployment/prune-release-images.sh").read_text(encoding="utf-8")
 
 
 class StagingDeploymentPolicyTest(unittest.TestCase):
@@ -27,7 +28,7 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         ignored = re.compile(re.search(r"grep -Ev '([^']+)'", resolve).group(1))
         for path in ("docs/runbooks/ci-cd.md", "AGENTS.md", "tools/visual-paradigm-mcp/mcp-server/build.gradle.kts"):
             self.assertTrue(ignored.search(path), path)
-        for path in ("landing/src/content/page.md", "core/src/main/java/io/memoryos/A.java", ".github/workflows/ci.yml", "openapi.yml"):
+        for path in ("landing/src/content/page.md", "memoryos-core/src/main/java/io/memoryos/A.java", ".github/workflows/ci.yml", "openapi.yml"):
             self.assertFalse(ignored.search(path), path)
         # The filter mirrors CI's paths-ignore; a new ignored path must be added to both.
         for entry in ("'docs/**'", "'*.md'", "'tools/visual-paradigm-mcp/**'"):
@@ -66,6 +67,19 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         finish = SCRIPT.split('elif [[ "$mode" == finish ]]', 1)[1]
         self.assertLess(finish.index('"$(cat "$state/pending")" == "$release"'), finish.index("verify_runtime"))
         self.assertLess(finish.index("verify_runtime"), finish.index('rm -- "$state/pending"'))
+
+    def test_no_pipe_ends_in_a_grep_that_stops_reading(self):
+        # Under pipefail, grep -q exits at its first match and the writer before it dies of SIGPIPE, so the pipeline
+        # fails or succeeds by timing; on 2026-10-14 that started no channels and then failed the verification.
+        for number, line in enumerate(SCRIPT.splitlines(), 1):
+            self.assertNotRegex(line, r"\|\s*grep\s+-[a-zA-Z]*q", f"deploy.sh:{number}")
+        self.assertIn('services=$(compose config --services)\n  grep -qx channels <<< "$services"', SCRIPT)
+
+    def test_an_environment_without_the_bots_does_not_check_their_image(self):
+        deploy = SCRIPT.split('if [[ "$mode" == deploy ]]', 1)[1].split('elif [[ "$mode" == rollback ]]', 1)[0]
+        self.assertIn("if has_channels; then compose pull channels; fi", deploy)
+        check = deploy.split("if has_channels; then compose pull channels; fi", 1)[1].split("database_size=", 1)[0]
+        self.assertLess(check.index('[[ "$component" == channels ]] && ! has_channels'), check.index("docker image inspect"))
 
     def test_a_failure_reports_its_line_and_command(self):
         # The trap is set before the first assertion so no refusal is silent.
@@ -140,31 +154,44 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         self.assertIn("exit 1", rollback)
         self.assertNotIn("pg_restore", rollback)
 
-    def test_interpreter_images_join_the_release_contract(self):
+    def test_the_release_names_its_images_once(self):
         publish = CI_WORKFLOW.split("name: Publish verified release", 1)[1].split("publish-landing:", 1)[0]
-        interpreter = CI_WORKFLOW.split("  interpreter:\n", 1)[1].split("\n  backend-images:\n", 1)[0]
-        self.assertIn("components: interpreter interpreter-executor", interpreter)
-        self.assertIn("${{ needs.interpreter.outputs.images }}", publish)
-        self.assertIn("for component in api worker web interpreter interpreter-executor keycloak; do", publish)
+        self.assertIn("for component in api worker web keycloak channels sandbox sandbox-computer; do", publish)
         # Compose rejects a hyphen in an environment key.
         self.assertIn("key=${component//-/_}", publish)
         self.assertIn("key=${component//-/_}", PUSH_ACTION)
-        self.assertIn("images=(api worker web interpreter interpreter-executor keycloak)", SCRIPT)
+        self.assertIn("images=(api worker web keycloak channels sandbox sandbox-computer)", SCRIPT)
         # images.env holds one line per image plus the release; the count follows the list.
         self.assertIn('[[ $(wc -l < "$tx/images.env") == $(( ${#images[@]} + 1 )) ]]', SCRIPT)
         self.assertNotIn('== 7 ]]', SCRIPT)
         deploy = SCRIPT.split('if [[ "$mode" == deploy ]]', 1)[1].split('elif [[ "$mode" == rollback ]]', 1)[0]
-        # The executor is not a Compose service: pull it with the job-scoped credentials before reserving.
+        # The computer is not a Compose service: pull it with the job-scoped credentials before reserving.
         self.assertLess(deploy.index("docker login ghcr.io"), deploy.index("docker pull --quiet"))
         self.assertLess(deploy.index("docker pull --quiet"), deploy.index('> "$state/pending"'))
-        # A runtime accepted before the interpreter joined the release has no interpreter container.
-        self.assertIn('has_interpreter "$state/current.env"', deploy)
-        # Each captured component is found by its Compose service, so a runtime without the interpreter is not read.
+        # Each captured component is found by its Compose service, so a runtime without one is not read.
         self.assertIn('--filter "label=com.docker.compose.service=$component"', deploy)
+
+    def test_the_interpreter_is_gone_from_a_release_but_not_from_a_rollback(self):
+        # MEM-271: run_python runs in the conversation's sandbox; the interpreter's source is kept but not built.
+        self.assertNotIn("\n  interpreter:\n", CI_WORKFLOW)
+        self.assertIn("memoryos-interpreter/*)", CI_WORKFLOW)
+        compose = (ROOT / "infrastructure/deployment/compose.base.yaml").read_text(encoding="utf-8")
+        self.assertNotIn("interpreter", compose)
+        # The runtime a rollback restores may still run it, from that runtime's own Compose files.
+        deploy = SCRIPT.split('if [[ "$mode" == deploy ]]', 1)[1].split('elif [[ "$mode" == rollback ]]', 1)[0]
+        self.assertIn('has_interpreter "$state/current.env"', deploy)
+        rollout = SCRIPT.split("rollout() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertIn('if has_interpreter "$tx/$target.env"; then', rollout)
+        # A runtime without it removes the container the one before it left, found by its Compose labels.
+        removal = rollout.split('if ! has_interpreter "$tx/$target.env"; then', 1)[1]
+        self.assertIn("--filter label=com.docker.compose.service=interpreter", removal)
+        self.assertIn("docker stop --time 65 $left", removal)
+        self.assertLess(rollout.index("sandbox\n"), rollout.index('if ! has_interpreter'))
 
     def test_only_a_main_build_pushes_and_only_the_gate_makes_a_release(self):
         main_push = "if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}\n        uses: ./.github/actions/push-release-images"
-        for job, end in (("frontend-image", "landing"), ("interpreter", "backend-images"), ("backend-images", "secrets")):
+        for job, end in (("frontend-image", "landing"), ("sandbox", "backend-images"),
+                         ("backend-images", "secrets")):
             text = CI_WORKFLOW.split(f"  {job}:\n", 1)[1].split(f"\n  {end}:\n", 1)[0]
             self.assertEqual(text.count("uses: ./.github/actions/push-release-images"), 1, job)
             self.assertIn(main_push, text, job)
@@ -172,15 +199,32 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         # Images are pushed with the labels that name this revision; a tag alone is never deployable.
         self.assertIn('.["org.opencontainers.image.revision"] == $sha', PUSH_ACTION)
         publish = CI_WORKFLOW.split("name: Publish verified release", 1)[1].split("publish-landing:", 1)[0]
-        self.assertIn("needs: [gate, backend-images, frontend-image, interpreter]", publish)
+        self.assertIn("needs: [gate, backend-images, frontend-image, sandbox]", publish)
         self.assertIn("packages: read", publish)
         self.assertNotIn("docker push", publish)
         # A main push whose tree a pull request verified skips the test jobs behind the gate; without a status
         # function that skip would skip the release too, so the gate and the image jobs are checked by name.
         condition = CI_WORKFLOW.split("  publish:\n", 1)[1].split("    needs:", 1)[0]
         self.assertIn("!cancelled()", condition)
-        for job in ("gate", "backend-images", "frontend-image", "interpreter"):
+        for job in ("gate", "backend-images", "frontend-image", "sandbox"):
             self.assertIn(f"needs.{job}.result == 'success'", condition, job)
+
+    def test_sandbox_images_join_the_release_contract(self):
+        sandbox = CI_WORKFLOW.split("  sandbox:\n", 1)[1].split("\n  backend-images:\n", 1)[0]
+        self.assertIn("components: sandbox sandbox-computer", sandbox)
+        self.assertIn("context: memoryos-sandbox/computer", sandbox)
+        self.assertIn("context: memoryos-sandbox/server", sandbox)
+        publish = CI_WORKFLOW.split("name: Publish verified release", 1)[1].split("publish-landing:", 1)[0]
+        self.assertIn("${{ needs.sandbox.outputs.images }}", publish)
+        deploy = SCRIPT.split('if [[ "$mode" == deploy ]]', 1)[1].split('elif [[ "$mode" == rollback ]]', 1)[0]
+        # The computer image is not a Compose service: pull it with the job-scoped credentials before reserving.
+        pull = 'docker pull --quiet "$(image_reference sandbox-computer "$tx/candidate.env")"'
+        self.assertLess(deploy.index("docker login ghcr.io"), deploy.index(pull))
+        self.assertLess(deploy.index(pull), deploy.index('> "$state/pending"'))
+        # A runtime accepted before the sandbox joined the release has no sandbox server to capture.
+        self.assertIn('has_sandbox "$state/current.env"', deploy)
+        rollback = SCRIPT.split('elif [[ "$mode" == rollback ]]', 1)[1].split('elif [[ "$mode" == finish ]]', 1)[0]
+        self.assertIn('target=candidate; compose stop --timeout 30 sandbox', rollback)
 
     def test_keycloak_is_rolled_out_by_the_release_on_every_host(self):
         backend = CI_WORKFLOW.split("  backend-images:\n", 1)[1].split("\n  secrets:\n", 1)[0]
@@ -340,36 +384,11 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         other_files[2]["Config"]["Labels"]["com.docker.compose.project.config_files"] += ",/elsewhere/compose.yaml"
         self.assertIn("Unhealthy or mixed runtime", check(other_files).stderr)
 
-    def test_interpreter_is_reachable_only_on_the_internal_network(self):
-        compose = (ROOT / "infrastructure/deployment/compose.base.yaml").read_text(encoding="utf-8")
-        service = compose.split("\n  interpreter:\n", 1)[1].split("\nnetworks:\n", 1)[0]
-        self.assertNotIn("ports:", service)
-        self.assertIn("memoryos-internal:", service)
-        for network in ("shared-infra", "proxy", "memoryos-telemetry"):
-            self.assertNotIn(network, service)
-        self.assertIn("PYTHON_EXECUTOR_DOCKER_NETWORK: none", service)
-
     def test_missing_secret_files_stop_the_deployment_before_reservation(self):
         deploy = SCRIPT.split('if [[ "$mode" == deploy ]]', 1)[1].split('elif [[ "$mode" == rollback ]]', 1)[0]
         # Compose config accepts a missing secret file; rollout would fail after the reservation.
         self.assertIn("'.secrets // {} | .[].file // empty'", deploy)
         self.assertLess(deploy.index("'.secrets // {} | .[].file // empty'"), deploy.index('> "$state/pending"'))
-
-    def test_interpreter_and_api_share_one_key_secret(self):
-        compose = (ROOT / "infrastructure/deployment/compose.base.yaml").read_text(encoding="utf-8")
-        interpreter = compose.split("\n  interpreter:\n", 1)[1].split("\nnetworks:\n", 1)[0]
-        api = compose.split("\n  api:\n", 1)[1].split("\n  worker:\n", 1)[0]
-        self.assertIn("API_KEY_FILE: /run/secrets/interpreter_api_key", interpreter)
-        self.assertIn("- interpreter_api_key", interpreter)
-        # A 0600 operator-owned key is unreadable to capability-dropped root without DAC_OVERRIDE; the first
-        # staging rollout of the key failed with PermissionError until the file was widened by hand.
-        self.assertRegex(interpreter, r"cap_add:\n\s+- DAC_OVERRIDE")
-        self.assertIn("MEMORYOS_INTERPRETER_API_KEY_FILE: /run/secrets/interpreter_api_key", api)
-        self.assertIn("- interpreter_api_key", api)
-        # The launcher reads any MEMORYOS_<NAME>_FILE rather than naming this key; that behaviour is
-        # exercised in test_launcher_secret_files.py.
-        launcher = (ROOT / "api/src/main/docker/application-launcher.sh").read_text(encoding="utf-8")
-        self.assertIn('export "${secret_variable%_FILE}=$secret_value"', launcher)
 
 
 @unittest.skipUnless(os.name == "posix" and all(shutil.which(tool) for tool in ("bash", "flock", "jq")),
@@ -399,6 +418,10 @@ class StagingDeploymentContractTest(unittest.TestCase):
                 for component in ("api", "worker", "web")) + f"MEMORYOS_RELEASE={sha}\n")
             (self.tx / f"{target}.base.env").write_text("OPERATOR_CONFIGURATION=retained\n")
             (self.tx / f"{target}.compose").write_text(str(self.root / f"{target}.yaml") + "\n")
+        deployment = self.tx / "source" / "infrastructure" / "deployment"
+        deployment.mkdir(parents=True)
+        (deployment / "prune-release-images.sh").write_text(PRUNE_SCRIPT)
+        self.images = self.root / "images.txt"
         self.set_runtime()
 
         # Redirect only the installation root and privilege precondition in the
@@ -440,6 +463,14 @@ elif args[0] == "compose" and "ps" in args:
     # Each service runs as one container named for it here; the Worker's replicas are found the same way.
     print("memoryos-" + args[-1])
 elif args[0] == "compose":
+    pass
+elif args[:3] == ["ps", "--all", "--quiet"]:
+    # No interpreter container is left over here (MEM-271).
+    pass
+elif args[0] == "images":
+    images = root / "images.txt"
+    print(images.read_text() if images.exists() else "", end="")
+elif args[:2] == ["image", "rm"]:
     pass
 else:
     sys.exit("Unexpected Docker operation: " + repr(args))
@@ -492,6 +523,25 @@ else:
         self.assertEqual((self.state / "current.env").read_bytes(), (self.tx / "candidate.env").read_bytes())
         self.assertEqual((self.tx / "database.dump").read_bytes(), self.backup)
 
+    def test_finish_removes_superseded_release_images_and_keeps_the_rest(self):
+        self.images.write_text(
+            "candidate-api ghcr.io/kl3init/memoryos-api\n"
+            "older-api ghcr.io/kl3init/memoryos-api\n"
+            "postgres-id postgres\n")
+        result = self.operate("finish")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(self.pending.exists())
+        removed = [call[-1] for call in self.docker_calls() if call[:2] == ["image", "rm"]]
+        self.assertEqual(removed, ["older-api"])
+
+    def test_a_failed_prune_leaves_the_release_accepted(self):
+        (self.tx / "source" / "infrastructure" / "deployment" / "prune-release-images.sh").write_text("exit 3\n")
+        result = self.operate("finish")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(self.pending.exists())
+        self.assertEqual((self.state / "current.env").read_bytes(), (self.tx / "candidate.env").read_bytes())
+        self.assertIn("superseded release images were not removed", result.stderr)
+
     def test_failed_application_verification_retains_reservation(self):
         for failure in ("health", "revision"):
             with self.subTest(failure=failure):
@@ -540,10 +590,10 @@ else:
 
 class VerifiedTreeReuseTest(unittest.TestCase):
     JOBS = ("backend", "backend-images", "changes", "frontend", "frontend-check", "frontend-image", "frontend-preview",
-            "infrastructure", "interpreter", "landing", "secrets")
+            "infrastructure", "landing", "migrations", "sandbox", "secrets")
     AREAS = {"backend": (["infrastructure", "backend"], ["backend-images"]),
              "web": (["frontend-check", "frontend", "frontend-preview"], ["frontend-image"]),
-             "landing": ([], ["landing"]), "interpreter": ([], ["interpreter"])}
+             "landing": ([], ["landing"]), "sandbox": ([], ["sandbox"])}
 
     def gate(self, outputs, override=None):
         jq = shutil.which("jq")
@@ -554,6 +604,7 @@ class VerifiedTreeReuseTest(unittest.TestCase):
         results = {job: {"result": "skipped", "outputs": {}} for job in self.JOBS}
         results["changes"] = {"result": "success", "outputs": outputs}
         results["secrets"]["result"] = "success"
+        results["migrations"]["result"] = "success"
         for area, (tests, images) in self.AREAS.items():
             if outputs.get(area) == "true":
                 for job in images:
@@ -566,7 +617,7 @@ class VerifiedTreeReuseTest(unittest.TestCase):
                               capture_output=True).returncode
 
     def test_a_verified_area_skips_its_tests_but_still_builds_its_images(self):
-        every = {"backend": "true", "web": "true", "landing": "true", "interpreter": "true"}
+        every = {"backend": "true", "web": "true", "landing": "true", "sandbox": "true"}
         self.assertEqual(0, self.gate(every))
         verified = {**every, "backend_verified": "true", "web_verified": "true"}
         self.assertEqual(0, self.gate(verified))
@@ -574,8 +625,11 @@ class VerifiedTreeReuseTest(unittest.TestCase):
         self.assertNotEqual(0, self.gate(verified, {"frontend-image": "failure"}))
         # Tests may be skipped only when the area was found verified.
         self.assertNotEqual(0, self.gate(every, {"backend": "skipped"}))
-        self.assertNotEqual(0, self.gate({"backend": "false", "web": "true", "landing": "false", "interpreter": "false"},
-                                         {"backend-images": "success"}))
+        self.assertNotEqual(0, self.gate({"backend": "false", "web": "true", "landing": "false", "sandbox": "false"}, {"backend-images": "success"}))
+        # The sandbox images are built whenever the sandbox area is selected.
+        self.assertNotEqual(0, self.gate(every, {"sandbox": "skipped"}))
+        # A migration numbered below the base's newest stops the release even when every test was reused.
+        self.assertNotEqual(0, self.gate(verified, {"migrations": "failure"}))
 
     def test_only_a_successful_same_repository_pull_request_run_of_this_commit_is_trusted(self):
         changes = CI_WORKFLOW.split("  changes:\n", 1)[1].split("\n  infrastructure:\n", 1)[0]

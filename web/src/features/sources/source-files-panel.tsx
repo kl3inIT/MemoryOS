@@ -256,9 +256,11 @@ export function SourceFilesPanel({
                           ? "Files appear here after synchronization acquires them from Google Drive."
                           : source.type === "SHAREPOINT"
                             ? "Files appear here after synchronization acquires them from SharePoint."
-                            : canUpload
-                              ? "Upload one supported file to start indexing."
-                              : "No files are indexed in this Source.",
+                            : source.type === "LARK"
+                              ? "Files appear here after synchronization acquires them from Lark."
+                              : canUpload
+                                ? "Upload one supported file to start indexing."
+                                : "No files are indexed in this Source.",
                     )}
                   />
                 }

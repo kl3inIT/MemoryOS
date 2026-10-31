@@ -28,7 +28,7 @@ Google acquisition stages raw binary bytes or native snapshots through `ObjectWr
 
 Raw write states are `WRITING`, `READY`, `ADOPTED`, `DISCARDED`, and `CLEANING`. Adoption requires an existing caller transaction, the matching tenant/token/full stored reference, positive write completion, and an unexpired adoption deadline. Source-item acceptance adopts the object and records its version atomically, so rollback cannot leave an accepted raw object detached from that transaction. An obsolete or failed acceptance discards its unadopted stage; it cannot revive an expired or cleaning claim.
 
-BINARY object admission is 1 byte–100 MiB (104,857,600 bytes), shared by FILE upload and Google binary acquisition; native snapshots remain capped at 32 MiB. Durable input-kind constraints enforce the separate bounds, and native snapshots cannot be authorized as browser uploads. Provider request, cell/tab/time bounds and extraction routing remain in [ingestion](ingestion.md).
+BINARY object admission is 1 byte–100 MiB (104,857,600 bytes), shared by FILE upload and Google binary acquisition; native snapshots remain capped at 32 MiB. Durable input-kind constraints enforce the separate bounds, and native snapshots cannot be authorized as browser uploads. A server write either carries the bytes with their SHA-256, or streams a body of declared size and SHA-256 (`ObjectStorage.writeStream(key, stream, metadata)`, a [sandbox workspace archive](sandbox.md)) read once without holding it in memory, which the store refuses when it does not match; both refuse to replace an existing key (`If-None-Match: *`). Provider request, cell/tab/time bounds and extraction routing remain in [ingestion](ingestion.md).
 
 ## Cleanup and readiness
 

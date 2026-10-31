@@ -1,5 +1,6 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState, type ReactNode } from "react";
 import {
   createMemoryHistory,
   createRootRoute,
@@ -9,20 +10,27 @@ import {
 } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HttpResponse } from "msw";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AppShellHeaderSlot } from "@/components/app-shell/app-shell-header-slot";
 import type { ApplicationSession } from "@/features/identity/application-session-context";
 import { ApplicationSessionProvider } from "@/features/identity/application-session-provider";
 import {
   handleCreateChatPersona,
-  handleListAvailableChatModels,
+  handleGetChatPersona,
+  handleListAssistantChannels,
   handleListChatPersonaLabels,
+  handleListChatPersonaModels,
   handleListChatPersonaSources,
   handleListDocumentSets,
   handleListMcpConnections,
+  handleShareChatPersona,
+  handleUpdateChatPersona,
 } from "@/lib/hey-api/msw.gen";
-import type { ApiProblem, PersonaInput, PersonaView } from "@/lib/hey-api/types.gen";
+import type { ApiProblem, PersonaInput, PersonaView, SharingInput } from "@/lib/hey-api/types.gen";
 import { server } from "@/test/msw";
+import { AgentCreateDialog } from "./agent-create-dialog";
 import { AgentEditorPage } from "./agent-editor";
+import type { AgentEditorTab } from "./agent-editor-search";
 
 const SESSION: ApplicationSession = {
   actorId: "0f2f5e6e-4e6c-4d55-9c07-6b0b1d4b39a4",
@@ -33,18 +41,86 @@ const SESSION: ApplicationSession = {
   capabilities: ["SYSTEM_BASIC", "CHAT_READ", "CHAT_WRITE", "AGENTS_CREATE"],
   scopedCapabilities: [],
 };
-const draftKey = `memoryos.agent-draft.${SESSION.actorId}`;
+const agentId = "70000000-0000-4000-8000-000000000001";
 
-async function renderEditor() {
+function saved(overrides: Partial<PersonaView> = {}): PersonaView {
+  return {
+    id: agentId,
+    revision: 3,
+    builtin: false,
+    permissions: {
+      edit: true,
+      share: true,
+      setPublic: true,
+      delete: true,
+      transfer: false,
+      leave: false,
+      manage: false,
+    },
+    name: "Contract law",
+    title: "Contract lawyer",
+    description: "Reviews clauses against the issued templates.",
+    instructions: "Quote the template number.",
+    starterPrompts: [],
+    sourceIds: [],
+    sources: [],
+    documentSetIds: [],
+    documentSets: [],
+    tools: ["search", "web_search"],
+    mcpServers: [],
+    fileIds: [],
+    avatarSeed: "contract-law",
+    hasAvatar: false,
+    labels: [],
+    owner: { actor: { actorId: SESSION.actorId, name: "Đạt Phan", email: "dat@tasco.vn" } },
+    userShares: [],
+    groupShares: [],
+    isPublic: false,
+    publicPermission: "VIEWER",
+    listed: true,
+    featured: false,
+    grounded: false,
+    ...overrides,
+  };
+}
+
+/** The shell's header, where the editor puts its way back, its state and Lưu. */
+function Shell({ children }: { children: ReactNode }) {
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+  return (
+    <AppShellHeaderSlot value={slot}>
+      <header ref={setSlot} />
+      {children}
+    </AppShellHeaderSlot>
+  );
+}
+
+/** The saved assistant the API answers a write with. */
+function echo(sent: PersonaInput, overrides: Partial<PersonaView>): PersonaView {
+  return saved({
+    ...sent,
+    title: sent.title ?? undefined,
+    greeting: sent.greeting ?? undefined,
+    avatarSeed: sent.avatarSeed ?? "contract-law",
+    ...overrides,
+  });
+}
+
+async function renderEditor(initialTab: AgentEditorTab = "config") {
   const rootRoute = createRootRoute();
   const route = createRoute({
     getParentRoute: () => rootRoute,
-    path: "/agents/create",
-    component: () => (
-      <ApplicationSessionProvider session={SESSION}>
-        <AgentEditorPage />
-      </ApplicationSessionProvider>
-    ),
+    path: "/agents/$agentId/edit",
+    component: function Page() {
+      const [tab, setTab] = useState(initialTab);
+      return (
+        <ApplicationSessionProvider session={SESSION}>
+          <Shell>
+            <AgentEditorPage agentId={agentId} tab={tab} onTabChange={setTab} />
+          </Shell>
+        </ApplicationSessionProvider>
+      );
+    },
   });
   const listRoute = createRoute({
     getParentRoute: () => rootRoute,
@@ -53,7 +129,7 @@ async function renderEditor() {
   });
   const router = createRouter({
     routeTree: rootRoute.addChildren([route, listRoute]),
-    history: createMemoryHistory({ initialEntries: ["/agents/create"] }),
+    history: createMemoryHistory({ initialEntries: [`/agents/${agentId}/edit`] }),
   });
   await router.load();
   render(
@@ -66,160 +142,457 @@ async function renderEditor() {
 
 beforeEach(() => {
   server.use(
+    handleGetChatPersona({ body: saved() }),
     handleListChatPersonaSources({ body: [] }),
     handleListDocumentSets({ body: [] }),
-    handleListAvailableChatModels({ body: [] }),
+    handleListChatPersonaModels({ body: [] }),
     handleListChatPersonaLabels({ body: [] }),
     handleListMcpConnections({ body: [] }),
+    handleListAssistantChannels({ body: [] }),
   );
 });
-afterEach(() => window.localStorage.clear());
+
+afterEach(() => vi.restoreAllMocks());
 
 describe("AgentEditorPage", () => {
-  it("creates an agent from the edited fields and forgets the browser draft", async () => {
+  it("shows on Kênh where the assistant answers, without links to someone who does not manage bots", async () => {
+    server.use(
+      handleListAssistantChannels({
+        body: [
+          {
+            id: "80000000-0000-4000-8000-000000000001",
+            provider: "ZALO_BOT",
+            name: "HR questions",
+            botName: "HR bot",
+            enabled: false,
+            publicAccess: false,
+            byDefault: true,
+            groups: [],
+          },
+          {
+            id: "80000000-0000-4000-8000-000000000002",
+            provider: "LARK",
+            name: "Tasco helpdesk",
+            enabled: true,
+            publicAccess: false,
+            byDefault: false,
+            groups: [{ id: "oc_5f1e2d3c4b5a69788796a5b4c3d2e1f0", name: "HR team" }],
+          },
+        ],
+      }),
+    );
+    await renderEditor("channels");
+    const panel = await screen.findByRole("tabpanel", { name: "Channels" });
+    const bots = await within(panel).findByRole("region", { name: "Bot default" });
+    const groups = within(panel).getByRole("region", { name: "Group chats" });
+    expect(within(bots).getByText("HR questions")).toBeVisible();
+    expect(within(bots).getByText("Zalo bot · default · Off")).toBeVisible();
+    expect(within(groups).getByText("HR team")).toBeVisible();
+    expect(within(groups).getByText("Lark group · through the bot “Tasco helpdesk”")).toBeVisible();
+    expect(within(bots).queryByText("HR team")).not.toBeInTheDocument();
+    expect(within(panel).queryByRole("link")).not.toBeInTheDocument();
+    expect(within(panel).queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("warns beside its documents that anyone who messages a public bot answering with it reads them", async () => {
+    server.use(
+      handleListAssistantChannels({
+        body: [
+          {
+            id: "80000000-0000-4000-8000-000000000003",
+            provider: "ZALO_BOT",
+            name: "Tasco customer care",
+            enabled: true,
+            publicAccess: true,
+            byDefault: true,
+            groups: [],
+          },
+        ],
+      }),
+    );
+    const user = await renderEditor();
+    expect(
+      await screen.findByText(
+        "Anyone who messages Tasco customer care can read the documents here.",
+      ),
+    ).toBeVisible();
+    await user.click(screen.getByRole("tab", { name: "Channels" }));
+    expect(await screen.findByText("Zalo bot · default · public")).toBeVisible();
+  });
+
+  it("shows an app open through the assistant alone as always on, and warns that a public bot uses it", async () => {
+    const linear = { id: "90000000-0000-4000-8000-000000000001", name: "Linear" };
+    server.use(
+      handleGetChatPersona({
+        body: saved({ openMcpServers: [linear], publicBotMcpServers: [linear] }),
+      }),
+      handleListAssistantChannels({
+        body: [
+          {
+            id: "80000000-0000-4000-8000-000000000003",
+            provider: "ZALO_BOT",
+            name: "Tasco customer care",
+            enabled: true,
+            publicAccess: true,
+            byDefault: true,
+            groups: [],
+          },
+        ],
+      }),
+    );
+    await renderEditor();
+    expect(
+      await screen.findByText("Anyone who messages Tasco customer care can use Linear."),
+    ).toBeVisible();
+    expect(screen.getByText("Always on")).toBeVisible();
+    expect(screen.getByRole("switch", { name: "Linear" })).toBeDisabled();
+  });
+
+  it("gives the built-in assistant no Kênh tab", async () => {
+    server.use(handleGetChatPersona({ body: saved({ builtin: true }) }));
+    await renderEditor("channels");
+    expect(await screen.findByRole("tab", { name: "Configure" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.queryByRole("tab", { name: "Channels" })).not.toBeInTheDocument();
+  });
+
+  it("shows Cancel and Save only on the Configure tab, keeping the unsaved state on the others", async () => {
+    const user = await renderEditor();
+    await user.type(await screen.findByRole("textbox", { name: "Title" }), " lead");
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+
+    await user.click(screen.getByRole("tab", { name: "Share" }));
+    expect(screen.getByText("Unsaved changes")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Cancel" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Configure" }));
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+    expect(screen.getByRole("link", { name: "Cancel" })).toBeVisible();
+  });
+
+  it("saves in place, then starts again from what the server kept", async () => {
+    let sent: PersonaInput | undefined;
+    let revision: string | null = null;
+    server.use(
+      handleUpdateChatPersona(async ({ request }) => {
+        sent = await request.json();
+        revision = new URL(request.url).searchParams.get("revision");
+        return HttpResponse.json(echo(sent, { revision: 4 }));
+      }),
+    );
+    const user = await renderEditor();
+    const name = await screen.findByRole("textbox", { name: "Assistant name" });
+    const save = () => screen.getByRole("button", { name: "Save" });
+    expect(save()).toHaveAttribute("aria-disabled", "true");
+
+    await user.clear(screen.getByRole("textbox", { name: "Title" }));
+    await user.type(screen.getByRole("textbox", { name: "Title" }), "Senior contract lawyer");
+    expect(screen.getByText("Unsaved changes")).toBeVisible();
+    await user.click(save());
+
+    expect(await screen.findByText("Saved")).toBeVisible();
+    expect(name).toHaveValue("Contract law");
+    expect(save()).toHaveAttribute("aria-disabled", "true");
+    expect(screen.queryByText("Agent catalog")).not.toBeInTheDocument();
+    expect(revision).toBe("3");
+    expect(sent).toMatchObject({
+      name: "Contract law",
+      title: "Senior contract lawyer",
+      tools: ["search", "web_search"],
+      labelIds: [],
+    });
+  });
+
+  it("turns document search off from the section's switch and stops adding documents", async () => {
     let sent: PersonaInput | undefined;
     server.use(
-      handleCreateChatPersona(async ({ request }) => {
+      handleUpdateChatPersona(async ({ request }) => {
         sent = await request.json();
-        const created: PersonaView = {
-          ...sent,
-          id: "70000000-0000-4000-8000-000000000099",
-          revision: 0,
-        };
-        return HttpResponse.json(created, { status: 201 });
+        return HttpResponse.json(echo(sent, { revision: 4 }));
       }),
     );
     const user = await renderEditor();
-    const create = screen.getByRole("button", { name: "Create assistant" });
-    expect(create).toBeDisabled();
+    const add = await screen.findByRole("button", { name: "Add documents" });
+    await waitFor(() => expect(add).toBeEnabled());
+    await user.click(screen.getByRole("switch", { name: "Search internal documents" }));
 
-    await user.type(screen.getByRole("textbox", { name: "Assistant name" }), " Law ");
-    await user.type(screen.getByRole("textbox", { name: /Reminder for every turn/ }), "Cite");
-    await user.click(screen.getByRole("switch", { name: "Create image" }));
-    await user.click(
-      screen.getByRole("switch", { name: "Answer only from the organization's documents" }),
-    );
-    await user.click(create);
-
-    expect(await screen.findByText("Agent catalog")).toBeVisible();
-    expect(sent).toMatchObject({
-      name: "Law",
-      taskPrompt: "Cite",
-      starterPrompts: [],
-      tools: ["search", "web_search", "code_interpreter"],
-      modelConfigurationId: null,
-      iconName: "bot",
-      grounded: true,
-    });
-    expect(window.localStorage.getItem(draftKey)).toBeNull();
-  }, 15_000);
-
-  it("restores an unsaved new agent from this browser until the draft is discarded", async () => {
-    window.localStorage.setItem(
-      draftKey,
-      JSON.stringify({
-        name: "Contract law",
-        description: "",
-        iconName: "legal",
-        avatarFileId: null,
-        keepAvatar: false,
-        labelIds: [],
-        instructions: "",
-        taskPrompt: "",
-        starterPrompts: [],
-        sourceIds: [],
-        documentSetIds: [],
-        fileIds: [],
-        knowledgeCutoff: "",
-        tools: ["search"],
-        mcpServerIds: [],
-        modelConfigurationId: "",
-        contextTokenLimit: "",
-        outputTokenLimit: "",
-        replaceBaseSystemPrompt: false,
-      }),
-    );
-    const user = await renderEditor();
-
-    expect(await screen.findByText("Restored the draft you were creating.")).toBeVisible();
-    const name = screen.getByRole("textbox", { name: "Assistant name" });
-    expect(name).toHaveValue("Contract law");
-
-    await user.click(screen.getByRole("button", { name: "Discard draft" }));
-
-    expect(name).toHaveValue("");
-    expect(screen.queryByText("Restored the draft you were creating.")).not.toBeInTheDocument();
-    expect(window.localStorage.getItem(draftKey)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add documents" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(sent?.tools).toEqual(["web_search"]));
   });
 
-  it("places the API's field violation on its control", async () => {
-    const problem: ApiProblem = {
-      title: "Bad Request",
-      status: 400,
-      detail: "Invalid agent",
-      instance: "/api/chat/personas",
-      errors: [{ field: "name", message: "size", code: "SIZE", params: { min: 1, max: 200 } }],
-    };
-    server.use(handleCreateChatPersona(() => HttpResponse.json(problem, { status: 400 })));
-    const user = await renderEditor();
-
-    const name = screen.getByRole("textbox", { name: "Assistant name" });
-    await user.type(name, "Contract law");
-    await user.click(screen.getByRole("button", { name: "Create assistant" }));
-
-    expect(await screen.findByText("Check the highlighted fields and try again.")).toBeVisible();
-    expect(name).toHaveAttribute("aria-invalid", "true");
-  });
-
-  it("marks a token limit outside the accepted range without sending the agent", async () => {
-    let sent = false;
-    server.use(
-      handleCreateChatPersona(() => {
-        sent = true;
-        return HttpResponse.json({}, { status: 500 });
-      }),
-    );
-    const user = await renderEditor();
-
-    await user.type(screen.getByRole("textbox", { name: "Assistant name" }), "Contract law");
-    const output = screen.getByRole("spinbutton", { name: "Max output (token)" });
-    await user.type(output, "999999");
-    await user.click(screen.getByRole("button", { name: "Create assistant" }));
-
-    expect(await screen.findByText("The maximum is 200000.")).toBeVisible();
-    expect(output).toHaveAttribute("aria-invalid", "true");
-    expect(output).toHaveAccessibleDescription("The maximum is 200000.");
-    expect(sent).toBe(false);
-
-    await user.clear(output);
-    await user.type(output, "4096");
-    expect(output).not.toHaveAttribute("aria-invalid");
-  });
-
-  it("places the API's token limit violation on its control", async () => {
+  it("places the API's title violation on its control", async () => {
     const problem: ApiProblem = {
       title: "Validation failed",
       status: 400,
       detail: "One or more request values are invalid.",
-      instance: "/api/chat/personas",
+      instance: `/api/chat/personas/${agentId}`,
       code: "REQUEST_VALIDATION",
-      errors: [
-        {
-          field: "contextTokenLimit",
-          message: "must be greater than or equal to 256",
-          code: "MIN",
-          params: { min: 256 },
-        },
-      ],
+      errors: [{ field: "title", message: "size", code: "SIZE", params: { min: 0, max: 80 } }],
     };
-    server.use(handleCreateChatPersona(() => HttpResponse.json(problem, { status: 400 })));
+    server.use(handleUpdateChatPersona(() => HttpResponse.json(problem, { status: 400 })));
     const user = await renderEditor();
 
-    await user.type(screen.getByRole("textbox", { name: "Assistant name" }), "Contract law");
-    await user.click(screen.getByRole("button", { name: "Create assistant" }));
+    const title = await screen.findByRole("textbox", { name: "Title" });
+    await user.type(title, " II");
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
-    const context = screen.getByRole("spinbutton", { name: "Context window (token)" });
-    await waitFor(() => expect(context).toHaveAttribute("aria-invalid", "true"));
-    expect(context).toHaveAccessibleDescription("The minimum is 256.");
+    await waitFor(() => expect(title).toHaveAttribute("aria-invalid", "true"));
+  });
+
+  it("offers a reasoning level only for a model that reasons and sends the one chosen", async () => {
+    let sent: PersonaInput | undefined;
+    server.use(
+      handleListChatPersonaModels({
+        body: [
+          model("10000000-0000-4000-8000-000000000001", "Fast answers", false, true),
+          model("10000000-0000-4000-8000-000000000002", "Deep thinker", true, false),
+        ],
+      }),
+      handleUpdateChatPersona(async ({ request }) => {
+        sent = await request.json();
+        return HttpResponse.json(echo(sent, { revision: 4 }));
+      }),
+    );
+    const user = await renderEditor();
+
+    const picker = await screen.findByRole("combobox", { name: "Default model" });
+    await waitFor(() => expect(picker).toBeEnabled());
+    await user.click(picker);
+    expect(screen.queryByRole("radiogroup", { name: "Reasoning" })).not.toBeInTheDocument();
+    await user.click(await screen.findByRole("option", { name: /Deep thinker/ }));
+    await user.click(picker);
+    const levels = await screen.findByRole("radiogroup", { name: "Reasoning" });
+    expect(screen.getByRole("radio", { name: "System default" })).toBeChecked();
+    await user.click(within(levels).getByRole("radio", { name: "High" }));
+    await user.keyboard("{Escape}");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(sent).toMatchObject({
+        modelConfigurationId: "10000000-0000-4000-8000-000000000002",
+        reasoningEffort: "HIGH",
+      }),
+    );
+  }, 15_000);
+
+  it("shows the test chat beside the form on a wide screen, following unsaved edits", async () => {
+    vi.spyOn(window, "matchMedia").mockImplementation(
+      (query: string) =>
+        ({
+          matches: query === "(min-width: 1024px)",
+          media: query,
+          onchange: null,
+          addEventListener() {},
+          removeEventListener() {},
+          addListener() {},
+          removeListener() {},
+          dispatchEvent: () => false,
+        }) as MediaQueryList,
+    );
+    const user = await renderEditor();
+    const chat = await screen.findByRole("region", { name: "Test chat" }, { timeout: 15_000 });
+    expect(await within(chat).findByRole("heading", { name: "Contract law" })).toBeVisible();
+    expect(within(chat).getByText("Contract lawyer")).toBeVisible();
+    expect(screen.queryByText("Using unsaved changes")).not.toBeInTheDocument();
+
+    // jsdom lays everything out at 0×0, so a click would land on the panels' separator; type in place instead.
+    const greeting = screen.getByRole("textbox", { name: "Greeting" });
+    greeting.focus();
+    await user.type(greeting, "Ask me about a clause.", { skipClick: true });
+    expect(within(chat).getByText("Ask me about a clause.")).toBeVisible();
+    expect(screen.getByText("Using unsaved changes")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Test chat" })).not.toBeInTheDocument();
+  }, 30_000);
+
+  it("puts the Agent Builder beside the test chat and remembers the tab", async () => {
+    localStorage.removeItem("memoryos.agent-editor.panel");
+    const user = await renderEditor();
+    await user.click(await screen.findByRole("button", { name: "Test chat" }));
+    const builderTab = await screen.findByRole(
+      "tab",
+      { name: "Agent Builder" },
+      { timeout: 15_000 },
+    );
+    expect(screen.getByRole("tab", { name: "Test chat" })).toHaveAttribute("aria-selected", "true");
+    await user.click(builderTab);
+    const builder = await screen.findByRole("region", { name: "Agent Builder" });
+    expect(
+      within(builder).getByRole("heading", { name: "What should this assistant do?" }),
+    ).toBeVisible();
+    expect(
+      within(builder).getByPlaceholderText("What should change in this assistant?"),
+    ).toBeVisible();
+    expect(localStorage.getItem("memoryos.agent-editor.panel")).toBe("builder");
+  }, 30_000);
+
+  it("takes no files in the Agent Builder, which the test chat's composer does", async () => {
+    localStorage.removeItem("memoryos.agent-editor.panel");
+    const user = await renderEditor();
+    await user.click(await screen.findByRole("button", { name: "Test chat" }));
+    const file = new File(["%PDF"], "leave-policy.pdf", { type: "application/pdf" });
+    const files = { types: ["Files"], files: [file] };
+    const field = (region: HTMLElement) =>
+      within(region).getByRole("textbox", { name: "Question" });
+
+    const test = await screen.findByRole("region", { name: "Test chat" }, { timeout: 15_000 });
+    fireEvent.dragEnter(field(test), { dataTransfer: files });
+    expect(test.querySelector("[data-dragging]")).not.toBeNull();
+
+    await user.click(screen.getByRole("tab", { name: "Agent Builder" }));
+    const builder = await screen.findByRole("region", { name: "Agent Builder" });
+    fireEvent.dragEnter(field(builder), { dataTransfer: files });
+    expect(builder.querySelector("[data-dragging]")).toBeNull();
+    fireEvent.drop(field(builder), { dataTransfer: files });
+    fireEvent.paste(field(builder), { clipboardData: { files: [file] } });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(within(builder).queryByText(/leave-policy/)).not.toBeInTheDocument();
+  }, 30_000);
+
+  it("gives someone who may only use the assistant neither the test chat nor the Agent Builder", async () => {
+    server.use(
+      handleGetChatPersona({
+        body: saved({
+          permissions: {
+            edit: false,
+            share: false,
+            setPublic: false,
+            delete: false,
+            transfer: false,
+            leave: false,
+            manage: false,
+          },
+        }),
+      }),
+    );
+    await renderEditor();
+    await screen.findByRole("textbox", { name: "Assistant name" });
+    expect(screen.queryByRole("button", { name: "Test chat" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Agent Builder" })).not.toBeInTheDocument();
+  });
+
+  it("opens the test chat from a button on a narrow screen", async () => {
+    const user = await renderEditor();
+    await screen.findByRole("textbox", { name: "Assistant name" });
+    expect(screen.queryByRole("region", { name: "Test chat" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Test chat" }));
+    const chat = await screen.findByRole("region", { name: "Test chat" }, { timeout: 15_000 });
+    expect(await within(chat).findByRole("heading", { name: "Contract law" })).toBeVisible();
+  }, 30_000);
+
+  it("saves a sharing change at once and keeps the configuration's next save in step", async () => {
+    let shared: SharingInput | undefined;
+    let updateRevision: string | null = null;
+    server.use(
+      handleShareChatPersona(async ({ request }) => {
+        shared = await request.json();
+        return HttpResponse.json(saved({ revision: 4, isPublic: true }));
+      }),
+      handleUpdateChatPersona(async ({ request }) => {
+        updateRevision = new URL(request.url).searchParams.get("revision");
+        const sent = await request.json();
+        return HttpResponse.json(echo(sent, { revision: 5 }));
+      }),
+    );
+    const user = await renderEditor("share");
+
+    await user.selectOptions(
+      await screen.findByRole("combobox", { name: "General access" }),
+      "VIEWER",
+    );
+    await waitFor(() =>
+      expect(shared).toEqual({
+        users: [],
+        groups: [],
+        isPublic: true,
+        publicPermission: "VIEWER",
+      }),
+    );
+
+    await user.click(screen.getByRole("tab", { name: "Configure" }));
+    await user.type(screen.getByRole("textbox", { name: "Title" }), " II");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(updateRevision).toBe("4"));
   });
 });
+
+describe("AgentCreateDialog", () => {
+  it("creates an assistant with the defaults of a new one and opens its editor", async () => {
+    let sent: PersonaInput | undefined;
+    server.use(
+      handleCreateChatPersona(async ({ request }) => {
+        sent = await request.json();
+        return HttpResponse.json(
+          echo(sent, { id: "70000000-0000-4000-8000-000000000099", revision: 0 }),
+          { status: 201 },
+        );
+      }),
+    );
+    const rootRoute = createRootRoute();
+    const listRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: "/agents",
+      component: () => (
+        <ApplicationSessionProvider session={SESSION}>
+          <AgentCreateDialog onClose={() => {}} />
+        </ApplicationSessionProvider>
+      ),
+    });
+    const editRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: "/agents/$agentId/edit",
+      component: () => <p>Editor opened</p>,
+    });
+    const router = createRouter({
+      routeTree: rootRoute.addChildren([listRoute, editRoute]),
+      history: createMemoryHistory({ initialEntries: ["/agents"] }),
+    });
+    await router.load();
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    );
+    const user = userEvent.setup();
+    const create = await screen.findByRole("button", { name: "Create assistant" });
+    expect(create).toBeDisabled();
+    await user.type(screen.getByRole("textbox", { name: "Assistant name" }), " Law ");
+    await user.type(screen.getByRole("textbox", { name: "Title" }), "Contract lawyer");
+    await user.click(create);
+
+    expect(await screen.findByText("Editor opened")).toBeVisible();
+    expect(sent).toMatchObject({
+      name: "Law",
+      title: "Contract lawyer",
+      tools: ["search", "web_search"],
+      starterPrompts: [],
+      grounded: false,
+      avatarSeed: expect.stringMatching(/^[A-Za-z0-9_-]{1,64}$/),
+    });
+    expect(sent).not.toHaveProperty("reasoningEffort");
+  });
+});
+
+function model(id: string, name: string, reasoning: boolean, isDefault: boolean) {
+  return {
+    id,
+    providerId: "20000000-0000-4000-8000-000000000001",
+    providerName: "Provider",
+    modelName: name.toLowerCase().replace(" ", "-"),
+    displayName: name,
+    capabilities: {
+      streaming: true,
+      toolCalling: true,
+      vision: false,
+      reasoning,
+      structuredOutput: false,
+    },
+    contextWindow: 128000,
+    maxOutputTokens: 4096,
+    pricing: null,
+    isDefault,
+  };
+}

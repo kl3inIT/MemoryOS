@@ -8,7 +8,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
-import { LIBRARY_PAGE_SIZES, type ContentMatch, type LibraryFile } from "./library";
+import {
+  LIBRARY_PAGE_SIZE,
+  LIBRARY_PAGE_SIZES,
+  type ContentMatch,
+  type LibraryFile,
+  type LibraryPageSize,
+} from "./library";
 import { LibraryContentMatches } from "./library-content";
 import { FileActions, LibraryEmpty, LibraryList, type RowActions } from "./library-rows";
 import type { LibraryOwnedView } from "./library-views";
@@ -17,7 +23,7 @@ import type { LibraryViewState } from "./use-library-view";
 
 /**
  * The files of the page being read: a header whose checkbox chooses the whole page, the list or grid, and the
- * pagination bar, which also carries the page size.
+ * pager once the files outgrow one default page.
  */
 export function LibraryFiles({
   library,
@@ -35,7 +41,7 @@ export function LibraryFiles({
   emptyAction: ReactNode;
 }) {
   const ui = useAppTranslation();
-  const { page, files, selected, setSelected, offset, size, sort } = library;
+  const { page, files, selected, setSelected, sort } = library;
   return (
     <>
       {page.isPending && <LibraryListSkeleton />}
@@ -70,6 +76,8 @@ export function LibraryFiles({
               column so the three checkbox gutters (page, day, file) read as one line down the page. */}
           <div className="flex items-center gap-2 px-3.25">
             <Checkbox
+              focus="soft"
+              forceMountIndicator
               id="library-select-page"
               // The scope is in the name, because a selection never leaves its page.
               aria-label={ui("Chọn tất cả trên trang này")}
@@ -116,36 +124,88 @@ export function LibraryFiles({
           />
         </div>
       )}
-      {/* The bar stays while there are files, because it also carries the page size. */}
-      {page.data && page.data.totalCount > 0 && (
-        <TablePagination
-          label={ui("Phân trang thư viện")}
-          page={Math.floor(offset / size)}
-          totalPages={Math.ceil(page.data.totalCount / size)}
-          summary={ui("Hiển thị {{first}}–{{last}} trên {{total}} tệp", {
-            first: offset + 1,
-            last: Math.min(offset + size, page.data.totalCount),
-            total: page.data.totalCount,
-          })}
-          previousDisabled={offset === 0}
-          nextDisabled={!page.data.hasMore}
-          previousLabel={ui("Trang trước")}
-          nextLabel={ui("Trang sau")}
-          onPrevious={() => library.showPage(Math.max(0, offset - size))}
-          onNext={() => library.showPage(offset + size)}
-        >
-          <PageSizeSelect
-            label={ui("Số tệp mỗi trang")}
-            rowsLabel={ui("Số tệp")}
-            value={size}
-            sizes={LIBRARY_PAGE_SIZES}
-            disabled={page.isPlaceholderData}
-            // A page size change re-cuts the list, so it restarts at its first page.
-            onSizeChange={(next) => library.filterBy({ size: next })}
-          />
-        </TablePagination>
+      {page.data && (
+        <LibraryPager
+          library={library}
+          noun="file"
+          total={page.data.totalCount}
+          hasMore={page.data.hasMore}
+          busy={page.isPlaceholderData}
+        />
       )}
     </>
+  );
+}
+
+/**
+ * The pager under a list, which also carries the page size. A list no longer than the default page has nothing to
+ * page or to size, so it shows none unless the person is past its first page; a longer one offers pages of each
+ * size or the whole list. Files are counted as files, the other views' rows as items.
+ */
+export function LibraryPager({
+  library,
+  noun,
+  total,
+  hasMore,
+  busy,
+}: {
+  library: LibraryViewState;
+  noun: "file" | "item";
+  total: number;
+  /** Whether rows follow the page shown. */
+  hasMore: boolean;
+  /** While the next page is on its way, the size cannot change under it. */
+  busy: boolean;
+}) {
+  const ui = useAppTranslation();
+  const { offset, size } = library;
+  if (total <= LIBRARY_PAGE_SIZE && offset === 0) return null;
+  // The whole list is one page, as long as the list itself.
+  const step = size === "all" ? Math.max(total, 1) : size;
+  const range = { first: Math.min(offset + 1, total), last: Math.min(offset + step, total), total };
+  return (
+    <TablePagination
+      label={ui("Phân trang thư viện")}
+      page={Math.floor(offset / step)}
+      totalPages={Math.ceil(total / step)}
+      summary={
+        noun === "file"
+          ? ui("Hiển thị {{first}}–{{last}} trên {{total}} tệp", range)
+          : ui("Hiển thị {{first}}–{{last}} trên {{total}} mục", range)
+      }
+      previousDisabled={offset === 0}
+      nextDisabled={!hasMore}
+      previousLabel={ui("Trang trước")}
+      nextLabel={ui("Trang sau")}
+      onPrevious={() => library.showPage(Math.max(0, offset - step))}
+      onNext={() => library.showPage(offset + step)}
+    >
+      <LibraryPageSizeSelect library={library} noun={noun} disabled={busy} />
+    </TablePagination>
+  );
+}
+
+/** The page sizes of the library's lists, and the whole list. A new size re-cuts the list from its first page. */
+export function LibraryPageSizeSelect({
+  library,
+  noun,
+  disabled,
+}: {
+  library: LibraryViewState;
+  noun: "file" | "item";
+  disabled: boolean;
+}) {
+  const ui = useAppTranslation();
+  return (
+    <PageSizeSelect<LibraryPageSize>
+      label={noun === "file" ? ui("Số tệp mỗi trang") : ui("Số mục mỗi trang")}
+      rowsLabel={noun === "file" ? ui("Số tệp") : ui("Số mục")}
+      value={library.size}
+      sizes={[...LIBRARY_PAGE_SIZES, "all"]}
+      sizeLabel={(size) => (size === "all" ? ui("Tất cả") : String(size))}
+      disabled={disabled}
+      onSizeChange={(next) => library.filterBy({ size: next })}
+    />
   );
 }
 

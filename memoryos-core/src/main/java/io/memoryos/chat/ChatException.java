@@ -1,0 +1,78 @@
+package io.memoryos.chat;
+
+import io.memoryos.BusinessException;
+import io.memoryos.FailureCategory;
+
+public final class ChatException extends BusinessException {
+    private ChatException(String code, FailureCategory category, String message) {
+        super(code, category, message, message);
+    }
+
+    public static ChatException unavailable() {
+        return new ChatException("CHAT_UNAVAILABLE", FailureCategory.NOT_FOUND, "Chat is unavailable.");
+    }
+
+    /** The Tenant turned administrative history off; the conversations exist, this reader may not read them. */
+    public static ChatException historyDisabled() {
+        return new ChatException("CHAT_HISTORY_DISABLED", FailureCategory.NOT_PERMITTED,
+                "Conversation history is turned off for this organization.");
+    }
+
+    public static ChatException invalid(String message) {
+        return new ChatException("CHAT_INVALID_REQUEST", FailureCategory.VALIDATION, message);
+    }
+
+    public static ChatException conflict() {
+        return new ChatException("CHAT_CONFLICT", FailureCategory.CONFLICT, "Chat changed or has an active reply.");
+    }
+
+    /** "Tạo bản riêng" copies only a MemoryOS template (MEM-281). */
+    public static ChatException notATemplate() {
+        return new ChatException("AGENT_NOT_A_TEMPLATE", FailureCategory.CONFLICT, "Only a template can be copied.");
+    }
+
+    /** No call of the reply waits for approval: it was answered, it timed out, or the turn ended (MEM-253). */
+    public static ChatException approvalNotPending() {
+        return new ChatException("CHAT_TOOL_APPROVAL_NOT_PENDING", FailureCategory.CONFLICT,
+                "No call of this reply waits for approval.");
+    }
+
+    public static ChatException busy() {
+        return new ChatException("CHAT_CAPACITY_EXCEEDED", FailureCategory.SERVICE_UNAVAILABLE, "Chat is busy. Retry later.");
+    }
+
+    public static ChatException providerUnavailable() {
+        return new ChatException("CHAT_PROVIDER_UNAVAILABLE", FailureCategory.SERVICE_UNAVAILABLE,
+                "Chat provider is not configured or available.");
+    }
+
+    /** The selected model cannot run Deep research: it lacks tool calling or the minimum context window. */
+    public static ChatException researchModelUnsupported() {
+        return new ChatException("CHAT_RESEARCH_MODEL_UNSUPPORTED", FailureCategory.VALIDATION,
+                "The selected model cannot run Deep research.");
+    }
+
+    /** Deep research was requested while the Tenant administrator has turned it off. */
+    public static ChatException researchUnavailable() {
+        return new ChatException("CHAT_RESEARCH_UNAVAILABLE", FailureCategory.SERVICE_UNAVAILABLE,
+                "Deep research is not available.");
+    }
+
+    /** MEM-195: answers from documents only need a model that can be made to search first. */
+    /** MEM-280: the Agent Builder's task model, or the Chat model it falls back to, cannot call tools. */
+    public static ChatException builderModelUnsupported() {
+        return new ChatException("CHAT_BUILDER_MODEL_UNSUPPORTED", FailureCategory.VALIDATION,
+                "The Agent Builder's model cannot call tools.");
+    }
+
+    public static ChatException groundedModelUnsupported() {
+        return new ChatException("CHAT_GROUNDED_MODEL_UNSUPPORTED", FailureCategory.VALIDATION,
+                "The selected model cannot answer from the organization's documents only.");
+    }
+
+    /** Web search was requested but this Tenant has no usable Web connection or a tool-capable model. */
+    public static ChatException webUnavailable() {
+        return new ChatException("CHAT_WEB_UNAVAILABLE", FailureCategory.SERVICE_UNAVAILABLE,
+                "Web search is not configured or available.");
+    }
+}

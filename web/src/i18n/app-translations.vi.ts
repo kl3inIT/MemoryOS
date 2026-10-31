@@ -184,6 +184,8 @@ export const englishUi: Record<string, string> = {
   "Save Changes": "Lưu thay đổi",
   "MemoryOS manages this group. Its name and permissions are fixed. Membership changes follow the group’s access rules.":
     "MemoryOS quản lý nhóm này. Tên và quyền của nhóm là cố định. Việc thay đổi thành viên tuân theo các quy tắc truy cập của nhóm.",
+  "MemoryOS manages this group. Its name and Basic access are fixed. Membership changes follow the group’s access rules.":
+    "MemoryOS quản lý nhóm này. Tên và quyền truy cập cơ bản của nhóm là cố định. Việc thay đổi thành viên tuân theo các quy tắc truy cập của nhóm.",
   "Group Name": "Tên nhóm",
   "Membership, permissions and the Sources this group may read.":
     "Thành viên, quyền và các nguồn nhóm này được đọc.",
@@ -199,6 +201,8 @@ export const englishUi: Record<string, string> = {
   "Previous page": "Trang trước",
   "Page {{v1}} of {{v2}}": "Trang {{v1}} trên {{v2}}",
   "Next page": "Trang sau",
+  "Previous item": "Mục trước",
+  "Next item": "Mục sau",
   "New Group": "Nhóm mới",
   "This change would leave a standard user without a group. Add them to another group first, then try again.":
     "Thay đổi này sẽ khiến người dùng tiêu chuẩn không thuộc nhóm nào. Hãy thêm họ vào một nhóm khác trước, rồi thử lại.",
@@ -1290,7 +1294,6 @@ Object.assign(englishUi, {
   "No sources match your search and filters.": "Không có nguồn phù hợp với tìm kiếm và bộ lọc.",
   "{{v1}} group, {{v2}} sources, {{v3}} documents": "Nhóm {{v1}}, {{v2}} nguồn, {{v3}} tài liệu",
   "Total sources": "Tổng số nguồn",
-  "Show failed sources, {{count}}": "Hiển thị nguồn thất bại, {{count}}",
   "1 document": "1 tài liệu",
   "{{count}} documents": "{{count}} tài liệu",
   "Total docs": "Tổng tài liệu",
@@ -1361,8 +1364,6 @@ Object.assign(englishUi, {
   "No users found": "Không tìm thấy người dùng",
   "No users yet": "Chưa có người dùng",
   "Filter users by status": "Lọc người dùng theo trạng thái",
-  "Show {{v1}} users, count unavailable": "Hiển thị người dùng {{v1}}, chưa có số lượng",
-  "Show {{v1}} users, {{v2}}": "Hiển thị người dùng {{v1}}, {{v2}}",
   "Scrollable users table": "Bảng người dùng có thể cuộn",
   "Organization users": "Người dùng trong tổ chức",
   Email: "Email",
@@ -1933,12 +1934,15 @@ Object.assign(englishUi, {
   "Account ID": "Account ID",
   "System One": "System One",
   Change: "Thay đổi",
+  App: "Ứng dụng",
   Client: "Client",
   Task: "Tác vụ",
   "Join on first sign-in": "Tự tham gia khi đăng nhập lần đầu",
   "Connected by": "Người kết nối",
   "Provider session ended": "Đã kết thúc phiên ở nhà cung cấp",
   "Available to everyone": "Mọi người dùng được",
+  Assistants: "Trợ lý",
+  "Public bots": "Bot công khai",
   Reason: "Lý do",
   Kept: "Giữ nguyên",
   Replaced: "Đã thay",
@@ -2007,7 +2011,7 @@ Object.assign(englishUi, {
   "Changed voice": "Đã đổi Giọng nói",
   "Changed image generation": "Đã đổi Tạo ảnh",
   "Changed OCR": "Đã đổi OCR",
-  "Changed Code Interpreter": "Đã đổi Code Interpreter",
+  "Changed Sandbox": "Đã đổi Sandbox",
   "Changed Chat settings": "Đã đổi cài đặt Chat",
   "Question blocked": "Câu hỏi bị chặn",
   "Blocked by": "Chặn bởi",
@@ -2043,11 +2047,19 @@ Object.assign(englishUi, {
   "Added a credential": "Đã thêm thông tin xác thực",
   "Updated a credential": "Đã sửa thông tin xác thực",
   "Deleted a credential": "Đã xóa thông tin xác thực",
+  "Added a chat bot": "Đã thêm bot chat",
+  "Updated a chat bot": "Đã cập nhật bot chat",
+  "Removed a chat bot": "Đã gỡ bot chat",
+  "Linked an account to a chat bot": "Đã liên kết tài khoản với bot chat",
+  "Unlinked an account from a chat bot": "Đã bỏ liên kết tài khoản với bot chat",
   "Exported the audit log": "Đã xuất nhật ký audit",
   "Access refused": "Bị từ chối truy cập",
   "Read and export who changed sign-in, users, Groups, models, connections and Sources within the organization.":
     "Xem và xuất nhật ký ai đã thay đổi đăng nhập, người dùng, Nhóm, mô hình, kết nối và nguồn dữ liệu trong tổ chức.",
   "Manage MCP servers": "Quản lý máy chủ MCP",
+  "Manage chat bots": "Quản lý bot chat",
+  "Connect, configure, switch on or off and remove the organization's chat bots, such as the Lark bot.":
+    "Kết nối, cấu hình, bật hoặc tắt và gỡ các bot chat của tổ chức, như bot Lark.",
   "Register remote MCP servers, their authentication and OAuth clients, enable their tools and control Group access within the organization.":
     "Đăng ký máy chủ MCP từ xa, cách xác thực và OAuth client của chúng, bật công cụ và kiểm soát quyền truy cập của Nhóm trong tổ chức.",
   "IAM administration": "Quản trị danh tính và quyền truy cập",
@@ -2309,6 +2321,14 @@ Object.assign(englishUi, {
   "Sorts a question before it is answered: small talk, a question or a blocked topic. Needs a model that returns a fixed format.":
     "Phân loại câu hỏi trước khi trả lời: câu xã giao, câu hỏi hay chủ đề bị chặn. Cần model trả đúng định dạng.",
   "Question check model": "Model kiểm tra câu hỏi",
+  "Long conversation summaries": "Tóm tắt hội thoại dài",
+  "Summarizes the earlier turns of a long conversation so the chat model still knows them.":
+    "Tóm tắt phần đầu của hội thoại dài để model chat vẫn nhớ những gì đã trao đổi.",
+  "Long conversation summary model": "Model tóm tắt hội thoại dài",
+  "Agent Builder": "Agent Builder",
+  "Changes an assistant's settings when its editor asks. Needs a model that calls tools.":
+    "Sửa cấu hình trợ lý theo yêu cầu của người đang sửa. Cần model gọi được công cụ.",
+  "Agent Builder model": "Model của Agent Builder",
   "No model chosen; {{model}} is used.": "Chưa chọn mô hình; đang dùng {{model}}.",
   "Meeting minutes": "Biên bản họp",
   "Writes the summary, decisions and action items of a recorded meeting.":
@@ -2386,12 +2406,7 @@ Object.assign(englishUi, {
     "Đã lưu nhà cung cấp. Chưa xác nhận kết nối.",
   "Save provider": "Lưu nhà cung cấp",
   Connections: "Kết nối",
-  "Tools the assistant uses on your behalf. Each connection uses your own account.":
-    "Công cụ bên ngoài trợ lý được dùng thay bạn. Mỗi kết nối dùng tài khoản của riêng bạn.",
-  "No connectors set up for your organization.": "Tổ chức chưa thiết lập kết nối nào.",
   "Disconnect {{name}}": "Ngắt kết nối {{name}}",
-  "The assistant will no longer be able to use {{name}} with your account. Existing conversations stay as they are.":
-    "Trợ lý sẽ không dùng được {{name}} bằng tài khoản của bạn nữa. Các hội thoại cũ vẫn giữ nguyên.",
   "Disconnecting…": "Đang ngắt kết nối…",
   "Danger Zone": "Khu vực nguy hiểm",
   "Delete All Chats": "Xóa mọi hội thoại",
@@ -2735,4 +2750,135 @@ Object.assign(englishUi, {
     "Google từ chối service account. Trong Admin console, cấp ủy quyền toàn miền cho client ID của nó với mọi scope đã liệt kê rồi thử lại.",
   "The primary admin email must belong to an active Google Workspace administrator who can read users and groups.":
     "Email quản trị viên chính phải thuộc một quản trị viên Google Workspace đang hoạt động, có quyền đọc người dùng và nhóm.",
+  // Lark setup, synchronization and failures (MEM-245).
+  "{{count}} missing": "Thiếu {{count}}",
+  "{{v1}} and its stored App Secret were deleted.": "Đã xóa {{v1}} cùng App Secret đã lưu.",
+  "{{v1}} is not a member of any Wiki space yet.":
+    "{{v1}} chưa là thành viên của không gian Wiki nào.",
+  "{{v1}} signs in as {{v2}} and has every scope it needs.":
+    "{{v1}} đăng nhập dưới tên {{v2}} và có đủ mọi scope cần thiết.",
+  "{{v1}} signs in as {{v2}}, but {{v3}} scopes are missing.":
+    "{{v1}} đăng nhập dưới tên {{v2}}, nhưng còn thiếu {{v3}} scope.",
+  "“{{v1}}” is not a Drive folder link on {{v2}}.":
+    "“{{v1}}” không phải liên kết thư mục Drive trên {{v2}}.",
+  "Add the app's bot as a member of each Wiki space, and share each Drive folder with it.":
+    "Thêm bot của app làm thành viên của từng không gian Wiki, và chia sẻ từng thư mục Drive với bot.",
+  Bot: "Bot",
+  "Choose a synchronization interval between one minute and one year.":
+    "Chọn chu kỳ đồng bộ từ một phút đến một năm.",
+  "Choose at most {{v1}} spaces and folders.": "Chọn tối đa {{v1}} không gian và thư mục.",
+  "Copy the App ID and App Secret from Credentials & Basic Info.":
+    "Sao chép App ID và App Secret từ trang Credentials & Basic Info.",
+  "Create a Lark credential": "Tạo credential Lark",
+  "Create and publish the app before entering its credentials.":
+    "Tạo và phát hành app trước khi nhập thông tin xác thực của nó.",
+  "Drive folder": "Thư mục Drive",
+  "Drive folders": "Thư mục Drive",
+  "e.g. Acme Lark": "ví dụ: Lark Acme",
+  "e.g. Sales Wiki": "ví dụ: Wiki Kinh doanh",
+  Granted: "Đã cấp",
+  "In the Lark Developer Console, create a custom app for your organization and enable its bot.":
+    "Trong Lark Developer Console, tạo một custom app cho tổ chức và bật bot của nó.",
+  "Index Wiki spaces, Docs, Sheets and Drive files from Lark.":
+    "Lập chỉ mục không gian Wiki, Docs, Sheets và tệp Drive từ Lark.",
+  "Lark configuration": "Cấu hình Lark",
+  "Lark credentials": "Credential Lark",
+  "Lark custom app prerequisite": "Chuẩn bị custom app Lark",
+  "Lark is checking that the app can read every space and folder in this scope. Your Source is not active yet. Leaving this page does not cancel verification; return here to recover its status.":
+    "Lark đang kiểm tra app có đọc được mọi không gian và thư mục trong phạm vi này không. Nguồn chưa hoạt động. Rời trang này không hủy việc xác minh; quay lại đây để xem trạng thái.",
+  "Lark is checking the submitted spaces and folders. The saved scope still applies.":
+    "Lark đang kiểm tra các không gian và thư mục vừa gửi. Phạm vi đã lưu vẫn được áp dụng.",
+  "Lark refused these scopes to the app identity. Add them as app identity scopes and publish the app, then test again.":
+    "Lark từ chối các scope này với app identity. Hãy thêm chúng dưới dạng scope của app identity, phát hành app rồi kiểm tra lại.",
+  "Loading Lark configuration…": "Đang tải cấu hình Lark…",
+  "Loading saved spaces and folders…": "Đang tải không gian và thư mục đã lưu…",
+  "Loading Wiki spaces…": "Đang tải không gian Wiki…",
+  "No Lark credentials yet": "Chưa có credential Lark",
+  "Permanently delete this unused credential and its stored App Secret. Credentials attached to any Source cannot be deleted.":
+    "Xóa vĩnh viễn credential không dùng này cùng App Secret đã lưu. Không thể xóa credential đang gắn với Nguồn nào.",
+  Region: "Khu vực",
+  "Register the Lark custom app once, then every Lark Source in this organization can use it.":
+    "Đăng ký custom app Lark một lần, rồi mọi Nguồn Lark trong tổ chức này đều dùng được.",
+  "Replace App Secret": "Thay App Secret",
+  "Replace the Lark App Secret": "Thay App Secret của Lark",
+  "Replacing the App Secret affects all": "Thay App Secret ảnh hưởng đến cả",
+  "Saved spaces and folders could not be loaded. Refresh status before editing the scope.":
+    "Không tải được không gian và thư mục đã lưu. Hãy làm mới trạng thái trước khi sửa phạm vi.",
+  Scopes: "Scope",
+  "Sources using this credential. Saved scopes and documents are retained.":
+    "Nguồn đang dùng credential này. Phạm vi và tài liệu đã lưu được giữ lại.",
+  "Supply the App ID of the Lark app, which starts with cli_.":
+    "Nhập App ID của app Lark, bắt đầu bằng cli_.",
+  "The app's bot is not a member of any Wiki space yet.":
+    "Bot của app chưa là thành viên của không gian Wiki nào.",
+  "The credential is verified with Lark before it is stored, so what Lark rejects is never saved.":
+    "Credential được Lark xác minh trước khi lưu, nên thứ Lark từ chối sẽ không bao giờ được lưu.",
+  "The schedule changed in another session. Reload the saved interval before trying again.":
+    "Lịch đã thay đổi ở phiên khác. Hãy tải lại chu kỳ đã lưu trước khi thử lại.",
+  "This credential needs updating. Replace its App Secret in Lark setup; saved scope and documents are retained.":
+    "Credential này cần cập nhật. Thay App Secret của nó trong thiết lập Lark; phạm vi và tài liệu đã lưu được giữ lại.",
+  "Under Permissions & Scopes, add the scopes below as app identity scopes, then publish a version of the app.":
+    "Trong Permissions & Scopes, thêm các scope dưới đây dưới dạng scope của app identity, rồi phát hành một phiên bản của app.",
+  "Wiki space": "Không gian Wiki",
+  "Wiki spaces": "Không gian Wiki",
+  "Connect Lark": "Kết nối Lark",
+  "Files appear here after synchronization acquires them from Lark.":
+    "Tệp sẽ xuất hiện ở đây sau khi đồng bộ lấy chúng từ Lark.",
+  "List Wiki spaces and their pages": "Liệt kê không gian Wiki và các trang của chúng",
+  "List Drive folders and download files": "Liệt kê thư mục Drive và tải tệp",
+  "Read documents": "Đọc tài liệu",
+  "Read spreadsheets": "Đọc bảng tính",
+  "Read who a document is shared with": "Đọc tài liệu được chia sẻ với ai",
+  "Read the members of a group a document is shared with":
+    "Đọc thành viên của nhóm được chia sẻ tài liệu",
+  "Paste the App Secret before saving.": "Dán App Secret trước khi lưu.",
+  "Lark is not configured on this server. Contact an administrator.":
+    "Máy chủ này chưa cấu hình Lark. Hãy liên hệ quản trị viên.",
+  "Supply the App Secret, between 1 and 256 characters.": "Nhập App Secret, từ 1 đến 256 ký tự.",
+  "Lark rejected the App ID or the App Secret. Copy both from the app's Credentials page.":
+    "Lark từ chối App ID hoặc App Secret. Hãy sao chép cả hai từ trang Credentials của app.",
+  "The Lark credential changed while the scope was being verified. Submit the scope again.":
+    "Credential Lark đã thay đổi trong lúc xác minh phạm vi. Hãy gửi lại phạm vi.",
+  "The Lark app lacks a permission for this. Grant the scopes the credential lists, then publish the app.":
+    "App Lark thiếu quyền cho thao tác này. Hãy cấp các scope mà credential liệt kê rồi phát hành app.",
+  "Update the Lark credential before continuing.":
+    "Hãy cập nhật credential Lark trước khi tiếp tục.",
+  "Choose Wiki spaces from the list and paste Drive folder links as the address bar shows them.":
+    "Chọn không gian Wiki trong danh sách và dán liên kết thư mục Drive đúng như thanh địa chỉ hiển thị.",
+  "Lark could not verify every space and folder. Check that the app's bot can open each one.":
+    "Lark không xác minh được mọi không gian và thư mục. Hãy kiểm tra bot của app mở được từng mục.",
+  "Lark no longer accepts the App Secret. Replace it in Lark setup; saved scope and documents are retained.":
+    "Lark không còn chấp nhận App Secret. Hãy thay nó trong thiết lập Lark; phạm vi và tài liệu đã lưu được giữ lại.",
+  "The Lark app cannot open a space or folder in scope. Add its bot to the space or share the folder with it.":
+    "App Lark không mở được một không gian hoặc thư mục trong phạm vi. Hãy thêm bot vào không gian hoặc chia sẻ thư mục với bot.",
+  "A space or folder in scope no longer exists or is no longer shared with the app.":
+    "Một không gian hoặc thư mục trong phạm vi không còn tồn tại hoặc không còn được chia sẻ với app.",
+  "Lark is limiting requests from this app. Try again later.":
+    "Lark đang giới hạn yêu cầu từ app này. Hãy thử lại sau.",
+  "Lark did not answer. Try again in a moment.": "Lark không phản hồi. Hãy thử lại sau giây lát.",
+  "Lark returned an answer that could not be read. Try again.":
+    "Lark trả về phản hồi không đọc được. Hãy thử lại.",
+  "An item in Lark is larger than MemoryOS reads. It was skipped.":
+    "Một mục trong Lark lớn hơn mức MemoryOS đọc được nên đã bị bỏ qua.",
+  "The Lark run failed unexpectedly. Review this run and synchronize again.":
+    "Lượt Lark thất bại ngoài dự kiến. Hãy xem lại lượt này và đồng bộ lại.",
+  "The Lark credential is unavailable. Test it and replace its App Secret if needed.":
+    "Credential Lark không khả dụng. Hãy kiểm tra và thay App Secret nếu cần.",
+  "Check the credential name, the App ID and App Secret, and the chosen spaces and folders.":
+    "Hãy kiểm tra tên credential, App ID và App Secret, cùng các không gian và thư mục đã chọn.",
+  "{{v1}} was verified with Lark and its App Secret replaced.":
+    "{{v1}} đã được Lark xác minh và App Secret đã được thay.",
+  "{{v1}} was verified with Lark and is ready to use with a Source.":
+    "{{v1}} đã được Lark xác minh và sẵn sàng dùng cho một Nguồn.",
+  "Read the members of a department a document is shared with":
+    "Đọc thành viên của phòng ban được chia sẻ tài liệu",
+  "Match Lark people to MemoryOS accounts by email":
+    "Ghép người dùng Lark với tài khoản MemoryOS theo email",
+  "When publishing, set the app's availability to all members, so it can read every department.":
+    "Khi phát hành, đặt phạm vi sử dụng app là mọi thành viên để app đọc được mọi phòng ban.",
+  "People with access in Lark": "Người có quyền trên Lark",
+  "Document access follows this Source's MemoryOS groups, not Lark sharing.":
+    "Quyền đọc tài liệu theo các nhóm MemoryOS của Nguồn này, không theo chia sẻ trên Lark.",
+  "Whoever the document is shared with in Lark can read it.":
+    "Ai được chia sẻ tài liệu trên Lark thì đọc được.",
 });

@@ -163,6 +163,9 @@ export const en = {
     lastGroup:
       "A standard user must belong to at least one group. Add another group before removing their last membership.",
     idpAliasConflict: "A provider with this alias already exists.",
+    mcpOAuthClientLabelTaken:
+      "This app already has an OAuth app with that label. Choose another label.",
+    mcpSlugTaken: "Another MCP app already uses this short code.",
     idpDiscoveryFailed:
       "Could not discover endpoints from this issuer. Check the URL and try again.",
     languageInvalid: "Choose Vietnamese or English.",

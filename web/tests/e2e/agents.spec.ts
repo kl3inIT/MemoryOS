@@ -40,13 +40,13 @@ function agent(overrides: Record<string, unknown>) {
     revision: 0,
     description: "",
     instructions: "",
-    taskPrompt: "",
     starterPrompts: [],
     sourceIds: [],
     sources: [],
     tools: ["search"],
     mcpServers: [],
     fileIds: [],
+    avatarSeed: "tasco",
     hasAvatar: false,
     labels: [],
     owner: { actor: { actorId: me, name: "Đạt Phan", email: "dat@tasco.vn" }, group: null },
@@ -57,7 +57,6 @@ function agent(overrides: Record<string, unknown>) {
     publicPermission: "VIEWER",
     listed: true,
     featured: false,
-    replaceBaseSystemPrompt: false,
     pinned: false,
     ...overrides,
   };
@@ -71,6 +70,7 @@ async function mockAgents(page: Page, capabilities: string[], initial: ReturnTyp
     updated: undefined as unknown,
     pins: undefined as unknown,
     deleted: undefined as string | undefined,
+    copied: undefined as string | undefined,
     listings: [] as { id: string; body: unknown }[],
   };
   await page.route("**/api/identity/me", (route) =>
@@ -93,6 +93,29 @@ async function mockAgents(page: Page, capabilities: string[], initial: ReturnTyp
     }
     return route.fulfill({ json: state.agents.filter((item) => item.pinned) });
   });
+  // The sidebar's assistants follow the pins, in their order.
+  await page.route("**/api/chat/assistants", (route) =>
+    route.fulfill({
+      json: state.agents
+        .filter((item) => item.pinned)
+        .toSorted(
+          (a, b) =>
+            ((state.pins as string[] | undefined)?.indexOf(a.id as string) ?? 0) -
+            ((state.pins as string[] | undefined)?.indexOf(b.id as string) ?? 0),
+        )
+        .map((item) => ({
+          id: item.id,
+          name: item.name,
+          description: item.description,
+          avatarSeed: item.avatarSeed,
+          hasAvatar: false,
+          builtin: false,
+          ownerName: "Đạt Phan",
+          usable: true,
+          latestTopic: null,
+        })),
+    }),
+  );
   await page.route("**/api/identity/principals**", (route) =>
     route.fulfill({
       json: {
@@ -108,6 +131,7 @@ async function mockAgents(page: Page, capabilities: string[], initial: ReturnTyp
     }),
   );
   await page.route("**/api/mcp/connections**", (route) => route.fulfill({ json: [] }));
+  await page.route("**/api/chat/document-sets**", (route) => route.fulfill({ json: [] }));
   await page.route("**/api/chat/personas**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
@@ -124,7 +148,19 @@ async function mockAgents(page: Page, capabilities: string[], initial: ReturnTyp
     }
     if (detail && request.method() === "PUT") {
       expect(request.headers()["x-memoryos-csrf"]).toBe("1");
-      state.updated = request.postDataJSON();
+      const body = request.postDataJSON() as Record<string, unknown>;
+      state.updated = body;
+      state.agents = state.agents.map((item) =>
+        item.id === detail
+          ? {
+              ...item,
+              ...body,
+              title: body.title ?? undefined,
+              greeting: body.greeting ?? undefined,
+              revision: (item.revision as number) + 1,
+            }
+          : item,
+      );
       return route.fulfill({ json: state.agents.find((item) => item.id === detail) });
     }
     const listing = /\/api\/chat\/personas\/([0-9a-f-]{36})\/listing$/.exec(path)?.[1];
@@ -136,9 +172,37 @@ async function mockAgents(page: Page, capabilities: string[], initial: ReturnTyp
       );
       return route.fulfill({ json: state.agents.find((item) => item.id === listing) });
     }
-    if (path.endsWith("/sharing") && request.method() === "PUT") {
+    const copied = /\/api\/chat\/personas\/([0-9a-f-]{36})\/copy$/.exec(path)?.[1];
+    if (copied && request.method() === "POST") {
+      expect(request.headers()["x-memoryos-csrf"]).toBe("1");
+      const template = state.agents.find((item) => item.id === copied)!;
+      const copy = agent({
+        ...template,
+        id: "70000000-0000-4000-8000-000000000098",
+        templateKey: undefined,
+        listed: false,
+        owner: { actor: { actorId: me, name: "Đạt Phan", email: "dat@tasco.vn" }, group: null },
+        permissions: {
+          edit: true,
+          share: true,
+          setPublic: true,
+          delete: true,
+          transfer: true,
+          leave: false,
+          manage: false,
+        },
+      });
+      state.copied = copied;
+      state.agents = [...state.agents, copy];
+      return route.fulfill({ status: 201, json: copy });
+    }
+    const sharing = /\/api\/chat\/personas\/([0-9a-f-]{36})\/sharing$/.exec(path)?.[1];
+    if (sharing && request.method() === "PUT") {
       state.shared = request.postDataJSON();
-      return route.fulfill({ json: state.agents[0] });
+      state.agents = state.agents.map((item) =>
+        item.id === sharing ? { ...item, revision: (item.revision as number) + 1 } : item,
+      );
+      return route.fulfill({ json: state.agents.find((item) => item.id === sharing) });
     }
     if (request.method() === "POST") {
       expect(request.headers()["x-memoryos-csrf"]).toBe("1");
@@ -180,7 +244,7 @@ const tascoAgents = () => [
     description: "Xếp loại A/B/C và kết quả KPI của các đơn vị theo tháng, kèm link báo cáo gốc.",
     featured: true,
     isPublic: true,
-    iconName: "chart",
+    avatarSeed: "chart",
     labels: [{ id: "70000000-0000-4000-8000-000000000030", name: "Tài chính" }],
     owner: {
       actor: {
@@ -202,7 +266,7 @@ const tascoAgents = () => [
     id: finance,
     name: "Báo cáo tài chính",
     description: "Tra cứu số liệu trong báo cáo tài chính đã ban hành theo quý.",
-    iconName: "finance",
+    avatarSeed: "finance",
     groupShares: [{ group: { id: board, name: "Ban điều hành" }, permission: "VIEWER" }],
     owner: { actor: null, group: { id: board, name: "Ban điều hành" } },
     permissions: {
@@ -219,7 +283,7 @@ const tascoAgents = () => [
     id: hr,
     name: "Chính sách nhân sự",
     description: "Giải đáp chính sách lương, nghỉ phép và mẫu hợp đồng đang có hiệu lực.",
-    iconName: "people",
+    avatarSeed: "people",
     pinned: true,
     permissions: {
       edit: true,
@@ -248,7 +312,7 @@ const moreAgents = () => [
     id: "70000000-0000-4000-8000-000000000050",
     name: "Pháp chế hợp đồng",
     description: "Rà soát điều khoản theo mẫu hợp đồng đã ban hành và chỉ ra điểm khác biệt.",
-    iconName: "legal",
+    avatarSeed: "legal",
     isPublic: true,
     labels: [{ id: "70000000-0000-4000-8000-000000000031", name: "Pháp chế" }],
     owner: {
@@ -264,7 +328,7 @@ const moreAgents = () => [
     id: "70000000-0000-4000-8000-000000000051",
     name: "Quy trình mua sắm",
     description: "Hướng dẫn các bước đề xuất, phê duyệt và thanh toán theo quy chế mua sắm 2026.",
-    iconName: "document",
+    avatarSeed: "document",
     labels: [{ id: "70000000-0000-4000-8000-000000000032", name: "Vận hành" }],
     groupShares: [{ group: { id: board, name: "Ban điều hành" }, permission: "VIEWER" }],
     owner: { actor: null, group: { id: board, name: "Ban điều hành" } },
@@ -273,7 +337,7 @@ const moreAgents = () => [
     id: "70000000-0000-4000-8000-000000000052",
     name: "Dự toán công trình",
     description: "Tính nhanh khối lượng và đơn giá từ bộ định mức đã duyệt.",
-    iconName: "calculator",
+    avatarSeed: "calculator",
     labels: [
       { id: "70000000-0000-4000-8000-000000000030", name: "Tài chính" },
       { id: "70000000-0000-4000-8000-000000000032", name: "Vận hành" },
@@ -336,6 +400,111 @@ test("browses, filters and pins agents with visibility and owners at desktop and
   await page.screenshot({ path: "../output/playwright/agents-gallery-mobile.png", fullPage: true });
 });
 
+const memoryos = "70000000-0000-4000-8000-000000000060";
+const emailTemplate = "70000000-0000-4000-8000-000000000061";
+const okrTemplate = "70000000-0000-4000-8000-000000000062";
+const nobody = { actor: null, group: null };
+
+/** The built-in assistant and two MemoryOS templates, one hidden by an administrator, as an administrator sees them. */
+const memoryosAgents = (manage: boolean) => [
+  agent({
+    id: memoryos,
+    builtin: true,
+    name: "MemoryOS",
+    description:
+      "Trợ lý chung của MemoryOS: hỏi đáp và tìm kiếm trong mọi tài liệu nội bộ bạn được phép đọc.",
+    owner: nobody,
+  }),
+  agent({
+    id: emailTemplate,
+    templateKey: "email",
+    name: "Soạn email công việc",
+    title: "Viết và trả lời email công việc",
+    description:
+      "Viết, sửa và trả lời email công việc đúng giọng văn phòng, dựa trên tài liệu liên quan.",
+    starterPrompts: ["Viết email xin nghỉ phép 2 ngày", "Trả lời khách hàng hỏi về tiến độ"],
+    owner: nobody,
+    permissions: { ...agent({}).permissions, manage },
+  }),
+  ...(manage
+    ? [
+        agent({
+          id: okrTemplate,
+          templateKey: "okr-kpi",
+          name: "Viết đánh giá OKR/KPI",
+          description: "Soạn mục tiêu, tự đánh giá và nhận xét theo OKR/KPI của kỳ.",
+          listed: false,
+          owner: nobody,
+          permissions: { ...agent({}).permissions, manage },
+        }),
+      ]
+    : []),
+];
+
+test("lists MemoryOS's templates by their maker, copies one into an own assistant and hides another", async ({
+  page,
+}) => {
+  const state = await mockAgents(
+    page,
+    ["AGENTS_CREATE"],
+    [...memoryosAgents(true), ...tascoAgents()],
+  );
+  await page.goto("/agents");
+  const cards = page.getByRole("article");
+  await expect(cards.nth(0)).toContainText("MemoryOS");
+  await expect(cards.nth(1)).toContainText("OKR/KPI hằng tháng");
+  const email = cards.filter({ hasText: "Soạn email công việc" });
+  await expect(email).toContainText("MemoryOS");
+  await expect(email).not.toContainText("Công khai");
+  await expect(email).not.toContainText("Riêng tư");
+  await expect(cards.nth(0)).not.toContainText("Công khai");
+  await expect(email.getByRole("button", { name: /^Sửa/ })).toHaveCount(0);
+  await expect(email.getByRole("button", { name: /^Chia sẻ/ })).toHaveCount(0);
+
+  const hidden = cards.filter({ hasText: "Viết đánh giá OKR/KPI" });
+  await expect(hidden).toContainText("Đã ẩn");
+  await expect(hidden.getByRole("button", { name: "Bắt đầu chat" })).toHaveCount(0);
+  await hidden.getByRole("button", { name: "Thao tác khác cho Viết đánh giá OKR/KPI" }).click();
+  await page.getByRole("menuitem", { name: "Hiện lại" }).click();
+  await expect
+    .poll(() => state.listings.at(-1))
+    .toEqual({
+      id: okrTemplate,
+      body: { listed: true, featured: false },
+    });
+
+  await email.getByRole("button", { name: "Thao tác khác cho Soạn email công việc" }).click();
+  await expect(page.getByRole("menuitem", { name: "Tạo bản riêng" })).toBeVisible();
+  await page.getByRole("menuitem", { name: "Ẩn với mọi người" }).click();
+  await expect
+    .poll(() => state.listings.at(-1))
+    .toEqual({
+      id: emailTemplate,
+      body: { listed: false, featured: false },
+    });
+  state.agents = state.agents.map((item) =>
+    item.id === emailTemplate ? { ...item, listed: true } : item,
+  );
+  await page.reload();
+
+  await page.getByRole("button", { name: "Soạn email công việc", exact: true }).click();
+  const viewer = page.getByRole("dialog", { name: "Soạn email công việc" });
+  await expect(viewer).toContainText("Tạo bởi MemoryOS");
+  await expect(viewer.getByRole("button", { name: "Sửa" })).toHaveCount(0);
+  await expect(viewer.getByPlaceholder("Nhập câu hỏi…")).toBeVisible();
+  await viewer.getByRole("button", { name: "Tạo bản riêng" }).click();
+  await expect(page).toHaveURL(/\/agents\/70000000-0000-4000-8000-000000000098\/edit/);
+  expect(state.copied).toBe(emailTemplate);
+});
+
+test("offers a member only a private copy of a template", async ({ page }) => {
+  await mockAgents(page, ["AGENTS_CREATE"], memoryosAgents(false));
+  await page.goto("/agents");
+  const email = page.getByRole("article").filter({ hasText: "Soạn email công việc" });
+  await email.getByRole("button", { name: "Thao tác khác cho Soạn email công việc" }).click();
+  await expect(page.getByRole("menuitem")).toHaveText(["Tạo bản riêng"]);
+});
+
 test("shows the full snapshot to a use-only reader without edit or share controls", async ({
   page,
 }) => {
@@ -357,74 +526,97 @@ test("shows the full snapshot to a use-only reader without edit or share control
   await expect(page.getByRole("dialog", { name: "OKR/KPI hằng tháng" })).toBeVisible();
 });
 
-test("creates an agent on its own page and shares it with a Group and the organization", async ({
+test("creates an agent from the short dialog, configures it in place and shares from its tab", async ({
   page,
 }) => {
   const state = await mockAgents(page, ["AGENTS_CREATE"], tascoAgents());
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/agents");
   await page.getByRole("button", { name: "Tạo trợ lý" }).click();
-  await expect(page).toHaveURL(/\/agents\/create$/);
-  await page.getByLabel("Tên trợ lý", { exact: true }).fill("Pháp chế hợp đồng");
-  await page.getByLabel("Mô tả").fill("Rà soát điều khoản theo mẫu hợp đồng đã ban hành.");
-  await page.getByRole("button", { name: "Đổi biểu tượng" }).click();
-  await page.getByRole("radio", { name: "Pháp chế" }).click();
-  await page.keyboard.press("Escape");
-  await page.getByLabel("Nhắc việc mỗi lượt").fill("Luôn trích số hiệu mẫu hợp đồng.");
+  const dialog = page.getByRole("dialog", { name: "Tạo trợ lý" });
+  await dialog.getByLabel("Tên trợ lý").fill("Pháp chế hợp đồng");
+  await dialog.getByLabel("Chức danh").fill("Chuyên viên pháp chế");
+  // A description would open the Agent Builder (MEM-280); this flow configures the form by hand.
+  await page.screenshot({ path: "../output/playwright/agents-create-dialog.png" });
+  await dialog.getByRole("button", { name: "Tạo trợ lý" }).click();
+  await expect(page).toHaveURL(/\/agents\/70000000-0000-4000-8000-000000000099\/edit$/);
+  expect(state.created).toMatchObject({
+    name: "Pháp chế hợp đồng",
+    title: "Chuyên viên pháp chế",
+    avatarSeed: expect.stringMatching(/^[A-Za-z0-9_-]{1,64}$/),
+    tools: ["search", "web_search"],
+  });
+  expect(state.created).not.toHaveProperty("reasoningEffort");
+
+  // One header: the way back, the state and Lưu, with no second bar under it.
+  const save = page.getByRole("button", { name: "Lưu", exact: true });
+  await expect(save).toBeDisabled();
+  await expect(page.getByRole("tab", { name: "Cấu hình" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await page.getByRole("button", { name: "Đổi ảnh đại diện" }).click();
+  const studio = page.getByRole("dialog", { name: "Ảnh đại diện" });
+  await studio.getByRole("radio", { name: "Khuôn mặt 3" }).click();
+  await studio.getByRole("button", { name: "Xong" }).click();
+  await page
+    .getByLabel("Lời chào")
+    .fill("Chào bạn, gửi mình điều khoản cần rà soát và số hiệu mẫu hợp đồng nhé.");
   await page.getByLabel("Câu hỏi gợi ý 1").fill("Điều khoản phạt vi phạm trong mẫu HĐ-02 là gì?");
-
-  // The unsaved new agent survives a reload as a browser draft.
-  await page.reload();
-  await expect(page.getByText("Đã khôi phục bản nháp bạn đang tạo dở.")).toBeVisible();
-  await expect(page.getByLabel("Tên trợ lý", { exact: true })).toHaveValue("Pháp chế hợp đồng");
-
-  await page.getByRole("button", { name: "Thêm nguồn" }).click();
+  await page.getByRole("button", { name: "Thêm tài liệu" }).click();
   await page.getByRole("option", { name: "Báo cáo tài chính Q2/2026" }).click();
   await page.keyboard.press("Escape");
-  await page.getByLabel("Chỉ dùng tài liệu cập nhật từ ngày").fill("2026-01-01");
-  await page.getByRole("switch", { name: "Tạo ảnh" }).click();
   await expect(page.getByRole("switch", { name: "Tạo ảnh" })).toHaveAttribute(
     "aria-checked",
     "false",
   );
-  await page.getByRole("button", { name: "Tạo trợ lý", exact: true }).click();
-  await expect(page).toHaveURL(/\/agents$/);
-  expect(state.created).toMatchObject({
-    name: "Pháp chế hợp đồng",
-    iconName: "legal",
-    taskPrompt: "Luôn trích số hiệu mẫu hợp đồng.",
+  await expect(page.getByRole("switch", { name: "Sandbox" })).toHaveAttribute(
+    "aria-checked",
+    "false",
+  );
+  await save.click();
+  await expect(page.getByRole("status").filter({ hasText: "Đã lưu" })).toBeVisible();
+  await expect(page).toHaveURL(/\/edit$/);
+  expect(state.updated).toMatchObject({
+    greeting: "Chào bạn, gửi mình điều khoản cần rà soát và số hiệu mẫu hợp đồng nhé.",
     starterPrompts: ["Điều khoản phạt vi phạm trong mẫu HĐ-02 là gì?"],
     sourceIds: [sources[1]!.id],
-    tools: ["search", "web_search", "code_interpreter"],
-    knowledgeCutoff: "2026-01-01T00:00:00Z",
+    tools: ["search", "web_search"],
   });
 
+  // The card's share action opens the editor's Chia sẻ tab, where each change saves at once.
+  await page.goto("/agents");
   const hrCard = page.getByRole("article").filter({ hasText: "Chính sách nhân sự" });
+  await hrCard.hover();
   await hrCard.getByRole("button", { name: "Chia sẻ Chính sách nhân sự" }).click();
-  const share = page.getByRole("dialog", { name: "Chia sẻ Chính sách nhân sự" });
-  await expect(share).toContainText("Nguyễn Thị Thảo");
-  await expect(share.getByRole("listbox")).toHaveCount(0);
-  await expect(share.getByRole("button", { name: "Lưu chia sẻ" })).toBeDisabled();
-  await share.getByPlaceholder("Thêm người hoặc Group").fill("Ban");
-  await share.getByRole("option", { name: "Ban điều hành" }).click();
-  await expect(share.getByPlaceholder("Thêm người hoặc Group")).toHaveValue("");
-  await share.getByLabel("Quyền của Ban điều hành").selectOption("EDITOR");
-  await share.getByRole("combobox", { name: "Quyền truy cập chung" }).selectOption("VIEWER");
+  await expect(page).toHaveURL(new RegExp(`/agents/${hr}/edit\\?tab=share$`));
+  const panel = page.getByRole("tabpanel", { name: "Chia sẻ" });
+  await expect(panel).toContainText("Nguyễn Thị Thảo");
+  await panel.getByPlaceholder("Thêm người hoặc Group").fill("Ban");
+  await panel.getByRole("option", { name: "Ban điều hành" }).click();
+  await expect
+    .poll(() => state.shared)
+    .toMatchObject({ groups: [{ groupId: board, permission: "VIEWER" }] });
+  await panel.getByLabel("Quyền của Ban điều hành").selectOption("EDITOR");
+  await expect
+    .poll(() => state.shared)
+    .toMatchObject({ groups: [{ groupId: board, permission: "EDITOR" }] });
+  await panel.getByRole("combobox", { name: "Quyền truy cập chung" }).selectOption("VIEWER");
+  await expect
+    .poll(() => state.shared)
+    .toEqual({
+      users: [{ actorId: "70000000-0000-4000-8000-000000000040", permission: "VIEWER" }],
+      groups: [{ groupId: board, permission: "EDITOR" }],
+      isPublic: true,
+      publicPermission: "VIEWER",
+    });
   await page.screenshot({
-    path: "../output/playwright/agents-share-dialog.png",
+    path: "../output/playwright/agents-share-tab.png",
     animations: "disabled",
-  });
-  await share.getByRole("button", { name: "Lưu chia sẻ" }).click();
-  await expect(share).toHaveCount(0);
-  expect(state.shared).toEqual({
-    users: [{ actorId: "70000000-0000-4000-8000-000000000040", permission: "VIEWER" }],
-    groups: [{ groupId: board, permission: "EDITOR" }],
-    isPublic: true,
-    publicPermission: "VIEWER",
   });
 });
 
-test("edits an agent on its own page, saving only changes and guarding unsaved edits", async ({
+test("edits an agent in place, saving only changes and guarding unsaved edits", async ({
   page,
 }) => {
   const state = await mockAgents(page, ["AGENTS_CREATE"], tascoAgents());
@@ -435,33 +627,154 @@ test("edits an agent on its own page, saving only changes and guarding unsaved e
   await page.getByLabel("Mô tả").fill("Giải đáp chính sách lương và nghỉ phép năm 2026.");
   await expect(save).toBeEnabled();
   const addStarter = page.getByRole("button", { name: "Thêm câu gợi ý" });
-  for (let index = 1; index < 8; index++) await addStarter.click();
-  await expect(page.getByLabel(/^Câu hỏi gợi ý \d$/)).toHaveCount(8);
-  await expect(addStarter).toBeDisabled();
+  for (let index = 1; index < 4; index++) await addStarter.click();
+  await expect(page.getByLabel(/^Câu hỏi gợi ý \d$/)).toHaveCount(4);
+  await expect(addStarter).toBeHidden();
   await page.getByLabel("Câu hỏi gợi ý 1", { exact: true }).fill("Chế độ nghỉ phép năm 2026?");
-  await page.getByLabel("Max output (token)").fill("2048");
+  await page.getByLabel("Chức danh").fill("Chuyên viên nhân sự");
 
-  await page.getByRole("link", { name: "Trợ lý", exact: true }).first().click();
+  // Switching tabs keeps the unsaved changes and does not ask; leaving the page does.
+  await page.getByRole("tab", { name: "Chia sẻ" }).click();
+  await expect(page).toHaveURL(/\/edit\?tab=share$/);
+  // Chia sẻ saves on change: the header keeps the form's state but not its Hủy and Lưu.
+  await expect(page.getByRole("status").filter({ hasText: "Có thay đổi chưa lưu" })).toBeVisible();
+  await expect(save).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Hủy" })).toHaveCount(0);
+  await page.getByRole("tab", { name: "Cấu hình" }).click();
+  await expect(save).toBeEnabled();
+  await expect(page.getByLabel("Chức danh")).toHaveValue("Chuyên viên nhân sự");
+  await page
+    .getByRole("navigation", { name: "Đường dẫn phân cấp" })
+    .getByRole("link", { name: "Trợ lý" })
+    .click();
   const guard = page.getByRole("alertdialog", { name: "Bỏ thay đổi chưa lưu?" });
   await expect(guard).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page).toHaveURL(/\/edit$/);
 
   await save.click();
-  await expect(page).toHaveURL(/\/agents$/);
+  await expect(page.getByRole("status").filter({ hasText: "Đã lưu" })).toBeVisible();
+  await expect(save).toBeDisabled();
   expect(state.updated).toMatchObject({
     name: "Chính sách nhân sự",
     description: "Giải đáp chính sách lương và nghỉ phép năm 2026.",
     starterPrompts: ["Chế độ nghỉ phép năm 2026?"],
-    outputTokenLimit: 2048,
+    title: "Chuyên viên nhân sự",
   });
 
+  await page
+    .getByRole("navigation", { name: "Đường dẫn phân cấp" })
+    .getByRole("link", { name: "Trợ lý" })
+    .click();
+  await expect(page).toHaveURL(/\/agents$/);
   const card = page.getByRole("article").filter({ hasText: "Chính sách nhân sự" });
   await card.hover();
   await card.getByRole("button", { name: "Thao tác khác cho Chính sách nhân sự" }).click();
   await page.getByRole("menuitem", { name: "Xóa trợ lý" }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Xóa trợ lý" }).click();
   await expect.poll(() => state.deleted).toBe(hr);
+});
+
+test("tests the unsaved assistant beside the editor without saving it", async ({ page }) => {
+  const state = await mockAgents(page, ["AGENTS_CREATE"], tascoAgents());
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/agents/${hr}/edit`);
+  const chat = page.getByRole("region", { name: "Chat thử" });
+  await expect(chat.getByRole("heading", { name: "Chính sách nhân sự" })).toBeVisible();
+  await expect(page.getByText("Đang dùng bản chưa lưu")).toHaveCount(0);
+
+  await page.getByLabel("Lời chào").fill("Chào bạn, hỏi mình về nghỉ phép nhé.");
+  await page
+    .getByRole("textbox", { name: "Hướng dẫn", exact: true })
+    .fill("Trả lời ngắn gọn, ghi rõ điều khoản.");
+  await expect(chat.getByText("Chào bạn, hỏi mình về nghỉ phép nhé.")).toBeVisible();
+  await expect(page.getByText("Đang dùng bản chưa lưu")).toBeVisible();
+
+  const created = page.waitForRequest(
+    (request) =>
+      request.method() === "POST" && new URL(request.url()).pathname === "/api/chat/sessions",
+  );
+  const sent = page.waitForRequest(
+    (request) => request.method() === "POST" && request.url().endsWith("/messages"),
+  );
+  await chat.getByRole("textbox", { name: "Câu hỏi", exact: true }).fill("Nghỉ phép năm mấy ngày?");
+  await chat.getByRole("button", { name: "Gửi câu hỏi" }).click();
+  expect((await created).postDataJSON()).toMatchObject({ personaId: hr, temporary: true });
+  expect((await sent).postDataJSON()).toMatchObject({
+    text: "Nghỉ phép năm mấy ngày?",
+    draftPersona: {
+      instructions: "Trả lời ngắn gọn, ghi rõ điều khoản.",
+      greeting: "Chào bạn, hỏi mình về nghỉ phép nhé.",
+    },
+  });
+  await expect(chat.getByText("Hello 👋")).toBeVisible();
+  expect(state.updated).toBeUndefined();
+
+  await page.getByRole("button", { name: "Làm mới" }).click();
+  await expect(chat.getByText("Nghỉ phép năm mấy ngày?")).toHaveCount(0);
+  await expect(chat.getByText("Chào bạn, hỏi mình về nghỉ phép nhé.")).toBeVisible();
+});
+
+test("builds a new assistant from its description with the Agent Builder, then undoes a change", async ({
+  page,
+}) => {
+  const state = await mockAgents(page, ["AGENTS_CREATE"], tascoAgents());
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/agents");
+  await page.getByRole("button", { name: "Tạo trợ lý" }).click();
+  const dialog = page.getByRole("dialog", { name: "Tạo trợ lý" });
+  await dialog.getByLabel("Tên trợ lý").fill("Chính sách nhân sự");
+  await dialog
+    .getByLabel("Mô tả")
+    .fill(
+      "Trả lời nhân viên về nghỉ phép, công tác phí, bảo hiểm. Chỉ dựa trên tài liệu, trả lời ngắn.",
+    );
+  const sent = page.waitForRequest(
+    (request) => request.method() === "POST" && request.url().endsWith("/messages"),
+  );
+  await dialog.getByRole("button", { name: "Tạo trợ lý" }).click();
+  await expect(page).toHaveURL(/\/agents\/70000000-0000-4000-8000-000000000099\/edit$/);
+
+  // The editor opens on the Agent Builder, which receives the description as its first message.
+  await expect(page.getByRole("tab", { name: "Agent Builder" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  expect((await sent).postDataJSON()).toMatchObject({
+    builder: true,
+    webSearch: "off",
+    mcpServerIds: [],
+    text: expect.stringContaining("Chỉ dựa trên tài liệu, trả lời ngắn."),
+    draftPersona: { name: "Chính sách nhân sự" },
+  });
+  const builder = page.getByRole("region", { name: "Agent Builder" });
+  const card = builder.getByRole("region", { name: "Đã sửa bản nháp" }).first();
+  await expect(card).toContainText("Chuyên viên chính sách nhân sự");
+  await expect(builder.getByText("Viết mới · 4 dòng")).toBeVisible();
+
+  // The changes wait in the form: filled, unsaved, and nothing written.
+  await expect(page.getByLabel("Chức danh")).toHaveValue("Chuyên viên chính sách nhân sự");
+  await expect(page.getByRole("textbox", { name: "Câu hỏi gợi ý 1" })).toHaveValue(
+    "Nghỉ phép năm bao nhiêu ngày?",
+  );
+  await expect(page.getByRole("switch", { name: "Chỉ trả lời có căn cứ" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
+  await expect(page.getByRole("textbox", { name: "Hướng dẫn", exact: true })).toHaveValue(
+    /Chỉ trả lời từ tài liệu nội bộ/,
+  );
+  await expect(page.getByRole("status").filter({ hasText: "Có thay đổi chưa lưu" })).toBeVisible();
+  expect(state.updated).toBeUndefined();
+  await page.screenshot({ path: "../output/playwright/agents-builder.png" });
+
+  // Hoàn tác puts the first change's fields back.
+  await card.getByRole("button", { name: "Hoàn tác" }).click();
+  await expect(page.getByLabel("Chức danh")).toHaveValue("");
+  await expect(card).toContainText("Đã hoàn tác");
+  await expect(page.getByRole("textbox", { name: "Hướng dẫn", exact: true })).toHaveValue(
+    /Chỉ trả lời từ tài liệu nội bộ/,
+  );
 });
 
 test("manages prompt shortcuts inline and inserts them from /", async ({ page }) => {
@@ -538,10 +851,8 @@ test("reorders and unpins sidebar agents and features agents from administration
   const state = await mockAgents(page, ["AGENTS_CREATE", "AGENTS_MANAGE"], pinned);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/agents");
-  const pins = page
-    .getByRole("region", { name: "Trợ lý đã ghim" })
-    .or(page.locator("section[aria-labelledby=pinned-agents]"));
-  await expect(pins.getByRole("listitem")).toHaveCount(3);
+  const pins = page.locator("section[aria-labelledby=sidebar-assistants]");
+  await expect(pins.getByRole("button", { name: /^Kéo để sắp xếp/ })).toHaveCount(3);
 
   const handle = pins.getByRole("button", { name: "Kéo để sắp xếp OKR/KPI hằng tháng" });
   await handle.focus();
@@ -552,7 +863,7 @@ test("reorders and unpins sidebar agents and features agents from administration
   await page.keyboard.press("Space");
   await expect.poll(() => state.pins).toEqual([finance, kpi, hr]);
 
-  await pins.getByRole("listitem").filter({ hasText: "Báo cáo tài chính" }).hover();
+  await pins.getByRole("link", { name: /Báo cáo tài chính/ }).hover();
   await pins.getByRole("button", { name: "Bỏ ghim Báo cáo tài chính" }).click();
   await expect.poll(() => state.pins).toEqual([kpi, hr]);
 
@@ -565,9 +876,7 @@ test("reorders and unpins sidebar agents and features agents from administration
     .toMatchObject({ featured: true, listed: true });
 });
 
-test("sends a starter prompt from the agent's detail view into a new conversation", async ({
-  page,
-}) => {
+test("sends a starter prompt from the agent's detail view into a new topic", async ({ page }) => {
   await mockAgents(page, [], tascoAgents());
   await page.goto(`/agents?agent=${kpi}`);
   const viewer = page.getByRole("dialog", { name: "OKR/KPI hằng tháng" });
@@ -598,4 +907,190 @@ test.describe("on a phone", () => {
     await card.scrollIntoViewIfNeeded();
     await page.screenshot({ path: "../output/playwright/agents-card-phone.png" });
   });
+});
+
+test("the editor keeps the shell header in view and Lưu says why it is off", async ({ page }) => {
+  await mockAgents(page, ["AGENTS_CREATE"], tascoAgents());
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/agents/${hr}/edit`);
+  await expect(page.getByRole("region", { name: "Chat thử" })).toBeVisible();
+  const banner = page.getByRole("banner");
+  const save = page.getByRole("button", { name: "Lưu", exact: true });
+  // The switches' hidden inputs sit low in the form; they overflow the form's scroller, never the frame around the
+  // header, so bringing a header control into view (as a hover retry or a screen reader does) cannot move it.
+  await page.getByRole("switch", { name: "Sandbox" }).focus();
+  expect(
+    await page.evaluate(() => {
+      const frame = document.querySelector("[data-slot=sidebar-inset]")!;
+      return frame.scrollHeight - frame.clientHeight;
+    }),
+  ).toBe(0);
+  await save.evaluate((element) => element.scrollIntoView({ block: "center" }));
+  expect((await banner.boundingBox())?.y).toBe(0);
+
+  await save.locator("..").hover();
+  await expect(page.getByRole("tooltip", { name: "Chưa có thay đổi" })).toBeVisible();
+  expect((await banner.boundingBox())?.y).toBe(0);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("tooltip", { name: "Chưa có thay đổi" })).toHaveCount(0);
+  await page.mouse.move(700, 600);
+  await page.getByRole("link", { name: "Hủy" }).focus();
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("tooltip", { name: "Chưa có thay đổi" })).toBeVisible();
+});
+
+test("opens the test chat's sources over it instead of beside it", async ({ page }) => {
+  await mockAgents(page, ["AGENTS_CREATE"], tascoAgents());
+  await page.setViewportSize({ width: 1440, height: 900 });
+  // The fixture server answers a "grounded" conversation with one cited source.
+  await page.route("**/api/chat/sessions", async (route) => {
+    const request = route.request();
+    if (request.method() !== "POST") return route.fallback();
+    return route.fallback({
+      postData: JSON.stringify({ ...request.postDataJSON(), mode: "grounded" }),
+    });
+  });
+  await page.goto(`/agents/${hr}/edit`);
+  const chat = page.getByRole("region", { name: "Chat thử" });
+  await chat.getByRole("textbox", { name: "Câu hỏi", exact: true }).fill("Nghỉ phép năm mấy ngày?");
+  await chat.getByRole("button", { name: "Gửi câu hỏi" }).click();
+  await expect(chat.getByText("17 days")).toBeVisible();
+  const width = (await chat.boundingBox())!.width;
+  await chat.getByRole("button", { name: /^Nguồn/ }).click();
+  const sheet = page.getByRole("dialog");
+  await expect(sheet).toBeVisible();
+  await expect(sheet.locator('[data-slot="source-row"]')).toHaveCount(1);
+  await expect(page.getByRole("complementary", { name: "Nguồn" })).toHaveCount(0);
+  expect((await chat.boundingBox())!.width).toBe(width);
+  await page.keyboard.press("Escape");
+  await expect(sheet).toHaveCount(0);
+});
+
+test("uploads a file from the editor, attaches it once ready and says where the assistant searches", async ({
+  page,
+}) => {
+  const state = await mockAgents(page, ["AGENTS_CREATE"], tascoAgents());
+  const uploaded = {
+    id: "70000000-0000-4000-8000-000000000060",
+    filename: "Quy trình kê khai.pdf",
+    mediaType: "application/pdf",
+    sizeBytes: 2048,
+  };
+  let reads = 0;
+  await page.route("**/api/chat/files/policy", (route) =>
+    route.fulfill({ json: { maxSizeBytes: 104857600 } }),
+  );
+  await page.route("**/api/chat/files/uploads", (route) =>
+    route.fulfill({ json: { file: { ...uploaded, status: "READY" } } }),
+  );
+  await page.route(`**/api/chat/files/${uploaded.id}`, (route) => {
+    reads += 1;
+    // The first reads find it still being extracted, as a fresh upload is.
+    return route.fulfill({ json: { ...uploaded, status: reads < 3 ? "PROCESSING" : "READY" } });
+  });
+  await page.goto(`/agents/${hr}/edit`);
+  await expect(page.getByText("Tìm trong mọi tài liệu được phép đọc")).toBeVisible();
+
+  await page.getByRole("button", { name: "Thêm tài liệu" }).click();
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("option", { name: "Tải tệp lên" }).click();
+  await (
+    await chooser
+  ).setFiles({
+    name: uploaded.filename,
+    mimeType: uploaded.mediaType,
+    buffer: Buffer.from("%PDF-1.7"),
+  });
+
+  await expect(page.getByText("Đang xử lý")).toBeVisible();
+  await expect(page.getByText("Tìm thêm trong mọi tài liệu được phép đọc")).toBeVisible();
+  await expect(page.getByText("Đang xử lý")).toHaveCount(0);
+  await page.getByRole("button", { name: "Lưu", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Đã lưu" })).toBeVisible();
+  expect(state.updated).toMatchObject({ fileIds: [uploaded.id] });
+
+  // Turning the switch off greys the list out and the state line goes with it.
+  await page.getByRole("switch", { name: "Tìm trong tài liệu nội bộ" }).click();
+  await expect(page.getByText(/mọi tài liệu được phép đọc/)).toHaveCount(0);
+  await expect(page.getByText(uploaded.filename)).toBeVisible();
+});
+
+/**
+ * MEM-273: an assistant's Kênh tab shows where it answers, the bots it is the default of and the group chats given it
+ * as their own; which assistant answers where is set on each bot's page.
+ */
+async function mockAssistantChannels(page: Page) {
+  await page.route("**/api/chat/personas/*/channels", (route) =>
+    route.fulfill({
+      json: [
+        {
+          id: "80000000-0000-4000-8000-000000000001",
+          provider: "ZALO_BOT",
+          name: "Hỏi đáp Nhân sự",
+          botName: "Bot Nhân sự",
+          enabled: true,
+          publicAccess: false,
+          byDefault: true,
+          groups: [],
+        },
+        {
+          id: "80000000-0000-4000-8000-000000000003",
+          provider: "LARK",
+          name: "Trợ lý Tasco",
+          botName: "Tasco Assistant",
+          enabled: true,
+          publicAccess: false,
+          byDefault: false,
+          groups: [{ id: "oc_5f1e2d3c4b5a69788796a5b4c3d2e1f0", name: "Phòng Nhân sự" }],
+        },
+      ],
+    }),
+  );
+}
+
+test("shows where an assistant answers and links each place to its bot's page", async ({
+  page,
+}) => {
+  await mockAgents(page, ["AGENTS_CREATE", "CHANNELS_MANAGE"], tascoAgents());
+  await mockAssistantChannels(page);
+  await page.goto(`/agents/${hr}/edit?tab=channels`);
+  const panel = page.getByRole("tabpanel", { name: "Kênh" });
+  const byDefault = panel.getByRole("region", { name: "Mặc định của bot" });
+  const groups = panel.getByRole("region", { name: "Nhóm chat" });
+  await expect(byDefault.getByText("Bot Zalo · mặc định")).toBeVisible();
+  await expect(groups.getByText("Nhóm Lark · qua bot “Trợ lý Tasco”")).toBeVisible();
+  await expect(byDefault.getByText("Phòng Nhân sự")).toHaveCount(0);
+  await expect(panel.getByRole("link", { name: /Phòng Nhân sự/ })).toHaveAttribute(
+    "href",
+    "/admin/channels/80000000-0000-4000-8000-000000000003",
+  );
+  await expect(panel.getByRole("button", { name: "Thêm kênh" })).toHaveCount(0);
+  await expect(panel.getByRole("button", { name: /^Gỡ/ })).toHaveCount(0);
+});
+
+for (const theme of ["light", "dark"] as const) {
+  for (const width of [1440, 390] as const) {
+    test(`the Kênh tab is captured in ${theme} at ${width}px`, async ({ page }) => {
+      await page.addInitScript((value) => localStorage.setItem("memoryos-theme", value), theme);
+      await page.emulateMedia({ colorScheme: theme });
+      await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+      await mockAgents(page, ["AGENTS_CREATE", "CHANNELS_MANAGE"], tascoAgents());
+      await mockAssistantChannels(page);
+      await page.goto(`/agents/${hr}/edit?tab=channels`);
+      await expect(page.getByText("Phòng Nhân sự")).toBeVisible();
+      await page.screenshot({ path: `../output/playwright/agent-channels-${theme}-${width}.png` });
+    });
+  }
+}
+
+test("lists where an assistant answers without links to someone who does not manage bots", async ({
+  page,
+}) => {
+  await mockAgents(page, ["AGENTS_CREATE"], tascoAgents());
+  await mockAssistantChannels(page);
+  await page.goto(`/agents/${hr}/edit?tab=channels`);
+  const panel = page.getByRole("tabpanel", { name: "Kênh" });
+  await expect(panel.getByText("Hỏi đáp Nhân sự")).toBeVisible();
+  await expect(panel.getByText("Phòng Nhân sự")).toBeVisible();
+  await expect(panel.getByRole("link")).toHaveCount(0);
 });

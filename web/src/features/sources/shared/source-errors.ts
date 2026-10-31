@@ -13,6 +13,9 @@ type SourceMutation =
   | "sharepoint"
   | "sharepoint-credential"
   | "sharepoint-schedule"
+  | "lark"
+  | "lark-credential"
+  | "lark-schedule"
   | "metadata"
   | "associations";
 
@@ -125,6 +128,33 @@ const statusMessages = {
     "Input storage is misconfigured. Ask an administrator to correct the storage configuration.",
   SOURCE_STORAGE_WRITE_MISCONFIGURED:
     "Output storage is misconfigured. Ask an administrator to correct the storage configuration.",
+  SOURCE_LARK_NOT_CONFIGURED: "Lark is not configured on this server. Contact an administrator.",
+  SOURCE_LARK_APP_ID_INVALID: "Supply the App ID of the Lark app, which starts with cli_.",
+  SOURCE_LARK_SECRET_INVALID: "Supply the App Secret, between 1 and 256 characters.",
+  SOURCE_LARK_CREDENTIAL_REJECTED:
+    "Lark rejected the App ID or the App Secret. Copy both from the app's Credentials page.",
+  SOURCE_LARK_CREDENTIAL_CHANGED:
+    "The Lark credential changed while the scope was being verified. Submit the scope again.",
+  SOURCE_LARK_SCOPE_MISSING:
+    "The Lark app lacks a permission for this. Grant the scopes the credential lists, then publish the app.",
+  SOURCE_LARK_NEEDS_UPDATE: "Update the Lark credential before continuing.",
+  SOURCE_LARK_ROOT_INVALID:
+    "Choose Wiki spaces from the list and paste Drive folder links as the address bar shows them.",
+  SOURCE_LARK_SELECTION_FAILED:
+    "Lark could not verify every space and folder. Check that the app's bot can open each one.",
+  SOURCE_LARK_AUTHENTICATION:
+    "Lark no longer accepts the App Secret. Replace it in Lark setup; saved scope and documents are retained.",
+  SOURCE_LARK_AUTHORIZATION:
+    "The Lark app cannot open a space or folder in scope. Add its bot to the space or share the folder with it.",
+  SOURCE_LARK_NOT_FOUND:
+    "A space or folder in scope no longer exists or is no longer shared with the app.",
+  SOURCE_LARK_QUOTA: "Lark is limiting requests from this app. Try again later.",
+  SOURCE_LARK_UNAVAILABLE: "Lark did not answer. Try again in a moment.",
+  SOURCE_LARK_MALFORMED: "Lark returned an answer that could not be read. Try again.",
+  SOURCE_LARK_LIMIT_EXCEEDED: "An item in Lark is larger than MemoryOS reads. It was skipped.",
+  SOURCE_LARK_INTERNAL: "The Lark run failed unexpectedly. Review this run and synchronize again.",
+  SOURCE_LARK_CONNECTION_UNAVAILABLE:
+    "The Lark credential is unavailable. Test it and replace its App Secret if needed.",
   SOURCE_SHAREPOINT_NOT_CONFIGURED:
     "SharePoint is not configured on this server. Contact an administrator.",
   SOURCE_SHAREPOINT_DIRECTORY_INVALID:
@@ -246,6 +276,21 @@ function sourceMutationError(error: unknown, mutation: SourceMutation) {
         return "This credential is no longer available. Refresh and select another one.";
       if (error.status === 400 || error.status === 422)
         return "Check the credential name, the directory and application GUIDs, the authentication, and the pasted addresses.";
+    }
+    if (mutation.startsWith("lark")) {
+      if (error.status === 412 || error.status === 428)
+        return mutation === "lark-schedule"
+          ? "The schedule changed in another session. Reload the saved interval before trying again."
+          : "This credential or scope changed in another session. Refresh before trying again.";
+      if (error.status === 409)
+        return "This Source or credential changed, or the credential is still used by a Source. Refresh its status before trying again.";
+      if (error.status === 503) return statusMessages.SOURCE_LARK_UNAVAILABLE;
+      if (error.status === 404 && mutation === "lark-credential")
+        return "This credential is no longer available. Refresh and select another one.";
+      if (error.status === 400 || error.status === 422)
+        return mutation === "lark-schedule"
+          ? "Choose a synchronization interval between one minute and one year."
+          : "Check the credential name, the App ID and App Secret, and the chosen spaces and folders.";
     }
     if (error.status === 403) return "You do not have permission to manage this Source.";
     if (mutation === "google-drive" && error.status === 404)

@@ -1,0 +1,1 @@
+{"resource":"https://mcp.figma.com/mcp","authorization_servers":["https://api.figma.com"],"bearer_methods_supported":["header"],"scopes_supported":["mcp:connect"],"resource_name":"Figma MCP","resource_documentation":"https://developers.figma.com/docs/figma-mcp-server/"}

@@ -12,6 +12,7 @@ import { useApplicationSession } from "@/features/identity/application-session-c
 import { useChatDictationAdapter } from "@/features/voice/use-chat-dictation-adapter";
 import { useChatSpeechAdapter } from "@/features/voice/use-chat-speech-adapter";
 import type { ChatUiMessage } from "@/features/chat/chat-api";
+import { ChatMcpApps } from "@/features/chat/mcp/chat-mcp-apps";
 import { createChatAttachmentAdapter } from "@/features/library/files";
 import { ChatThreadRegistry } from "./chat-thread-controller";
 import { chatHistoryAdapter, createChatThreadListAdapter } from "./chat-thread-list-adapter";
@@ -67,13 +68,18 @@ export function ChatRuntimeProvider({ children }: { children: ReactNode }) {
     from: "/_authenticated/_chat/projects/$projectId",
     shouldThrow: false,
   })?.params.projectId;
+  // So does moving between the new topics of two assistants.
+  const personaId = useMatch({
+    from: "/_authenticated/_chat/assistants/$personaId/new",
+    shouldThrow: false,
+  })?.params.personaId;
   useEffect(() => {
     if (!onChatRoute) return;
     const threads = runtime.threads;
     if (sessionId)
       threads.switchToThread(sessionId).catch(() => setFailure({ sessionId, attempt }));
     else if (threads.mainItem.getState().status !== "new") void threads.switchToNewThread();
-  }, [onChatRoute, sessionId, projectId, runtime, attempt]);
+  }, [onChatRoute, sessionId, projectId, personaId, runtime, attempt]);
   // A retry or another route clears the failure without resetting state inside the effect.
   const routeError =
     failure && failure.sessionId === sessionId && failure.attempt === attempt
@@ -94,7 +100,9 @@ export function ChatRuntimeProvider({ children }: { children: ReactNode }) {
   );
   return (
     <ChatThreadsContext value={value}>
-      <AssistantRuntimeProvider runtime={runtime}>{children}</AssistantRuntimeProvider>
+      <AssistantRuntimeProvider runtime={runtime}>
+        <ChatMcpApps>{children}</ChatMcpApps>
+      </AssistantRuntimeProvider>
     </ChatThreadsContext>
   );
 }
@@ -119,6 +127,13 @@ function useChatThreadRuntime(registry: ChatThreadRegistry) {
   });
   const runtime = useAISDKRuntime(chat, {
     adapters: { attachments, history, dictation, speech },
+    // MEM-253: the server owns the paused tool call, so the answer goes to its decision endpoint, not the next send.
+    onRespondToToolApproval: (response, { toolCallId }) =>
+      controller.transport.decideToolCall(
+        toolCallId,
+        "approved" in response && response.approved,
+        "optionId" in response && response.optionId === "allow-always",
+      ),
     isSendDisabled: state.connection !== "ready" || state.unavailable || state.checking,
   });
   useEffect(() => {

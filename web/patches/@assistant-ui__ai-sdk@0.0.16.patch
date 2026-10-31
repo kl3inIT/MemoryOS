@@ -1,0 +1,25 @@
+diff --git a/dist/runtime/useAISDKRuntime.js b/dist/runtime/useAISDKRuntime.js
+index 0d7553bb6dee9fc958aa332a65681832f6e0703d..fb972db7a31a62a29a03cfd9be1dcead0e52fa8d 100644
+--- a/dist/runtime/useAISDKRuntime.js
++++ b/dist/runtime/useAISDKRuntime.js
+@@ -401,13 +401,16 @@ const useAISDKRuntime = (chatHelpers, adapter = {}) => {
+ 	const [runtimeRef] = useState(() => ({ get current() {
+ 		return runtime;
+ 	} }));
+-	const { isLoading, deleteMessage: deleteHistoryMessage, markRunCancelled, persistToolInteractions, persistToolApprovalResponses } = useExternalHistory(runtimeRef, adapters?.history ?? contextAdapters?.history, toThreadMessages, aiSDKV6FormatAdapter, (messages_0) => {
+-		chatHelpers.setMessages(messages_0);
+-	}, getToolArtifacts, restoreToolArtifacts, getToolInteractions, restoreToolInteractions, toolApprovalResponsesRef.current, () => {
++	// useExternalHistory lists this callback among its load effect's dependencies; a new function each render
++	// re-ran that effect, whose setHasLoaded(true) rendered again: Maximum update depth on a thread without remoteId.
++	const markToolApprovalResponsesRestored = useCallback(() => {
+ 		for (const [id_4, entry_0] of ownedApprovals ?? []) toolApprovalResponsesRef.current.set(id_4, entry_0.response);
+ 		hostApprovalIdsRef.current = new Set(toolApprovalResponsesRef.current.keys());
+ 		setToolApprovalResponses(new Map(toolApprovalResponsesRef.current));
+-	});
++	}, [ownedApprovals]);
++	const { isLoading, deleteMessage: deleteHistoryMessage, markRunCancelled, persistToolInteractions, persistToolApprovalResponses } = useExternalHistory(runtimeRef, adapters?.history ?? contextAdapters?.history, toThreadMessages, aiSDKV6FormatAdapter, (messages_0) => {
++		chatHelpers.setMessages(messages_0);
++	}, getToolArtifacts, restoreToolArtifacts, getToolInteractions, restoreToolInteractions, toolApprovalResponsesRef.current, markToolApprovalResponsesRestored);
+ 	const { id: chatId_0, messages: chatMessages, status: chatStatus } = chatHelpers;
+ 	const extras = useMemo(() => aiSDKExtras.provide({
+ 		chat: chatHelpers,

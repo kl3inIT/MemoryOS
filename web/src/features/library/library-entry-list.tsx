@@ -1,4 +1,4 @@
-import { Fragment, useRef, type ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { formatUiDay } from "@/i18n/format";
 import { Link } from "@tanstack/react-router";
 import {
@@ -14,6 +14,7 @@ import {
   Star,
   Users,
 } from "lucide-react";
+import { TooltipIconButton } from "@/components/composites/tooltip-icon-button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,9 +28,9 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { IconButton } from "@/components/ui/icon-button";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia } from "@/components/ui/item";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { usePointerOpenedTrigger } from "@/hooks/use-pointer-opened-trigger";
 import { useAppTranslation, type AppTranslate } from "@/i18n/use-app-translation";
 import { i18n } from "@/i18n/index";
 import { fileSize } from "@/lib/file-size";
@@ -313,25 +314,25 @@ function EntryActionButtons({
   compact?: boolean;
 }) {
   const ui = useAppTranslation();
-  const byPointer = useRef(false);
+  const pointer = usePointerOpenedTrigger();
   const download = entryDownloadUrl(entry);
   return (
     <div className="flex shrink-0 items-center gap-0.5">
       <div className={cn("flex items-center gap-0.5", !compact && rowShortcutReveal)}>
         {!compact && download && (
-          <IconButton
+          <TooltipIconButton
             size="sm"
             prominence="internal"
             aria-label={ui("Tải về {{name}}", { name: entry.name })}
-            title={ui("Tải về")}
+            tooltip={ui("Tải về")}
             asChild
           >
             <a href={download} download={entry.name} onClick={() => actions.onOpened(entry)}>
               <Download />
             </a>
-          </IconButton>
+          </TooltipIconButton>
         )}
-        <IconButton
+        <TooltipIconButton
           size="sm"
           prominence="internal"
           aria-pressed={entry.starred}
@@ -340,34 +341,27 @@ function EntryActionButtons({
               ? ui("Bỏ gắn sao {{name}}", { name: entry.name })
               : ui("Gắn sao {{name}}", { name: entry.name })
           }
+          tooltip={entry.starred ? ui("Bỏ sao") : ui("Thêm sao")}
           onClick={() => actions.onStar(entry)}
         >
           <Star
             className={entry.starred ? "fill-current text-status-warning-content" : undefined}
           />
-        </IconButton>
+        </TooltipIconButton>
       </div>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <IconButton
+          <TooltipIconButton
             size="sm"
             prominence="internal"
             aria-label={ui("Thao tác với {{name}}", { name: entry.name })}
-            onPointerDown={() => (byPointer.current = true)}
+            tooltip={ui("Thao tác")}
+            {...pointer.trigger}
           >
             <MoreHorizontal />
-          </IconButton>
+          </TooltipIconButton>
         </DropdownMenuTrigger>
-        <DropdownMenuContent
-          align="end"
-          className="w-auto min-w-48"
-          onCloseAutoFocus={(event) => {
-            // A menu opened with the pointer keeps the trigger's focus ring off; the keyboard still gets it back.
-            if (!byPointer.current) return;
-            byPointer.current = false;
-            event.preventDefault();
-          }}
-        >
+        <DropdownMenuContent align="end" className="w-auto min-w-48" {...pointer.content}>
           <EntryMenuItems entry={entry} actions={actions} download={download} ui={ui} />
         </DropdownMenuContent>
       </DropdownMenu>
@@ -474,6 +468,7 @@ function EntryMenuItems({
     );
   return (
     <>
+      {askItem}
       {entry.sessionId && (
         <DropdownMenuItem asChild>
           <Link to="/chat/$sessionId" params={{ sessionId: entry.sessionId }}>

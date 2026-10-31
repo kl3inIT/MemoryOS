@@ -181,9 +181,13 @@ function GroupDetail({
           <Info aria-hidden="true" />
           <AlertTitle>{ui("System group")}</AlertTitle>
           <AlertDescription>
-            {ui(
-              "MemoryOS manages this group. Its name and permissions are fixed. Membership changes follow the group’s access rules.",
-            )}
+            {group.systemKey === "BASIC"
+              ? ui(
+                  "MemoryOS manages this group. Its name and Basic access are fixed. Membership changes follow the group’s access rules.",
+                )
+              : ui(
+                  "MemoryOS manages this group. Its name and permissions are fixed. Membership changes follow the group’s access rules.",
+                )}
           </AlertDescription>
         </Alert>
       ) : null}
@@ -210,7 +214,7 @@ function GroupDetail({
       {canReadGroupPermissions && (systemGroup || canManageGrants) ? (
         <GroupPermissionsSection
           registry={registry}
-          selected={systemGroup ? new Set(group.capabilities) : selectedCapabilities}
+          selected={selectedCapabilities}
           systemKey={group.systemKey}
           editable={canManageGrants}
           loading={registryLoading}

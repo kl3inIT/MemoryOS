@@ -282,6 +282,20 @@ final class ToolDefinition {
   }
 
   private Object convert(JsonNode node, Class<?> type) {
+    // Absent optional parameters arrive as null nodes; map them to JVM defaults
+    // so tools with optional args never dereference null.
+    if (node == null || node.isNull() || node.isMissingNode()) {
+      if (type == boolean.class || type == Boolean.class) {
+        return false;
+      }
+      if (type == int.class || type == Integer.class) {
+        return 0;
+      }
+      if (type == long.class || type == Long.class) {
+        return 0L;
+      }
+      return null;
+    }
     if (type == int.class || type == Integer.class) {
       return node.intValue();
     }
@@ -325,5 +339,9 @@ final class ToolDefinition {
 
   boolean readOnly() {
     return readOnly;
+  }
+
+  boolean idempotent() {
+    return idempotent;
   }
 }

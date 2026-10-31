@@ -1,8 +1,8 @@
 """Calls the model, runs the script it wrote and scores it.
 
-Model-written code runs on the machine doing the evaluation. `docker` runs it in the executor image with no network
-(recommended); `local` runs it with the executor's own virtual environment, in a temporary directory and with an
-environment that carries no credentials.
+Model-written code runs on the machine doing the evaluation. `docker` runs it in the arm's image (the interpreter's
+executor or the sandbox's computer image) with no network (recommended); `local` runs it with the executor's own
+virtual environment, in a temporary directory and with an environment that carries no credentials.
 """
 
 from __future__ import annotations
@@ -19,13 +19,16 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from interpreter_eval.scoring import answer_of, code_of, matches, old_idioms
-from interpreter_eval.sources import REPOSITORY
+from interpreter_eval.sources import REPOSITORY, Runtime
 
 HARNESS = (
     "\n\nThis evaluation cannot call tools. Reply with exactly one ```python code block holding the complete script "
-    "you would pass to run_python, and nothing else. The data files are in the current directory."
+    "you would pass to run_python, and nothing else. The data files are in {data}."
 )
-IMAGE_SITECUSTOMIZE = "/opt/executor-venv/lib/python3.14/site-packages/sitecustomize.py"
+
+
+def harness(runtime: Runtime) -> str:
+    return HARNESS.format(data="the current directory" if runtime.data == "." else f"`{runtime.data}/`")
 
 
 @dataclass(frozen=True)
@@ -60,12 +63,15 @@ class Model:
 @dataclass(frozen=True)
 class Sandbox:
     kind: str  # "docker" or "local"
+    runtime: Runtime
     image: str | None = None
 
     def run(self, code: str, sitecustomize: str, fixtures: Path) -> tuple[int, str, str]:
         with tempfile.TemporaryDirectory(prefix="interpreter-eval-") as work:
+            data = Path(work, self.runtime.data)
+            data.mkdir(exist_ok=True)
             for item in fixtures.iterdir():
-                shutil.copy(item, work)
+                shutil.copy(item, data)
             Path(work, "__main__.py").write_text(code, encoding="utf8")
             site = Path(work, ".sitecustomize", "sitecustomize.py")
             site.parent.mkdir()
@@ -103,7 +109,7 @@ class Sandbox:
                 "-w",
                 "/workspace",
                 "-v",
-                f"{site}:{IMAGE_SITECUSTOMIZE}:ro",
+                f"{site}:{self.runtime.image_sitecustomize}:ro",
                 str(self.image),
                 "python",
                 "/workspace/__main__.py",
@@ -123,10 +129,10 @@ class Sandbox:
 
 
 def executor_python() -> Path:
-    venv = REPOSITORY / "interpreter" / "executor" / ".venv"
+    venv = REPOSITORY / "memoryos-sandbox" / "computer" / ".venv"
     python = venv / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
     if not python.exists():
-        raise SystemExit(f"{python} is missing: run `uv sync --directory interpreter/executor --frozen --no-dev`")
+        raise SystemExit(f"{python} is missing: run `uv sync --directory memoryos-sandbox/computer --frozen --no-dev`")
     return python
 
 
@@ -142,7 +148,7 @@ def trial(
     expected: object,
 ) -> dict[str, object]:
     """One task for one arm: the model's script, and when it fails, one fix after reading its traceback."""
-    messages = [{"role": "system", "content": guidance + HARNESS}, {"role": "user", "content": prompt}]
+    messages = [{"role": "system", "content": guidance + harness(sandbox.runtime)}, {"role": "user", "content": prompt}]
     reply = model.chat(messages)
     code = code_of(reply)
     first = _attempt(sandbox, fixtures, code, sitecustomize, expected)

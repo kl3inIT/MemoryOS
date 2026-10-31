@@ -17,8 +17,10 @@ export const generatedFileSchema = z.object({
 });
 export type GeneratedFile = z.infer<typeof generatedFileSchema>;
 
-/** One run_python call as the timeline knows it, keyed by tool call id. */
+/** One run_python or sandbox call as the timeline knows it, keyed by tool call id. */
 export type CodeRun = {
+  /** A sandbox command's title, from the model's description (MEM-270). */
+  title?: string;
   code: string;
   stdout: string;
   stderr: string;

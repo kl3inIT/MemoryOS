@@ -1,6 +1,4 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { useState } from "react";
-import { Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
@@ -11,6 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { CopyableValue } from "@/features/sources/shared/copyable-value";
 
 const PERMISSIONS = [
   {
@@ -91,29 +90,5 @@ export function SharePointEntraGuide() {
         </div>
       </CollapsibleContent>
     </Collapsible>
-  );
-}
-
-function CopyableValue({ value }: { value: string }) {
-  const ui = useAppTranslation();
-
-  const [copied, setCopied] = useState(false);
-  return (
-    <span className="flex items-center gap-1">
-      <span className="min-w-0 truncate font-mono text-xs">{value}</span>
-      <Button
-        size="sm"
-        prominence="tertiary"
-        aria-label={ui("Copy {{v1}}", { v1: value })}
-        onClick={() => {
-          navigator.clipboard
-            .writeText(value)
-            .then(() => setCopied(true))
-            .catch(() => setCopied(false));
-        }}
-      >
-        {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
-      </Button>
-    </span>
   );
 }

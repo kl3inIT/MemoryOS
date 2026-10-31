@@ -1,0 +1,17 @@
+{
+ "code": 0,
+ "data": {
+  "items": [
+   {
+    "description": "",
+    "email": "owner@minhan.example",
+    "en_name": "",
+    "mobile_visible": true,
+    "name": "Test Owner",
+    "open_id": "ou_a8c60d2416a98fd991f1271fd84de633",
+    "union_id": "on_554cc9e80a3ca3d0b43925794742e0a8"
+   }
+  ]
+ },
+ "msg": "success"
+}

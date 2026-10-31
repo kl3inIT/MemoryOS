@@ -2,12 +2,18 @@ import type { QueryClient } from "@tanstack/react-query";
 import type { UIMessage } from "ai";
 import { i18n } from "@/i18n";
 import { sourcesSchema, type ChatSource } from "@/features/chat/sources/chat-evidence";
-import { activitySchema, historyParts } from "@/features/chat/activity/chat-activity";
+import {
+  activitySchema,
+  historyParts,
+  toolAppsSchema,
+  type UnavailableApp,
+} from "@/features/chat/activity/chat-activity";
 import { createChatSession, getChatHistory, getChatSession } from "@/lib/hey-api/sdk.gen";
 import {
   getChatBranchesQueryKey,
   getChatFeedbackQueryKey,
   getChatSessionQueryKey,
+  listChatAssistantsQueryKey,
   listChatSessionsQueryKey,
   listProjectChatSessionsQueryKey,
   searchChatSessionsQueryKey,
@@ -31,6 +37,8 @@ export type ChatUiMessage = UIMessage<
     failureCode?: string;
     /** MEM-195: why a completed reply declined instead of answering. */
     refusalReason?: string;
+    /** MEM-267: what the reply's last model call carried, against the model's input limit. */
+    context?: { tokens: number; limit: number };
     createdAt?: string;
     /** Set by assistant-ui on a live question sent with a composer quote. */
     custom?: { quote?: { text: string; messageId: string } };
@@ -40,8 +48,14 @@ export type ChatUiMessage = UIMessage<
     toolCitations?: Record<string, number[]>;
     images?: GeneratedImage[];
     imageGenerating?: boolean;
+    /** The live reply waits for a turn: the server runs a bounded number at once. */
+    waiting?: boolean;
     /** Files run_python generated, saved on the assistant message. */
     generatedFiles?: GeneratedFile[];
+    /** MEM-273: the reply's apps the person must connect first. */
+    unavailableApps?: UnavailableApp[];
+    /** MEM-280: the Agent Builder's changes to the editor's form during this reply, by tool call. */
+    assistantChanges?: string[];
   },
   { research: ResearchState }
 >;
@@ -53,14 +67,16 @@ function everyCall([{ _id }]: readonly [{ _id: string }]) {
 }
 
 /**
- * Refreshes every cached read of conversations after one changes: the session lists (open and archived),
- * conversation search, every Project's conversation list and, when given, the changed conversation. The
+ * Refreshes every cached read of conversations after one changes: the session lists (open, archived and each
+ * assistant's topics), conversation search, every Project's conversation list, the sidebar's assistants with their
+ * latest topic and, when given, the changed conversation. The
  * assistant-ui thread list is not a query; `useRefreshChatSessions` reloads it beside this.
  */
 export function invalidateChatSessions(cache: QueryClient, sessionId?: string) {
   return Promise.all([
     cache.invalidateQueries({ queryKey: listChatSessionsQueryKey() }),
     cache.invalidateQueries({ queryKey: searchChatSessionsQueryKey() }),
+    cache.invalidateQueries({ queryKey: listChatAssistantsQueryKey() }),
     cache.invalidateQueries({
       queryKey: everyCall(listProjectChatSessionsQueryKey({ path: { projectId: "" } })),
     }),
@@ -153,7 +169,7 @@ export async function newChatSession(
   return data;
 }
 
-export function initialChatTitle(text: string) {
+function initialChatTitle(text: string) {
   const segments = new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(
     text.trim().replace(/\s+/g, " "),
   );
@@ -165,7 +181,7 @@ export function initialChatTitle(text: string) {
     title += segment;
     count++;
   }
-  return title || i18n.t("app:Hội thoại mới", { keySeparator: false });
+  return title || i18n.t("Hội thoại mới", { ns: "app", keySeparator: false, nsSeparator: false });
 }
 
 /** Saved deep research renders before the answer, as it streamed. */
@@ -175,32 +191,45 @@ function researchParts(message: ChatMessage): ChatUiMessage["parts"] {
 }
 
 export function toUiMessages(messages: ChatMessage[]): ChatUiMessage[] {
-  return messages.map((message) => ({
-    id: message.id,
-    role: message.role === "USER" ? "user" : "assistant",
-    parts: [
-      ...researchParts(message),
-      // Attached files come first, above the question, as they are shown while composing.
-      ...(message.files ?? []).map((file) => ({
-        type: "file" as const,
-        filename: file.filename,
-        mediaType: file.mediaType ?? "application/octet-stream",
-        url: fileReference(file.id!),
-      })),
-      // historyParts builds text, reasoning and tool parts only; its data-part type stays the AI SDK default.
-      ...((message.role === "ASSISTANT"
-        ? historyParts(message.content, activitySchema.parse(message.activity))
-        : [{ type: "text" as const, text: message.content }]) as ChatUiMessage["parts"]),
-    ],
-    metadata: {
-      serverStatus: message.status,
-      failureCode: message.failureCode ?? undefined,
-      refusalReason: message.refusalReason ?? undefined,
-      createdAt: message.createdAt,
-      sources: sourcesSchema.parse(message.sources),
-      artifacts: artifactsSchema.parse(message.artifacts),
-      images: parseGeneratedImages(message.images),
-      generatedFiles: parseGeneratedFiles(message.generatedFiles),
-    },
-  }));
+  return messages.map((message) => {
+    const activity =
+      message.role === "ASSISTANT" ? activitySchema.parse(message.activity) : undefined;
+    return {
+      id: message.id,
+      role: message.role === "USER" ? "user" : "assistant",
+      parts: [
+        ...researchParts(message),
+        // Attached files come first, above the question, as they are shown while composing.
+        ...(message.files ?? []).map((file) => ({
+          type: "file" as const,
+          filename: file.filename,
+          mediaType: file.mediaType ?? "application/octet-stream",
+          url: fileReference(file.id!),
+        })),
+        // historyParts builds text, reasoning and tool parts only; its data-part type stays the AI SDK default.
+        ...((activity
+          ? historyParts(message.content, activity, {
+              sessionId: message.sessionId,
+              messageId: message.id,
+              views: toolAppsSchema.parse(message.apps),
+            })
+          : [{ type: "text" as const, text: message.content }]) as ChatUiMessage["parts"]),
+      ],
+      metadata: {
+        serverStatus: message.status,
+        failureCode: message.failureCode ?? undefined,
+        refusalReason: message.refusalReason ?? undefined,
+        ...(message.contextTokens != null &&
+          message.contextLimit != null && {
+            context: { tokens: message.contextTokens, limit: message.contextLimit },
+          }),
+        createdAt: message.createdAt,
+        sources: sourcesSchema.parse(message.sources),
+        artifacts: artifactsSchema.parse(message.artifacts),
+        images: parseGeneratedImages(message.images),
+        generatedFiles: parseGeneratedFiles(message.generatedFiles),
+        unavailableApps: activity?.unavailableApps ?? [],
+      },
+    };
+  });
 }

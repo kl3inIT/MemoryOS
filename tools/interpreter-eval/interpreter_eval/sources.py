@@ -4,12 +4,37 @@ from __future__ import annotations
 
 import subprocess
 import textwrap
+from dataclasses import dataclass
 from pathlib import Path
 
 REPOSITORY = Path(__file__).resolve().parents[3]
-PROMPTS = "core/src/main/java/io/memoryos/chat/prompts/ChatPrompts.java"
-SITECUSTOMIZE = "interpreter/executor/sitecustomize.py"
+PROMPTS = "memoryos-core/src/main/java/io/memoryos/chat/prompts/ChatPrompts.java"
 WORKTREE = "WORKTREE"
+
+
+@dataclass(frozen=True)
+class Runtime:
+    """Where run_python runs: its sitecustomize in the repository and in its image, and where it finds the files."""
+
+    sitecustomize: tuple[str, ...]  # its paths in the repository, newest first; a ref has one of them
+    image_sitecustomize: str
+    data: str  # the conversation's files, relative to the working directory
+
+
+RUNTIMES = {
+    # Retired by MEM-271; its source moved from interpreter/ to memoryos-interpreter/.
+    "interpreter": Runtime(
+        ("memoryos-interpreter/executor/sitecustomize.py", "interpreter/executor/sitecustomize.py"),
+        "/opt/executor-venv/lib/python3.14/site-packages/sitecustomize.py",
+        ".",
+    ),
+    # MEM-271: the conversation's sandbox, with the attachments under attachments/.
+    "sandbox": Runtime(
+        ("memoryos-sandbox/computer/sitecustomize.py",),
+        "/opt/sandbox-venv/lib/python3.14/site-packages/sitecustomize.py",
+        "attachments",
+    ),
+}
 
 
 def read(ref: str, path: str) -> str:
@@ -18,6 +43,17 @@ def read(ref: str, path: str) -> str:
     return subprocess.run(
         ["git", "show", f"{ref}:{path}"], cwd=REPOSITORY, check=True, capture_output=True, encoding="utf8"
     ).stdout
+
+
+def sitecustomize(ref: str, runtime: str) -> str:
+    """The runtime's sitecustomize at a ref, from the first of its paths the ref has."""
+    paths = RUNTIMES[runtime].sitecustomize
+    for path in paths[:-1]:
+        try:
+            return read(ref, path)
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            continue
+    return read(ref, paths[-1])
 
 
 def guidance(java: str) -> str:
@@ -29,6 +65,6 @@ def guidance(java: str) -> str:
     return textwrap.dedent(block).strip()
 
 
-def arm(ref: str) -> tuple[str, str]:
-    """The run_python guidance and the executor sitecustomize at a ref."""
-    return guidance(read(ref, PROMPTS)), read(ref, SITECUSTOMIZE)
+def arm(ref: str, runtime: str = "sandbox") -> tuple[str, str]:
+    """The run_python guidance and the runtime's sitecustomize at a ref."""
+    return guidance(read(ref, PROMPTS)), sitecustomize(ref, runtime)

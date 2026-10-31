@@ -1,0 +1,30 @@
+{
+ "code": 99991672,
+ "msg": "Access denied. One of the following scopes is required: [im:chat:readonly, im:chat, im:chat.group_info:readonly, im:chat.members:read]",
+ "error": {
+  "permission_violations": [
+   {
+    "type": "action_scope_required",
+    "subject": "im:chat:readonly"
+   },
+   {
+    "type": "action_scope_required",
+    "subject": "im:chat"
+   },
+   {
+    "type": "action_scope_required",
+    "subject": "im:chat.group_info:readonly"
+   },
+   {
+    "type": "action_scope_required",
+    "subject": "im:chat.members:read"
+   }
+  ],
+  "helps": [
+   {
+    "url": "https://open.larksuite.com/app/cli_aa4102bd7238de15/auth",
+    "description": "Learn more about scopes and how to add them: [im:chat:readonly,im:chat,im:chat.group_info:readonly,im:chat.members:read]"
+   }
+  ]
+ }
+}

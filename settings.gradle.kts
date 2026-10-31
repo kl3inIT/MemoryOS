@@ -1,4 +1,5 @@
 pluginManagement {
+    includeBuild("build-logic")
     repositories {
         gradlePluginPortal()
         mavenCentral()
@@ -14,7 +15,14 @@ dependencyResolutionManagement {
 
 rootProject.name = "memoryos"
 
-include(":core")
-include(":sources")
-include(":api")
-include(":worker")
+include(":memoryos-core")
+include(":memoryos-integration-lark")
+include(":memoryos-integration-opensandbox")
+include(":memoryos-integration-google")
+include(":memoryos-integration-microsoft")
+include(":memoryos-integration-zalo")
+include(":memoryos-integration-whatsapp")
+include(":memoryos-extraction")
+include(":memoryos-api")
+include(":memoryos-worker")
+include(":memoryos-channels")

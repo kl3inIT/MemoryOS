@@ -1,4 +1,5 @@
 import { useMatch } from "@tanstack/react-router";
+import { larkSetupSteps } from "@/features/sources/lark/lark-setup-search";
 import { sharePointSetupSteps } from "@/features/sources/sharepoint/sharepoint-setup-search";
 
 /** Steps of a connector setup flow, shown in place of navigation while the flow is open. */
@@ -14,6 +15,10 @@ export function useSourceSetupProgress(): SourceSetupProgress | undefined {
     from: "/_authenticated/admin/sources/new/sharepoint",
     shouldThrow: false,
   });
+  const lark = useMatch({
+    from: "/_authenticated/admin/sources/new/lark",
+    shouldThrow: false,
+  });
   if (googleDrive)
     return {
       steps: ["Credential", "Connector"],
@@ -26,6 +31,16 @@ export function useSourceSetupProgress(): SourceSetupProgress | undefined {
       current: Math.max(
         0,
         sharePointSetupSteps.findIndex((entry) => entry.id === step),
+      ),
+    };
+  }
+  if (lark) {
+    const step = lark.search.step ?? "credential";
+    return {
+      steps: larkSetupSteps.map((entry) => entry.label),
+      current: Math.max(
+        0,
+        larkSetupSteps.findIndex((entry) => entry.id === step),
       ),
     };
   }

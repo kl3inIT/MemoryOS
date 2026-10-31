@@ -15,12 +15,12 @@ vi.mock("@tanstack/react-router", () => ({
   Link: ({ children, to }: { children: ReactNode; to: string }) => <a href={to}>{children}</a>,
 }));
 
-function show(retention?: ReactNode) {
+function show() {
   render(
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
-      <StoragePage retention={retention} />
+      <StoragePage />
     </QueryClientProvider>,
   );
 }
@@ -84,19 +84,18 @@ it("says there is no limit when the deployment sets none, and shows no meter wit
   expect(screen.getByText("Thư viện của bạn chưa có tệp nào.")).toBeInTheDocument();
 });
 
-it("holds what the library's own panel holds: the trash window and the retention Chat supplies", async () => {
+it("says how long a deleted file stays in the trash, as the library's own panel does", async () => {
   usage({
     usedBytes: 3072,
     fileCount: 2,
     limitBytes: 10240,
     byCategory: [{ category: "DOCUMENT", usedBytes: 3072 }],
   });
-  show(<section aria-label="Tự xóa hội thoại" />);
+  show();
 
   expect(
     await screen.findByText("Tệp đã xóa được giữ 30 ngày rồi xóa vĩnh viễn."),
   ).toBeInTheDocument();
-  expect(screen.getByRole("region", { name: "Tự xóa hội thoại" })).toBeInTheDocument();
 });
 
 it("offers a way to try again when the usage cannot be read", async () => {

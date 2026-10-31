@@ -1,0 +1,46 @@
+{
+ "code": 0,
+ "data": {
+  "has_more": false,
+  "items": [
+   {
+    "creator": "ou_a8c60d2416a98fd991f1271fd84de633",
+    "has_child": false,
+    "node_create_time": "1791739152",
+    "node_token": "node-doanh-thu-q3",
+    "node_type": "origin",
+    "obj_create_time": "1791739152",
+    "obj_edit_time": "1791739196",
+    "obj_token": "docx-doanh-thu-q3",
+    "obj_type": "docx",
+    "origin_node_token": "node-doanh-thu-q3",
+    "origin_space_id": "7695460898437074458",
+    "owner": "ou_a8c60d2416a98fd991f1271fd84de633",
+    "parent_node_token": "node-kinh-doanh",
+    "space_id": "7695460898437074458",
+    "title": "Báo cáo doanh thu Q3 2026",
+    "url": "https://yjp1eercgqfv.jp.larksuite.com/wiki/node-doanh-thu-q3"
+   },
+   {
+    "creator": "ou_a8c60d2416a98fd991f1271fd84de633",
+    "has_child": false,
+    "node_create_time": "1791739101",
+    "node_token": "node-bang-gia",
+    "node_type": "origin",
+    "obj_create_time": "1791739101",
+    "obj_edit_time": "1791739226",
+    "obj_token": "sheet-bang-gia",
+    "obj_type": "sheet",
+    "origin_node_token": "node-bang-gia",
+    "origin_space_id": "7695460898437074458",
+    "owner": "ou_a8c60d2416a98fd991f1271fd84de633",
+    "parent_node_token": "node-kinh-doanh",
+    "space_id": "7695460898437074458",
+    "title": "Bảng giá dịch vụ 2026",
+    "url": "https://yjp1eercgqfv.jp.larksuite.com/wiki/node-bang-gia"
+   }
+  ],
+  "page_token": ""
+ },
+ "msg": "success"
+}

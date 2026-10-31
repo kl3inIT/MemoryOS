@@ -552,6 +552,7 @@ describe("model manager authority", () => {
     let identity = session;
     const pending = deferredResponse();
     const writes: Request[] = [];
+    const deniedReads: string[] = [];
     vi.stubGlobal(
       "fetch",
       vi.fn(async (request: Request) => {
@@ -560,6 +561,11 @@ describe("model manager authority", () => {
         if (request.method === "PUT") {
           writes.push(request);
           return pending.promise;
+        }
+        // Like the server, refuse every Models route once the identity has lost its authority.
+        if (!identity.capabilities.includes("MODELS_MANAGE")) {
+          deniedReads.push(path);
+          return Response.json({ status: 403, code: "IAM_ACCESS_DENIED" }, { status: 403 });
         }
         if (path === "/api/chat/providers") return Response.json([provider]);
         if (path === "/api/chat/provider-adapters") return Response.json([adapter]);
@@ -613,6 +619,8 @@ describe("model manager authority", () => {
       ),
     ).not.toContain("Private connection");
     expect(client.getMutationCache().getAll()).toHaveLength(0);
+    // No render of the revoked session asks for the catalog again.
+    expect(deniedReads).toEqual([]);
     client.clear();
   });
 

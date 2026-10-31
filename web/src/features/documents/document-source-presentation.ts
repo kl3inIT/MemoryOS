@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { findSourceProvider } from "@/features/sources/shared/source-provider-catalog";
 
-export type DocumentSourceType = "FILE" | "GOOGLE_DRIVE" | "SHAREPOINT";
+export type DocumentSourceType = "FILE" | "GOOGLE_DRIVE" | "SHAREPOINT" | "LARK";
 
 /**
  * Presentation only, so a provider a newer server knows is dropped instead of failing the parse: a rejected search
@@ -12,7 +12,7 @@ export const documentSourceTypesSchema = z
   .max(16)
   .transform((types) =>
     types.filter((type): type is DocumentSourceType =>
-      (["FILE", "GOOGLE_DRIVE", "SHAREPOINT"] as string[]).includes(type),
+      (["FILE", "GOOGLE_DRIVE", "SHAREPOINT", "LARK"] as string[]).includes(type),
     ),
   );
 

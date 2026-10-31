@@ -242,6 +242,8 @@ export async function generatedFileMessages(
     research: { clarification: false, plan: null, agents: [] },
     failureCode: null,
     refusalReason: null,
+    contextTokens: null,
+    contextLimit: null,
   };
   return [
     {
@@ -260,6 +262,7 @@ export async function generatedFileMessages(
         },
       ],
       generatedFiles: [],
+      apps: [],
     },
     {
       ...common,
@@ -279,6 +282,7 @@ Với miền Bắc, \(\frac{5{,}02 - 3{,}30}{5{,}02} \approx 34{,}3\%\).
 
 [Biểu đồ doanh thu theo miền.png](/api/chat/file-artifacts/0b7c7f64-1d0a-4a4e-9c35-2f6f3c1a0005/content)`,
       generatedFiles: files,
+      apps: [],
     },
   ];
 }
