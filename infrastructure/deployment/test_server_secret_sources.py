@@ -22,6 +22,7 @@ MOUNTED = {
     "MEMORYOS_CHAT_CATALOG_ENCRYPTION_KEY_FILE": "chat_catalog_encryption_key",
     "MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY_FILE": "google_drive_credential_encryption_key",
     "MEMORYOS_LARK_CREDENTIAL_ENCRYPTION_KEY_FILE": "lark_credential_encryption_key",
+    "MEMORYOS_SHAREPOINT_CREDENTIAL_ENCRYPTION_KEY_FILE": "sharepoint_credential_encryption_key",
     "MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY_FILE": "mcp_credential_encryption_key",
     "MEMORYOS_MCP_ADMIN_CLIENT_SECRET_FILE": "mcp_admin_client_secret",
 }
