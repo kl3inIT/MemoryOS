@@ -9,6 +9,7 @@ lasts 30 days without use, so a role signs in again only after a month of silenc
 from __future__ import annotations
 
 import base64
+import errno
 import hashlib
 import json
 import os
@@ -56,8 +57,11 @@ def _lock_file(handle: BinaryIO) -> None:
         try:
             msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
             return
-        except OSError:  # LK_LOCK gives up after about 10 seconds; keep waiting
-            continue
+        except OSError as error:
+            # LK_LOCK gives up after about 10 seconds of contention with EDEADLOCK; keep waiting.
+            # Any other failure is the caller's to report.
+            if error.errno != errno.EDEADLOCK:
+                raise
 
 
 def _unlock_file(handle: BinaryIO) -> None:

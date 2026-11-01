@@ -318,6 +318,10 @@ def style_header(ws: Worksheet, row: int, width: int) -> None:
         cell.alignment = Alignment(wrap_text=True, vertical="top")
 
 
+class Formula(str):
+    """A formula this script wrote; any other text starting with "=" is stored as text."""
+
+
 def write_table(
     ws: Worksheet,
     start_row: int,
@@ -331,6 +335,8 @@ def write_table(
     for r, values in enumerate(rows, start_row + 1):
         for col, value in enumerate(values, 1):
             cell = ws.cell(row=r, column=col, value=value)
+            if isinstance(value, str) and not isinstance(value, Formula) and value.startswith("="):
+                cell.data_type = "s"  # quotes and answers are data, never formulas
             cell.font = Font(name=FONT, size=11)
             cell.border = BORDER
             cell.alignment = Alignment(wrap_text=True, vertical="top")
@@ -653,7 +659,7 @@ def main() -> None:
         if extra:
             crit += f',{sheet}!${cols_[extra[0]]}$2:${cols_[extra[0]]}${last},"{extra[1]}"'
         rng = f"{sheet}!${cols_[metric]}$2:${cols_[metric]}${last}"
-        return f'=IFERROR(AVERAGEIFS({rng},{crit}),"")'
+        return Formula(f'=IFERROR(AVERAGEIFS({rng},{crit}),"")')
 
     def rate_row(
         rows_: list[dict],
@@ -826,6 +832,9 @@ def main() -> None:
                 for r in runs[name]
                 if first in r["metrics"] and second in r["metrics"]
             ]
+            if not pairs_:
+                lines.append([name, f"{first} vs {second}", "not graded", "not graded", 0])
+                continue
             observed, k = summary.kappa(pairs_)
             lines.append(
                 [name, f"{first} vs {second}", round(observed, 4), round(k, 2), len(pairs_)]

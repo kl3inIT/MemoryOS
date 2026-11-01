@@ -70,19 +70,19 @@ their own, and staging data is demo data.
 | Chat model | `cx/gpt-6-luna` through 9Router (the user's model router) |
 | Guardrail model | `openrouter/typesafe/jev-1.13` |
 
-Versions of OpenSearch, docling-serve, PostgreSQL and Redis were read on 2026-10-31.
+Versions were read on 2026-10-31.
 
 ### 2.2 Benchmark tools
 
 | Tool | Role | Version |
 | --- | --- | --- |
-| [promptfoo](https://www.promptfoo.dev/) | Open-source evaluation runner (MIT licence, self-hosted). It sends every test to a provider, runs the assertions on the reply, stores the result and shows it in a web viewer | 0.123.1 for the 2026-10-08 baseline; 0.125.1 on 2026-10-31 |
+| [promptfoo](https://www.promptfoo.dev/) | Open-source evaluation runner (MIT licence, self-hosted). It sends every test to a provider, runs the assertions on the reply, stores the result and shows it in a web viewer | 0.125.1 |
 | `memoryos_provider.py` | promptfoo provider: signs in as the test's role, asks Chat in a fresh conversation, reads the event stream and returns the answer, its sources, the documents the model read and the turn time | this repository |
 | `retrieval_provider.py` | promptfoo provider for the retrieval stage: one `POST /api/search` as `exec` to depth 50, plus the indexed text of the gold documents | this repository |
 | `assertions.py` | promptfoo `python` assertions for everything a judge should not decide: leakage, tempting citations, citation numbers, context and retrieval metrics | this repository |
 | `summary.py` | Rates, 95% bootstrap intervals, paired differences, strata, judge agreement and Cohen's kappa from promptfoo exports | this repository |
 | Judges | promptfoo's `factuality` and `llm-rubric` assertions, graded by `cx/gpt-6-luna` (reference judge) and `cx/gpt-6-sol` (second judge) through 9Router | |
-| 9Router | Routes model calls to two Codex accounts | 0.5.95 on 2026-10-08; 0.5.112 from 2026-10-31 07:25 UTC |
+| 9Router | Routes model calls to two Codex accounts | 0.5.112 |
 | Python | Python 3.14 in the promptfoo image; the client uses the standard library only | |
 
 promptfoo runs as the `memoryos-promptfoo` container on staging. Its viewer is reached only through OAuth2 Proxy with

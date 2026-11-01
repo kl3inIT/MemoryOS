@@ -64,8 +64,15 @@ def indexed_text(api: Api, document: str) -> str:
         if document in _texts:
             return _texts[document]
     names = {d["id"]: d["fileName"] for d in json.loads(MANIFEST.read_text("utf-8"))["documents"]}
-    body = api.post("/api/search", {"query": names[document], "page": 0, "pageSize": 10})
-    hit = next((r for r in body["results"] if manifest_id(r["title"]) == document), None)
+    hit, page = None, 0
+    while hit is None:
+        body = api.post(
+            "/api/search", {"query": names[document], "page": page, "pageSize": PAGE_SIZE}
+        )
+        hit = next((r for r in body["results"] if manifest_id(r["title"]) == document), None)
+        if not body.get("hasMore") or (page + 1) * PAGE_SIZE >= DEPTH:
+            break
+        page += 1
     if hit is None:
         raise LookupError(f"{document} is not searchable as {ROLE}")
     passages, cursor = [], 0

@@ -42,6 +42,7 @@ def rows(path: Path) -> list[dict]:
                 "split": meta.get("split"),
                 "expect": meta.get("expect"),
                 "error": (result.get("error") or "")[:300] if error else "",
+                "failed": error,
                 "passAll": None if error or not metrics else bool(result.get("success")),
                 "metrics": metrics,
                 "answer": (output.get("answer") or "")[:ANSWER_CHARS],
@@ -54,6 +55,11 @@ def rows(path: Path) -> list[dict]:
     return out
 
 
+def _failed(row: dict) -> bool:
+    """The row ended in an error; rows written before the flag existed carry only the error text."""
+    return bool(row.get("failed", row["error"]))
+
+
 def merge(runs: list[list[dict]]) -> list[dict]:
     """A later export fills a row's error and adds metrics; the first export's pass verdict stays unless
     the first row was an error."""
@@ -64,10 +70,10 @@ def merge(runs: list[list[dict]]) -> list[dict]:
             first = merged.get(key)
             if first is None:
                 merged[key] = row
-            elif first["error"] and not row["error"]:
+            elif _failed(first) and not _failed(row):
                 row["metrics"] = {**first["metrics"], **row["metrics"]}
                 merged[key] = row
-            elif not row["error"]:
+            elif not _failed(row):
                 first["metrics"].update(row["metrics"])
     return list(merged.values())
 
