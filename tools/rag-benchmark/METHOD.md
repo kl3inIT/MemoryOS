@@ -26,7 +26,7 @@ why each metric and method was chosen and which alternatives were rejected.
 | Term | Meaning | Example |
 | --- | --- | --- |
 | RAG (retrieval-augmented generation) | The model first searches the company's documents, then writes its answer from the passages it found, citing them | "What was Q1/2026 revenue?" → search finds the Q1/2026 statement → the answer quotes its figure and cites it as [1] |
-| Corpus | The fixed set of documents the benchmark searches | The 61 public disclosures of section 3 |
+| Corpus | The fixed set of documents the benchmark searches | The 61 public disclosures of two listed companies used here |
 | Chunk | A piece of a document, at most 768 tokens, that is indexed and searched on its own | One table of a balance sheet, or two paragraphs of a resolution |
 | Token | The unit a model counts text in, roughly three quarters of an English word; Vietnamese takes more | "Báo cáo tài chính" is about 6 tokens |
 | OCR (optical character recognition) | Reading the text of a scanned page from its image | A signed resolution scanned to PDF has no text until OCR reads it |

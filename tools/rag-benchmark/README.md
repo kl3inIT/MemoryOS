@@ -105,11 +105,14 @@ and verdict, what the model read and cited, the answer, the turn time), reduced 
 `promptfoo/export_rows.py`; `results/runs.json` names each run's date, API build and promptfoo evals.
 `report/build_workbook.py` builds the reference workbook given with the SEP490 reports from these files and
 `corpus/`: method, metric definitions, corpus, roles, questions and evidence, runs, per-row results and the
-comparison tables with 95% intervals, each rate beside an `AVERAGEIFS` formula that recomputes it.
+comparison tables with 95% intervals, each rate beside an `AVERAGEIFS` formula that recomputes it, the main
+results side by side with charts (`report/compare.py`, `report/charts.py`), and the terms, environment and reasons
+of [METHOD.md](METHOD.md), read from that file.
 
 ```bash
 python promptfoo/export_rows.py results/<run>.jsonl run.json [regrade.json | retry.json ...]   # in the container
-uv run --with openpyxl python report/build_workbook.py MemoryOS_RAG_Benchmark.xlsx
+uv run --with openpyxl --with matplotlib python report/build_workbook.py MemoryOS_RAG_Benchmark.xlsx
+uv run --with matplotlib python report/charts.py <dir>     # the report's charts as PNG
 ```
 
 ## Tests

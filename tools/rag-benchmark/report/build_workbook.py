@@ -1,7 +1,7 @@
 """Builds the benchmark reference workbook from the repository: the corpus, the roles, the 120 questions and
 their evidence, the method, every run's per-row results and the comparison tables with 95% intervals.
 
-    uv run --with openpyxl python report/build_workbook.py <out.xlsx>
+    uv run --with openpyxl --with matplotlib python report/build_workbook.py <out.xlsx>
 
 Everything comes from `corpus/` and `results/` (per-row results reduced from promptfoo exports by
 `promptfoo/export_rows.py`); nothing is typed in by hand except the method text below. A rate in the summary
@@ -11,11 +11,14 @@ tables sits next to an AVERAGEIFS formula over the results sheet that recomputes
 from __future__ import annotations
 
 import json
+import math
+import re
 import sys
-from collections import defaultdict
 from pathlib import Path
 
 from openpyxl import Workbook
+from openpyxl.drawing.image import Image
+from openpyxl.formatting.rule import ColorScaleRule
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
@@ -23,9 +26,14 @@ from openpyxl.worksheet.worksheet import Worksheet
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "promptfoo"))
 
+import charts  # noqa: E402
+import compare  # noqa: E402
 import summary  # noqa: E402
+from compare import by_question, interval, pct, read_jsonl, score  # noqa: E402
 
 CORPUS = ROOT / "corpus"
+METHOD_DOC = ROOT / "METHOD.md"
+SERIES = ["2A78D6", "EB6834", "1BAF7A", "6250D6"]
 RESULTS = ROOT / "results"
 FONT = "Calibri"
 HEADER_FILL = PatternFill("solid", fgColor="FBE4D5")
@@ -305,10 +313,6 @@ METHOD = [
 ]
 
 
-def read_jsonl(path: Path) -> list[dict]:
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
-
-
 def style_header(ws: Worksheet, row: int, width: int) -> None:
     for col in range(1, width + 1):
         cell = ws.cell(row=row, column=col)
@@ -355,28 +359,237 @@ def title(ws: Worksheet, row: int, text: str, note: str = "") -> int:
     return row + 1
 
 
-def interval(clusters: dict[str, list[float]]) -> tuple[float | None, float | None, float | None]:
-    return summary.bootstrap(clusters, summary.mean)
+def plain_markdown(text: str) -> str:
+    text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
+    return text.replace("`", "").replace("**", "").strip()
 
 
-def by_question(rows: list[dict], value) -> dict[str, list[float]]:  # noqa: ANN001
-    clusters: dict[str, list[float]] = defaultdict(list)
-    for row in rows:
-        v = value(row)
-        if v is not None:
-            clusters[row["id"]].append(v)
-    return clusters
+def method_section(heading: str) -> tuple[list[str], list[tuple[list[str], list[list[str]]]]]:
+    """The paragraphs and tables of one section of METHOD.md, up to the next heading of any level."""
+    lines = METHOD_DOC.read_text(encoding="utf-8").splitlines()
+    start = next(i for i, line in enumerate(lines) if line.startswith("#") and heading in line)
+    paragraphs: list[str] = []
+    tables: list[tuple[list[str], list[list[str]]]] = []
+    text: list[str] = []
+    in_table = False
+    for line in lines[start + 1 :]:
+        if line.startswith("#"):
+            break
+        if line.startswith("|"):
+            if set(line) <= set("|- "):
+                continue
+            cells = [plain_markdown(c) for c in line.strip().strip("|").split(" | ")]
+            if in_table:
+                tables[-1][1].append(cells)
+            else:
+                tables.append((cells, []))
+            in_table = True
+            continue
+        in_table = False
+        if line.strip():
+            text.append(plain_markdown(line))
+        elif text:
+            paragraphs.append(" ".join(text))
+            text = []
+    if text:
+        paragraphs.append(" ".join(text))
+    return paragraphs, tables
 
 
-def score(row: dict, metric: str) -> float | None:
-    if metric == "pass_all":
-        return None if row["passAll"] is None else float(row["passAll"])
-    entry = row["metrics"].get(metric)
-    return None if entry is None else float(entry["score"])
+def sheet_from_method(ws: Worksheet, sections: list[tuple[str, str]], widths: list[int]) -> None:
+    """Writes sections of METHOD.md (heading text, title shown) as titled tables."""
+    row = 1
+    for heading, shown in sections:
+        paragraphs, tables = method_section(heading)
+        row = title(ws, row, shown)
+        for paragraph in paragraphs:
+            cell = ws.cell(row=row, column=1, value=paragraph)
+            cell.font = Font(name=FONT, size=11, italic=True)
+            cell.alignment = Alignment(wrap_text=True, vertical="top")
+            ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=len(widths))
+            ws.row_dimensions[row].height = 15 * (1 + len(paragraph) // 180)
+            row += 1
+        for header, body in tables:
+            row = write_table(ws, row, header, body) + 1
+        row += 1
+    for col, width in enumerate(widths, 1):
+        ws.column_dimensions[get_column_letter(col)].width = width
 
 
-def pct(value: float | None) -> float | None:
-    return None if value is None else round(value, 4)
+def comparison_sheet(ws: Worksheet, data: dict) -> None:
+    """The main results side by side: each block a table with its interval, a verdict and a chart."""
+    rate_format = "0.0%"
+    shade = ColorScaleRule(
+        start_type="num",
+        start_value=0,
+        start_color="FFFFFF",
+        end_type="num",
+        end_value=1,
+        end_color="9EC5F0",
+    )
+    row = title(
+        ws,
+        1,
+        "Main results side by side",
+        "Each rate is shown with its 95% interval [low, high]. A difference is in percentage points, paired on "
+        "the same questions; when its interval includes zero there is no measured difference. Darker blue means "
+        "a higher rate. The Charts sheet draws the same figures.",
+    )
+
+    def fmt(r: compare.Rate) -> str:
+        p, lo, hi = r
+        return "" if p is None else f"{p * 100:.1f}% [{lo * 100:.1f}, {hi * 100:.1f}]"
+
+    def diff(r: compare.Rate) -> str:
+        p, lo, hi = r
+        return "" if p is None else f"{p * 100:+.1f} [{lo * 100:+.1f}, {hi * 100:+.1f}]"
+
+    def block(heading: str, note: str, header: list[str], lines: list[list], rates: int) -> None:
+        nonlocal row
+        row = title(ws, row + 1, heading, note)
+        header_row = row
+        row = write_table(ws, row, header, lines)
+        for r in range(header_row + 1, row):
+            for c in range(2, 2 + rates):
+                ws.cell(row=r, column=c).number_format = rate_format
+        ws.conditional_formatting.add(
+            f"B{header_row + 1}:{get_column_letter(1 + rates)}{row - 1}", shade
+        )
+
+    searches = list(compare.SEARCHES)
+    lines = []
+    for metric, name in compare.RANKING.items():
+        rates = data["retrieval"][metric]
+        vs_keyword = data["retrieval_diff"][(metric, "retrieval-keyword")]
+        vs_vector = data["retrieval_diff"][(metric, "retrieval-vector")]
+        lines.append(
+            [name]
+            + [pct(rates[s][0]) for s in searches]
+            + [fmt(rates[s]) for s in searches]
+            + [
+                diff(vs_keyword),
+                compare.verdict(vs_keyword, "hybrid ranks better"),
+                diff(vs_vector),
+                compare.verdict(vs_vector, "hybrid ranks better"),
+            ]
+        )
+    block(
+        "Retrieval: hybrid search against keyword only and vector only",
+        "97 questions, one search each as exec, no question rewrite. Hybrid is the released search; keyword only "
+        "and vector only ran on a probe build that keeps one side of the same query.",
+        [
+            "Measure",
+            "Hybrid",
+            "Keyword only",
+            "Vector only",
+            "Hybrid [interval]",
+            "Keyword [interval]",
+            "Vector [interval]",
+            "Hybrid − keyword (points)",
+            "Reading",
+            "Hybrid − vector (points)",
+            "Reading",
+        ],
+        lines,
+        3,
+    )
+
+    modes = list(compare.MODES)
+    lines = [
+        [name]
+        + [pct(data["chat"][m][mode][0]) for mode in modes]
+        + [fmt(data["chat"][m][mode]) for mode in modes]
+        for m, name in compare.CHAT.items()
+    ]
+    block(
+        "Chat: standard mode against grounded mode",
+        "Replies of the 2026-10-08 baseline. Context and answer measures cover the rows where the role may read a "
+        "gold document; rows passing every check cover all rows (361 standard, 375 grounded).",
+        ["Measure", "Standard", "Grounded", "Standard [interval]", "Grounded [interval]"],
+        lines,
+        2,
+    )
+
+    lines = [
+        [name]
+        + [pct(values[layer][0]) for layer in compare.LAYERS]
+        + [fmt(values[layer]) for layer in compare.LAYERS]
+        for name, values in data["by_layer"].items()
+    ]
+    block(
+        "Every stage by the text layer of the gold documents",
+        "Text: every page has a text layer. Scanned: no page has one, OCR reads it. Mixed: some of each. "
+        "Extraction and recall from the hybrid retrieval run, the rest from the grounded baseline.",
+        [
+            "Measure",
+            "Text",
+            "Mixed",
+            "Scanned",
+            "Text [interval]",
+            "Mixed [interval]",
+            "Scanned [interval]",
+        ],
+        lines,
+        3,
+    )
+
+    lines = [[f"{stage}: {name}", pct(r[0]), fmt(r)] for stage, name, r in data["stages"]]
+    block(
+        "Each stage on its own, in pipeline order (grounded)",
+        "Where evidence is lost: extraction, then search, then what the model read, then the reply.",
+        ["Stage and measure", "Rate", "Rate [interval]"],
+        lines,
+        1,
+    )
+
+    variants = list(compare.VARIANTS)
+    lines = []
+    for name in variants:
+        values = data["ablation"][name]
+        difference = data["ablation_diff"].get(name)
+        lines.append(
+            [compare.VARIANTS[name]]
+            + [pct(values[m][0]) for m in ("pass_all", "correctness", "near_miss")]
+            + [
+                fmt(values["pass_all"]),
+                diff(difference) if difference else "reference",
+                compare.verdict(difference, "better without the step", "worse without the step")
+                if difference
+                else "",
+            ]
+        )
+    block(
+        "Step ablation: the released pipeline against one step removed",
+        "375 grounded rows each, 2026-10-31. V1 drops the question rewrite (run twice), V6 the adjacent chunks. "
+        "The difference is in rows passing every check, paired with V0 on the same rows.",
+        [
+            "Variant",
+            "Rows passing",
+            "Correctness",
+            "Near miss passing",
+            "Rows passing [interval]",
+            "Paired with V0 (points)",
+            "Reading",
+        ],
+        lines,
+        3,
+    )
+    for col, width in zip("ABCDEFGHIJK", (34, 18, 18, 18, 22, 22, 22, 22, 34, 22, 34), strict=True):
+        ws.column_dimensions[col].width = width
+
+
+def charts_sheet(ws: Worksheet, folder: Path, data: dict) -> None:
+    """The report's charts, drawn from the same figures, one under another."""
+    charts.draw(folder, data)
+    row = title(
+        ws, 1, "Charts", "The same figures as the Comparison sheet, as drawn in the report."
+    )
+    for name in ("fig-stages", "fig-layers", "fig-retrieval", "fig-differences"):
+        image = Image(str(folder / f"{name}.png"))
+        scale = 760 / image.width
+        image.width, image.height = int(image.width * scale), int(image.height * scale)
+        ws.add_image(image, f"A{row}")
+        row += math.ceil(image.height / 20) + 2
 
 
 def main() -> None:
@@ -416,7 +629,7 @@ def main() -> None:
         ),
         (
             "Sheets",
-            "Summary: the comparison tables. Method: how the benchmark was built and run. Metrics: what each measure means, how it is computed, with examples. Corpus, Roles, Questions, Evidence: the test set. Runs: every run with its evals. Results Chat and Results Retrieval: one row per question and role per run.",
+            "Comparison: the main results side by side, with charts. Terms: every term with an example. Environment: the server, services, models and tools. Why: why each metric and method was chosen. Summary: every rate with its interval and recalculation. Method: how the benchmark was built and run. Metrics: what each measure means, how it is computed, with examples. Corpus, Roles, Questions, Evidence: the test set. Runs: every run with its evals. Results Chat and Results Retrieval: one row per question and role per run.",
         ),
         (
             "Reading a rate",
@@ -763,24 +976,9 @@ def main() -> None:
     ]
     lines = []
     for a, b, metrics in pairs:
-        other = {(r["id"], r["role"]): r for r in runs[b]}
         for m in metrics:
-            clusters: dict[str, list[float]] = defaultdict(list)
-            for r in runs[a]:
-                twin = other.get((r["id"], r["role"]))
-                if twin and score(r, m) is not None and score(twin, m) is not None:
-                    clusters[r["id"]].append(score(r, m) - score(twin, m))
-            point, low, high = interval(clusters)
-            lines.append(
-                [
-                    f"{a} minus {b}",
-                    m,
-                    pct(point),
-                    pct(low),
-                    pct(high),
-                    sum(len(v) for v in clusters.values()),
-                ]
-            )
+            (point, low, high), n = compare.paired(runs[a], runs[b], m)
+            lines.append([f"{a} minus {b}", m, pct(point), pct(low), pct(high), n])
     start = row
     row = write_table(
         ws, row, ["Comparison", "Measure", "Difference", "Low", "High", "Rows"], lines
@@ -850,6 +1048,32 @@ def main() -> None:
                 ws.cell(row=r, column=c).number_format = "0.0%"
     for col, width in zip("ABCDEF", (46, 24, 12, 12, 12, 12), strict=True):
         ws.column_dimensions[col].width = width
+
+    data = compare.comparisons(runs, layers)
+    comparison_sheet(wb.create_sheet("Comparison", 1), data)
+    charts_sheet(wb.create_sheet("Charts", 2), out.parent / "charts", data)
+    sheet_from_method(
+        wb.create_sheet("Terms", 3), [("1.1 Terms", "Terms used in this workbook")], [30, 80, 80]
+    )
+    sheet_from_method(
+        wb.create_sheet("Environment", 4),
+        [
+            ("2.1 Hardware", "Server, services and models"),
+            ("2.2 Benchmark tools", "Benchmark tools"),
+            ("2.3 Run settings", "Run settings"),
+        ],
+        [26, 80, 60],
+    )
+    sheet_from_method(
+        wb.create_sheet("Why", 5),
+        [
+            ("13. Why", "Why these metrics and methods"),
+            ("13.1 Metrics", "Metrics"),
+            ("13.2 LLM as a judge", "LLM as a judge"),
+            ("13.3 Methods", "Methods"),
+        ],
+        [34, 80, 70],
+    )
 
     for sheet in wb.worksheets:
         for cells in sheet.iter_rows():
