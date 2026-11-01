@@ -399,4 +399,17 @@ The P8a ablation ran on the incomplete corpus: its differences hold, its rates d
 - [x] CodeRabbit on #859: an inter-process token lock on Windows too (`msvcrt`), with a two-process test; a gold
   document the name search cannot find no longer fails the retrieval row; nearest-rank percentiles (the reported p50
   and p95 are unchanged at their precision).
-- [ ] README: the retrieval mode and `summary.py`.
+- [x] README: the retrieval mode and `summary.py`.
+- [x] [METHOD.md](../../../../tools/rag-benchmark/METHOD.md), 2026-11-01: the whole process for a reader new to RAG
+  evaluation (terms with examples, environment and tools, corpus, authoring, runs, each metric with a worked example,
+  uncertainty, ablation, calibration, limits, and why each metric and method was chosen against BEIR, MS MARCO,
+  RAGAS, TREC RAG and Onyx). Writing it found that hybrid fusion inside one query is min-max with weights 0.5/0.5,
+  and RRF (constant 50) merges the queries of a turn; Report 4 (Tables 19 and 20) already said so.
+- [x] Second CodeRabbit round (`64bb9e59`): `msvcrt` retries only on contention, an explicit `failed` flag for merged
+  rows, the gold lookup pages through the name search, workbook text never becomes a formula, kappa without pairs.
+  The 2026-10-31 extraction coverage was measured before the lookup paged; not re-measured.
+- [x] Workbook, 2026-11-01: Comparison (main results side by side, colour scale, readings), Charts (`report/charts.py`,
+  the report's figures), Terms, Environment and Why read from METHOD.md; uploaded over the same Drive file.
+- [x] SEP490 Report 4 Appendix V (RAG benchmark method, Figures 17 to 21, Tables 23 to 38) with its change-log row
+  and table of contents; Report 3 definitions (gold answer, MRR, context recall, bootstrap, paired difference,
+  Cohen's kappa, promptfoo) with a change-log row.
