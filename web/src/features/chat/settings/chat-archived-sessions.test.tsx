@@ -40,6 +40,7 @@ const archived: ChatSession = {
   branchedFromSessionId: null,
   branchedFromMessageId: null,
   temporary: false,
+  replyRunning: false,
 };
 
 function show(sessions: ChatSession[] = [archived]) {

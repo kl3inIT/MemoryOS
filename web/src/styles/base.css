@@ -126,4 +126,15 @@
   ::highlight(memoryos-citation-active) {
     background-color: var(--pdf-highlight);
   }
+
+  /*
+   * The reader's own words inside a located passage, a darker step of the same highlighter laid over it and
+   * underlined, so they are told from the passage by more than a shade. The ink is the document's, so a
+   * word stays legible where the view beneath follows the theme.
+   */
+  ::highlight(memoryos-citation-term) {
+    background-color: var(--pdf-highlight-border);
+    color: var(--content-document);
+    text-decoration: underline;
+  }
 }

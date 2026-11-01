@@ -293,7 +293,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "{service_name=~\"memoryos-api|memoryos-worker\"} | severity_text=~\"WARN|ERROR\""
+          "expr": "{service_name=~\"memoryos-api|memoryos-worker|memoryos-channels\"} | severity_text=~\"WARN|ERROR\""
         }
       ],
       "fieldConfig": {

@@ -1,0 +1,49 @@
+plugins {
+    java
+    id("memoryos.java-conventions")
+    alias(libs.plugins.spring.boot)
+    alias(libs.plugins.spring.dependency.management)
+}
+
+// Keep the SDK aligned with the instrumentation train; Boot still owns autoconfiguration.
+extra["opentelemetry.version"] = libs.versions.opentelemetry.get()
+
+dependencies {
+    implementation(project(":memoryos-core"))
+    implementation(platform(libs.otel.instrumentation.bom))
+    implementation(libs.spring.boot.starter)
+    implementation(libs.spring.boot.starter.opentelemetry)
+    implementation(libs.otel.logback.appender)
+    runtimeOnly(libs.micrometer.registry.otlp)
+    implementation(libs.spring.boot.starter.actuator)
+    implementation(libs.spring.boot.starter.webmvc)
+    implementation(libs.spring.boot.starter.jdbc)
+    implementation(libs.spring.boot.starter.data.jpa)
+    implementation(libs.spring.boot.starter.data.redis)
+    implementation(libs.db.scheduler.spring.boot4)
+    runtimeOnly(project(":memoryos-integration-lark"))
+    runtimeOnly(project(":memoryos-integration-opensandbox"))
+    runtimeOnly(project(":memoryos-integration-google"))
+    runtimeOnly(project(":memoryos-integration-microsoft"))
+    runtimeOnly(project(":memoryos-extraction"))
+    runtimeOnly(libs.postgresql)
+    runtimeOnly(libs.commons.pool2)
+    testImplementation(platform(libs.aws.sdk.bom))
+    testImplementation(libs.aws.sdk.s3)
+    testImplementation(libs.aws.sdk.auth)
+    testImplementation(libs.aws.sdk.url.connection.client)
+    testImplementation(libs.spring.boot.starter.test)
+    testImplementation(libs.archunit.junit5)
+    testImplementation(libs.spring.boot.starter.webmvc.test)
+    testImplementation(libs.spring.boot.restclient)
+    testImplementation(libs.testcontainers.junit.jupiter)
+    testImplementation(libs.testcontainers.postgresql)
+    testImplementation(libs.flyway.core)
+    testRuntimeOnly(libs.flyway.database.postgresql)
+    testRuntimeOnly(libs.junit.platform.launcher)
+}
+
+// A local run is a development run; staging and production images select their own profiles.
+tasks.bootRun {
+    systemProperty("spring.profiles.active", "development")
+}

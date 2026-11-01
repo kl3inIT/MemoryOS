@@ -269,7 +269,7 @@ export function ChatFilePickerContent({
       {uploadAction !== undefined ? (
         uploadAction
       ) : (
-        <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 text-sm focus-within:ring-2 hover:bg-surface-sunken">
+        <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 text-sm hover:bg-surface-sunken has-[:focus-visible]:bg-surface-sunken">
           <Upload className="size-4" /> {ui("Tải tệp lên")}
           <input
             type="file"
@@ -403,6 +403,7 @@ function RecentFileRow({
     <div className="flex flex-wrap items-center gap-2 text-sm">
       <label className="flex min-w-0 flex-1 items-center gap-2">
         <Checkbox
+          focus="soft"
           checked={selected}
           disabled={!selected && (file.status !== "READY" || full)}
           onCheckedChange={(checked) => onToggle(checked === true)}

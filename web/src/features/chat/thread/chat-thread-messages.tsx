@@ -1,4 +1,4 @@
-import { use, type ReactNode } from "react";
+import { createElement, use, type ReactNode } from "react";
 import { TooltipIconButton } from "@/components/composites/tooltip-icon-button";
 import { Link } from "@tanstack/react-router";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -6,9 +6,10 @@ import { ApplicationSessionContext } from "@/features/identity/application-sessi
 import {
   ActionBarPrimitive,
   AuiIf,
+  getMcpAppFromToolPart,
   MessagePrimitive,
-  groupPartByType,
   useAuiState,
+  type PartState,
 } from "@assistant-ui/react";
 import { Copy, FileX, ShieldAlert } from "lucide-react";
 import { MarkdownText } from "@/components/assistant-ui/elements/markdown-text";
@@ -28,18 +29,31 @@ import {
   ChatReasoningStep,
   ChatToolStep,
 } from "@/features/chat/activity/chat-activity-view";
+import { ChatMcpApproval } from "@/features/chat/mcp/chat-mcp-step";
+import { ChatMcpUnavailable } from "@/features/chat/mcp/chat-mcp-unavailable";
 import { ChatResearchView } from "@/features/chat/research/chat-research-view";
 import type { ResearchState } from "@/features/chat/research/chat-research";
 import { ChatMessageActions, ChatUserMessageContent } from "./chat-message-actions";
 import { ChatFilePart, ChatSharedFilePart, ChatMessageAttachment } from "./chat-attachments";
 import { ChatArtifactCards } from "./chat-artifact-view";
+import { ChatReplyAddon } from "./chat-reply-addon";
 import { ChatMessageTiming } from "./chat-message-timing";
 import { ChatUserMessageQuote, ChatUserText } from "./chat-quote";
 
-const activityGroups = groupPartByType({
-  reasoning: ["group-activity"],
-  "tool-call": ["group-activity"],
-});
+/**
+ * Reasoning and tool steps share one disclosure, except a call that waits for the person (MEM-253): as ChatGPT and
+ * Claude ask, its approval sits in the answer itself, never inside the collapsed thinking, and stays there with its
+ * outcome after the person answers.
+ */
+function activityGroups(part: PartState): readonly "group-activity"[] | null {
+  if (part.type === "reasoning") return ["group-activity"];
+  // MEM-275: a call's MCP Apps view stands in the answer, outside the collapsed activity, as Claude shows it.
+  if (part.type === "tool-call")
+    return ("approval" in part && part.approval) || getMcpAppFromToolPart(part)
+      ? null
+      : ["group-activity"];
+  return null;
+}
 const answerPlugins = [remarkCitations, remarkSandboxLinks];
 const answerComponents = { a: ChatMarkdownLink };
 
@@ -75,7 +89,16 @@ export function UserMessage({ readOnly }: { readOnly: boolean }) {
  */
 function ChatPendingIndicator() {
   const ui = useAppTranslation();
-  return <ThinkingIndicator role="status" label={ui("Đang suy nghĩ…")} className="mb-3" />;
+  const waiting = useAuiState(
+    (state) => state.message.metadata.custom.waiting as boolean | undefined,
+  );
+  return (
+    <ThinkingIndicator
+      role="status"
+      label={waiting ? ui("Đang chờ lượt…") : ui("Đang suy nghĩ…")}
+      className="mb-3"
+    />
+  );
 }
 
 /** Why a committed turn failed, in words the reader can act on; a model manager is sent to fix the credential. */
@@ -97,6 +120,11 @@ function ChatFailureNotice({ code }: { code?: string }) {
     title = ui("Vượt cửa sổ ngữ cảnh");
     detail = ui(
       "Hội thoại vượt quá cửa sổ ngữ cảnh của mô hình. Hãy bắt đầu hội thoại mới hoặc chọn mô hình có ngữ cảnh lớn hơn.",
+    );
+  } else if (code === "CHAT_PROVIDER_RATE_LIMITED") {
+    title = ui("Nhà cung cấp model đang giới hạn");
+    detail = ui(
+      "Đã chạm giới hạn tốc độ của nhà cung cấp. Hãy thử lại sau ít phút hoặc chọn model khác.",
     );
   } else if (code === "CHAT_PROVIDER_CREDENTIAL_REJECTED" && manager) {
     title = ui("Provider từ chối API key");
@@ -130,6 +158,7 @@ export function AssistantMessage({ readOnly }: { readOnly: boolean }) {
     (state) =>
       state.message.status?.type === "incomplete" && state.message.status.reason === "cancelled",
   );
+  const Addon = use(ChatReplyAddon);
   return (
     <MessagePrimitive.Root className="group/message min-w-0 wrap-anywhere">
       <ChatSourcesProvider>
@@ -148,7 +177,13 @@ export function AssistantMessage({ readOnly }: { readOnly: boolean }) {
               case "reasoning":
                 return <ChatReasoningStep running={part.status.type === "running"} />;
               case "tool-call":
-                return <ChatToolStep part={part} />;
+                // The registered MCP Apps renderer draws a view's part.
+                if (getMcpAppFromToolPart(part)) return null;
+                return part.approval ? (
+                  <ChatMcpApproval part={part} />
+                ) : (
+                  <ChatToolStep part={part} />
+                );
               case "text":
                 // Only the answer body can be quoted, not activity, sources or actions.
                 return part.text.trim() ? (
@@ -170,6 +205,8 @@ export function AssistantMessage({ readOnly }: { readOnly: boolean }) {
         <ChatArtifactCards />
         <ChatImages />
         <ChatGeneratedFiles />
+        {!readOnly && <ChatMcpUnavailable />}
+        {Addon && createElement(Addon)}
         {refusalReason && (
           <p className="mt-2 flex items-center gap-1.5 font-secondary-body text-content-muted">
             {refusalReason === "blocked_topic" ? (

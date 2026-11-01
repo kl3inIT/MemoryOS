@@ -17,6 +17,15 @@ How a reply is scored follows the role's derived expectation:
 - follow_gold: `llm-rubric` for the behaviour the gold describes;
 - always: no forbidden document read or cited (leakage) and no tempting document cited (tempting); in
   grounded mode, every [n] names a source.
+
+`--checks stage` scores stored replies on the stage metrics instead (MEM-230 P9): context recall and
+precision over the documents the model read, completeness, and correctness and completeness by a second
+judge. It leaves the baseline checks and their pass rate untouched.
+
+`--mode retrieval` scores the search alone (P9b): each question with a gold answer for `exec`, searched
+once as `exec` through `retrieval_provider.py`, on extraction coverage, recall@10 and @50, nDCG@10,
+MRR@10, passage recall@10 and how often the tempting document ranks first. `--label` names the column
+(hybrid, keyword, vector), since which search runs is the API build's.
 """
 
 from __future__ import annotations
@@ -37,6 +46,8 @@ DEPARTMENT_ROLE = {
 }
 ALL_ROLES = ["exec", "finance", "legal", "governance", "ir", "hr", "outsider"]
 JUDGE = "openai:chat:cx/gpt-6-luna"
+# The baseline's chat model is also Luna, which can favour its own replies; Sol re-grades the same replies.
+SECOND_JUDGE = "openai:chat:cx/gpt-6-sol"
 
 # Rubrics judge behaviour, not wording: a true fact from the role's documents that the gold answer does not
 # mention never fails a reply; asserting the asked-for fact without support, or from the wrong period or
@@ -53,6 +64,21 @@ FAITHFUL = (
     "ngày tháng, suy ra văn bản nào có hiệu lực ở một thời điểm từ ngày ban hành của các văn bản. Câu dẫn dắt, "
     "diễn đạt lại hay nhận xét không chứa dữ kiện mới không cần căn cứ; nói không tìm thấy thông tin cũng "
     "không cần căn cứ. Trượt khi có dữ kiện không có trong tài liệu hoặc mâu thuẫn với tài liệu."
+)
+# Completeness is "every point the question asks for". A first rubric, "every point of the gold answer",
+# failed 13 of 20 hand-read replies that answered fully: gold answers also name the article, the
+# resolution number, the intermediate sum or a cross-check, which the question does not ask for.
+COMPLETE = (
+    "Đầu vào gồm CÂU HỎI và CÂU TRẢ LỜI. Đạt khi CÂU TRẢ LỜI nêu đủ mọi điều CÂU HỎI hỏi, đúng như đáp án "
+    "chuẩn: mỗi đại lượng, người, ngày, địa điểm hay lựa chọn được hỏi đều có giá trị khớp đáp án chuẩn "
+    "(cách viết số, làm tròn hợp lý hay đơn vị quy đổi có thể khác). Chi tiết của đáp án chuẩn mà câu hỏi "
+    "không hỏi là không bắt buộc: căn cứ, số điều khoản, số hiệu văn bản, phép tính trung gian, ghi chú đối "
+    "chiếu, so sánh cùng kỳ. Trượt khi thiếu một điều được hỏi, hoặc nói không xác định được điều mà đáp án "
+    "chuẩn trả lời được. Đáp án chuẩn: {gold}"
+)
+# \\n: the JavaScript expression needs the escape, not a raw newline inside its string.
+QUESTION_AND_ANSWER = (
+    "'CÂU HỎI:\\n' + context.vars.question + '\\n\\nCÂU TRẢ LỜI:\\n' + output.answer"
 )
 RUBRIC = {
     "partial": (
@@ -179,18 +205,147 @@ def assertions(question: dict, expectation: dict, mode: str) -> list[dict]:
     return checks
 
 
+def gold_documents(question: dict, expectation: dict) -> list[str]:
+    """The evidence documents the role may read; empty when it may read none."""
+    forbidden = set(expectation["forbidden_documents"])
+    return sorted({e["document"] for e in question["evidence"]} - forbidden)
+
+
+def stage_assertions(question: dict, expectation: dict) -> list[dict]:
+    """Stage metrics of a stored reply: what the model read, and whether the answer is complete."""
+    checks: list[dict] = []
+    behaviour = expectation["expect"]
+    if behaviour in ("answer", "partial", "follow_gold") and gold_documents(question, expectation):
+        checks += [
+            {
+                "type": "python",
+                "value": "file://assertions.py:context_recall",
+                "metric": "context_recall",
+            },
+            {
+                "type": "python",
+                "value": "file://assertions.py:context_precision",
+                "metric": "context_precision",
+            },
+        ]
+    if behaviour == "answer":
+        complete = COMPLETE.format(gold=question["gold_answer"])
+        checks += [
+            {
+                "type": "llm-rubric",
+                "value": complete,
+                "transform": QUESTION_AND_ANSWER,
+                "metric": "completeness",
+            },
+            {
+                "type": "factuality",
+                "value": question["gold_answer"],
+                "transform": "output.answer",
+                "provider": SECOND_JUDGE,
+                "metric": "correctness_sol",
+            },
+            {
+                "type": "llm-rubric",
+                "value": complete,
+                "transform": QUESTION_AND_ANSWER,
+                "provider": SECOND_JUDGE,
+                "metric": "completeness_sol",
+            },
+        ]
+    return checks
+
+
+RETRIEVAL_METRICS = [
+    "extraction_coverage",
+    "recall_at_10",
+    "recall_at_50",
+    "ndcg_at_10",
+    "mrr_at_10",
+    "passage_recall_at_10",
+]
+
+
+def retrieval_tests(only: set[str] | None) -> list[dict]:
+    """One test per question that `exec` must answer or follow, with its gold documents and quotes."""
+    tests = []
+    for line in QUESTIONS.read_text(encoding="utf-8").splitlines():
+        question = json.loads(line)
+        expectation = question["expectations"]["exec"]
+        if only and question["id"] not in only:
+            continue
+        if expectation["expect"] not in ("answer", "follow_gold") or not question["evidence"]:
+            continue
+        tempting = question.get("tempting_wrong_document")
+        checks = [
+            {"type": "python", "value": f"file://assertions.py:{m}", "metric": m}
+            for m in RETRIEVAL_METRICS + (["tempting_first"] if tempting else [])
+        ]
+        tests.append(
+            {
+                "description": f"{question['id']} · retrieval",
+                "vars": {
+                    "id": question["id"],
+                    "question": question["question"],
+                    "role": "exec",
+                    "gold": json.dumps(gold_documents(question, expectation)),
+                    "quotes": json.dumps(
+                        [
+                            {"document": e["document"], "quote": e["quote"]}
+                            for e in question["evidence"]
+                        ],
+                        ensure_ascii=False,
+                    ),
+                    "tempting": json.dumps([tempting] if tempting else []),
+                },
+                "assert": checks,
+                "metadata": {
+                    "id": question["id"],
+                    "department": question["department"],
+                    "category": question["category"],
+                    "split": question["split"],
+                    "role": "exec",
+                    "expect": expectation["expect"],
+                    "mode": "retrieval",
+                },
+            }
+        )
+    return tests
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", choices=["standard", "grounded"], required=True)
+    parser.add_argument("--mode", choices=["standard", "grounded", "retrieval"], required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--only", help="comma-separated question ids, for a smoke run")
+    parser.add_argument("--label", default="hybrid", help="retrieval: the search the API runs")
     parser.add_argument(
         "--replay",
         action="store_true",
         help="re-grade stored replies ($MEMORYOS_REPLAY); no new turns",
     )
+    parser.add_argument(
+        "--checks",
+        choices=["baseline", "stage"],
+        default="baseline",
+        help="stage: the P9 stage metrics on stored replies; needs --replay",
+    )
     args = parser.parse_args()
+    if args.checks == "stage" and not args.replay:
+        parser.error("--checks stage scores stored replies; add --replay")
     only = set(args.only.split(",")) if args.only else None
+    if args.mode == "retrieval":
+        write(
+            args.out,
+            {
+                "description": f"MEM-230 retrieval · {args.label}",
+                "prompts": ["{{question}}"],
+                "providers": [{"id": "file://retrieval_provider.py", "label": args.label}],
+                # 4 concurrent searches raced on refreshing the offline token (`tokens.tmp`).
+                "evaluateOptions": {"maxConcurrency": 2},
+                "tests": retrieval_tests(only),
+            },
+        )
+        return
     tests = []
     for line in QUESTIONS.read_text(encoding="utf-8").splitlines():
         question = json.loads(line)
@@ -200,6 +355,13 @@ def main() -> None:
             continue
         for role in asked_by(question):
             expectation = question["expectations"][role]
+            checks = (
+                stage_assertions(question, expectation)
+                if args.checks == "stage"
+                else assertions(question, expectation, args.mode)
+            )
+            if not checks:
+                continue
             tests.append(
                 {
                     "description": f"{question['id']} · {role} · {expectation['expect']}",
@@ -213,8 +375,9 @@ def main() -> None:
                         # JSON strings: promptfoo expands a list-valued var into one test per item.
                         "forbidden": json.dumps(expectation["forbidden_documents"]),
                         "must_not_cite": json.dumps(expectation.get("must_not_cite", [])),
+                        "gold": json.dumps(gold_documents(question, expectation)),
                     },
-                    "assert": assertions(question, expectation, args.mode),
+                    "assert": checks,
                     "metadata": {
                         "id": question["id"],
                         "department": question["department"],
@@ -227,7 +390,8 @@ def main() -> None:
                 }
             )
     config = {
-        "description": f"MEM-230 benchmark · {args.mode}",
+        "description": f"MEM-230 benchmark · {args.mode}"
+        + (" · stage metrics" if args.checks == "stage" else ""),
         "prompts": ["{{question}}"],
         "providers": [
             {
@@ -242,9 +406,13 @@ def main() -> None:
         "evaluateOptions": {"maxConcurrency": 2},
         "tests": tests,
     }
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(config, ensure_ascii=False, indent=1), encoding="utf-8")
-    print(f"{len(tests)} tests ({args.mode}) into {args.out}")
+    write(args.out, config)
+
+
+def write(out: Path, config: dict) -> None:
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(config, ensure_ascii=False, indent=1), encoding="utf-8")
+    print(f"{len(config['tests'])} tests ({config['description']}) into {out}")
 
 
 if __name__ == "__main__":

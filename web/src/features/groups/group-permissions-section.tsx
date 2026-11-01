@@ -38,6 +38,9 @@ const ICONS: Partial<Record<CapabilityId, ComponentType<ComponentProps<"svg">>>>
   AUDIT_READ: ScrollText,
 };
 
+// What the Basic group may hold beside Basic access, switched by a full administrator (the server enforces it).
+const BASIC_OPTIONAL: readonly CapabilityId[] = ["AGENTS_CREATE"];
+
 function permissionSection(id: CapabilityId) {
   if (id === "SYSTEM_ADMIN" || id === "SYSTEM_BASIC") return "access";
   if (id.startsWith("SOURCES_")) return "sources";
@@ -69,8 +72,11 @@ export function GroupPermissionsSection({
   const systemGroup = systemKey === "ADMIN" || systemKey === "BASIC";
   const systemGrant =
     systemKey === "ADMIN" ? "SYSTEM_ADMIN" : systemKey === "BASIC" ? "SYSTEM_BASIC" : null;
+  const optional = systemKey === "BASIC" ? BASIC_OPTIONAL : [];
   const rows = registry.filter((capability) =>
-    systemGroup ? capability.id === systemGrant : capability.editable,
+    systemGroup
+      ? capability.id === systemGrant || optional.includes(capability.id)
+      : capability.editable,
   );
 
   return (
@@ -141,7 +147,10 @@ export function GroupPermissionsSection({
                 const copy = capabilityCopy[capability.id];
                 const Icon = ICONS[capability.id] ?? ShieldCheck;
                 const checked = selected.has(capability.id);
-                const mutable = !systemGroup && editable && capability.editable;
+                const mutable =
+                  editable &&
+                  capability.editable &&
+                  (!systemGroup || optional.includes(capability.id));
                 const previous = rows[index - 1];
                 const sectionStart =
                   previous && permissionSection(previous.id) !== permissionSection(capability.id);

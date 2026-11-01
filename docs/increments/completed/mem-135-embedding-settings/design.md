@@ -1,6 +1,6 @@
 # MEM-135 — Cấu hình embedding trên trang quản trị, dựng lại index ở nền
 
-Linear: [MEM-135](https://linear.app/memory-os/issue/MEM-135). Liên quan: [MEM-171](../mem-171-production-deployment/design.md) (production), [MEM-141](../mem-141-rag-benchmark/design.md) (benchmark), [MEM-134](https://linear.app/memory-os/issue/MEM-134) (cổng dữ liệu ra ngoài), [MEM-66](../../active/mem-66-vllm-cpu-gateway-research/design.md) (model tự chạy, đang tạm dừng).
+Linear: [MEM-135](https://linear.app/memory-os/issue/MEM-135). Liên quan: [MEM-171](../mem-171-production-deployment/design.md) (production), [MEM-141](../mem-141-rag-benchmark/design.md) (benchmark), [MEM-134](https://linear.app/memory-os/issue/MEM-134) (cổng dữ liệu ra ngoài), [MEM-66](../../completed/mem-66-vllm-cpu-gateway-research/design.md) (model tự chạy, đang tạm dừng).
 
 ## Kết quả mong muốn
 

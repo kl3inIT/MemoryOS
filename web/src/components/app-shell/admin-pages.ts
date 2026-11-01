@@ -2,6 +2,7 @@ import { useMatchRoute, type LinkProps } from "@tanstack/react-router";
 import {
   Blocks,
   Bot,
+  BotMessageSquare,
   Cable,
   KeyRound,
   Library,
@@ -26,13 +27,14 @@ export type AdminPage =
   | "documentSets"
   | "users"
   | "groups"
-  | "interpreter"
+  | "sandbox"
   | "chat"
   | "providers"
   | "aiProviders"
   | "searchSettings"
   | "mcp"
   | "mcpEndpoint"
+  | "channels"
   | "agents"
   | "costs"
   | "audit";
@@ -78,10 +80,10 @@ export const adminPages: readonly AdminPageEntry[] = [
     visible: manageModels,
   },
   {
-    id: "interpreter",
-    to: "/admin/code-interpreter",
-    label: appText("Code Interpreter"),
-    title: appText("Code Interpreter"),
+    id: "sandbox",
+    to: "/admin/sandbox",
+    label: appText("Sandbox"),
+    title: appText("Sandbox"),
     icon: SquareTerminal,
     group: "configuration",
     visible: manageModels,
@@ -107,11 +109,12 @@ export const adminPages: readonly AdminPageEntry[] = [
   {
     id: "mcp",
     to: "/admin/mcp",
-    label: appText("Máy chủ MCP"),
-    title: appText("Máy chủ MCP"),
+    label: appText("Ứng dụng MCP"),
+    title: appText("Ứng dụng MCP"),
     icon: Blocks,
     group: "agents",
     visible: (authority) => authority.canManageMcp,
+    fuzzy: true,
   },
   {
     id: "mcpEndpoint",
@@ -121,6 +124,16 @@ export const adminPages: readonly AdminPageEntry[] = [
     icon: Cable,
     group: "agents",
     visible: (authority) => authority.canManageMcp,
+  },
+  {
+    id: "channels",
+    to: "/admin/channels",
+    label: appText("Kênh chat"),
+    title: appText("Kênh chat"),
+    icon: BotMessageSquare,
+    group: "agents",
+    visible: (authority) => authority.canManageChannels,
+    fuzzy: true,
   },
   {
     id: "sources",

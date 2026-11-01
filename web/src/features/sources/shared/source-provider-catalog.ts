@@ -1,7 +1,7 @@
 import { Files } from "lucide-react";
 import type { ComponentType, SVGProps } from "react";
 import { GoogleDriveIcon } from "@/features/sources/google-drive/google-drive-icon";
-import { LarkIcon } from "@/features/sources/lark/lark-icon";
+import { LarkIcon } from "@/components/lark-icon";
 import { SharePointIcon } from "@/features/sources/sharepoint/sharepoint-icon";
 
 export type SourceCategory = "Popular";

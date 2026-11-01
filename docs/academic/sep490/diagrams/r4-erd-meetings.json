@@ -1,0 +1,429 @@
+{
+  "schema_version": 1,
+  "diagram_type": "erd",
+  "meta": {
+    "title": "Meetings and MCP",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "visual_preset": "editorial",
+    "output": "docs/academic/sep490/diagrams/r4-erd-meetings.html"
+  },
+  "layout": {
+    "mode": "grid",
+    "gapX": 80,
+    "gapY": 48,
+    "entityW": 250
+  },
+  "entities": [
+    {
+      "id": "meeting_speaker",
+      "label": "meeting_speaker",
+      "row": 0,
+      "col": 0,
+      "width": 260.0,
+      "attributes": [
+        {
+          "name": "tenant_id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "meeting_id",
+          "type": "uuid",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "meeting.id"
+        },
+        {
+          "name": "track",
+          "type": "varchar(8)",
+          "key": "pk"
+        },
+        {
+          "name": "label",
+          "type": "varchar(16)",
+          "key": "pk"
+        },
+        {
+          "name": "name",
+          "type": "varchar(200)"
+        }
+      ]
+    },
+    {
+      "id": "meeting_user_share",
+      "label": "meeting_user_share",
+      "row": 0,
+      "col": 1,
+      "width": 290.0,
+      "attributes": [
+        {
+          "name": "tenant_id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "meeting_id",
+          "type": "uuid",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "meeting.id"
+        },
+        {
+          "name": "actor_id",
+          "type": "uuid",
+          "key": "pk"
+        }
+      ]
+    },
+    {
+      "id": "mcp_server_group",
+      "label": "mcp_server_group",
+      "row": 0,
+      "col": 3,
+      "width": 270.0,
+      "attributes": [
+        {
+          "name": "tenant_id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "server_id",
+          "type": "uuid",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "mcp_server.id"
+        },
+        {
+          "name": "group_id",
+          "type": "uuid",
+          "key": "pk"
+        }
+      ]
+    },
+    {
+      "id": "meeting_utterance",
+      "label": "meeting_utterance",
+      "row": 1,
+      "col": 0,
+      "width": 280.0,
+      "attributes": [
+        {
+          "name": "tenant_id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "meeting_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "meeting.id"
+        },
+        {
+          "name": "speaker",
+          "type": "varchar(16)",
+          "key": "fk",
+          "references": "meeting_speaker.label"
+        },
+        {
+          "name": "start_ms",
+          "type": "bigint"
+        },
+        {
+          "name": "end_ms",
+          "type": "bigint"
+        },
+        {
+          "name": "text",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "id": "meeting",
+      "label": "meeting",
+      "row": 1,
+      "col": 1,
+      "width": 310.0,
+      "attributes": [
+        {
+          "name": "tenant_id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "title",
+          "type": "varchar(200)"
+        },
+        {
+          "name": "kind",
+          "type": "varchar(16)"
+        },
+        {
+          "name": "status",
+          "type": "varchar(16)"
+        },
+        {
+          "name": "minutes_status",
+          "type": "varchar(16)"
+        }
+      ]
+    },
+    {
+      "id": "mcp_credential",
+      "label": "mcp_credential",
+      "row": 1,
+      "col": 2,
+      "width": 340.0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "server_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "mcp_server.id"
+        },
+        {
+          "name": "access_expires_at",
+          "type": "timestamptz"
+        },
+        {
+          "name": "status",
+          "type": "varchar(24)"
+        }
+      ]
+    },
+    {
+      "id": "mcp_server",
+      "label": "mcp_server",
+      "row": 1,
+      "col": 3,
+      "width": 270.0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "slug",
+          "type": "varchar(16)"
+        },
+        {
+          "name": "name",
+          "type": "varchar(200)"
+        },
+        {
+          "name": "url",
+          "type": "varchar(2048)"
+        },
+        {
+          "name": "auth_type",
+          "type": "varchar(16)"
+        },
+        {
+          "name": "status",
+          "type": "varchar(16)"
+        }
+      ]
+    },
+    {
+      "id": "meeting_minutes_item",
+      "label": "meeting_minutes_item",
+      "row": 2,
+      "col": 0,
+      "width": 300.0,
+      "attributes": [
+        {
+          "name": "tenant_id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "meeting_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "meeting.id"
+        },
+        {
+          "name": "kind",
+          "type": "varchar(16)"
+        },
+        {
+          "name": "text",
+          "type": "text"
+        },
+        {
+          "name": "owner",
+          "type": "varchar(200)"
+        },
+        {
+          "name": "due",
+          "type": "varchar(100)"
+        },
+        {
+          "name": "source_utterance_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "meeting_utterance.id"
+        },
+        {
+          "name": "done",
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "id": "meeting_group_share",
+      "label": "meeting_group_share",
+      "row": 2,
+      "col": 1,
+      "width": 290.0,
+      "attributes": [
+        {
+          "name": "tenant_id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "meeting_id",
+          "type": "uuid",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "meeting.id"
+        },
+        {
+          "name": "group_id",
+          "type": "uuid",
+          "key": "pk"
+        }
+      ]
+    },
+    {
+      "id": "mcp_server_tool",
+      "label": "mcp_server_tool",
+      "row": 2,
+      "col": 3,
+      "width": 260.0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "key": "pk"
+        },
+        {
+          "name": "server_id",
+          "type": "uuid",
+          "key": "fk",
+          "references": "mcp_server.id"
+        },
+        {
+          "name": "name",
+          "type": "varchar(128)"
+        },
+        {
+          "name": "read_only",
+          "type": "boolean"
+        },
+        {
+          "name": "policy",
+          "type": "varchar(8)"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "id": "meeting_speaker-meeting_id",
+      "from": "meeting",
+      "to": "meeting_speaker",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "meeting_user_share-meeting_id",
+      "from": "meeting",
+      "to": "meeting_user_share",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "mcp_server_group-server_id",
+      "from": "mcp_server",
+      "to": "mcp_server_group",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "meeting_utterance-speaker",
+      "from": "meeting_speaker",
+      "to": "meeting_utterance",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "mcp_credential-server_id",
+      "from": "mcp_server",
+      "to": "mcp_credential",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "meeting_minutes_item-source_utterance_id",
+      "from": "meeting_utterance",
+      "to": "meeting_minutes_item",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": true
+    },
+    {
+      "id": "meeting_group_share-meeting_id",
+      "from": "meeting",
+      "to": "meeting_group_share",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    },
+    {
+      "id": "mcp_server_tool-server_id",
+      "from": "mcp_server",
+      "to": "mcp_server_tool",
+      "fromCardinality": "one",
+      "toCardinality": "many",
+      "fromOptional": false
+    }
+  ]
+}

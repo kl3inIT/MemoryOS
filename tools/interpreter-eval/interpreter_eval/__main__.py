@@ -24,22 +24,35 @@ def main() -> None:
     parser.add_argument("--repeats", type=int, default=5)
     parser.add_argument("--workers", type=int, default=6)
     parser.add_argument("--sandbox", choices=["docker", "local"], default="docker")
-    parser.add_argument("--image", help="executor image for --sandbox docker")
+    parser.add_argument("--image", help="image for --sandbox docker, for both arms unless one is given its own")
+    parser.add_argument("--baseline-image", help="the baseline's image for --sandbox docker")
+    parser.add_argument("--candidate-image", help="the candidate's image for --sandbox docker")
+    parser.add_argument("--baseline-runtime", choices=sorted(sources.RUNTIMES), default="sandbox")
+    parser.add_argument("--candidate-runtime", choices=sorted(sources.RUNTIMES), default="sandbox")
     parser.add_argument("--task", action="append", choices=sorted(tasks.TASKS), help="run only these tasks")
     parser.add_argument("--out", type=Path, default=Path("results.json"))
     args = parser.parse_args()
-    if args.sandbox == "docker" and not args.image:
-        parser.error("--sandbox docker needs --image (the memoryos-interpreter-executor image to run scripts in)")
+    images = {"baseline": args.baseline_image or args.image, "candidate": args.candidate_image or args.image}
+    runtimes = {"baseline": args.baseline_runtime, "candidate": args.candidate_runtime}
+    if args.sandbox == "docker" and not all(images.values()):
+        parser.error("--sandbox docker needs --image, or --baseline-image and --candidate-image")
+    if args.sandbox == "local" and "interpreter" in runtimes.values():
+        parser.error("the interpreter runtime runs only with --sandbox docker, in its executor image")
 
     model = runner.Model(
         base_url=os.environ.get("INTERPRETER_EVAL_BASE_URL") or parser.error("INTERPRETER_EVAL_BASE_URL is not set"),
         api_key=os.environ.get("INTERPRETER_EVAL_API_KEY") or parser.error("INTERPRETER_EVAL_API_KEY is not set"),
         name=os.environ.get("INTERPRETER_EVAL_MODEL", "cx/gpt-6-luna"),
     )
-    sandbox = runner.Sandbox(args.sandbox, args.image)
+    sandboxes = {
+        arm: runner.Sandbox(args.sandbox, sources.RUNTIMES[runtime], images[arm]) for arm, runtime in runtimes.items()
+    }
     if args.sandbox == "local":
         runner.executor_python()
-    arms = {"baseline": sources.arm(args.baseline), "candidate": sources.arm(args.candidate)}
+    arms = {
+        "baseline": sources.arm(args.baseline, runtimes["baseline"]),
+        "candidate": sources.arm(args.candidate, runtimes["candidate"]),
+    }
     selected = args.task or list(tasks.TASKS)
 
     with tempfile.TemporaryDirectory(prefix="interpreter-eval-fixtures-") as directory:
@@ -56,7 +69,16 @@ def main() -> None:
         with ThreadPoolExecutor(max_workers=args.workers) as pool:
             futures = [
                 pool.submit(
-                    runner.trial, model, sandbox, fixtures, arm, guidance, site, task, tasks.TASKS[task], expected[task]
+                    runner.trial,
+                    model,
+                    sandboxes[arm],
+                    fixtures,
+                    arm,
+                    guidance,
+                    site,
+                    task,
+                    tasks.TASKS[task],
+                    expected[task],
                 )
                 for arm, guidance, site, task in jobs
             ]
@@ -74,6 +96,8 @@ def main() -> None:
                 "candidate": args.candidate,
                 "model": model.name,
                 "sandbox": args.sandbox,
+                "runtimes": runtimes,
+                "images": images,
                 "results": results,
             },
             ensure_ascii=False,

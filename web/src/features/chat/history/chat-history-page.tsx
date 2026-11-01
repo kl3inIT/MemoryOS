@@ -145,6 +145,12 @@ const columns = column.columns([
             <span className="font-secondary-body text-content-muted">
               {ui(appText("{{count}} messages", { count: entry.messages }))}
             </span>
+            {/* Held in a channel such as the Lark bot, not on the web. */}
+            {entry.surface === "CHANNEL" ? (
+              <StatusBadge tone="neutral" size="sm">
+                {ui("Bot")}
+              </StatusBadge>
+            ) : null}
             {/* The owner deleted this conversation; it is kept until retention removes it. */}
             {entry.deleted ? (
               <StatusBadge tone="neutral" size="sm">

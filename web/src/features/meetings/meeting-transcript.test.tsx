@@ -7,10 +7,10 @@ import type { MeetingRecorder, RecorderSnapshot } from "./meeting-recorder";
 import { Transcript } from "./meeting-transcript";
 import type { MeetingCorrection, MeetingDetail } from "./meetings-api";
 
-const LAID_OUT = { offsetHeight: 600, offsetWidth: 800 };
+const LAID_OUT = { offsetHeight: 600, offsetWidth: 800, clientHeight: 600, clientWidth: 800 };
 
 // Only the lines inside the scrolling window are rendered, and jsdom lays nothing out, so the window would be
-// zero high and the transcript would come out empty. These are the two measurements the window is taken from.
+// zero high and the transcript would come out empty. TanStack Virtual sizes the window by its client box and the lines by their offset box (virtual-core 3.19.6).
 beforeEach(async () => {
   await i18n.changeLanguage("vi");
   for (const [property, value] of Object.entries(LAID_OUT))

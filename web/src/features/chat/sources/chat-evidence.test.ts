@@ -36,23 +36,34 @@ describe("provider links", () => {
 });
 
 describe("web citations", () => {
-  it("fail validation for a malformed page URL instead of throwing", () => {
-    const web = {
-      citationId: 1,
-      documentId: null,
-      generation: null,
-      fileId: null,
-      title: "Page",
-      startOrdinal: 0,
-      endOrdinal: 0,
-      provenance: [],
-      web: { url: "not-a-url", excerpt: "", retrievedAt: "2026-10-01T00:00:00Z" },
-    };
-    expect(sourcesSchema.safeParse([web]).success).toBe(false);
-    expect(
-      sourcesSchema.safeParse([{ ...web, web: { ...web.web, url: "https://example.com/a" } }])
-        .success,
-    ).toBe(true);
+  const web = {
+    citationId: 1,
+    documentId: null,
+    generation: null,
+    fileId: null,
+    title: "Page",
+    startOrdinal: 0,
+    endOrdinal: 0,
+    provenance: [],
+    web: { url: "https://example.com/a", excerpt: "Evidence", retrievedAt: "2026-10-01T00:00:00Z" },
+  };
+
+  it("restores a page link without inventing a document identity", () => {
+    expect(sourcesSchema.parse([web])).toEqual([web]);
+    expect(sourcesSchema.safeParse([{ ...web, documentId: crypto.randomUUID() }]).success).toBe(
+      false,
+    );
+  });
+
+  it("fails validation for a malformed or unsafe page URL instead of throwing", () => {
+    for (const url of [
+      "not-a-url",
+      "javascript:alert(1)",
+      "file:///secret",
+      "https://user:secret@example.com",
+    ]) {
+      expect(sourcesSchema.safeParse([{ ...web, web: { ...web.web, url } }]).success).toBe(false);
+    }
   });
 });
 

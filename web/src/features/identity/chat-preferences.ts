@@ -21,6 +21,7 @@ function input(value: ChatPreferences): ChatPreferencesInput {
     temperatureDefault: value.temperatureDefault ?? undefined,
     reasoningEffortDefault: value.reasoningEffortDefault ?? undefined,
     autoScroll: value.autoScroll,
+    channelPersonaId: value.channelPersonaId ?? undefined,
   };
 }
 

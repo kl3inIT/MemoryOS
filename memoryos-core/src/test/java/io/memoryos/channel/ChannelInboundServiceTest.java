@@ -1,0 +1,960 @@
+package io.memoryos.channel;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.zaxxer.hikari.HikariDataSource;
+import io.memoryos.TestDatabase;
+import io.memoryos.channel.persistence.JdbcChannelConnectionRepository;
+import io.memoryos.channel.persistence.JdbcChannelGroupRepository;
+import io.memoryos.channel.persistence.JdbcChannelInboundRepository;
+import io.memoryos.channel.persistence.JdbcChannelLinkRepository;
+import io.memoryos.chat.ChatChannel;
+import io.memoryos.chat.ChatException;
+import io.memoryos.chat.ChatMessage;
+import io.memoryos.chat.ChatSource;
+import io.memoryos.chat.ChatSurface;
+import io.memoryos.chat.session.persistence.JdbcChatRepository;
+import io.memoryos.iam.Authority;
+import io.memoryos.iam.IamAccess;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.TenantId;
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationHandler;
+import io.micrometer.observation.ObservationRegistry;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.testcontainers.junit.jupiter.Testcontainers;
+
+@Testcontainers
+@SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
+class ChannelInboundServiceTest {
+    private static final String ORGANISATION = "org-tasco";
+    private static final String DIRECT_CHAT = "oc_direct";
+    private static final String GROUP_CHAT = "oc_group";
+    private static final ChannelMessage.Organisations MEMBER = new ChannelMessage.Organisations(ORGANISATION, ORGANISATION);
+
+    private HikariDataSource dataSource;
+    private JdbcClient jdbc;
+    private JdbcChatRepository chats;
+    private JdbcChannelInboundRepository inbound;
+    private final ChannelTurns turns = mock(ChannelTurns.class);
+    private final FakeAdapter adapter = new FakeAdapter();
+    private ChannelInboundService service;
+    private ChannelLinkService links;
+    private TenantId tenant;
+    private UUID persona;
+    private UUID connection;
+    private ActorId bot;
+    private ActorId ha;
+    private final List<String> spans = new CopyOnWriteArrayList<>();
+    /** What the answer cites. */
+    private List<ChatSource> answerSources = List.of();
+
+    @BeforeEach
+    void setUp() throws Exception {
+        dataSource = TestDatabase.freshPostgres();
+        jdbc = JdbcClient.create(dataSource);
+        chats = new JdbcChatRepository(jdbc);
+        inbound = new JdbcChannelInboundRepository(jdbc);
+        tenant = new TenantId(UUID.randomUUID());
+        jdbc.sql("INSERT INTO tenants(id,slug,display_name,status,bootstrap_reference) VALUES(:id,:slug,'Channel','ACTIVE','test')")
+                .param("id", tenant.value()).param("slug", tenant.value().toString()).update();
+        bot = member();
+        ha = member();
+        persona = UUID.randomUUID();
+        jdbc.sql("INSERT INTO persona(id,tenant_id,name,instructions,builtin_key) VALUES(:id,:tenant,'Default','','default')")
+                .param("id", persona).param("tenant", tenant.value()).update();
+        connection = UUID.randomUUID();
+        jdbc.sql("""
+                INSERT INTO channel_connections(tenant_id, id, provider, name, settings, app_id, secret_ciphertext, secret_nonce,
+                                                secret_key_version, notice_language, enabled, service_account_id, organisation_key)
+                VALUES (:tenant, :id, 'LARK', 'Bot', '{"region": "LARK"}', 'cli_a1b2c3d4e5f6', :secret, :nonce, 'test-1', 'en', TRUE, :account, :organisation)
+                """).param("tenant", tenant.value()).param("id", connection).param("secret", new byte[32])
+                .param("nonce", new byte[12]).param("account", bot.value()).param("organisation", ORGANISATION).update();
+        // The turn itself is Chat's and is covered there; here it answers at once, in a session that really exists.
+        when(turns.ask(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())).thenAnswer(call -> {
+            ActorId actor = call.getArgument(0);
+            UUID session = call.getArgument(1);
+            if (session == null) session = newSession(actor, call.getArgument(2));
+            call.<Supplier<Consumer<String>>>getArgument(10).get().accept("An");
+            return new ChannelTurns.Answer(session, UUID.randomUUID(), ChatMessage.Status.COMPLETED, "Answer", answerSources, null);
+        });
+        when(turns.continues(any(), any(), any(), any(), anyBoolean())).thenAnswer(call -> jdbc.sql(
+                        "SELECT EXISTS (SELECT 1 FROM chat_session WHERE id = :id AND owner_actor_id = :actor)")
+                .param("id", call.<UUID>getArgument(1)).param("actor", call.<ActorId>getArgument(0).value())
+                .query(Boolean.class).single());
+        var observations = ObservationRegistry.create();
+        observations.observationConfig().observationHandler(new ObservationHandler<Observation.Context>() {
+            @Override public boolean supportsContext(Observation.Context context) { return true; }
+
+            @Override
+            public void onStop(Observation.Context context) {
+                var step = context.getLowCardinalityKeyValue("step");
+                var outcome = context.getLowCardinalityKeyValue("outcome");
+                spans.add(context.getName() + ":" + (step != null ? step.getValue() : outcome == null ? "" : outcome.getValue()));
+            }
+        });
+        var authorization = mock(IamAuthorization.class);
+        when(authorization.require(any(), eq(IamCapability.CHAT_WRITE), eq(false))).thenReturn(new IamAccess(tenant, Authority.GLOBAL));
+        var adapters = new ChannelAdapters(List.of(adapter));
+        links = new ChannelLinkService(authorization, new JdbcChannelConnectionRepository(jdbc), new JdbcChannelLinkRepository(jdbc),
+                adapters, TestDatabase.noAudit(), new DataSourceTransactionManager(dataSource));
+        service = new ChannelInboundService(new JdbcChannelConnectionRepository(jdbc), inbound,
+                new JdbcChannelGroupRepository(jdbc), adapters,
+                (ignored, email) -> "ha@tasco.vn".equals(email) ? Optional.of(ha) : Optional.empty(), links, turns,
+                new ChannelProperties(Duration.ofHours(1), Duration.ofHours(1), Duration.ofDays(90), 10, Duration.ofSeconds(3),
+                "https://memoryos.example/", Duration.ofHours(4), ""), observations);
+    }
+
+    @AfterEach
+    void close() {
+        if (dataSource != null) dataSource.close();
+    }
+
+    @Test
+    void aDirectMessageRunsAsItsSenderAndIsAnsweredOnce() throws Exception {
+        adapter.emails.put("ou_ha", "ha@tasco.vn");
+        var message = direct("m1", "ou_ha", "How many leave days?", null);
+        service.receive(message);
+        // Lark pushes a message again when its handler was slow; it is the same message.
+        service.receive(message);
+
+        verify(turns, times(1)).ask(eq(ha), any(), eq("How many leave days?"), any(), eq("How many leave days?"), eq(new ChatChannel("Lark", false, false)), any(), any(), any(), any(), any());
+        // A sender's own direct answer links to its session on the web, where it continues.
+        assertEquals(List.of("append:An", "finish:Answer|footer=[Continue in MemoryOS](https://memoryos.example/chat/"
+                + session("m1") + ")"), adapter.replies);
+        assertEquals("ANSWERED", outcome("m1"));
+        assertEquals(ha.value(), owner(session("m1")));
+        // Each step of the answer is a span inside the message's, so the time before a turn starts can be read.
+        assertEquals(List.of("memoryos.channel.message.step:refusal", "memoryos.channel.message.step:sender",
+                "memoryos.channel.message.step:conversation", "memoryos.channel.message.step:reply",
+                "memoryos.channel.message.step:turn", "memoryos.channel.message.step:finish",
+                "memoryos.channel.message:ANSWERED"), spans);
+    }
+
+    @Test
+    void aQuestionIsAskedThroughItsBotWhoseAssistantChatLooksUpForEachQuestion() throws Exception {
+        adapter.emails.put("ou_ha", "ha@tasco.vn");
+        service.receive(direct("m1", "ou_ha", "Leave policy?", null));
+        service.receive(direct("m2", "ou_ha", "And for interns?", null));
+        verify(turns).ask(eq(ha), any(), eq("Leave policy?"), any(), any(), any(), eq(connection), any(), any(), any(), any());
+        verify(turns).continues(eq(ha), eq(session("m1")), eq(connection), any(), eq(false));
+    }
+
+    @Test
+    void aSenderWithoutAnAccountIsAnsweredAsTheBotAndRememberedForAWhile() throws Exception {
+        service.receive(direct("m1", "ou_guest", "Question", null));
+        service.receive(direct("m2", "ou_guest", "Follow-up", null));
+
+        verify(turns, times(2)).ask(eq(bot), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+        assertEquals(1, adapter.emailLookups, "the provider is asked once while the answer is remembered");
+        assertTrue(adapter.replies.get(1).contains("Sign in to MemoryOS"));
+        assertEquals(session("m1"), session("m2"), "a second direct message within the hour continues the first");
+    }
+
+    @Test
+    void aGroupIsAnsweredOnlyWhenTheBotIsNamedAndAsTheBot() throws Exception {
+        adapter.emails.put("ou_ha", "ha@tasco.vn");
+        service.receive(group("g0", "ou_ha", "just chatting", false, null));
+        assertEquals(0L, jdbc.sql("SELECT count(*) FROM channel_messages").query(Long.class).single());
+
+        service.receive(group("g1", "ou_ha", "What is the policy?", true, null));
+        verify(turns).ask(eq(bot), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+        // A group answer has no closing line, and the group's next question continues its conversation.
+        assertEquals("finish:Answer|footer=null", adapter.replies.getLast());
+        service.receive(group("g2", "ou_ha", "Another question", true, null));
+        assertEquals(session("g1"), session("g2"));
+    }
+
+    /** MEM-273: a group the bot answers in is recorded with the provider's name, and its turn names the group. */
+    @Test
+    void aGroupTheBotAnswersInIsRecordedAndItsTurnNamesTheGroup() throws Exception {
+        adapter.names.put(GROUP_CHAT, "Phòng Nhân sự");
+        adapter.emails.put("ou_ha", "ha@tasco.vn");
+        service.receive(group("g0", "ou_ha", "just chatting", false, null));
+        var groups = new JdbcChannelGroupRepository(jdbc);
+        assertTrue(groups.find(tenant, connection, GROUP_CHAT).isEmpty(), "a message that does not name the bot records nothing");
+
+        service.receive(group("g1", "ou_ha", "What is the policy?", true, null));
+        var recorded = groups.find(tenant, connection, GROUP_CHAT).orElseThrow();
+        assertEquals("Phòng Nhân sự", recorded.name());
+        verify(turns).ask(eq(bot), any(), any(), any(), any(), any(), eq(connection), eq(GROUP_CHAT), any(), any(), any());
+
+        service.receive(direct("m1", "ou_ha", "How many leave days?", null));
+        verify(turns).ask(any(), any(), eq("How many leave days?"), any(), any(), any(), eq(connection), eq(null), any(), any(), any());
+        assertEquals(1L, jdbc.sql("SELECT count(*) FROM channel_groups").query(Long.class).single(),
+                "a direct message is no group");
+    }
+
+    @Test
+    void aReplyContinuesItsConversationHoweverOldAndWhoeverReplies() throws Exception {
+        service.receive(group("g1", "ou_ha", "What is the policy?", true, null));
+        String answer = adapter.replyIds.getLast();
+        jdbc.sql("UPDATE channel_messages SET received_at = received_at - INTERVAL '30 days'").update();
+
+        // Another member replies to the bot's answer, and a third to the question itself.
+        service.receive(group("g2", "ou_quan", "And for interns?", true, answer));
+        service.receive(group("g3", "ou_mai", "And contractors?", true, "g1"));
+
+        assertEquals(session("g1"), session("g2"));
+        assertEquals(session("g1"), session("g3"));
+    }
+
+    @Test
+    void aDirectConversationEndsAfterTheIdleWindowOrOnTheNewCommand() throws Exception {
+        adapter.emails.put("ou_ha", "ha@tasco.vn");
+        service.receive(direct("m1", "ou_ha", "First", null));
+        service.receive(direct("m2", "ou_ha", "Second", null));
+        assertEquals(session("m1"), session("m2"));
+
+        jdbc.sql("UPDATE channel_conversations SET last_message_at = last_message_at - INTERVAL '2 hours'").update();
+        service.receive(direct("m3", "ou_ha", "Next day", null));
+        assertNotEquals(session("m2"), session("m3"));
+
+        service.receive(direct("m4", "ou_ha", " /new ", null));
+        assertEquals("A new conversation has started.", adapter.notices.getLast());
+        service.receive(direct("m5", "ou_ha", "Fresh", null));
+        assertNotEquals(session("m3"), session("m5"));
+        verify(turns, times(4)).ask(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void aConversationIsContinuedOnlyByWhoeverItBelongsTo() throws Exception {
+        // Asked without an account, so the conversation is the bot's.
+        service.receive(direct("m1", "ou_ha", "Before the account", null));
+        // The account is found on the next look: the same person now asks as themself, in a conversation of their own.
+        adapter.emails.put("ou_ha", "ha@tasco.vn");
+        jdbc.sql("UPDATE channel_identities SET resolved_at = resolved_at - INTERVAL '2 hours'").update();
+        service.receive(direct("m2", "ou_ha", "After the account", null));
+
+        assertEquals(bot.value(), owner(session("m1")));
+        assertEquals(ha.value(), owner(session("m2")));
+    }
+
+    @Test
+    void outsidersOtherMessageTypesAndExternalGroupsAreRefusedWithANotice() throws Exception {
+        service.receive(new ChannelMessage(connection, "x1", DIRECT_CHAT, ChannelMessage.Kind.DIRECT, "ou_out", null,
+                new ChannelMessage.Organisations("another-org", ORGANISATION), true, ChannelMessage.Type.TEXT, "Hello", null));
+        assertEquals("This assistant serves members of the organisation only.", adapter.notices.getLast());
+        assertEquals("REFUSED:OUTSIDER", outcome("x1") + ":" + reason("x1"));
+
+        service.receive(new ChannelMessage(connection, "x2", DIRECT_CHAT, ChannelMessage.Kind.DIRECT, "ou_ha", null,
+                new ChannelMessage.Organisations(ORGANISATION, ORGANISATION), true, ChannelMessage.Type.OTHER, "", null));
+        assertEquals("REFUSED:NOT_TEXT", outcome("x2") + ":" + reason("x2"));
+
+        adapter.externalChats.add(GROUP_CHAT);
+        service.receive(group("x3", "ou_ha", "Question", true, null));
+        assertEquals("REFUSED:EXTERNAL_GROUP", outcome("x3") + ":" + reason("x3"));
+        verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+        assertEquals(0L, jdbc.sql("SELECT count(*) FROM channel_groups").query(Long.class).single(),
+                "an external group is never one an administrator can choose");
+    }
+
+    @Test
+    void aBotOfAnotherOrganisationOrThatIsSwitchedOffAnswersNobody() throws Exception {
+        // The event names another organisation than the one recorded for the bot.
+        service.receive(new ChannelMessage(connection, "m1", DIRECT_CHAT, ChannelMessage.Kind.DIRECT, "ou_ha", null,
+                new ChannelMessage.Organisations("org-other", "org-other"), true, ChannelMessage.Type.TEXT, "Question", null));
+        assertEquals("REFUSED:OUTSIDER", outcome("m1") + ":" + reason("m1"));
+
+        jdbc.sql("UPDATE channel_connections SET enabled = FALSE, organisation_key = :key").param("key", ORGANISATION).update();
+        service.receive(direct("m2", "ou_ha", "Question", null));
+        assertEquals(1L, jdbc.sql("SELECT count(*) FROM channel_messages").query(Long.class).single());
+        verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void onAPlatformWithoutOrganisationsAStrangerIsToldHowToLinkOnceAMinuteAndNotAnswered() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, 2_000, false);
+        service.receive(zalo("z1", "zu_ha", "Question"));
+        service.receive(zalo("z2", "zu_ha", "Hello?"));
+
+        assertEquals("REFUSED:LINK_REQUIRED", outcome("z1") + ":" + reason("z1"));
+        // Told once; the next message within the minute is refused without another notice.
+        assertEquals("REFUSED:LINK_REQUIRED_QUIET", outcome("z2") + ":" + reason("z2"));
+        assertEquals(1, adapter.notices.size());
+        assertTrue(adapter.notices.getFirst().startsWith("To ask the assistant, link your MemoryOS account"));
+        verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void aLiveCodeLinksItsSenderOnceWhoIsThenAnsweredAsThemself() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, 2_000, false);
+        String code = links.code(ha, connection).code();
+        service.receive(zalo("z1", "zu_ha", " " + code.substring(0, 4).toLowerCase() + "-" + code.substring(4) + " "));
+        assertEquals("ANSWERED:LINKED", outcome("z1") + ":" + reason("z1"));
+        assertEquals("Your MemoryOS account is linked. You can ask the assistant now.", adapter.notices.getLast());
+
+        service.receive(zalo("z2", "zu_ha", "How many leave days?"));
+        verify(turns).ask(eq(ha), any(), any(), any(), eq("How many leave days?"), eq(new ChatChannel("Lark", false, false)), any(), any(), any(), any(), any());
+        assertEquals(ha.value(), owner(session("z2")));
+
+        // The code is used up: another account sending it is told it is wrong.
+        service.receive(zalo("z3", "zu_other", code));
+        assertEquals("REFUSED:LINK_CODE_INVALID", outcome("z3") + ":" + reason("z3"));
+        assertEquals("The linking code is wrong or has expired. Get a new one in Settings › Chat in MemoryOS.",
+                adapter.notices.getLast());
+    }
+
+    /** MEM-285: a linked member cannot bring the bot into a group where someone who is not linked reads its answers. */
+    @Test
+    void onAPlatformWithoutOrganisationsAGroupIsAnsweredOnlyWhenEveryoneInItIsLinked() throws Exception {
+        // WhatsApp's features: no organisations, a group's people listed.
+        adapter.features = new ChannelFeatures(false, false, 2_000, false, true);
+        service.receive(zalo("z1", "wa_ha", links.code(ha, connection).code()));
+        assertEquals("ANSWERED:LINKED", outcome("z1") + ":" + reason("z1"));
+
+        // Everyone but the bot is known by every id the platform gives them; a link names any one of them.
+        adapter.participants.put(GROUP_CHAT, List.of(new ChannelChat.Person(List.of("wa_ha", "84900000001")),
+                new ChannelChat.Person(List.of("wa_stranger"))));
+        service.receive(new ChannelMessage(connection, "g1", GROUP_CHAT, ChannelMessage.Kind.GROUP, "wa_ha", null, null,
+                true, ChannelMessage.Type.TEXT, "How many leave days?", null));
+        assertEquals("REFUSED:UNLINKED_IN_GROUP", outcome("g1") + ":" + reason("g1"));
+        assertEquals("The assistant does not answer in a group with people outside the organisation. Send it a direct message.",
+                adapter.notices.getLast());
+        verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+
+        adapter.participants.put(GROUP_CHAT, List.of(new ChannelChat.Person(List.of("wa_other", "wa_ha"))));
+        service.receive(new ChannelMessage(connection, "g2", GROUP_CHAT, ChannelMessage.Kind.GROUP, "wa_ha", null, null,
+                true, ChannelMessage.Type.TEXT, "How many leave days?", null));
+        assertEquals("ANSWERED", outcome("g2"));
+    }
+
+    /**
+     * MEM-285: on a platform that can tell neither an outsider nor who is in a group (Zalo), a linked member's question
+     * in a group nobody allowed is refused with a notice, and the group waits on the bot's page until an administrator
+     * allows it; withdrawn, it is refused again.
+     */
+    @Test
+    void onAPlatformThatCannotListAGroupsPeopleAGroupIsAnsweredOnlyOnceAllowed() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, 2_000, false);
+        service.receive(zalo("z1", "zu_ha", links.code(ha, connection).code()));
+
+        service.receive(new ChannelMessage(connection, "g1", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_ha", "Hà", null, true,
+                ChannelMessage.Type.TEXT, "Leave policy?", null));
+        assertEquals("REFUSED:GROUP_NOT_ALLOWED", outcome("g1") + ":" + reason("g1"));
+        assertEquals("An administrator has not allowed the assistant in this group yet.", adapter.notices.getLast());
+        verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+        // Listed for the administrator, as a group nobody was answered in.
+        assertEquals(Boolean.TRUE, jdbc.sql("""
+                        SELECT allowed_at IS NULL AND last_message_at IS NULL FROM channel_groups
+                        WHERE connection_id = :connection AND external_chat_id = :chat
+                        """).param("connection", connection).param("chat", GROUP_CHAT).query(Boolean.class).single());
+
+        assertTrue(new JdbcChannelGroupRepository(jdbc).allow(tenant, connection, GROUP_CHAT, Instant.now()));
+        service.receive(new ChannelMessage(connection, "g2", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_ha", "Hà", null, true,
+                ChannelMessage.Type.TEXT, "Leave policy?", null));
+        assertEquals("ANSWERED", outcome("g2"));
+
+        assertTrue(new JdbcChannelGroupRepository(jdbc).allow(tenant, connection, GROUP_CHAT, null));
+        service.receive(new ChannelMessage(connection, "g3", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_ha", "Hà", null, true,
+                ChannelMessage.Type.TEXT, "Leave policy?", null));
+        assertEquals("REFUSED:GROUP_NOT_ALLOWED", outcome("g3") + ":" + reason("g3"));
+        // A direct message is the sender's own and needs no permission.
+        service.receive(zalo("z2", "zu_ha", "My own leave?"));
+        assertEquals("ANSWERED", outcome("z2"));
+    }
+
+    /**
+     * MEM-298: a public bot answers whoever addresses it, in a direct message or a group nobody allowed, as its own
+     * account, a linked member included, with no closing line and no citation link; once private, a stranger is told
+     * to link again.
+     */
+    @Test
+    void aPublicBotAnswersAnyoneAsItselfWithoutAClosingLineOrCitationLinks() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, 2_000, false);
+        service.receive(zalo("z1", "zu_ha", links.code(ha, connection).code()));
+        setPublic(true);
+        answerSources = List.of(ChatSource.document(1, UUID.randomUUID(), UUID.randomUUID(), "Bảng giá 2026", 0, 0,
+                        List.of(new ChatSource.Provenance(0, "[]")))
+                .described(null, List.of(), "https://drive.google.com/file/d/price"));
+
+        service.receive(zalo("z2", "zu_guest", "Giá gói cơ bản?"));
+        assertEquals("ANSWERED", outcome("z2"));
+        verify(turns).ask(eq(bot), any(), any(), any(), eq("Giá gói cơ bản?"), eq(new ChatChannel("Lark", false, true)),
+                any(), any(), any(), any(), any());
+        assertEquals("finish:Answer|footer=null", adapter.replies.getLast());
+        assertEquals(List.of(new ChannelReply.Source("Bảng giá 2026", null)), adapter.cited);
+
+        // A linked member's direct question runs as the bot too: the bot answers everyone alike.
+        service.receive(zalo("z3", "zu_ha", "Giá gói cơ bản?"));
+        assertEquals(bot.value(), owner(session("z3")));
+
+        // A Zalo group nobody allowed is answered, and is listed on the bot's page.
+        service.receive(new ChannelMessage(connection, "g1", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_lan", "Lan", null,
+                true, ChannelMessage.Type.TEXT, "Giá gói cơ bản?", null));
+        assertEquals("ANSWERED", outcome("g1"));
+        verify(turns).ask(eq(bot), any(), any(), any(), eq("[Lan]: Giá gói cơ bản?"), eq(new ChatChannel("Lark", true, true)),
+                any(), any(), any(), any(), any());
+        assertEquals(1L, jdbc.sql("SELECT count(*) FROM channel_groups WHERE connection_id = :connection")
+                .param("connection", connection).query(Long.class).single());
+
+        setPublic(false);
+        service.receive(zalo("z4", "zu_guest", "Giá gói cơ bản?"));
+        assertEquals("REFUSED:LINK_REQUIRED", outcome("z4") + ":" + reason("z4"));
+        service.receive(new ChannelMessage(connection, "g2", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_ha", "Hà", null,
+                true, ChannelMessage.Type.TEXT, "Giá gói cơ bản?", null));
+        assertEquals("REFUSED:GROUP_NOT_ALLOWED", outcome("g2") + ":" + reason("g2"));
+    }
+
+    /** MEM-298: a public bot answers an outsider of Lark, in a group with outsiders, and a WhatsApp group not all linked. */
+    @Test
+    void aPublicBotAnswersOutsidersAndGroupsWithPeopleOutsideTheOrganisation() throws Exception {
+        setPublic(true);
+        var outsider = new ChannelMessage.Organisations(ORGANISATION, "org-customer");
+        service.receive(new ChannelMessage(connection, "m1", DIRECT_CHAT, ChannelMessage.Kind.DIRECT, "ou_customer", null,
+                outsider, true, ChannelMessage.Type.TEXT, "Giá?", null));
+        assertEquals("ANSWERED", outcome("m1"));
+        assertEquals(bot.value(), owner(session("m1")));
+
+        adapter.externalChats.add(GROUP_CHAT);
+        service.receive(new ChannelMessage(connection, "m2", GROUP_CHAT, ChannelMessage.Kind.GROUP, "ou_customer", null,
+                outsider, true, ChannelMessage.Type.TEXT, "Giá?", null));
+        assertEquals("ANSWERED", outcome("m2"));
+
+        adapter.features = new ChannelFeatures(false, false, 2_000, false, true);
+        adapter.participants.put("wa_group", List.of(new ChannelChat.Person(List.of("wa_stranger"))));
+        service.receive(new ChannelMessage(connection, "m3", "wa_group", ChannelMessage.Kind.GROUP, "wa_stranger", null, null,
+                true, ChannelMessage.Type.TEXT, "Giá?", null));
+        assertEquals("ANSWERED", outcome("m3"));
+
+        // The minute's rate still holds for a stranger.
+        for (int i = 0; i <= 10; i++) service.receive(new ChannelMessage(connection, "r" + i, DIRECT_CHAT,
+                ChannelMessage.Kind.DIRECT, "wa_spam", null, null, true, ChannelMessage.Type.TEXT, "Giá?", null));
+        assertEquals("REFUSED:RATE_LIMITED", outcome("r10") + ":" + reason("r10"));
+
+        // A conversation is asked to continue only in the mode the bot is in now.
+        verify(turns, atLeastOnce()).continues(any(), any(), any(), any(), eq(true));
+    }
+
+    @Test
+    void anExpiredCodeOrOneSentInAGroupDoesNotLink() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, 2_000, false);
+        String code = links.code(ha, connection).code();
+        service.receive(new ChannelMessage(connection, "g1", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_ha", null, null, true,
+                ChannelMessage.Type.TEXT, code, null));
+        assertEquals("REFUSED:LINK_REQUIRED", outcome("g1") + ":" + reason("g1"));
+
+        jdbc.sql("UPDATE channel_link_codes SET expires_at = now() - INTERVAL '1 second'").update();
+        service.receive(zalo("z1", "zu_ha", code));
+        assertEquals("REFUSED:LINK_CODE_INVALID", outcome("z1") + ":" + reason("z1"));
+        assertEquals(0L, jdbc.sql("SELECT count(*) FROM channel_account_links").query(Long.class).single());
+    }
+
+    @Test
+    void aSenderWithFiveWrongCodesInAnHourIsNotHeardEvenWithALiveOne() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, 2_000, false);
+        for (int i = 1; i <= 5; i++) service.receive(zalo("w" + i, "zu_guess", "ABCDEFG" + (i + 1)));
+        String code = links.code(ha, connection).code();
+        service.receive(zalo("w6", "zu_guess", code));
+
+        assertEquals("REFUSED:LINK_LOCKED", outcome("w6") + ":" + reason("w6"));
+        assertEquals(5, adapter.notices.size(), "the locked sender is not answered");
+        assertEquals(0L, jdbc.sql("SELECT count(*) FROM channel_account_links").query(Long.class).single());
+    }
+
+    @Test
+    void aLinkedSenderInAGroupIsAnsweredAsTheBotAndAStrangerIsToldHowToLink() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, 2_000, false);
+        service.receive(zalo("z1", "zu_ha", links.code(ha, connection).code()));
+        allow(GROUP_CHAT);
+
+        service.receive(new ChannelMessage(connection, "g1", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_ha", "Hà", null, true,
+                ChannelMessage.Type.TEXT, "Leave policy?", null));
+        verify(turns).ask(eq(bot), any(), any(), any(), eq("[Hà]: Leave policy?"), eq(new ChatChannel("Lark", true, false)), any(), any(), any(), any(), any());
+
+        service.receive(new ChannelMessage(connection, "g2", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_guest", null, null, true,
+                ChannelMessage.Type.TEXT, "Leave policy?", null));
+        assertEquals("REFUSED:LINK_REQUIRED", outcome("g2") + ":" + reason("g2"));
+        verify(turns, times(1)).ask(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void onAPlatformLikeZalosALinkedSenderIsAnsweredAndAGroupAnswerHasNoClosingLine() throws Exception {
+        // Zalo's features: no organisations, no rewritten reply.
+        adapter.features = new ChannelFeatures(false, false, 2_000, false);
+        service.receive(zalo("z1", "zu_ha", links.code(ha, connection).code()));
+
+        service.receive(zalo("z2", "zu_ha", "How many leave days?"));
+        assertEquals("ANSWERED", outcome("z2"));
+        assertEquals("finish:Answer|footer=[Continue in MemoryOS](https://memoryos.example/chat/" + session("z2") + ")",
+                adapter.replies.getLast());
+        service.receive(zalo("z3", "zu_guest", "How many leave days?"));
+        assertEquals("REFUSED:LINK_REQUIRED", outcome("z3") + ":" + reason("z3"));
+
+        allow(GROUP_CHAT);
+        service.receive(new ChannelMessage(connection, "g1", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_ha", "Hà", null, true,
+                ChannelMessage.Type.TEXT, "Leave policy?", null));
+        assertEquals("finish:Answer|footer=null", adapter.replies.getLast());
+    }
+
+    @Test
+    void aLinkIsLeftOutOnceItsMemberIsNoLongerActive() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, 2_000, false);
+        service.receive(zalo("z1", "zu_ha", links.code(ha, connection).code()));
+        jdbc.sql("UPDATE tenant_memberships SET status = 'INACTIVE' WHERE actor_id = :actor").param("actor", ha.value()).update();
+
+        service.receive(zalo("z2", "zu_ha", "Question"));
+        assertEquals("REFUSED:LINK_REQUIRED", outcome("z2") + ":" + reason("z2"));
+        verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void aLinkedAccountIsNotMovedByAnotherCodeAndLearnsNothingOfIt() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, 2_000, false);
+        var quan = member();
+        service.receive(zalo("z0", "zu_ha", links.code(ha, connection).code()));
+        String quans = links.code(quan, connection).code();
+
+        // A live code of another member and a wrong one get the same answer, and neither is tried.
+        service.receive(zalo("c1", "zu_ha", quans));
+        service.receive(zalo("c2", "zu_ha", "ABCDEFG2"));
+        assertEquals("REFUSED:LINK_ALREADY", outcome("c1") + ":" + reason("c1"));
+        assertEquals("REFUSED:LINK_ALREADY", outcome("c2") + ":" + reason("c2"));
+        assertEquals(adapter.notices.get(1), adapter.notices.get(2));
+        assertTrue(adapter.notices.getLast().startsWith("This account is already linked to a MemoryOS account."));
+        verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+
+        // Ha's account is still Ha's, and Quan's code still links an account of Quan's.
+        service.receive(zalo("q1", "zu_ha", "How many leave days?"));
+        verify(turns).ask(eq(ha), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+        service.receive(zalo("z1", "zu_quan", quans));
+        assertEquals("ANSWERED:LINKED", outcome("z1") + ":" + reason("z1"));
+    }
+
+    @Test
+    void everyCodeThatDoesNotLinkGetsTheSameNotice() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, 2_000, false);
+        String used = links.code(ha, connection).code();
+        service.receive(zalo("u0", "zu_ha", used));
+        String expired = links.code(member(), connection).code();
+        jdbc.sql("UPDATE channel_link_codes SET expires_at = now() - INTERVAL '1 second'").update();
+
+        service.receive(zalo("c1", "zu_guess", used));
+        service.receive(zalo("c2", "zu_guess", expired));
+        service.receive(zalo("c3", "zu_guess", "ABCDEFG2"));
+        assertEquals(List.of("REFUSED:LINK_CODE_INVALID", "REFUSED:LINK_CODE_INVALID", "REFUSED:LINK_CODE_INVALID"),
+                List.of(outcome("c1") + ":" + reason("c1"), outcome("c2") + ":" + reason("c2"), outcome("c3") + ":" + reason("c3")));
+        assertEquals(1, adapter.notices.subList(1, 4).stream().distinct().count());
+    }
+
+    @Test
+    void codesStillBeingTriedCountTowardTheLock() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, 2_000, false);
+        // Five attempts of the sender in flight: recorded as wrong until they link, not yet settled otherwise.
+        for (int i = 1; i <= 5; i++) {
+            jdbc.sql("""
+                    INSERT INTO channel_messages(tenant_id, connection_id, external_message_id, external_chat_id, external_user_id,
+                                                 outcome, reason)
+                    VALUES (:tenant, :connection, :id, :chat, 'zu_guess', 'REFUSED', 'LINK_CODE_INVALID')
+                    """).param("tenant", tenant.value()).param("connection", connection).param("id", "f" + i)
+                    .param("chat", DIRECT_CHAT).update();
+        }
+        service.receive(zalo("z1", "zu_guess", links.code(ha, connection).code()));
+
+        assertEquals("REFUSED:LINK_LOCKED", outcome("z1") + ":" + reason("z1"));
+        assertEquals(0L, jdbc.sql("SELECT count(*) FROM channel_account_links").query(Long.class).single());
+    }
+
+    @Test
+    void aPlatformWithoutOrganisationsNeverAnswersFromAnEmailOrARememberedAccount() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, 2_000, false);
+        adapter.emails.put("zu_ha", "ha@tasco.vn");
+        inbound.remember(tenant, connection, "zu_ha", ha, Instant.now());
+
+        service.receive(zalo("z1", "zu_ha", "Question"));
+        assertEquals("REFUSED:LINK_REQUIRED", outcome("z1") + ":" + reason("z1"));
+        verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void anAccountRelinkedToAnotherMemberNeverContinuesTheFirstMembersConversation() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, 2_000, false);
+        var quan = member();
+        service.receive(zalo("z1", "zu_shared", links.code(ha, connection).code()));
+        service.receive(zalo("z2", "zu_shared", "Ha's question"));
+        String answer = adapter.replyIds.getLast();
+
+        links.unlink(ha, connection);
+        service.receive(zalo("z3", "zu_shared", links.code(quan, connection).code()));
+        // A reply to Ha's answer, and a new direct message, both start Quan's own conversation.
+        service.receive(new ChannelMessage(connection, "z4", DIRECT_CHAT, ChannelMessage.Kind.DIRECT, "zu_shared", null, null, true,
+                ChannelMessage.Type.TEXT, "And then?", answer));
+        service.receive(zalo("z5", "zu_shared", "Another"));
+
+        assertEquals("ANSWERED:LINKED", outcome("z3") + ":" + reason("z3"));
+        assertEquals(ha.value(), owner(session("z2")));
+        assertEquals(quan.value(), owner(session("z4")));
+        assertNotEquals(session("z2"), session("z4"));
+        assertEquals(quan.value(), owner(session("z5")));
+        assertNotEquals(session("z2"), session("z5"));
+    }
+
+    @Test
+    void aReplyThatCannotBeRewrittenGetsTheWholeAnswerInPiecesAndNoPartialText() throws Exception {
+        adapter.features = new ChannelFeatures(true, false, 4, false);
+        service.receive(direct("m1", "ou_ha", "Question", null));
+
+        assertEquals(1, adapter.replies.size());
+        assertTrue(adapter.replies.getFirst().startsWith("finish:Answ|er|footer="), adapter.replies.getFirst());
+    }
+
+    @Test
+    void aTurnThatIsRefusedOrFailsBecomesANoticeAndARecordedReason() throws Exception {
+        reset(turns);
+        when(turns.ask(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())).thenThrow(ChatException.busy());
+        service.receive(direct("m1", "ou_ha", "Question", null));
+        // Refused before the question was accepted: no reply was opened, so the sender gets a notice.
+        assertTrue(adapter.replies.isEmpty());
+        assertEquals("The assistant is busy. Ask again in a moment.", adapter.notices.getLast());
+        assertEquals("FAILED:CHAT_CAPACITY_EXCEEDED", outcome("m1") + ":" + reason("m1"));
+
+        UUID failed = newSession(bot, "Failed");
+        reset(turns);
+        when(turns.ask(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())).thenAnswer(call -> {
+            call.<Supplier<Consumer<String>>>getArgument(10).get();
+            return new ChannelTurns.Answer(failed, UUID.randomUUID(), ChatMessage.Status.FAILED, "", List.of(),
+                    "CHAT_PROVIDER_UNAVAILABLE");
+        });
+        service.receive(direct("m2", "ou_ha", "Question", null));
+        assertEquals("fail:The assistant could not answer this. Try again.", adapter.replies.getLast());
+        assertEquals("FAILED:CHAT_PROVIDER_UNAVAILABLE", outcome("m2") + ":" + reason("m2"));
+    }
+
+    @Test
+    void aGroupMessageThatOnlyNamesTheBotIsLeftUnansweredWithoutANotice() throws Exception {
+        service.receive(group("e1", "ou_ha", "   ", true, null));
+
+        assertEquals("REFUSED:EMPTY", outcome("e1") + ":" + reason("e1"));
+        assertTrue(adapter.notices.isEmpty(), "the group is not told anything");
+        verify(turns, never()).ask(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void theLinkingInstructionsEndWithTheAddressWhereACodeIsGot() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, 2_000, false);
+        service.receive(zalo("z1", "zu_guest", "Question"));
+
+        // A bare address: Zalo shows no link markup, and makes a bare address tappable.
+        assertTrue(adapter.notices.getFirst().endsWith("\nhttps://memoryos.example/settings/chat"), adapter.notices.getFirst());
+    }
+
+    @Test
+    void aGroupsNoticeNeverSilencesTheInstructionsInTheSendersDirectChat() throws Exception {
+        // As on staging: a group notice at 19:04:30 silenced the same person's direct message at 19:04:37.
+        adapter.features = new ChannelFeatures(false, false, 2_000, false);
+        service.receive(new ChannelMessage(connection, "g1", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_ha", null, null, true,
+                ChannelMessage.Type.TEXT, "Leave policy?", null));
+        service.receive(zalo("z1", "zu_ha", "Leave policy?"));
+        service.receive(zalo("z2", "zu_ha", "Hello?"));
+
+        assertEquals("REFUSED:LINK_REQUIRED", outcome("g1") + ":" + reason("g1"));
+        assertEquals("REFUSED:LINK_REQUIRED", outcome("z1") + ":" + reason("z1"));
+        // Within one chat the notice still goes at most once a minute.
+        assertEquals("REFUSED:LINK_REQUIRED_QUIET", outcome("z2") + ":" + reason("z2"));
+        assertEquals(2, adapter.notices.size());
+        assertTrue(adapter.notices.getLast().startsWith("To ask the assistant, link your MemoryOS account"));
+    }
+
+    @Test
+    void aGroupHasOneConversationWhileItIsRecent() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, 2_000, false);
+        var other = member();
+        service.receive(zalo("z1", "zu_ha", links.code(ha, connection).code()));
+        service.receive(new ChannelMessage(connection, "l2", "zu_an", ChannelMessage.Kind.DIRECT, "zu_an", null, null, true,
+                ChannelMessage.Type.TEXT, links.code(other, connection).code(), null));
+        allow(GROUP_CHAT);
+
+        // Two people's questions share the group's conversation, which runs as the bot, each labelled with its asker.
+        service.receive(new ChannelMessage(connection, "g1", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_ha", "Hà", null, true,
+                ChannelMessage.Type.TEXT, "Leave policy?", null));
+        service.receive(new ChannelMessage(connection, "g2", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_an", "An", null, true,
+                ChannelMessage.Type.TEXT, "And for interns?", null));
+        assertEquals(session("g1"), session("g2"));
+        assertEquals(bot.value(), owner(session("g2")));
+        verify(turns).ask(eq(bot), eq(session("g1")), any(), any(), eq("[An]: And for interns?"), any(), any(), any(), any(), any(), any());
+
+        // A direct question is never put in the group's conversation, nor the group's in the direct one.
+        service.receive(zalo("d1", "zu_ha", "My own leave?"));
+        assertNotEquals(session("g1"), session("d1"));
+        service.receive(new ChannelMessage(connection, "g3", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_ha", "Hà", null, true,
+                ChannelMessage.Type.TEXT, "Remote work?", null));
+        assertEquals(session("g1"), session("g3"));
+
+        // Past the idle window, or on /new, the group starts over.
+        jdbc.sql("UPDATE channel_conversations SET last_message_at = last_message_at - INTERVAL '5 hours' WHERE external_user_id = '@group'")
+                .update();
+        service.receive(new ChannelMessage(connection, "g4", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_ha", "Hà", null, true,
+                ChannelMessage.Type.TEXT, "Next week?", null));
+        assertNotEquals(session("g3"), session("g4"));
+        service.receive(new ChannelMessage(connection, "g5", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_an", "An", null, true,
+                ChannelMessage.Type.TEXT, "/new", null));
+        assertEquals("ANSWERED:NEW_CONVERSATION", outcome("g5") + ":" + reason("g5"));
+        service.receive(new ChannelMessage(connection, "g6", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_an", "An", null, true,
+                ChannelMessage.Type.TEXT, "Fresh question", null));
+        assertNotEquals(session("g4"), session("g6"));
+    }
+
+    @Test
+    void aReplyInAGroupContinuesTheGroupsConversationAndNeverReachesADirectOne() throws Exception {
+        adapter.emails.put("ou_ha", "ha@tasco.vn");
+        service.receive(direct("d1", "ou_ha", "My own leave?", null));
+        service.receive(group("g1", "ou_ha", "Leave policy?", true, null));
+        String answer = adapter.replyIds.getLast();
+        // Past the idle window a reply to the bot's answer still continues that answer's conversation, as on Lark.
+        jdbc.sql("UPDATE channel_conversations SET last_message_at = last_message_at - INTERVAL '5 hours' WHERE external_user_id = '@group'")
+                .update();
+        service.receive(group("g2", "ou_quan", "And for interns?", true, answer));
+        assertEquals(session("g1"), session("g2"));
+
+        // A reply in the group naming a direct message's id is looked up in the group alone: it never opens Hà's.
+        service.receive(group("g3", "ou_quan", "What did she ask?", true, "d1"));
+        assertNotEquals(session("d1"), session("g3"));
+        assertEquals(session("g2"), session("g3"));
+        assertEquals(bot.value(), owner(session("g3")));
+    }
+
+    @Test
+    void anUnlinkedSenderInAGroupIsToldOnlyToMessageTheBotDirectly() throws Exception {
+        adapter.features = new ChannelFeatures(false, false, 2_000, false);
+        service.receive(new ChannelMessage(connection, "g1", GROUP_CHAT, ChannelMessage.Kind.GROUP, "zu_guest", null, null, true,
+                ChannelMessage.Type.TEXT, "Leave policy?", null));
+
+        assertEquals("REFUSED:LINK_REQUIRED", outcome("g1") + ":" + reason("g1"));
+        assertEquals(List.of("Message the assistant directly to link your account."), adapter.notices,
+                "the linking instructions are not posted for the whole group");
+    }
+
+    @Test
+    void anAnswerSentInPartKeepsWhatWasSentAndTellsTheSenderTheRestIsMissing() throws Exception {
+        adapter.finishFailure = new ChannelReply.Incomplete("sent-1");
+        service.receive(direct("m1", "ou_ha", "Question", null));
+
+        assertEquals("FAILED:ANSWER_INCOMPLETE", outcome("m1") + ":" + reason("m1"));
+        assertEquals("The answer was not sent in full. Ask again.", adapter.notices.getLast());
+        assertEquals("sent-1", jdbc.sql("SELECT reply_external_message_id FROM channel_messages WHERE external_message_id = 'm1'")
+                .query(String.class).single(), "a reply to what was sent continues the conversation");
+    }
+
+    @Test
+    void whateverFailsOnceTheReplyIsOpenEndsTheReply() throws Exception {
+        adapter.finishFailure = ChannelException.providerQuota();
+        service.receive(direct("m1", "ou_ha", "Question", null));
+
+        assertEquals("FAILED:CHANNEL_PROVIDER_QUOTA", outcome("m1") + ":" + reason("m1"));
+        assertTrue(adapter.replies.getLast().startsWith("fail:"), "the reply, and its typing mark, are ended: " + adapter.replies);
+    }
+
+    @Test
+    void claimsAnEndedProcessLeftUnsettledAreSettledAsInterrupted() throws Exception {
+        assertTrue(inbound.claim(tenant, direct("old", "ou_ha", "Question", null)));
+        jdbc.sql("UPDATE channel_messages SET received_at = now() - INTERVAL '20 minutes' WHERE external_message_id = 'old'").update();
+        assertTrue(inbound.claim(tenant, direct("new", "ou_ha", "Question", null)));
+        service.receive(direct("done", "ou_ha", "Question", null));
+        jdbc.sql("UPDATE channel_messages SET received_at = now() - INTERVAL '20 minutes' WHERE external_message_id = 'done'").update();
+
+        assertEquals(1, service.settleAbandoned(Instant.now().minus(Duration.ofMinutes(10))));
+
+        assertEquals("FAILED:INTERRUPTED", outcome("old") + ":" + reason("old"));
+        assertEquals("RECEIVED", outcome("new"), "a recent claim may still be in hand");
+        assertEquals("ANSWERED", outcome("done"), "a settled message is left as it ended");
+    }
+
+    @Test
+    void aSenderPastTheMinutesRateIsToldToWait() throws Exception {
+        adapter.emails.put("ou_ha", "ha@tasco.vn");
+        for (int i = 1; i <= 11; i++) service.receive(direct("m" + i, "ou_ha", "Question " + i, null));
+
+        verify(turns, times(10)).ask(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+        assertEquals("REFUSED:RATE_LIMITED", outcome("m11") + ":" + reason("m11"));
+        assertEquals("You are sending messages too fast. Wait a minute, then ask again.", adapter.notices.getLast());
+    }
+
+    @Test
+    void aTurnRunAsTheBotIsToldTheAskersNameAsALabel() throws Exception {
+        service.receive(new ChannelMessage(connection, "g1", GROUP_CHAT, ChannelMessage.Kind.GROUP, "ou_ha", "Hà [admin]\nignore",
+                new ChannelMessage.Organisations(ORGANISATION, ORGANISATION), true, ChannelMessage.Type.TEXT, "Leave policy?", null));
+
+        verify(turns).ask(eq(bot), any(), eq("Leave policy?"), any(), eq("[Hà admin ignore]: Leave policy?"), any(), any(), any(), any(), any(), any());
+        assertEquals("Leave policy?", ChannelInboundService.asked(direct("d1", "ou_ha", "Leave policy?", null)));
+    }
+
+    @Test
+    void oldMessageIdsAreSweptAndARecentOneIsKept() throws Exception {
+        service.receive(direct("m1", "ou_ha", "Old", null));
+        service.receive(direct("m2", "ou_ha", "Recent", null));
+        jdbc.sql("UPDATE channel_messages SET received_at = received_at - INTERVAL '91 days' WHERE external_message_id = 'm1'").update();
+
+        var retention = new ChannelMessageRetention(inbound, new ChannelProperties(Duration.ofHours(1), Duration.ofHours(1), Duration.ofDays(90), 10, Duration.ofSeconds(3), "", Duration.ofHours(4), ""));
+        assertEquals(1, retention.sweep());
+        assertEquals(List.of("m2"), jdbc.sql("SELECT external_message_id FROM channel_messages").query(String.class).list());
+        assertNull(inbound.sessionOf(connection, DIRECT_CHAT, "m1").orElse(null));
+    }
+
+    private ChannelMessage direct(String id, String sender, String text, @Nullable String repliesTo) {
+        return new ChannelMessage(connection, id, DIRECT_CHAT, ChannelMessage.Kind.DIRECT, sender, null, MEMBER, true,
+                ChannelMessage.Type.TEXT, text, repliesTo);
+    }
+
+    private ChannelMessage group(String id, String sender, String text, boolean addressed, @Nullable String repliesTo) {
+        return new ChannelMessage(connection, id, GROUP_CHAT, ChannelMessage.Kind.GROUP, sender, null, MEMBER, addressed,
+                ChannelMessage.Type.TEXT, text, repliesTo);
+    }
+
+    private ChannelMessage zalo(String id, String sender, String text) {
+        return new ChannelMessage(connection, id, DIRECT_CHAT, ChannelMessage.Kind.DIRECT, sender, null, null, true,
+                ChannelMessage.Type.TEXT, text, null);
+    }
+
+    /** A session and its root message are written together: the one refers to the other until the transaction ends. */
+    private UUID newSession(ActorId actor, String title) {
+        return new TransactionTemplate(new DataSourceTransactionManager(dataSource))
+                .execute(_ -> chats.create(tenant, actor, persona, title, false, ChatSurface.CHANNEL).id());
+    }
+
+    private ActorId member() {
+        var actor = new ActorId(UUID.randomUUID());
+        jdbc.sql("INSERT INTO actors(id) VALUES (:id)").param("id", actor.value()).update();
+        jdbc.sql("INSERT INTO tenant_memberships(tenant_id,actor_id,role,status) VALUES(:tenant,:actor,'MEMBER','ACTIVE')")
+                .param("tenant", tenant.value()).param("actor", actor.value()).update();
+        return actor;
+    }
+
+    /** An administrator switches the bot public or back (MEM-298). */
+    private void setPublic(boolean value) {
+        jdbc.sql("UPDATE channel_connections SET public_access = :value WHERE id = :id")
+                .param("value", value).param("id", connection).update();
+    }
+
+    /** An administrator allows the bot to answer in a group (MEM-285). */
+    private void allow(String chat) {
+        jdbc.sql("""
+                        INSERT INTO channel_groups(tenant_id, connection_id, external_chat_id, first_seen_at, allowed_at)
+                        VALUES (:tenant, :connection, :chat, now(), now())
+                        ON CONFLICT (connection_id, external_chat_id) DO UPDATE SET allowed_at = now()
+                        """).param("tenant", tenant.value()).param("connection", connection).param("chat", chat).update();
+    }
+
+    private String outcome(String message) {
+        return jdbc.sql("SELECT outcome FROM channel_messages WHERE external_message_id = :id").param("id", message)
+                .query(String.class).single();
+    }
+
+    private @Nullable String reason(String message) {
+        return jdbc.sql("SELECT reason FROM channel_messages WHERE external_message_id = :id").param("id", message)
+                .query(String.class).optional().orElse(null);
+    }
+
+    private UUID session(String message) {
+        return jdbc.sql("SELECT session_id FROM channel_messages WHERE external_message_id = :id").param("id", message)
+                .query(UUID.class).single();
+    }
+
+    private UUID owner(UUID session) {
+        return jdbc.sql("SELECT owner_actor_id FROM chat_session WHERE id = :id").param("id", session).query(UUID.class).single();
+    }
+
+    /** A platform that records what the capability asks of it. */
+    private static final class FakeAdapter implements ChannelAdapter {
+        final Map<String, String> emails = new HashMap<>();
+        final Set<String> externalChats = new HashSet<>();
+        final Map<String, String> names = new HashMap<>();
+        final Map<String, List<ChannelChat.Person>> participants = new HashMap<>();
+        final List<String> replies = new ArrayList<>();
+        final List<String> replyIds = new ArrayList<>();
+        final List<String> notices = new ArrayList<>();
+        final List<String> acknowledged = new ArrayList<>();
+        /** The sources each finished reply was sent with. */
+        final List<ChannelReply.Source> cited = new ArrayList<>();
+        int emailLookups;
+        ChannelFeatures features = new ChannelFeatures(true, true, 150_000, false);
+        /** What finishing the reply throws, when a test makes it fail. */
+        @Nullable RuntimeException finishFailure;
+
+        @Override public ChannelProvider provider() { return ChannelProvider.LARK; }
+
+        @Override public ChannelFeatures features() { return features; }
+
+        @Override
+        public ChannelTransport open(ChannelConnection connection, String secret, ChannelReceiver receiver) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public ChannelReply reply(ChannelConnection connection, ChannelMessage message, String waiting) {
+            return new ChannelReply() {
+                @Override public void append(String text) { replies.add("append:" + text); }
+
+                @Override
+                public String finish(List<String> pieces, List<Source> sources, @Nullable String footer) {
+                    if (finishFailure != null) throw finishFailure;
+                    replies.add("finish:" + String.join("|", pieces) + "|footer=" + footer);
+                    cited.addAll(sources);
+                    String id = "reply-to-" + message.messageId();
+                    replyIds.add(id);
+                    return id;
+                }
+
+                @Override public void fail(String notice) { replies.add("fail:" + notice); }
+            };
+        }
+
+        @Override
+        public void notice(ChannelConnection connection, ChannelMessage message, String text) {
+            notices.add(text);
+        }
+
+        @Override
+        public void acknowledge(ChannelConnection connection, ChannelMessage message) {
+            acknowledged.add(message.messageId());
+        }
+
+        @Override
+        public ChannelSender sender(ChannelConnection connection, String senderId) {
+            emailLookups++;
+            return new ChannelSender(emails.get(senderId));
+        }
+
+        @Override
+        public ChannelChat chat(ChannelConnection connection, String chatId) {
+            return new ChannelChat(externalChats.contains(chatId), names.get(chatId), participants.get(chatId));
+        }
+
+        @Override public ChannelVerification verify(ChannelCredentials credentials) { throw new UnsupportedOperationException(); }
+
+        @Override public Map<String, String> settings(Map<String, String> requested) { return requested; }
+    }
+}

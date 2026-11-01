@@ -15,7 +15,7 @@ search and read a Tenant's knowledge through MemoryOS, as the signed-in person a
   - ChatGPT uses a pre-registered client.
   - Anonymous dynamic client registration stays closed.
 - **Endpoint switch.** One switch per Tenant, off by default.
-  - Production stays off until [MEM-134](../../active/mem-134-external-data-gate/design.md) can keep an `INTERNAL_ONLY` Source
+  - Production stays off until [MEM-134](../../completed/mem-134-external-data-gate/design.md) can keep an `INTERNAL_ONLY` Source
     out of it.
 - **Who may use it.** Any member with `SEARCH_READ`, once the Tenant has switched the endpoint on.
 - **Acceptance clients.**

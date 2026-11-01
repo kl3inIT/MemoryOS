@@ -40,6 +40,8 @@ select = ["E", "F", "I", "UP", "B", "SIM", "ANN", "S"]
 # The promptfoo provider and config hold Vietnamese rubrics; the provider must catch every failure to
 # report it on the row.
 "promptfoo/*" = ["E501", "BLE001"]
+# The workbook builder holds the method text and long table definitions.
+"report/*" = ["E501"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

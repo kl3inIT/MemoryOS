@@ -26,3 +26,7 @@ Scope approved by the product owner on 2026-10-01: keep the fallback, add an ale
 
 - 2026-10-01: increment opened.
 - 2026-10-01: implemented. `:sources:compileTestJava` passed; `BoundedDoclingClientTest` (13), `DoclingFallbackTest` (7), `DoclingSourceContentExtractorTest` (16) and `PaddleOcrVlRoutingTest` (19) passed, 55 cases, no failures or skips. `promtool check rules` in the staging Prometheus container: 8 rules, success. Open: CI, the application deploy and the observability rollout.
+
+## Staging acceptance (2026-10-19)
+
+`MemoryOSDoclingFallback` is loaded on staging and production and `memoryos_extraction_docling_fallback_total` has its twelve zero series. 14 staging Documents still have parser `tika` (3 PDF, 11 DOCX) and await the reindex.

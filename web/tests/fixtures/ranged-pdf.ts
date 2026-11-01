@@ -48,6 +48,74 @@ export function rangedHandbookPdf(pageCount = 12) {
   return Buffer.from(output, "latin1");
 }
 
+const SCAN_WIDTH = 640;
+const SCAN_HEIGHT = 480;
+
+/**
+ * A report as a scanner writes it: every page is one picture, and the file holds each page's picture, content
+ * and page dictionary one after another, with all pages listed flat under the root and the catalog at the end.
+ * pdf.js has to find every page dictionary before it can load such a file, and they sit a whole picture apart,
+ * so a reader that fetches in large chunks reads the entire file to draw one page. Each page also draws the two
+ * lines of the handbook, where the fixture boxes are.
+ */
+export function scannedReportPdf(pageCount = 24) {
+  const picture = String.fromCharCode(
+    ...Array.from({ length: SCAN_WIDTH }, (_, column) => 215 + (column % 32)),
+  ).repeat(SCAN_HEIGHT);
+  const fontObject = 1;
+  const firstPageObject = 2;
+  const pageObject = (page: number) => firstPageObject + (page - 1) * 3 + 2;
+  const rootObject = firstPageObject + pageCount * 3;
+  const catalogObject = rootObject + 1;
+  const numbered: Array<[number, string]> = [];
+  for (let page = 1; page <= pageCount; page += 1) {
+    const image = pageObject(page) - 2;
+    const content = `q 612 0 0 792 0 0 cm /Im0 Do Q BT /F1 18 Tf 72 680 Td (Employee handbook: leave policy) Tj 0 -60 Td (Requests need manager approval.) Tj 0 -60 Td (Scanned page ${page}) Tj ET`;
+    numbered.push(
+      [
+        image,
+        `<< /Type /XObject /Subtype /Image /Width ${SCAN_WIDTH} /Height ${SCAN_HEIGHT} /ColorSpace /DeviceGray /BitsPerComponent 8 /Length ${picture.length} >>\nstream\n${picture}\nendstream`,
+      ],
+      [image + 1, `<< /Length ${content.length} >>\nstream\n${content}\nendstream`],
+      [
+        pageObject(page),
+        `<< /Type /Page /Parent ${rootObject} 0 R /MediaBox [0 0 612 792] /Contents ${image + 1} 0 R /Resources << /Font << /F1 ${fontObject} 0 R >> /XObject << /Im0 ${image} 0 R >> >> >>`,
+      ],
+    );
+  }
+  const kids = Array.from({ length: pageCount }, (_, index) => `${pageObject(index + 1)} 0 R`);
+  numbered.push(
+    [rootObject, `<< /Type /Pages /Kids [${kids.join(" ")}] /Count ${pageCount} >>`],
+    [catalogObject, `<< /Type /Catalog /Pages ${rootObject} 0 R >>`],
+    [fontObject, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"],
+  );
+
+  let output = "%PDF-1.4\n";
+  const offsets = new Map<number, number>();
+  for (const [number, body] of numbered) {
+    offsets.set(number, output.length);
+    output += `${number} 0 obj\n${body}\nendobj\n`;
+  }
+  const size = catalogObject + 1;
+  const xref = output.length;
+  output += `xref\n0 ${size}\n0000000000 65535 f \n`;
+  for (let number = 1; number < size; number += 1) {
+    output += `${String(offsets.get(number)).padStart(10, "0")} 00000 n \n`;
+  }
+  output += `trailer\n<< /Size ${size} /Root ${catalogObject} 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  return Buffer.from(output, "latin1");
+}
+
+/** Whether any `bytes=first-last` header of `ranges` reads a byte from `first` up to, not including, `end`. */
+export function readsBytes(ranges: readonly (string | undefined)[], first: number, end: number) {
+  return ranges.some((header) => {
+    const range = /^bytes=(\d+)-(\d*)$/.exec(header ?? "");
+    if (!range) return true;
+    const last = range[2] ? Number(range[2]) : Number.POSITIVE_INFINITY;
+    return Number(range[1]) < end && last >= first;
+  });
+}
+
 /** Serves `body` like the original endpoints: whole with `Accept-Ranges`, or one requested range as 206. */
 export function fulfillPdfRange(route: Route, body: Buffer) {
   const headers = {

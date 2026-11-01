@@ -1,11 +1,13 @@
+// @vitest-environment jsdom
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 import { MemoryOsChatTransport } from "./chat-transport";
-import { initialChatTitle, loadChatHistory, toUiMessages } from "@/features/chat/chat-api";
+import { loadChatHistory, newChatSession, toUiMessages } from "@/features/chat/chat-api";
 import { mergedReport, type ResearchState } from "@/features/chat/research/chat-research";
 import { fixtureSource } from "../../../../tests/fixtures/chat-data";
 import type { ChatMessage, ChatSession } from "@/lib/hey-api/types.gen";
 import type { UIMessageChunk } from "ai";
 import { i18n } from "@/i18n/index";
+import { historyParts } from "@/features/chat/activity/chat-activity";
 
 const session: ChatSession = {
   id: "5230ab53-dab0-4441-acbf-840636b52953",
@@ -20,12 +22,38 @@ const session: ChatSession = {
   branchedFromSessionId: null,
   branchedFromMessageId: null,
   temporary: false,
+  replyRunning: false,
 };
 const runId = "7c6f01e4-a456-4157-bb67-3b9e3ae8e3a4";
-it("uses a short, whitespace-normalized and Unicode-safe fallback title", () => {
-  expect(initialChatTitle("  Phân tích\n  tài liệu  ")).toBe("Phân tích tài liệu");
-  expect(initialChatTitle(" ")).toBe(i18n.t("app:Hội thoại mới", { keySeparator: false }));
-  expect(initialChatTitle("😀".repeat(45))).toBe("😀".repeat(40) + "…");
+const family = "👨‍👩‍👧‍👦";
+/** A new conversation is titled from its first question: whole visible characters, inside the API's 200. */
+it.each([
+  ["normalizes whitespace", "  Phân tích\n  tài liệu  ", "Phân tích tài liệu"],
+  ["falls back for a blank question", " ", "Hội thoại mới"],
+  ["cuts after forty characters", "😀".repeat(45), "😀".repeat(40) + "…"],
+  ...[family, "e\u0301", "a\u0306\u0301"].flatMap((grapheme) => [
+    [
+      "keeps a grapheme whole at the boundary",
+      "A".repeat(39) + grapheme + "x",
+      "A".repeat(39) + grapheme + "…",
+    ],
+    ["keeps a grapheme that ends the title", "A".repeat(39) + grapheme, "A".repeat(39) + grapheme],
+  ]),
+  ["stays inside the API length limit", family.repeat(40), family.repeat(18) + "…"],
+])("titles a new conversation: %s", async (_, question, title) => {
+  await i18n.changeLanguage("vi");
+  const sent: { title: string }[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const body = (await new Request(input, init).json()) as { title: string };
+      sent.push(body);
+      return json({ ...session, title: body.title }, 201);
+    }),
+  );
+  await newChatSession(question, new AbortController().signal);
+  expect(sent).toEqual([expect.objectContaining({ title })]);
+  expect(title.length).toBeLessThanOrEqual(200);
 });
 it("places a question's attached files above its text", () => {
   const [question] = toUiMessages([
@@ -44,18 +72,6 @@ it("places a question's attached files above its text", () => {
   ]);
   expect(question?.parts.map((part) => part.type)).toEqual(["file", "text"]);
 });
-it("keeps family emoji and combining marks intact at the title boundary", () => {
-  for (const grapheme of ["👨‍👩‍👧‍👦", "e\u0301", "a\u0306\u0301"]) {
-    expect(initialChatTitle("A".repeat(39) + grapheme + "x")).toBe("A".repeat(39) + grapheme + "…");
-    expect(initialChatTitle("A".repeat(39) + grapheme)).toBe("A".repeat(39) + grapheme);
-  }
-});
-it("keeps grapheme titles inside the API length limit", () => {
-  const family = "👨‍👩‍👧‍👦";
-  const title = initialChatTitle(family.repeat(40));
-  expect(title).toBe(family.repeat(18) + "…");
-  expect(title.length).toBeLessThanOrEqual(200);
-});
 const userId = "9a1b5318-f15b-4e37-899a-0809354cda6f";
 const requestId = "e7a05ee5-cfd5-470b-9641-f4c322a3b4bb";
 const row: ChatMessage = {
@@ -66,8 +82,11 @@ const row: ChatMessage = {
   research: { clarification: false, plan: null, agents: [] },
   failureCode: null,
   refusalReason: null,
+  contextTokens: null,
+  contextLimit: null,
   images: [],
   generatedFiles: [],
+  apps: [],
   id: runId,
   sessionId: session.id,
   parentMessageId: userId,
@@ -192,6 +211,102 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     transport.selectMcpServers([]);
     await collect(await send(transport));
     expect(await submitted(fetch)).toMatchObject({ mcpServerIds: [] });
+  });
+  it("sends the editor's unsaved assistant as it stands at each send, and nothing without it", async () => {
+    const fetch = fixture(() => sse(delta + terminal()));
+    const transport = new MemoryOsChatTransport(session);
+    await collect(await send(transport));
+    expect(await submitted(fetch)).not.toHaveProperty("draftPersona");
+    let instructions = "Trả lời ngắn gọn.";
+    transport.draftPersona = () => ({
+      name: "Kế toán thuế",
+      description: "",
+      instructions,
+      starterPrompts: [],
+      sourceIds: [],
+    });
+    await collect(await send(transport));
+    expect(await submitted(fetch)).toMatchObject({ draftPersona: { instructions } });
+    instructions = "Ghi rõ số hiệu văn bản.";
+    await collect(await send(transport));
+    expect(await submitted(fetch)).toMatchObject({
+      draftPersona: { instructions: "Ghi rõ số hiệu văn bản." },
+    });
+  });
+  it("runs the Agent Builder with no tool of the assistant, whatever the defaults", async () => {
+    const fetch = fixture(() => sse(delta + terminal()));
+    const transport = new MemoryOsChatTransport(session);
+    transport.defaultTools({ web: "auto", image: "auto", mcpServerIds: [crypto.randomUUID()] });
+    transport.builder = true;
+    transport.draftPersona = () => ({
+      name: "Chính sách nhân sự",
+      description: "",
+      instructions: "",
+      starterPrompts: [],
+      sourceIds: [],
+    });
+    await collect(await send(transport));
+    expect(await submitted(fetch)).toMatchObject({
+      builder: true,
+      webSearch: "off",
+      image: "off",
+      mcpServerIds: [],
+      deepResearch: false,
+      draftPersona: { name: "Chính sách nhân sự" },
+    });
+  });
+  it("hands each builder change to the editor once and lists it on the reply", async () => {
+    const change = { toolCallId: "call_1", change: { title: "Chuyên viên chính sách nhân sự" } };
+    fixture(() =>
+      sse(
+        packet(1, "assistant_change", change) +
+          // A reconnect may replay the event; the form takes it once.
+          packet(2, "assistant_change", change) +
+          packet(3, "text", { text: "Đã đặt chức danh." }) +
+          packet(4, "outcome", { status: "COMPLETED", failureCode: null }),
+      ),
+    );
+    const transport = new MemoryOsChatTransport(session);
+    const taken = vi.fn();
+    transport.onAssistantChange = taken;
+    const chunks = await collect(await send(transport));
+    expect(taken).toHaveBeenCalledOnce();
+    expect(taken).toHaveBeenCalledWith(expect.objectContaining(change));
+    const listed = chunks.filter(
+      (chunk) =>
+        chunk.type === "message-metadata" &&
+        (chunk as { messageMetadata: { assistantChanges?: string[] } }).messageMetadata
+          .assistantChanges !== undefined,
+    );
+    expect(listed[0]).toEqual({
+      type: "message-metadata",
+      messageMetadata: { assistantChanges: ["call_1"] },
+    });
+    expect(listed.at(-1)).toMatchObject({ messageMetadata: { assistantChanges: ["call_1"] } });
+  });
+  it("takes a builder change shaped as the server sends it, unchanged fields left out", async () => {
+    // As staging sent it (MEM-280 acceptance), with the unchanged fields omitted as the contract declares.
+    const change = {
+      toolCallId: "call_85298b2a493b446c9427f480a17d08c5",
+      change: {
+        title: "Chuyên viên nhân sự",
+        greeting: "",
+        starterPrompts: ["Nghỉ phép năm bao nhiêu ngày?"],
+        grounded: true,
+      },
+    };
+    fixture(() =>
+      sse(
+        packet(1, "assistant_change", change) +
+          packet(2, "text", { text: "Đã dựng trợ lý trong biểu mẫu chưa lưu." }) +
+          packet(3, "outcome", { status: "COMPLETED", failureCode: null }),
+      ),
+    );
+    const transport = new MemoryOsChatTransport(session);
+    const taken = vi.fn();
+    transport.onAssistantChange = taken;
+    await collect(await send(transport));
+    expect(taken).toHaveBeenCalledWith(expect.objectContaining(change));
   });
   it("loads committed artifact metadata once after outcome without a second inference and restores it on reload", async () => {
     const artifacts = [
@@ -438,6 +553,7 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
           codeRuns: {},
           generatedFiles: [],
           imageGenerating: false,
+          waiting: false,
           serverStatus: "CANCELED",
         },
       },
@@ -545,6 +661,46 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
       toolCallId: "call_1",
       output: { durationMs: 1200 },
     });
+  });
+
+  it("reports that the reply waits for a turn and when it has been given one", async () => {
+    fixture(() =>
+      sse(
+        packet(1, "waiting", { waiting: true }) +
+          packet(2, "waiting", { waiting: false }) +
+          packet(3, "text", { text: "Answer" }) +
+          packet(4, "outcome", { status: "COMPLETED", failureCode: null }),
+      ),
+    );
+    const chunks = await collect(await send(new MemoryOsChatTransport(session)));
+    const waiting = chunks
+      .filter((chunk) => chunk.type === "message-metadata")
+      .map((chunk) => (chunk as { messageMetadata: { waiting?: boolean } }).messageMetadata.waiting)
+      .filter((value) => value !== undefined);
+    expect(waiting).toEqual([true, false, false]);
+  });
+
+  it("carries the apps the person must connect, live and from the saved reply", async () => {
+    const linear = {
+      serverId: "11111111-1111-4111-8111-111111111111",
+      serverName: "Linear",
+      reason: "NOT_CONNECTED",
+    } as const;
+    fixture(() =>
+      sse(
+        packet(1, "mcp_unavailable", { apps: [linear] }) +
+          packet(2, "text", { text: "Answer" }) +
+          packet(3, "outcome", { status: "COMPLETED", failureCode: null }),
+      ),
+    );
+    const chunks = await collect(await send(new MemoryOsChatTransport(session)));
+    expect(chunks).toContainEqual({
+      type: "message-metadata",
+      messageMetadata: { unavailableApps: [linear] },
+    });
+    const saved = { ...row, activity: { steps: [], reasoning: [], unavailableApps: [linear] } };
+    expect(toUiMessages([saved])[0]?.metadata?.unavailableApps).toEqual([linear]);
+    expect(toUiMessages([row])[0]?.metadata?.unavailableApps).toEqual([]);
   });
 
   it("routes deep research progress into one data part and keeps agent steps off the timeline", async () => {
@@ -676,6 +832,97 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     expect(chunks.find((chunk) => chunk.type === "message-metadata")).toMatchObject({
       messageMetadata: { sources: [fixtureSource], toolCitations: { ws_1: [1] } },
     });
+  });
+
+  it("offers always allow when the server does, and settles the gate from the server's decision", async () => {
+    const call = { serverName: "Linear", toolName: "save_issue", arguments: "{}" };
+    fixture(() =>
+      sse(
+        packet(1, "tool_approval", {
+          ...call,
+          toolCallId: "c1",
+          decision: null,
+          alwaysAllowable: true,
+        }) +
+          packet(2, "tool_approval", {
+            ...call,
+            toolCallId: "c1",
+            decision: "APPROVED",
+            alwaysAllowable: false,
+          }) +
+          packet(3, "tool_approval", {
+            ...call,
+            toolCallId: "c2",
+            decision: null,
+            alwaysAllowable: false,
+          }) +
+          packet(4, "tool_approval", {
+            ...call,
+            toolCallId: "c2",
+            decision: "NO_DECISION",
+            alwaysAllowable: false,
+          }) +
+          packet(5, "outcome", {
+            status: "COMPLETED",
+            failureCode: null,
+            contextTokens: 9000,
+            contextLimit: 128000,
+          }),
+      ),
+    );
+    const chunks = await collect(await send(new MemoryOsChatTransport(session)));
+    const gates = chunks.filter(
+      (chunk) => chunk.type === "tool-approval-request" || chunk.type === "tool-approval-response",
+    );
+    expect(gates).toEqual([
+      expect.objectContaining({
+        type: "tool-approval-request",
+        toolCallId: "c1",
+        approvalDescriptor: expect.objectContaining({
+          options: expect.arrayContaining([expect.objectContaining({ kind: "allow-always" })]),
+        }),
+      }),
+      { type: "tool-approval-response", approvalId: "c1", approved: true },
+      expect.objectContaining({ type: "tool-approval-request", toolCallId: "c2" }),
+      expect.objectContaining({
+        type: "tool-approval-request",
+        toolCallId: "c2",
+        approvalDescriptor: expect.objectContaining({ resolution: "expired" }),
+      }),
+    ]);
+    expect(
+      (gates[2] as { approvalDescriptor: Record<string, unknown> }).approvalDescriptor,
+    ).not.toHaveProperty("options");
+    expect(chunks.findLast((chunk) => chunk.type === "message-metadata")).toMatchObject({
+      messageMetadata: { context: { tokens: 9000, limit: 128000 } },
+    });
+  });
+
+  it("brings back a declined or unanswered call as its settled approval gate", () => {
+    const step = (toolCallId: string, failure: "DECLINED" | "NO_DECISION") => ({
+      toolCallId,
+      toolName: "mcp_linear_save_issue",
+      status: "FAILED" as const,
+      queries: [],
+      filters: null,
+      documents: [],
+      citations: [],
+      durationMs: null,
+      failure,
+      position: toolCallId === "d" ? 0 : 1,
+      textOffset: 0,
+    });
+    const parts = historyParts("", {
+      reasoning: [],
+      steps: [step("d", "DECLINED"), step("n", "NO_DECISION")],
+    } as unknown as Parameters<typeof historyParts>[1]);
+    expect(parts.filter((part) => part.type === "dynamic-tool")).toEqual([
+      expect.objectContaining({ state: "output-denied", approval: { id: "d", approved: false } }),
+      expect.objectContaining({
+        state: "output-denied",
+        approval: { id: "n", approved: false, descriptor: { resolution: "expired" } },
+      }),
+    ]);
   });
 
   it("rebuilds saved reasoning, tool steps and text in streamed order", () => {

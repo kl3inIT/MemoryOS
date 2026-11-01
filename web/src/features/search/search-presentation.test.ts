@@ -30,6 +30,7 @@ describe("search presentation", () => {
     expect(snippet.text).toContain("😀");
     expect(snippet.text).toContain("<script>alert(1)</script>");
   });
+
   it("does not invent highlights for a semantic-only result", () => {
     const snippet = createSearchSnippet(
       "Quy trình hoàn ứng phải hoàn thành trong vòng năm ngày làm việc.",

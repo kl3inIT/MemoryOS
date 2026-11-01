@@ -16,7 +16,7 @@
 # ChatGPT's metadata document carries a property Keycloak 26.8 rejects (keycloak/keycloak#51236), so the
 # image adds providers/memoryos-cimd: the built-in executor with the upstream fix's lenient parsing,
 # compiled against this very Keycloak's jars. Drop it once a Keycloak release carries keycloak/keycloak#51235.
-ARG KEYCLOAK_IMAGE=quay.io/keycloak/keycloak:26.8.0@sha256:b0f60d489d51c5d113390bdf5461d4c06e6051be026c05549f2e1e10ec352bcc
+ARG KEYCLOAK_IMAGE=quay.io/keycloak/keycloak:26.8.1@sha256:79c623a22abacf3fe6c00a5fb30f5b7843d717b234033b80995891c06116d244
 ARG JDK_IMAGE=eclipse-temurin:21-jdk-noble@sha256:1afee26c547e1aa89f47404854dd09203b8bd35a2be269e16bdfd69c4a2c2b50
 
 FROM ${KEYCLOAK_IMAGE} AS keycloak

@@ -5,17 +5,23 @@ import com.vp.plugin.ExportDiagramImageMargin;
 import com.vp.plugin.diagram.IDiagramElement;
 import com.vp.plugin.diagram.IDiagramUIModel;
 import com.vp.plugin.diagram.IConnectorUIModel;
+import com.vp.plugin.model.IModel;
 import com.vp.plugin.model.IModelElement;
+import com.vp.plugin.model.IProjectTransaction;
 import java.awt.Color;
 import java.awt.Font;
 import java.io.File;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Locale;
 import java.util.Set;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import vn.edu.swd392.vpmcp.bridge.Tool;
 
 public final class CommonDiagramTools extends VpAccess {
@@ -159,7 +165,7 @@ public final class CommonDiagramTools extends VpAccess {
           IDiagramUIModel diagram = findDiagram(diagramName);
           ExportTarget target =
               prepareFile(outputPath, imageFormat, scalePercent, overwrite);
-          export(diagram, target.file, target.imageType, scalePercent);
+          exportAtomically(diagram, target, scalePercent, overwrite);
           return exportResult(diagram, target.file);
         });
   }
@@ -195,8 +201,9 @@ public final class CommonDiagramTools extends VpAccess {
             String fileName = uniqueFileName(baseName, extension, allocatedNames);
             Path path = directory.resolve(fileName);
             requireWritableTarget(path, overwrite);
-            File file = path.toFile();
-            export(diagram, file, imageType, scalePercent);
+            ExportTarget target = new ExportTarget(path.toFile(), imageType);
+            exportAtomically(diagram, target, scalePercent, overwrite);
+            File file = target.file;
             result.append(exportResult(diagram, file)).append('\n');
             count++;
           }
@@ -258,6 +265,56 @@ public final class CommonDiagramTools extends VpAccess {
     if (!file.isFile() || file.length() == 0) {
       throw new IllegalStateException("Visual Paradigm did not create the export: " + file);
     }
+  }
+
+  private void exportAtomically(
+      IDiagramUIModel diagram, ExportTarget target, int scalePercent, boolean overwrite)
+      throws Exception {
+    Path output = target.file.toPath();
+    Path temporary =
+        Files.createTempFile(
+            output.getParent(), temporaryPrefix(output), "." + extension(output.getFileName().toString()));
+    try {
+      export(diagram, temporary.toFile(), target.imageType, scalePercent);
+      moveExport(temporary, output, overwrite);
+    } finally {
+      // A failed VP export must not leave a partial file beside the requested output.
+      Files.deleteIfExists(temporary);
+    }
+  }
+
+  private static void moveExport(Path temporary, Path output, boolean overwrite) throws Exception {
+    try {
+      if (overwrite) {
+        Files.move(
+            temporary,
+            output,
+            StandardCopyOption.ATOMIC_MOVE,
+            StandardCopyOption.REPLACE_EXISTING);
+      } else {
+        Files.move(temporary, output, StandardCopyOption.ATOMIC_MOVE);
+      }
+    } catch (AtomicMoveNotSupportedException exception) {
+      if (overwrite) {
+        Files.move(temporary, output, StandardCopyOption.REPLACE_EXISTING);
+      } else {
+        Files.move(temporary, output);
+      }
+    }
+  }
+
+  private static String temporaryPrefix(Path output) {
+    String name = output.getFileName().toString();
+    String baseName = name.substring(0, name.length() - extension(name).length() - 1);
+    return (baseName.length() < 3 ? "vp-export" : baseName) + "-";
+  }
+
+  private static String extension(String name) {
+    int separator = name.lastIndexOf('.');
+    if (separator < 1 || separator == name.length() - 1) {
+      throw new IllegalArgumentException("Output file must have an extension: " + name);
+    }
+    return name.substring(separator + 1);
   }
 
   private static ExportTarget prepareFile(
@@ -364,6 +421,48 @@ public final class CommonDiagramTools extends VpAccess {
       suffix++;
     }
     return candidate;
+  }
+
+  @Tool(
+      description =
+          "Delete one diagram by exact name. Closes it if open, removes the diagram, and deletes "
+              + "the auto-created '<name> Model' owner when empty. Destructive and not reversible "
+              + "without project undo; never use on diagrams the caller did not create.",
+      destructive = true,
+      idempotent = false)
+  public Map<String, Object> deleteDiagram(String diagramName) throws Exception {
+    return onEdt(
+        () -> {
+          IDiagramUIModel diagram = findDiagram(diagramName);
+          if (diagram == null) {
+            throw new IllegalArgumentException("No diagram named: " + diagramName);
+          }
+          IModelElement parent = diagram.getParentModel();
+          boolean autoOwner =
+              parent != null
+                  && parent instanceof IModel
+                  && (diagramName + " Model").equals(parent.getName())
+                  && parent.subDiagramCount() == 1
+                  && parent.toChildArray() != null
+                  && parent.toChildArray().length == 0;
+          IProjectTransaction transaction = project().startProjectTransaction();
+          try {
+            if (diagram.isOpened()) {
+              diagram.closeDiagram();
+            }
+            diagram.delete();
+            if (autoOwner) {
+              parent.delete();
+            }
+          } finally {
+            transaction.endTransaction();
+          }
+          Map<String, Object> result = new LinkedHashMap<>();
+          result.put("diagramName", diagramName);
+          result.put("ownerModelDeleted", autoOwner);
+          result.put("deleted", true);
+          return result;
+        });
   }
 
   private static String exportResult(IDiagramUIModel diagram, File file) {

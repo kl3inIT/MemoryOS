@@ -10,7 +10,7 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[2]
-LAUNCHER = ROOT / "api/src/main/docker/application-launcher.sh"
+LAUNCHER = ROOT / "memoryos-api/src/main/docker/application-launcher.sh"
 
 
 @unittest.skipUnless(os.name == "posix" and shutil.which("sh"), "The launcher is a POSIX shell script")
@@ -51,14 +51,14 @@ class LauncherSecretFileTest(unittest.TestCase):
         result, exported = self.launch(
             MEMORYOS_REDIS_PASSWORD_FILE=self.secret("redis", "redis-secret"),
             MEMORYOS_OBJECT_STORAGE_SECRET_KEY_FILE=self.secret("minio", "minio-secret"),
-            MEMORYOS_INTERPRETER_API_KEY_FILE=self.secret("interpreter", "interpreter-secret"),
+            MEMORYOS_SANDBOX_API_KEY_FILE=self.secret("sandbox", "sandbox-secret"),
             # A secret nobody wrote code for: the point of the change.
             MEMORYOS_DATABASE_PASSWORD_FILE=self.secret("database", "database-secret"),
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(exported.get("MEMORYOS_REDIS_PASSWORD"), "redis-secret")
         self.assertEqual(exported.get("MEMORYOS_OBJECT_STORAGE_SECRET_KEY"), "minio-secret")
-        self.assertEqual(exported.get("MEMORYOS_INTERPRETER_API_KEY"), "interpreter-secret")
+        self.assertEqual(exported.get("MEMORYOS_SANDBOX_API_KEY"), "sandbox-secret")
         self.assertEqual(exported.get("MEMORYOS_DATABASE_PASSWORD"), "database-secret")
 
     def test_the_redis_authority_is_passed_as_a_file_reference(self):
@@ -88,6 +88,37 @@ class LauncherSecretFileTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotIn("MEMORYOS_DATABASE_PASSWORD", exported)
 
+
+    def test_a_cache_made_for_this_release_is_handed_to_the_jvm(self):
+        # MEM-244: the option goes on the command line through MEMORYOS_JAVA_AOT, never into JAVA_TOOL_OPTIONS,
+        # which the Tika child JVMs inherit.
+        caches = self.root / "aot"
+        caches.mkdir()
+        (caches / "api-abc123.aot").write_text("cache")
+        result, exported = self.launch(MEMORYOS_AOT_CACHE_DIR=str(caches), MEMORYOS_RELEASE="abc123",
+                                       JAVA_TOOL_OPTIONS="-XX:+UseSerialGC")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(exported.get("MEMORYOS_JAVA_AOT"), "-XX:AOTCache=" + str(caches / "api-abc123.aot"))
+        self.assertEqual(exported.get("JAVA_TOOL_OPTIONS"), "-XX:+UseSerialGC")
+
+    def test_without_a_cache_for_this_release_the_jvm_starts_as_before(self):
+        caches = self.root / "aot"
+        caches.mkdir()
+        (caches / "api-another.aot").write_text("cache")
+        for variables in ({}, {"MEMORYOS_AOT_CACHE_DIR": str(caches), "MEMORYOS_RELEASE": "abc123"},
+                          {"MEMORYOS_AOT_CACHE_DIR": str(caches)}):
+            result, exported = self.launch(**variables)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(exported.get("MEMORYOS_JAVA_AOT"), "", variables)
+
+    def test_a_training_start_that_writes_no_cache_fails_and_leaves_none(self):
+        # The stand-in for su writes nothing, as a JVM that failed to start would not.
+        caches = self.root / "aot"
+        caches.mkdir()
+        result, _ = self.launch(MEMORYOS_AOT_CACHE_DIR=str(caches), MEMORYOS_RELEASE="abc123",
+                                MEMORYOS_AOT_TRAIN="true")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual([], list(caches.glob("*.aot")))
 
 if __name__ == "__main__":
     sys.exit(unittest.main())

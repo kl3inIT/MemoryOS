@@ -4,7 +4,7 @@ Bốn bước. Bước 1 và 2 không chạm môi trường nào đang chạy; b
 
 ## 1. Launcher đọc mọi `<TÊN>_FILE`
 
-Thay bốn khối viết tay trong `api/src/main/docker/application-launcher.sh` bằng một vòng lặp: biến nào tên `<TÊN>_FILE`, trỏ tới file đọc được, thì export `<TÊN>` từ nội dung file. Giữ xử lý riêng cho `MEMORYOS_REDIS_TLS_CA_FILE` vì nó ánh xạ sang `MEMORYOS_REDIS_TLS_CA_CERTIFICATE`.
+Thay bốn khối viết tay trong `memoryos-api/src/main/docker/application-launcher.sh` bằng một vòng lặp: biến nào tên `<TÊN>_FILE`, trỏ tới file đọc được, thì export `<TÊN>` từ nội dung file. Giữ xử lý riêng cho `MEMORYOS_REDIS_TLS_CA_FILE` vì nó ánh xạ sang `MEMORYOS_REDIS_TLS_CA_CERTIFICATE`.
 
 Hành vi hiện tại không đổi: bốn khoá cũ vẫn được nạp y như trước, chỉ bằng đường chung. Kiểm chứng bằng test chạy launcher với một thư mục file giả và so sánh biến môi trường thu được.
 

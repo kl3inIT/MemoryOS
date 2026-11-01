@@ -27,6 +27,16 @@ const buttonSizes = cva(
   },
 );
 
+/** While pending the spinner takes the leading icon's place, so a button never shows two icons side by side. */
+function withoutLeadingIcon(children: React.ReactNode): React.ReactNode {
+  const parts = React.Children.toArray(children);
+  const first = parts[0];
+  const leading =
+    React.isValidElement<{ "data-icon"?: string }>(first) &&
+    first.props["data-icon"] === "inline-start";
+  return leading ? parts.slice(1) : children;
+}
+
 type ButtonProps = Omit<React.ComponentProps<"button">, "color"> &
   VariantProps<typeof buttonSizes> & {
     asChild?: boolean;
@@ -79,7 +89,7 @@ function Button({
       {pending && !asChild ? (
         <>
           <Spinner data-icon="inline-start" aria-hidden="true" />
-          {children}
+          {withoutLeadingIcon(children)}
         </>
       ) : (
         renderedChildren

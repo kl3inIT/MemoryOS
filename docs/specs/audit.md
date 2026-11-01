@@ -2,7 +2,7 @@
 
 The Tenant's audit stream records who changed sign-in, users, Groups, models, connections and Sources, when, and
 from where. It is decided in [ADR 0013](../decisions/0013-server-authored-audit-evidence.md) and delivered by
-[MEM-25](../increments/completed/mem-25-audit/design.md). The code is the `audit` application module, `core/src/main/java/io/memoryos/audit`.
+[MEM-25](../increments/completed/mem-25-audit/design.md). The code is the `audit` application module, `memoryos-core/src/main/java/io/memoryos/audit`.
 
 ## Module
 
@@ -52,7 +52,7 @@ Rules on the table:
 | Account change | `user.invite`, `user.invite_rotate`, `user.invite_revoke`, `user.join`, `user.deactivate`, `user.reactivate` |
 | User access management | `user.group_change` |
 | Group management | `user_group.create`, `rename`, `delete`, `member_change`, `manager_change`, `permission_change` |
-| API activity | `llm_provider.create`, `update`, `delete`; `model.create`, `update`, `delete`; `model_default.change`; `model_flow.change`; `web_connection.change`; `voice_connection.change`; `image_connection.change`; `interpreter.change`; `chat_settings.change`; `chat_guardrail.block` (MEM-195: a question stopped by a sensitive topic or blocked phrase; the rule kind, topic and session, never the question or phrase; since MEM-208 the topic is the Tenant's topic name, earlier records hold the built-in key); `mcp_server.create`, `update`, `delete`; `mcp_tool.change`; `mcp_oauth_client.change`; `mcp_connection.change`; `mcp_endpoint.change` (MEM-114: the MCP endpoint switch; calls through the endpoint are a member reading what they may read and are not audited, but kept for 90 days in the endpoint's own activity log, MEM-209); `mcp_trusted_app.change` (MEM-207: an app trusted to connect to the endpoint was added, switched on or off, or removed; the change and the app's client ID domains); `identity_provider.create`, `update`, `delete`; `source.create`, `update`, `delete`, `access_change`, `manager_change`, `group_change`, `pause`, `resume`, `item_remove`; `credential.create`, `update`, `delete`; `chat_history.read`; `chat_history.export`; `audit.export`; `permission.denied` |
+| API activity | `llm_provider.create`, `update`, `delete`; `model.create`, `update`, `delete`; `model_default.change`; `model_flow.change`; `web_connection.change`; `voice_connection.change`; `image_connection.change`; `interpreter.change`; `chat_settings.change`; `chat_guardrail.block` (MEM-195: a question stopped by a sensitive topic or blocked phrase; the rule kind, topic and session, never the question or phrase; since MEM-208 the topic is the Tenant's topic name, earlier records hold the built-in key); `mcp_server.create`, `update`, `delete`; `mcp_tool.change`; `mcp_oauth_client.change`; `mcp_connection.change`; `mcp_endpoint.change` (MEM-114: the MCP endpoint switch; calls through the endpoint are a member reading what they may read and are not audited, but kept for 90 days in the endpoint's own activity log, MEM-209); `mcp_trusted_app.change` (MEM-207: an app trusted to connect to the endpoint was added, switched on or off, or removed; the change and the app's client ID domains); `identity_provider.create`, `update`, `delete`; `source.create`, `update`, `delete`, `access_change`, `manager_change`, `group_change`, `pause`, `resume`, `item_remove`; `credential.create`, `update`, `delete`; `channel.create`, `update`, `delete`; `chat_history.read`; `chat_history.export`; `audit.export`; `permission.denied` |
 
 ## Recording
 

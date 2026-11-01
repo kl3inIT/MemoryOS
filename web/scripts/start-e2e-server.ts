@@ -1,29 +1,9 @@
-import { createServer as createHttpServer } from "node:http";
-import { handleChatFixture } from "../tests/fixtures/chat-server.ts";
+import { createFixtureBackend } from "./fixture-backend.ts";
 
 const host = "127.0.0.1";
-const frontendPort = 4173;
+const frontendPort = Number(process.env.MEMORYOS_E2E_PORT ?? 4173);
 
-const backend = createHttpServer(async (request, response) => {
-  if (await handleChatFixture(request, response)) return;
-  if (request.url === "/oauth2/authorization/memoryos") {
-    response.writeHead(302, {
-      location: "/login/oauth2/code/memoryos?code=test&state=test",
-      "set-cookie": "SESSION=oauth-state; Path=/; Secure; HttpOnly; SameSite=Lax",
-    });
-    response.end();
-    return;
-  }
-
-  if (request.url?.startsWith("/login/oauth2/code/memoryos")) {
-    response.writeHead(200, { "content-type": "text/plain" });
-    response.end(request.headers.cookie ?? "missing session cookie");
-    return;
-  }
-
-  response.writeHead(404);
-  response.end();
-});
+const backend = createFixtureBackend();
 
 await new Promise<void>((resolve, reject) => {
   backend.once("error", reject);

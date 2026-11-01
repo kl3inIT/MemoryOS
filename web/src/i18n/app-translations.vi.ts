@@ -184,6 +184,8 @@ export const englishUi: Record<string, string> = {
   "Save Changes": "Lưu thay đổi",
   "MemoryOS manages this group. Its name and permissions are fixed. Membership changes follow the group’s access rules.":
     "MemoryOS quản lý nhóm này. Tên và quyền của nhóm là cố định. Việc thay đổi thành viên tuân theo các quy tắc truy cập của nhóm.",
+  "MemoryOS manages this group. Its name and Basic access are fixed. Membership changes follow the group’s access rules.":
+    "MemoryOS quản lý nhóm này. Tên và quyền truy cập cơ bản của nhóm là cố định. Việc thay đổi thành viên tuân theo các quy tắc truy cập của nhóm.",
   "Group Name": "Tên nhóm",
   "Membership, permissions and the Sources this group may read.":
     "Thành viên, quyền và các nguồn nhóm này được đọc.",
@@ -199,6 +201,8 @@ export const englishUi: Record<string, string> = {
   "Previous page": "Trang trước",
   "Page {{v1}} of {{v2}}": "Trang {{v1}} trên {{v2}}",
   "Next page": "Trang sau",
+  "Previous item": "Mục trước",
+  "Next item": "Mục sau",
   "New Group": "Nhóm mới",
   "This change would leave a standard user without a group. Add them to another group first, then try again.":
     "Thay đổi này sẽ khiến người dùng tiêu chuẩn không thuộc nhóm nào. Hãy thêm họ vào một nhóm khác trước, rồi thử lại.",
@@ -1290,7 +1294,6 @@ Object.assign(englishUi, {
   "No sources match your search and filters.": "Không có nguồn phù hợp với tìm kiếm và bộ lọc.",
   "{{v1}} group, {{v2}} sources, {{v3}} documents": "Nhóm {{v1}}, {{v2}} nguồn, {{v3}} tài liệu",
   "Total sources": "Tổng số nguồn",
-  "Show failed sources, {{count}}": "Hiển thị nguồn thất bại, {{count}}",
   "1 document": "1 tài liệu",
   "{{count}} documents": "{{count}} tài liệu",
   "Total docs": "Tổng tài liệu",
@@ -1361,8 +1364,6 @@ Object.assign(englishUi, {
   "No users found": "Không tìm thấy người dùng",
   "No users yet": "Chưa có người dùng",
   "Filter users by status": "Lọc người dùng theo trạng thái",
-  "Show {{v1}} users, count unavailable": "Hiển thị người dùng {{v1}}, chưa có số lượng",
-  "Show {{v1}} users, {{v2}}": "Hiển thị người dùng {{v1}}, {{v2}}",
   "Scrollable users table": "Bảng người dùng có thể cuộn",
   "Organization users": "Người dùng trong tổ chức",
   Email: "Email",
@@ -1933,12 +1934,15 @@ Object.assign(englishUi, {
   "Account ID": "Account ID",
   "System One": "System One",
   Change: "Thay đổi",
+  App: "Ứng dụng",
   Client: "Client",
   Task: "Tác vụ",
   "Join on first sign-in": "Tự tham gia khi đăng nhập lần đầu",
   "Connected by": "Người kết nối",
   "Provider session ended": "Đã kết thúc phiên ở nhà cung cấp",
   "Available to everyone": "Mọi người dùng được",
+  Assistants: "Trợ lý",
+  "Public bots": "Bot công khai",
   Reason: "Lý do",
   Kept: "Giữ nguyên",
   Replaced: "Đã thay",
@@ -2007,7 +2011,7 @@ Object.assign(englishUi, {
   "Changed voice": "Đã đổi Giọng nói",
   "Changed image generation": "Đã đổi Tạo ảnh",
   "Changed OCR": "Đã đổi OCR",
-  "Changed Code Interpreter": "Đã đổi Code Interpreter",
+  "Changed Sandbox": "Đã đổi Sandbox",
   "Changed Chat settings": "Đã đổi cài đặt Chat",
   "Question blocked": "Câu hỏi bị chặn",
   "Blocked by": "Chặn bởi",
@@ -2043,11 +2047,19 @@ Object.assign(englishUi, {
   "Added a credential": "Đã thêm thông tin xác thực",
   "Updated a credential": "Đã sửa thông tin xác thực",
   "Deleted a credential": "Đã xóa thông tin xác thực",
+  "Added a chat bot": "Đã thêm bot chat",
+  "Updated a chat bot": "Đã cập nhật bot chat",
+  "Removed a chat bot": "Đã gỡ bot chat",
+  "Linked an account to a chat bot": "Đã liên kết tài khoản với bot chat",
+  "Unlinked an account from a chat bot": "Đã bỏ liên kết tài khoản với bot chat",
   "Exported the audit log": "Đã xuất nhật ký audit",
   "Access refused": "Bị từ chối truy cập",
   "Read and export who changed sign-in, users, Groups, models, connections and Sources within the organization.":
     "Xem và xuất nhật ký ai đã thay đổi đăng nhập, người dùng, Nhóm, mô hình, kết nối và nguồn dữ liệu trong tổ chức.",
   "Manage MCP servers": "Quản lý máy chủ MCP",
+  "Manage chat bots": "Quản lý bot chat",
+  "Connect, configure, switch on or off and remove the organization's chat bots, such as the Lark bot.":
+    "Kết nối, cấu hình, bật hoặc tắt và gỡ các bot chat của tổ chức, như bot Lark.",
   "Register remote MCP servers, their authentication and OAuth clients, enable their tools and control Group access within the organization.":
     "Đăng ký máy chủ MCP từ xa, cách xác thực và OAuth client của chúng, bật công cụ và kiểm soát quyền truy cập của Nhóm trong tổ chức.",
   "IAM administration": "Quản trị danh tính và quyền truy cập",
@@ -2309,6 +2321,14 @@ Object.assign(englishUi, {
   "Sorts a question before it is answered: small talk, a question or a blocked topic. Needs a model that returns a fixed format.":
     "Phân loại câu hỏi trước khi trả lời: câu xã giao, câu hỏi hay chủ đề bị chặn. Cần model trả đúng định dạng.",
   "Question check model": "Model kiểm tra câu hỏi",
+  "Long conversation summaries": "Tóm tắt hội thoại dài",
+  "Summarizes the earlier turns of a long conversation so the chat model still knows them.":
+    "Tóm tắt phần đầu của hội thoại dài để model chat vẫn nhớ những gì đã trao đổi.",
+  "Long conversation summary model": "Model tóm tắt hội thoại dài",
+  "Agent Builder": "Agent Builder",
+  "Changes an assistant's settings when its editor asks. Needs a model that calls tools.":
+    "Sửa cấu hình trợ lý theo yêu cầu của người đang sửa. Cần model gọi được công cụ.",
+  "Agent Builder model": "Model của Agent Builder",
   "No model chosen; {{model}} is used.": "Chưa chọn mô hình; đang dùng {{model}}.",
   "Meeting minutes": "Biên bản họp",
   "Writes the summary, decisions and action items of a recorded meeting.":
@@ -2386,12 +2406,7 @@ Object.assign(englishUi, {
     "Đã lưu nhà cung cấp. Chưa xác nhận kết nối.",
   "Save provider": "Lưu nhà cung cấp",
   Connections: "Kết nối",
-  "Tools the assistant uses on your behalf. Each connection uses your own account.":
-    "Công cụ bên ngoài trợ lý được dùng thay bạn. Mỗi kết nối dùng tài khoản của riêng bạn.",
-  "No connectors set up for your organization.": "Tổ chức chưa thiết lập kết nối nào.",
   "Disconnect {{name}}": "Ngắt kết nối {{name}}",
-  "The assistant will no longer be able to use {{name}} with your account. Existing conversations stay as they are.":
-    "Trợ lý sẽ không dùng được {{name}} bằng tài khoản của bạn nữa. Các hội thoại cũ vẫn giữ nguyên.",
   "Disconnecting…": "Đang ngắt kết nối…",
   "Danger Zone": "Khu vực nguy hiểm",
   "Delete All Chats": "Xóa mọi hội thoại",

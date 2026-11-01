@@ -1,0 +1,14 @@
+{
+  "resource": "https://mcp.asana.com/v2/mcp",
+  "authorization_servers": [
+    "https://app.asana.com"
+  ],
+  "scopes_supported": [
+    "default"
+  ],
+  "bearer_methods_supported": [
+    "header"
+  ],
+  "resource_documentation": "https://developers.asana.com/docs/using-asanas-mcp-server",
+  "resource_name": "Asana MCP"
+}

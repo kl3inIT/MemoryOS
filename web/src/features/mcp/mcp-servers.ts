@@ -17,3 +17,14 @@ export function invalidateMcpServers(cache: QueryClient, serverId?: string) {
     path && cache.invalidateQueries({ queryKey: listMcpServerOAuthClientsQueryKey({ path }) }),
   ]);
 }
+
+/** The short code a name suggests: its ASCII letters and digits, lowercased, at most 16. */
+export function slugFromName(name: string): string {
+  const ascii = name
+    .normalize("NFD")
+    .replaceAll(/\p{Diacritic}/gu, "")
+    .replaceAll(/[đĐ]/g, "d")
+    .toLowerCase()
+    .replaceAll(/[^a-z0-9]/g, "");
+  return ascii.slice(0, 16) || "mcp";
+}

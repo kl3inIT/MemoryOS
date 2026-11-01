@@ -1,4 +1,4 @@
-lm-studio.svg is from LobeHub Icons (https://github.com/lobehub/lobe-icons), used under the MIT License below.
+lm-studio.svg, gemini.svg, xai.svg and fal.svg are from LobeHub Icons (https://github.com/lobehub/lobe-icons, @lobehub/icons-static-svg 1.95.1 for the last three), used under the MIT License below.
 
 MIT License
 

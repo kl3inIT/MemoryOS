@@ -1,0 +1,14 @@
+/**
+ * The shared kernel: identifier types that every capability carries and none of them owns, and a few technical
+ * utilities that several capabilities repeated word for word (the leased-job pass, SHA-256 hex, LIKE escaping, PDF
+ * text and the file-category SQL rule), the bounded HTTP client for calls to configured endpoints (ADR 0025), and the AES-GCM envelope of stored secrets,
+ * which connectors and channels each use with a key of their own (MEM-246).
+ * Nothing here knows a capability or its data; an identifier that names one module's aggregate, or a rule that
+ * belongs to one module, stays in that module (ADR 0015, widened by the phase 3 owner decision of 2026-09-25).
+ */
+@ApplicationModule(displayName = "Shared kernel", type = ApplicationModule.Type.CLOSED, allowedDependencies = {})
+@NullMarked
+package io.memoryos.shared;
+
+import org.jspecify.annotations.NullMarked;
+import org.springframework.modulith.ApplicationModule;

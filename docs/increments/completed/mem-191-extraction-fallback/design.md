@@ -14,7 +14,7 @@ Spec cấm việc này hai lần: *"No Docling-to-Tika fallback exists"* và *"T
 
 **Onyx** (`backend/onyx/file_processing/extract_file_text.py`, `_extract_text_and_images`): khi có khoá Unstructured thì gọi dịch vụ đó trước; bất kỳ lỗi nào cũng được log rồi rơi về bộ đọc thường — pdfium cho PDF, python-docx, python-pptx. Đúng khuôn chủ sản phẩm yêu cầu, và là repo tham chiếu chính của dự án.
 
-**RAGFlow** đã được increment [Tasco scanned-PDF OCR](../../active/tasco-scanned-pdf-ocr/design.md) nghiên cứu và loại: từ điển OCR DeepDoc thiếu ký tự tiếng Việt cơ bản, adapter Docling của họ làm mất nguồn gốc bảng.
+**RAGFlow** đã được increment [Tasco scanned-PDF OCR](../../completed/tasco-scanned-pdf-ocr/design.md) nghiên cứu và loại: từ điển OCR DeepDoc thiếu ký tự tiếng Việt cơ bản, adapter Docling của họ làm mất nguồn gốc bảng.
 
 ## Chỗ khác Onyx, và vì sao
 

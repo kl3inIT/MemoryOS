@@ -10,7 +10,9 @@ import { gzipSync } from "node:zlib";
 // Ratchet: lower it when the initial load shrinks, never raise it to absorb an eager import.
 // 317.0 KiB (324,600 bytes) with the Lark connector: a provider adds its translations, generated query options and
 // setup route to the initial load by design, which used up the growth margin; the margin is restored, not widened.
-const INITIAL_GZIP_BUDGET_BYTES = 331_000;
+// 323.3 KiB with radix-ui 1.8.1, which assistant-ui 0.15.29 requires (MEM-275): the older Radix measured 322.8 KiB, so
+// the upgrade alone adds 0.5 KiB, and keeping 1.6.7 would ship a second Radix in the chat chunk instead.
+const INITIAL_GZIP_BUDGET_BYTES = 332_000;
 
 const dist = join(import.meta.dirname, "..", "dist");
 const html = readFileSync(join(dist, "index.html"), "utf8");

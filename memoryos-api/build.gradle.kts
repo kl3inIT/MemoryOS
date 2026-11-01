@@ -1,0 +1,96 @@
+plugins {
+    java
+    id("memoryos.java-conventions")
+    alias(libs.plugins.spring.boot)
+    alias(libs.plugins.spring.dependency.management)
+}
+
+// Keep the SDK aligned with the instrumentation train; Boot still owns autoconfiguration.
+extra["opentelemetry.version"] = libs.versions.opentelemetry.get()
+
+// Springdoc uses the Jakarta artifact; the non-Jakarta jar contains duplicate annotation classes.
+configurations.configureEach {
+    exclude(group = "io.swagger.core.v3", module = "swagger-annotations")
+}
+
+dependencies {
+    implementation(project(":memoryos-core"))
+    implementation(libs.commons.csv)
+    implementation(project(":memoryos-integration-lark"))
+    runtimeOnly(project(":memoryos-integration-opensandbox"))
+    implementation(project(":memoryos-integration-google"))
+    implementation(project(":memoryos-integration-microsoft"))
+    // MEM-263: the Zalo bot's adapter, through which an administrator's token is checked.
+    runtimeOnly(project(":memoryos-integration-zalo"))
+    runtimeOnly(project(":memoryos-integration-whatsapp"))
+    implementation(project(":memoryos-extraction"))
+    implementation(platform(libs.spring.ai.bom))
+    implementation(libs.embabel.platform)
+    implementation(libs.embabel.openai)
+    // Embabel's setup-required placeholder: the platform starts with no model, since every model is a catalog one.
+    implementation(libs.embabel.byok)
+    implementation(libs.spring.ai.model.tool)
+    // MEM-114 MCP endpoint: Spring AI's stateless server on the SDK version the catalog pins, and its rate limit.
+    implementation(libs.spring.ai.starter.mcp.server.webmvc)
+    implementation(libs.mcp)
+    implementation(libs.bucket4j.core)
+    implementation(libs.caffeine)
+    implementation(platform(libs.otel.instrumentation.bom))
+    implementation(libs.spring.boot.starter.opentelemetry)
+    implementation(libs.otel.logback.appender)
+    runtimeOnly(libs.micrometer.registry.otlp)
+    implementation(libs.spring.boot.starter.actuator)
+    implementation(libs.spring.boot.starter.webmvc)
+    implementation(libs.spring.boot.starter.validation)
+    implementation(libs.springdoc.webmvc)
+    implementation(libs.spring.boot.starter.oauth2.resource.server)
+    implementation(libs.spring.boot.starter.oauth2.client)
+    implementation(libs.spring.boot.starter.jdbc)
+    implementation(libs.spring.boot.starter.data.redis)
+    implementation(libs.spring.boot.starter.data.jpa)
+    implementation(libs.spring.boot.starter.flyway)
+    implementation(libs.spring.boot.starter.session.jdbc)
+    implementation(libs.spring.boot.starter.websocket)
+    runtimeOnly(libs.flyway.database.postgresql)
+    runtimeOnly(libs.postgresql)
+
+    testImplementation(libs.spring.boot.starter.actuator.test)
+    testImplementation(libs.testcontainers.junit.jupiter)
+    testImplementation(libs.testcontainers.postgresql)
+    testImplementation(libs.opensearch.java)
+    testImplementation(libs.spring.boot.starter.webmvc.test)
+    testImplementation(libs.spring.security.test)
+    // In-process Streamable HTTP MCP servers for administration tests.
+    testImplementation(libs.mcp)
+    testRuntimeOnly(libs.junit.platform.launcher)
+}
+
+tasks.named<Test>("test") {
+    // Cached integration contexts own token vocabularies, HTTP servers and pools.
+    systemProperty("spring.test.context.cache.maxSize", "2")
+    // Two cached full application contexts no longer fit Gradle's 512 MiB test default.
+    maxHeapSize = "1g"
+    inputs.file(rootProject.file("openapi.yml"))
+    inputs.property(
+        "memoryosOpenApiWrite",
+        providers.environmentVariable("MEMORYOS_OPENAPI_WRITE").orElse("false"),
+    )
+    inputs.property("memoryosChatLive", providers.environmentVariable("MEMORYOS_CHAT_LIVE_TEST").orElse("false"))
+    inputs.property("memoryosChatGroundingLive", providers.environmentVariable("MEMORYOS_CHAT_GROUNDING_LIVE_TEST").orElse("false"))
+    inputs.property("memoryosChatCorpusLive", providers.environmentVariable("MEMORYOS_CHAT_CORPUS_TEST").orElse("false"))
+    val corpus = providers.environmentVariable("MEMORYOS_CHAT_CORPUS_FILE")
+    inputs.property("memoryosChatCorpusFile", corpus.orElse(""))
+    inputs.files(corpus).withPropertyName("memoryosChatCorpusContents").withPathSensitivity(PathSensitivity.NONE).optional()
+    val liveCorpus = providers.environmentVariable("MEMORYOS_CHAT_CORPUS_TEST").map { it == "true" }.orElse(false)
+    outputs.upToDateWhen { !liveCorpus.get() }
+    outputs.doNotCacheIf("Live corpus measurements require real provider calls") { liveCorpus.get() }
+}
+
+springBoot {
+    mainClass = "io.memoryos.api.MemoryOsApiApplication"
+}
+
+// A local run is a development run; staging and production images select their own profiles.
+tasks.bootRun {
+    systemProperty("spring.profiles.active", "development")
+}

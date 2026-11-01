@@ -16,13 +16,14 @@ function adminAccess(capabilities: ApplicationCapability[]) {
   return renderHook(() => useAdminAccess(), { wrapper }).result.current;
 }
 
-it("sends every authenticated member to their groups", () => {
-  expect(adminAccess([])).toMatchObject({
-    canAccessAdmin: true,
-    adminEntryPath: "/admin/groups",
-  });
-});
-
-it("prefers a privileged administration page over the member Groups fallback", () => {
-  expect(adminAccess(["CHAT_HISTORY_READ", "AUDIT_READ"]).adminEntryPath).toBe("/admin/audit");
+it.each<[string, ApplicationCapability[], string]>([
+  ["sends every authenticated member to their groups", [], "/admin/groups"],
+  [
+    "prefers a privileged administration page over the member Groups fallback",
+    ["CHAT_HISTORY_READ", "AUDIT_READ"],
+    "/admin/audit",
+  ],
+  ["sends a user-only administrator to users", ["USERS_MANAGE"], "/admin/users"],
+])("%s", (_, capabilities, adminEntryPath) => {
+  expect(adminAccess(capabilities)).toMatchObject({ canAccessAdmin: true, adminEntryPath });
 });

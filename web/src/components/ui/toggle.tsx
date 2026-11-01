@@ -11,6 +11,11 @@ const toggleVariants = cva(
         default: "bg-transparent",
         outline: "border border-input bg-transparent hover:bg-muted",
       },
+      /** `soft` shows the focus as a button does: a faint ring and no dark border. */
+      focus: {
+        ring: "",
+        soft: "focus-visible:border-transparent focus-visible:ring-focus-ring/40",
+      },
       size: {
         default:
           "h-8 min-w-8 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
@@ -21,6 +26,7 @@ const toggleVariants = cva(
     defaultVariants: {
       variant: "default",
       size: "default",
+      focus: "ring",
     },
   },
 );
@@ -29,12 +35,13 @@ function Toggle({
   className,
   variant = "default",
   size = "default",
+  focus,
   ...props
 }: React.ComponentProps<typeof TogglePrimitive.Root> & VariantProps<typeof toggleVariants>) {
   return (
     <TogglePrimitive.Root
       data-slot="toggle"
-      className={cn(toggleVariants({ variant, size, className }))}
+      className={cn(toggleVariants({ variant, size, focus, className }))}
       {...props}
     />
   );

@@ -34,20 +34,33 @@ it("keeps original Unicode offsets and bounds rendered matches", () => {
   ).toHaveLength(500);
 });
 
-it("groups loaded titles by local calendar day and preserves stable session identities", () => {
+it("groups topics into LobeHub's time buckets by last activity and keeps their identities", () => {
   const now = new Date(2026, 8, 13, 10);
+  const at = (...parts: [number, number, number, number?]) => new Date(...parts).toISOString();
   const items = [
-    { id: "old", title: "HUT 2025", updatedAt: new Date(2026, 7, 1).toISOString() },
-    { id: "today", title: "HUT Q1", updatedAt: new Date(2026, 8, 13, 9).toISOString() },
-    { id: "yesterday", title: "Report", updatedAt: new Date(2026, 8, 12, 23).toISOString() },
+    { id: "lastYear", title: "HUT 2025", updatedAt: at(2025, 11, 30) },
+    { id: "august", title: "Kế hoạch", updatedAt: at(2026, 7, 1) },
+    { id: "today", title: "HUT Q1", updatedAt: at(2026, 8, 13, 9) },
+    { id: "thisMonth", title: "Ngày phép", updatedAt: at(2026, 8, 2) },
+    { id: "week", title: "Công tác phí", updatedAt: at(2026, 8, 8) },
+    { id: "yesterday", title: "Report", updatedAt: at(2026, 8, 12, 23) },
   ];
-  expect(groupThreadTitles(items, now).map((group) => group.label)).toEqual([
+  const groups = groupThreadTitles(items, now);
+  expect(groups.map((group) => group.kind)).toEqual([
     "today",
     "yesterday",
-    "earlier",
+    "week",
+    "thisMonth",
+    "month",
+    "year",
   ]);
-  expect(
-    groupThreadTitles(items, now).flatMap((group) => group.items.map((item) => item.id)),
-  ).toEqual(["today", "yesterday", "old"]);
-  expect(items[0]?.id).toBe("old");
+  expect(groups.flatMap((group) => group.items.map((item) => item.id))).toEqual([
+    "today",
+    "yesterday",
+    "week",
+    "thisMonth",
+    "august",
+    "lastYear",
+  ]);
+  expect(items[0]?.id).toBe("lastYear");
 });

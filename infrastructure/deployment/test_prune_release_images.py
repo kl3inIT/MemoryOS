@@ -1,9 +1,10 @@
 """Superseded release images are removed; the running release, its predecessor and the operator's
 images are not.
 
-`docker image prune -a` on staging removed the interpreter executor, which no container runs
+`docker image prune -a` on staging removed the interpreter executor, which no container ran
 between Python executions. The interpreter answered 503 and the next deployment refused to replace
-a runtime it could not call healthy. This script keeps what the accepted releases name instead.
+a runtime it could not call healthy. The sandbox computer is run the same way, only while a
+conversation has a sandbox. This script keeps what the accepted releases name instead.
 """
 
 import json
@@ -35,7 +36,7 @@ class PruneReleaseImagesTest(unittest.TestCase):
         self.images = []
         for release in ("old", "previous", "current"):
             letter = {"old": "1", "previous": "2", "current": "3"}[release]
-            for index, component in enumerate(("api", "worker", "web", "interpreter", "interpreter-executor")):
+            for index, component in enumerate(("api", "worker", "web", "sandbox", "sandbox-computer")):
                 self.images.append({
                     "id": sha(chr(ord("a") + index) if release == "current" else letter + str(index))[:71].ljust(71, "0"),
                     "repository": "ghcr.io/kl3init/memoryos-" + component,
@@ -123,13 +124,13 @@ else:
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.removed(), self.ids("old"))
 
-    def test_the_executor_is_kept_though_no_container_runs_it(self):
+    def test_the_computer_is_kept_though_no_container_runs_it(self):
         self.run_script()
-        executors = {image["id"] for image in self.images
-                     if image.get("component") == "interpreter-executor"
+        computers = {image["id"] for image in self.images
+                     if image.get("component") == "sandbox-computer"
                      and image["release"] in ("current", "previous")}
-        self.assertEqual(len(executors), 2)
-        self.assertFalse(executors & self.removed())
+        self.assertEqual(len(computers), 2)
+        self.assertFalse(computers & self.removed())
 
     def test_operator_images_are_never_considered(self):
         self.run_script()

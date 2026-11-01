@@ -1,9 +1,9 @@
 {
   "name": "archify",
-  "version": "3.0.1",
+  "version": "3.2.0",
   "private": true,
   "type": "module",
-  "description": "JSON-IR diagram renderers (architecture / workflow / sequence / dataflow / lifecycle).",
+  "description": "JSON-IR diagram renderers (architecture / workflow / sequence / dataflow / lifecycle / erd / class / tree / timeline / waterfall).",
   "license": "MIT",
   "bin": {
     "archify": "./bin/archify.mjs"
@@ -11,30 +11,7 @@
   "engines": {
     "node": ">=18"
   },
-  "scripts": {
-    "generate:viewer": "node ../scripts/generate-viewer.mjs",
-    "check:viewer": "node ../scripts/generate-viewer.mjs --check",
-    "generate:brand-marks": "node scripts/generate-brand-marks.mjs",
-    "check:brand-marks": "node scripts/generate-brand-marks.mjs --check",
-    "generate:validators": "node scripts/generate-validators.mjs",
-    "check:validators": "node scripts/generate-validators.mjs --check",
-    "check:release-identity": "node ../scripts/check-release-identity.mjs",
-    "build:gallery": "node ../scripts/build-gallery.mjs ../docs",
-    "build:guide": "node ../scripts/build-guide.mjs ../docs/guide.html",
-    "build:start": "node ../scripts/build-start.mjs ../docs/start.html",
-    "build:readme-showcase": "node ../scripts/build-readme-showcase.mjs",
-    "test:webm": "node test/webm-artifact.smoke.mjs && node --test test/site-language-integration.mjs",
-    "test:browser": "node ../scripts/run-browser-tests.mjs",
-    "test": "npm run check:viewer && npm run check:brand-marks && npm run check:validators && npm run check:release-identity && node test/golden.mjs && node ../scripts/run-tests.mjs",
-    "render:examples": "node scripts/render-examples.mjs ../examples"
-  },
-  "devDependencies": {
-    "ajv": "8.20.0",
-    "parse5": "8.0.1",
-    "saxes": "6.0.0",
-    "simple-icons": "16.33.0"
-  },
   "overrides": {
-    "fast-uri": "3.1.8"
+    "fast-uri": "^3.1.7"
   }
 }

@@ -12,6 +12,7 @@ import type { Result as SearchResult, Section } from "@/lib/hey-api/types.gen";
 import { cn } from "@/lib/utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useLinkedDocument } from "./linked-document";
+import { highlightTerms } from "./search-presentation";
 import { SearchBox } from "./search-box";
 import { SearchLanding } from "./search-landing";
 import { searchSourceOptions, searchStatus } from "./search-options";
@@ -97,6 +98,7 @@ function AuthorizedSearchPage() {
       mediaType: item.mediaType,
       sourceTypes: item.sourceTypes,
       providerUrl: item.providerUrl,
+      terms: highlightTerms(request?.query ?? ""),
       matches: item.sections.map((candidate) => ({
         matchingOrdinal: candidate.matchingOrdinal,
         from: Math.max(0, candidate.matchingOrdinal - 1),

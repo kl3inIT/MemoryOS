@@ -294,12 +294,9 @@ def wait_until_searchable(
 # What a benchmark agent copies from the built-in assistant, so only the layout's flags differ.
 AGENT_FIELDS = (
     "instructions",
-    "taskPrompt",
     "tools",
-    "replaceBaseSystemPrompt",
-    "contextTokenLimit",
-    "outputTokenLimit",
     "modelConfigurationId",
+    "reasoningEffort",
 )
 
 

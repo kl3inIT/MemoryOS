@@ -162,6 +162,9 @@ export const vi = {
     lastGroup:
       "Người dùng tiêu chuẩn phải thuộc ít nhất một nhóm. Hãy thêm họ vào nhóm khác trước khi xóa tư cách thành viên cuối cùng.",
     idpAliasConflict: "Đã có nhà cung cấp với alias này.",
+    mcpOAuthClientLabelTaken:
+      "Ứng dụng này đã có một ứng dụng OAuth mang nhãn đó. Hãy đặt nhãn khác.",
+    mcpSlugTaken: "Mã ngắn này đã được một ứng dụng MCP khác dùng.",
     idpDiscoveryFailed: "Không khám phá được endpoints từ issuer này. Kiểm tra URL rồi thử lại.",
     languageInvalid: "Chọn Tiếng Việt hoặc English.",
     unexpected: "Đã có lỗi xảy ra. Vui lòng thử lại.",

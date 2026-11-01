@@ -17,9 +17,9 @@ const MAX_BOXES = 60;
 
 /**
  * Reads the location recorded in chunk provenance. The JSON holds the MemoryOS Document locations every
- * extraction adapter writes (`page_no`/`bbox` on PDFs, `sheetName` on workbooks, table rows wrapping the
- * block location in `source` with their `tableRow`); a block has one location object or a list of them, so
- * every field is optional and malformed input yields no location.
+ * extraction adapter writes (`page_no`/`bbox` on PDFs and pictures, `sheetName` on workbooks, table rows
+ * wrapping the block location in `source` with their `tableRow`); a block has one location object or a list
+ * of them, so every field is optional and malformed input yields no location.
  *
  * A region is read once however many passages record it. Every row of a table wraps that table's own box,
  * so a cited table returns the same region for each of its rows; drawing it once per row stacks dozens of
@@ -57,7 +57,9 @@ export function readSourceLocation(provenanceJson: readonly string[]): SourceLoc
       pagesFound++;
       pages.add(page as number);
       const box = readBox(page as number, record.bbox);
-      const region = box && `${box.page}:${box.left}:${box.top}:${box.right}:${box.bottom}`;
+      const region =
+        box &&
+        `${box.page}:${box.left}:${box.top}:${box.right}:${box.bottom}:${box.frame?.width}:${box.frame?.height}`;
       if (box && region && !regions.has(region) && boxes.length < MAX_BOXES) {
         regions.add(region);
         boxes.push(box);
@@ -82,9 +84,18 @@ export function readSourceLocation(provenanceJson: readonly string[]): SourceLoc
 
 function readBox(page: number, value: unknown): ProvenanceBox | undefined {
   if (!value || typeof value !== "object") return undefined;
-  const { l, t, r, b, coord_origin: origin } = value as Record<string, unknown>;
-  if (![l, t, r, b].every((n) => typeof n === "number" && Number.isFinite(n))) return undefined;
-  return {
+  const {
+    l,
+    t,
+    r,
+    b,
+    coord_origin: origin,
+    frame_width: width,
+    frame_height: height,
+  } = value as Record<string, unknown>;
+  const finite = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n);
+  if (![l, t, r, b].every(finite)) return undefined;
+  const box: ProvenanceBox = {
     page,
     left: l as number,
     top: t as number,
@@ -92,6 +103,11 @@ function readBox(page: number, value: unknown): ProvenanceBox | undefined {
     bottom: b as number,
     origin: origin === "TOPLEFT" ? "TOPLEFT" : "BOTTOMLEFT",
   };
+  if (width === undefined && height === undefined) return box;
+  // A box that names a frame is in that frame or nowhere: read as user space it would be drawn elsewhere.
+  if (!finite(width) || !finite(height) || width <= 0 || height <= 0 || origin !== "TOPLEFT")
+    return undefined;
+  return { ...box, frame: { width, height } };
 }
 
 /**

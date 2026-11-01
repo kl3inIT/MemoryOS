@@ -116,5 +116,5 @@ Markdown link, and say when nothing was found without suggesting that a restrict
 ## Data leaving the Tenant
 
 Every passage returned goes to the app's provider, an external model. Until
-[MEM-134](../increments/active/mem-134-external-data-gate/design.md) keeps an `INTERNAL_ONLY` Source out of the
+[MEM-134](../increments/completed/mem-134-external-data-gate/design.md) keeps an `INTERNAL_ONLY` Source out of the
 endpoint, an enabled endpoint exposes every Source the member can read; the switch is off by default.

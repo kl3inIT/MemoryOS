@@ -27,7 +27,7 @@ Các model OCR chính hãng khác cùng thời điểm: MinerU2.5-Pro, DeepSeek-
 
 **Mất bbox.** Docling có VLM pipeline gọi được model qua API OpenAI-compatible (`DOCLING_SERVE_ENABLE_REMOTE_SERVICES`, `DOCLING_SERVE_CUSTOM_VLM_PRESETS`) và không có preset sẵn cho PaddleOCR-VL. Khi model trả Markdown, Docling ghi mọi bbox thành `0,0,0,0` và chỉ giữ số trang (`docling/pipeline/vlm_pipeline.py`, nhánh `ResponseFormat.MARKDOWN`). Chỉ các định dạng DocTags, DeepSeek-OCR, dots, MinerU2, Chandra và Nemotron giữ được toạ độ.
 
-MemoryOS cần bbox: [document viewer](../../active/document-viewer/design.md) tô sáng trích dẫn PDF bằng `page_no` + `bbox`, và [Document contract](../../../specs/document.md) liệt kê `prov.bbox` là khoá mà Chat và Search đọc.
+MemoryOS cần bbox: [document viewer](../../completed/document-viewer/design.md) tô sáng trích dẫn PDF bằng `page_no` + `bbox`, và [Document contract](../../../specs/document.md) liệt kê `prov.bbox` là khoá mà Chat và Search đọc.
 
 **Mất orientation.** Orientation wrapper của `memoryos_docling` chỉ bọc pipeline PDF chuẩn. Đi qua VLM pipeline thì trang xoay không được sửa.
 
@@ -134,7 +134,7 @@ PDF là "scan" khi mật độ chữ của lớp chữ dưới ngưỡng 100 ký
 
 ## Làm cứng sau lần chạy đầu (2026-09-24)
 
-**Bbox trong toạ độ người dùng của PDF.** Trình xem nhận `view` của trang = CropBox `[x0, y0, x1, y1]` (trục y hướng lên) và `pdfBoxRect` trừ `x0`, `y0` khỏi box. Bản đầu ghi `TOPLEFT` tính từ góc CropBox, nên PDF có CropBox không bắt đầu ở (0, 0) bị tô lệch. Nay `PdfLayout` ghi cho từng trang góc dưới trái `(x0, y0)`, chiều rộng và cao của CropBox đúng như lưu (không đổi chiều) và `/Rotate`; `pages[]` của Document không đổi. Trang không xoay: `l = x0 + px1·sx`, `r = x0 + px2·sx`, `t = y0 + h − py1·sy`, `b = y0 + h − py2·sy`, với `sx = w / width ảnh`, `sy = h / height ảnh`, `coord_origin: BOTTOMLEFT`. Trang có `/Rotate` 90, 180 hoặc 270 chỉ ghi `page_no`: trình xem không tô trang xoay, và trích dẫn không định vị được thì không vẽ ([document viewer](../../active/document-viewer/design.md)). Hợp đồng `ExtractedDocument.Page` không đổi.
+**Bbox trong toạ độ người dùng của PDF.** Trình xem nhận `view` của trang = CropBox `[x0, y0, x1, y1]` (trục y hướng lên) và `pdfBoxRect` trừ `x0`, `y0` khỏi box. Bản đầu ghi `TOPLEFT` tính từ góc CropBox, nên PDF có CropBox không bắt đầu ở (0, 0) bị tô lệch. Nay `PdfLayout` ghi cho từng trang góc dưới trái `(x0, y0)`, chiều rộng và cao của CropBox đúng như lưu (không đổi chiều) và `/Rotate`; `pages[]` của Document không đổi. Trang không xoay: `l = x0 + px1·sx`, `r = x0 + px2·sx`, `t = y0 + h − py1·sy`, `b = y0 + h − py2·sy`, với `sx = w / width ảnh`, `sy = h / height ảnh`, `coord_origin: BOTTOMLEFT`. Trang có `/Rotate` 90, 180 hoặc 270 chỉ ghi `page_no`: trình xem không tô trang xoay, và trích dẫn không định vị được thì không vẽ ([document viewer](../../completed/document-viewer/design.md)). Hợp đồng `ExtractedDocument.Page` không đổi.
 
 **Giới hạn số request đồng thời.** Mỗi worker chạy tới `MEMORYOS_WORKER_INGESTION_BATCH_SIZE` (mặc định 8) thao tác cùng lúc, và staging dùng chung GPU với production. Tám bản scan 200 trang gửi cùng lúc, ở 1,5–2,3 s/trang, đều vượt hạn 10 phút, và timeout là lỗi cuối. Nay client giữ một `Semaphore` công bằng, `max-concurrent-requests` mặc định 2 (1–16, `MEMORYOS_EXTRACTION_PADDLEOCR_VL_MAX_CONCURRENT_REQUESTS`); request chờ permit, hạn chót tính từ lúc có permit, nên chờ hàng không làm tài liệu hết hạn. Log ghi `queued_ms`. Timeout mặc định lên 30 phút.
 

@@ -7,6 +7,11 @@ const nativeSelectVariants = cva(
   "w-full min-w-0 rounded-lg border border-border-subtle bg-surface-raised px-3 font-main-ui-body text-content-primary transition-[color,background-color,border-color,box-shadow] duration-150 outline-none hover:border-border-default focus-visible:border-focus-ring focus-visible:shadow-[inset_0_0_0_2px_var(--surface-sunken)] disabled:cursor-not-allowed disabled:border-transparent disabled:bg-surface-sunken disabled:text-content-disabled aria-invalid:border-status-danger-border",
   {
     variants: {
+      /** `quiet` leaves the frame as it is on focus: no change of border and no inset. */
+      focus: {
+        frame: "",
+        quiet: "focus-visible:border-border-subtle focus-visible:shadow-none",
+      },
       size: {
         sm: "h-[var(--control-height-sm)]",
         md: "h-[var(--control-height-md)]",
@@ -14,6 +19,7 @@ const nativeSelectVariants = cva(
       },
     },
     defaultVariants: {
+      focus: "frame",
       size: "md",
     },
   },
@@ -26,13 +32,13 @@ type NativeSelectProps = Omit<React.ComponentProps<"select">, "size"> &
  * The browser's own select in the control frame. MemoryOS keeps the platform arrow and puts `className` on the
  * `<select>` itself (the shadcn version wraps it and draws a chevron), so width and density stay with the caller.
  */
-function NativeSelect({ className, size = "md", ...props }: NativeSelectProps) {
+function NativeSelect({ className, size = "md", focus, ...props }: NativeSelectProps) {
   return (
     <select
       {...props}
       data-slot="native-select"
       data-size={size}
-      className={cn(nativeSelectVariants({ size }), className)}
+      className={cn(nativeSelectVariants({ size, focus }), className)}
     />
   );
 }

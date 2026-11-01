@@ -8,6 +8,7 @@ import { DocumentSourceIcon } from "@/features/documents/document-source-icon";
 import { documentSourceLabels } from "@/features/documents/document-source-presentation";
 import { ProviderLink } from "@/features/documents/provider-link";
 import { friendlyMediaType } from "@/features/documents/document-source-presentation";
+import { warmOriginal } from "@/features/preview/warm-original";
 import { createSearchSnippet } from "./search-presentation";
 
 type SearchResultCardProps = {
@@ -35,6 +36,8 @@ export function SearchResultCard({ item, query, onOpen }: SearchResultCardProps)
   const updatedAt = readableDate(item.updatedAt);
   const labels = documentSourceLabels(item.mediaType, item.sourceTypes);
   const [best, ...related] = item.sections;
+  // Pointing at or tabbing to a result loads its reader's code, so a click has only the file to wait for.
+  const warm = () => warmOriginal(item.title, item.mediaType);
 
   function open(section: SearchSection | undefined, event: MouseEvent<HTMLButtonElement>) {
     onOpen(item, section, event.currentTarget);
@@ -99,6 +102,8 @@ export function SearchResultCard({ item, query, onOpen }: SearchResultCardProps)
           <button
             type="button"
             className="max-w-full cursor-pointer rounded-sm text-left underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-focus-ring/30 focus-visible:outline-hidden"
+            onPointerEnter={warm}
+            onFocus={warm}
             onClick={(event) => open(best, event)}
           >
             <span className="line-clamp-2 break-words">{title}</span>
@@ -122,6 +127,8 @@ export function SearchResultCard({ item, query, onOpen }: SearchResultCardProps)
             type="button"
             aria-label={matchName(0)}
             className={cn(matchButton, "mt-1.5 block py-1.5")}
+            onPointerEnter={warm}
+            onFocus={warm}
             onClick={(event) => open(best, event)}
           >
             <Snippet
@@ -140,6 +147,8 @@ export function SearchResultCard({ item, query, onOpen }: SearchResultCardProps)
                   type="button"
                   aria-label={matchName(index + 1)}
                   className={cn(matchButton, "flex items-start gap-1.5 py-1")}
+                  onPointerEnter={warm}
+                  onFocus={warm}
                   onClick={(event) => open(section, event)}
                 >
                   <CornerDownRight

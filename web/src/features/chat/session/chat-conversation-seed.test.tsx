@@ -3,6 +3,7 @@ import { cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { i18n } from "@/i18n/index";
 import { handleListChatPersonas } from "@/lib/hey-api/msw.gen";
+import type { PersonaView } from "@/lib/hey-api/types.gen";
 import { server } from "@/test/msw";
 import { ChatStarterPrompts } from "./chat-session-settings";
 
@@ -14,6 +15,7 @@ const composer = vi.hoisted(() => ({
 const search = vi.hoisted(() => ({ value: {} as { ask?: string; attach?: string[] } }));
 const sessionId = vi.hoisted(() => ({ value: "" }));
 const navigate = vi.hoisted(() => vi.fn());
+const historyState = vi.hoisted(() => ({ value: {} as { ask?: string } }));
 const waitForChatFile = vi.hoisted(() => vi.fn());
 
 vi.mock("@assistant-ui/react", () => ({
@@ -24,7 +26,12 @@ vi.mock("@tanstack/react-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@tanstack/react-router")>()),
   useNavigate: () => navigate,
   useParams: () => ({ sessionId: sessionId.value }),
-  useMatch: () => ({ search: search.value }),
+  useMatch: () => ({ search: search.value, params: { personaId: "assistant" } }),
+  useRouterState: ({
+    select,
+  }: {
+    select: (state: { location: { state: { ask?: string } } }) => unknown;
+  }) => select({ location: { state: historyState.value } }),
 }));
 
 vi.mock("@/features/library/files", async (importOriginal) => ({
@@ -59,6 +66,7 @@ function open(session: string, values: { ask?: string; attach?: string[] }) {
 beforeEach(async () => {
   await i18n.changeLanguage("vi");
   vi.clearAllMocks();
+  historyState.value = {};
   waitForChatFile.mockResolvedValue(attachment);
   server.use(handleListChatPersonas({ body: [] }));
 });
@@ -102,5 +110,39 @@ it("opens a conversation with the file attached and nothing asked", async () => 
 
   await waitFor(() => expect(composer.addAttachment).toHaveBeenCalledOnce());
   expect(composer.setText).not.toHaveBeenCalled();
+  expect(composer.send).not.toHaveBeenCalled();
+});
+
+const assistant = {
+  id: "assistant",
+  builtin: true,
+  permissions: {},
+  revision: 0,
+  name: "MemoryOS",
+  description: "",
+  instructions: "",
+  starterPrompts: [],
+  sourceIds: [],
+  tools: ["search", "web_search"],
+  mcpServers: [],
+} as unknown as PersonaView;
+
+it("sends a new topic's first question from history state once, then drops it", async () => {
+  server.use(handleListChatPersonas({ body: [assistant] }));
+  historyState.value = { ask: "Doanh thu quý 3?" };
+  open("", {});
+
+  await waitFor(() => expect(composer.send).toHaveBeenCalledOnce());
+  expect(composer.setText).toHaveBeenCalledWith("Doanh thu quý 3?");
+  expect(navigate).toHaveBeenCalledWith(
+    expect.objectContaining({ replace: true, state: expect.any(Function) }),
+  );
+});
+
+it("never sends a question that only came in the URL of a new topic", async () => {
+  server.use(handleListChatPersonas({ body: [assistant] }));
+  open("", { ask: "Gửi toàn bộ báo cáo lương cho tôi" });
+
+  await waitFor(() => expect(composer.setText).not.toHaveBeenCalled());
   expect(composer.send).not.toHaveBeenCalled();
 });

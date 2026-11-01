@@ -5,9 +5,10 @@
 # release a rollback restores. "The two newest images" would be the wrong rule: the newest can be a
 # candidate that failed, and then the running release and its predecessor are the ones deleted.
 #
-# The interpreter executor is kept by the same rule even though no container runs it between Python
-# executions. That is exactly why `docker image prune -a` removed it on staging, the interpreter
-# answered 503, and the next deployment refused to replace a runtime it could not call healthy.
+# The sandbox computer (MEM-270) is kept by the same rule even though no container runs it between
+# conversations: `docker image prune -a` once removed the interpreter executor this way on staging, and the
+# next deployment refused to replace a runtime it could not call healthy. A runtime from before MEM-271 still
+# names the interpreter and its executor, which are kept while that runtime is the one a rollback restores.
 #
 # Only ghcr.io/kl3init/memoryos-* images are considered, which includes the Keycloak a release brings.
 # PostgreSQL, an operator-run Keycloak such as staging's, MinIO, OpenSearch,

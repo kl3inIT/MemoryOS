@@ -3,7 +3,9 @@ import { useAuiState } from "@assistant-ui/react";
 import {
   Blocks,
   Brain,
+  FilePen,
   FileText,
+  FileUp,
   Globe,
   ImageIcon,
   Search,
@@ -24,6 +26,7 @@ import { DocumentSourceIcon } from "@/features/documents/document-source-icon";
 import { spokenDuration } from "./chat-duration";
 import type { ChatSource } from "@/features/chat/sources/chat-evidence";
 import { parseMcpToolName } from "@/features/mcp/mcp-connections";
+import type { CodeRun } from "@/features/chat/interpreter/chat-code";
 import { ChatMcpToolStep } from "@/features/chat/mcp/chat-mcp-step";
 import {
   isInternalSearch,
@@ -75,7 +78,13 @@ function toolIcon(name: string) {
     case "edit_image":
       return <ImageIcon />;
     case "run_python":
+    case "bash":
+    case "bash_output":
       return <SquareTerminal />;
+    case "edit_file":
+      return <FilePen />;
+    case "publish_file":
+      return <FileUp />;
     default:
       return parseMcpToolName(name) ? <Blocks /> : <Wrench />;
   }
@@ -191,6 +200,13 @@ export function ChatToolStep({ part }: { part: ToolPart }) {
   );
   const citationIds = [...new Set([...progress.citations, ...(lateCitations ?? [])])];
   const messageRunning = useAuiState((state) => state.message.status?.type === "running");
+  // MEM-270: a sandbox command is titled by what the model said it does.
+  const commandTitle = useAuiState(
+    (state) =>
+      (state.message.metadata.custom.codeRuns as Record<string, CodeRun> | undefined)?.[
+        part.toolCallId
+      ]?.title,
+  );
   const state = toolState(part, messageRunning);
   const cited = citationIds.flatMap((id) => {
     const source = sources.find((candidate) => candidate.citationId === id);
@@ -238,10 +254,17 @@ export function ChatToolStep({ part }: { part: ToolPart }) {
     <ActivityStep
       icon={toolIcon(part.toolName)}
       status={state}
-      title={stepTitle(ui, part, progress, cited, state)}
+      title={
+        part.toolName === "bash" && commandTitle
+          ? commandTitle
+          : stepTitle(ui, part, progress, cited, state)
+      }
     >
       {part.toolName === "run_python" && (
         <ChatCodeStep toolCallId={part.toolCallId} state={state} />
+      )}
+      {(part.toolName === "bash" || part.toolName === "publish_file") && (
+        <ChatCodeStep toolCallId={part.toolCallId} state={state} language="bash" />
       )}
       {(queries.length > 0 || reading.length > 0 || noResults) && (
         <div className="flex flex-col gap-1.5 text-xs">

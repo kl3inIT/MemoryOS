@@ -1,0 +1,14 @@
+# Redis is reached over TLS with a private certificate authority, so the trust material has to be
+# stated here as well: with ssl.enabled and no bundle the client trusts the system store alone and
+# every connection fails. The launcher stages MEMORYOS_REDIS_TLS_CA_FILE and exports this value.
+spring:
+  data:
+    redis:
+      ssl:
+        bundle: memoryos-redis
+  ssl:
+    bundle:
+      pem:
+        memoryos-redis:
+          truststore:
+            certificate: ${MEMORYOS_REDIS_TLS_CA_CERTIFICATE}

@@ -180,6 +180,79 @@ async function mockLibrary(page: Page, capabilities: string[] = [], files: ChatL
 const tabs = (page: Page) => page.getByRole("tablist", { name: "Phần của thư viện" });
 const row = (page: Page, name: string) => page.getByRole("listitem").filter({ hasText: name });
 
+test("selects 50 files without remounting or measuring checkbox indicators", async ({ page }) => {
+  const files: ChatLibraryFile[] = Array.from({ length: 50 }, (_, index) => ({
+    source: "UPLOAD",
+    id: `70000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+    filename: `selection-${index}.txt`,
+    mediaType: "text/plain",
+    sizeBytes: 100,
+    createdAt: `2026-10-${String(10 - Math.floor(index / 5)).padStart(2, "0")}T08:00:00Z`,
+    category: "DOCUMENT",
+    sessionId: null,
+    sessionTitle: null,
+    messageId: null,
+    favorite: false,
+    status: "READY",
+    errorCode: null,
+    deletedAt: null,
+    purgeAfter: null,
+    usedBy: [],
+    deletable: true,
+  }));
+  await mockLibrary(page, [], files);
+  await openLibrary(page);
+  await tabs(page).getByRole("tab", { name: "Của tôi" }).click();
+  const all = page.getByRole("checkbox", { name: "Chọn tất cả trên trang này" });
+  const first = page.getByRole("checkbox", { name: "Chọn selection-0.txt", exact: true });
+  const indicator = first.locator('[data-slot="checkbox-indicator"]');
+  await expect(first).toBeVisible();
+  await expect(indicator).toBeHidden();
+
+  // A timing threshold varies by host. Guard the measured cause of the pause instead: no per-box
+  // Presence style reads or indicator remounts after the list has arrived.
+  const measurements = await page.evaluateHandle(() => {
+    const state = {
+      reads: 0,
+      original: window.getComputedStyle,
+      indicators: [...document.querySelectorAll('[data-slot="checkbox-indicator"]')],
+    };
+    window.getComputedStyle = (element, pseudo) => {
+      if (element.matches('[data-slot="checkbox-indicator"]')) state.reads++;
+      return state.original.call(window, element, pseudo);
+    };
+    return state;
+  });
+  try {
+    await all.focus();
+    await page.keyboard.press("Space");
+    await expect(page.getByText("Đã chọn 50 tệp")).toBeVisible();
+    await expect(indicator).toBeVisible();
+    await first.click();
+    await expect(indicator).toBeHidden();
+    await expect(all).toHaveAttribute("aria-checked", "mixed");
+    await expect(page.getByText("Đã chọn 49 tệp")).toBeVisible();
+    const day = page.getByRole("checkbox", { name: /^Chọn tất cả / }).nth(1);
+    await expect(day).toHaveAttribute("aria-checked", "mixed");
+    await day.click();
+    await expect(page.getByText("Đã chọn 50 tệp")).toBeVisible();
+    await page.getByRole("button", { name: "Bỏ chọn", exact: true }).click();
+    await expect(page.getByText("Đã chọn 50 tệp")).toHaveCount(0);
+    await expect(all).not.toBeChecked();
+    await expect(indicator).toBeHidden();
+    await expect(day).toBeHidden();
+    expect(await measurements.evaluate((state) => state.reads)).toBe(0);
+    expect(
+      await measurements.evaluate((state) => state.indicators.every((node) => node.isConnected)),
+    ).toBe(true);
+  } finally {
+    await measurements.evaluate((state) => {
+      window.getComputedStyle = state.original;
+    });
+    await measurements.dispose();
+  }
+});
+
 async function openLibrary(page: Page) {
   await page.goto("/library");
   // The e2e dev server compiles the library route on first use.

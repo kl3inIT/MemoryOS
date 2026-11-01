@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 import type { AudioCaptureHandlers } from "@/features/voice/capture/audio-capture";
 import { MeetingRecorder, QUIET_AFTER_MS } from "./meeting-recorder";

@@ -71,7 +71,7 @@ it("filters the list to its failed Sources from the failed figure, and back", as
   const failed = { ...handbooks, id: "20000000-0000-4000-8000-000000000004", status: "FAILED" };
   const { rerender } = renderList([handbooks, failed], noSourceFilters, onFilters);
 
-  const tile = screen.getByRole("button", { name: "Show failed sources, 1" });
+  const tile = screen.getByRole("button", { name: "Failed 1" });
   expect(tile).toHaveAttribute("aria-pressed", "false");
   await user.click(tile);
   expect(onFilters).toHaveBeenLastCalledWith({ ...noSourceFilters, status: "FAILED" });
@@ -91,4 +91,33 @@ it("filters the list to its failed Sources from the failed figure, and back", as
   expect(tile).toHaveAttribute("aria-pressed", "true");
   await user.click(tile);
   expect(onFilters).toHaveBeenLastCalledWith(noSourceFilters);
+});
+
+it("collapses and expands every group from one icon button, and searches through the shared field", async () => {
+  const user = userEvent.setup();
+  const onSearch = vi.fn();
+  render(
+    <SourceList
+      sources={[handbooks]}
+      search="hand"
+      onSearch={onSearch}
+      filters={noSourceFilters}
+      onFilters={() => {}}
+      documents={() => 0}
+      documentsLabel="Total docs"
+      renderName={(source) => <span>{source.name}</span>}
+    />,
+  );
+
+  const collapse = screen.getByRole("button", { name: "Collapse all" });
+  expect(collapse).toHaveTextContent("");
+  expect(screen.getByText("Handbooks")).toBeInTheDocument();
+  await user.click(collapse);
+  expect(screen.queryByText("Handbooks")).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Expand all" }));
+  expect(screen.getByText("Handbooks")).toBeInTheDocument();
+
+  expect(screen.getByRole("textbox", { name: "Search sources" })).toHaveValue("hand");
+  await user.click(screen.getByRole("button", { name: "Clear the search" }));
+  expect(onSearch).toHaveBeenLastCalledWith("");
 });

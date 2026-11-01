@@ -22,8 +22,7 @@ export function ProjectConversationList({ projectId }: { projectId: string }) {
         : undefined,
   });
   return (
-    <section className="mt-6" aria-label={ui("Hội thoại trong dự án")}>
-      <h2 className="mb-3 text-sm font-medium text-content-secondary">{ui("Hội thoại gần đây")}</h2>
+    <section aria-label={ui("Hội thoại trong dự án")}>
       {sessions.isPending && (
         <p role="status" className="px-2 py-2 text-sm text-content-muted">
           {ui("Đang tải hội thoại…")}

@@ -175,11 +175,11 @@ The model family is the reference, and already puts its catalog on the adapter: 
   module root so `chat` uses the same cached O200K estimator instead of loading a second vocabulary.
 - **Its capability methods are loose.** They stay as they are; grouping them into a `ModelProviderCapabilities`
   record is not worth the churn while one adapter exists, and is revisited when the Gemini or Anthropic adapter
-  from [Chat Web search](../../active/chat-web-search/plan.md) is added, which starts in this shape.
+  from [Chat Web search](../../completed/chat-web-search/plan.md) is added, which starts in this shape.
 
 ### Families that start in this shape
 
-- Gemini and Anthropic model adapters ([Chat Web search](../../active/chat-web-search/plan.md)).
+- Gemini and Anthropic model adapters ([Chat Web search](../../completed/chat-web-search/plan.md)).
 - Lark Suite and later Sources ([MEM-118](../../active/mem-118-connector-adapters-lark/design.md)).
 - The Trạm 1 classifier ([MEM-198](https://linear.app/memory-os/issue/MEM-198)): `GroundingClassificationAdapter`
   keyed by `GroundingClassifierType { LLM, SYSTEM_ONE }`, with one `SystemOneGateway` for every server speaking

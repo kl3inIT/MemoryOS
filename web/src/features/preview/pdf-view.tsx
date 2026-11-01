@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { Button } from "@/components/ui/button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -7,28 +7,25 @@ import { PageField, PreviewToolbar, ToolbarGroup, ZoomControl } from "./preview-
 import {
   formatPages,
   mostVisiblePage,
+  nearestPage,
   pageHeight,
   pagesToRender,
   pdfBoxRect,
   type PdfHighlight,
   type PdfPageView,
 } from "./pdf-pages";
+import { BLOCK } from "./pdf-range-plan";
+import { openPdfOriginal, PdfReading } from "./pdf-range-source";
+import { useReaderWorker } from "./pdf-reader-worker";
 
-// Self-hosted worker: the bundler emits it under the app origin, so `script-src 'self'` covers it.
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  "pdfjs-dist/build/pdf.worker.min.mjs",
-  import.meta.url,
-).toString();
-
-// pdf.js reads the original by HTTP range: after the first response headers it cancels the full download and
-// requests only the 1 MiB chunks the rendered pages need. Originals up to 2 MiB are still read whole.
+// A same-origin original is read by HTTP range through `PdfReading`, which answers the blocks pdf.js asks for.
 // Image decoders (JBIG2, JPEG 2000) for scanned originals, copied from pdfjs-dist by vite.config.ts. The CSP does not
 // allow WebAssembly, so pdf.js uses their JavaScript fallbacks.
 const wasmUrl = `/assets/pdfjs-${pdfjs.version}/`;
 const RANGE_OPTIONS = {
   disableStream: true,
   disableAutoFetch: true,
-  rangeChunkSize: 1024 * 1024,
+  rangeChunkSize: BLOCK,
   wasmUrl,
 };
 // When range loading fails, one whole read, as before range support; the failure is reported.
@@ -36,15 +33,68 @@ const WHOLE_OPTIONS = { disableRange: true, wasmUrl };
 // Multiples of the fit-to-width size: a Letter page in a 400px panel needs 2–3× for body text.
 const ZOOM_STEPS = [1, 1.5, 2, 3] as const;
 
+/** Hands pdf.js the bytes a `PdfReading` fetched, in the blocks pdf.js asked for. */
+class OriginalTransport extends pdfjs.PDFDataRangeTransport {
+  readonly #reading: PdfReading;
+
+  constructor(reading: PdfReading) {
+    super(reading.length, reading.head());
+    this.#reading = reading;
+  }
+
+  override requestDataRange(begin: number, end: number) {
+    this.#reading.request(begin, end, (bytes) => this.onDataRange(begin, bytes));
+  }
+
+  override abort() {
+    this.#reading.close();
+  }
+}
+
+/**
+ * What `Document` loads: the file itself, a URL read whole, or a range transport once its original is opened.
+ * A URL is opened by range first; a read that fails is told through `onFailure` and the caller reads it whole.
+ */
+function useOriginal(url: string | Blob, whole: boolean, onFailure: () => void) {
+  const [ranged, setRanged] = useState<{ url: string; range: OriginalTransport }>();
+  useEffect(() => {
+    if (typeof url !== "string" || whole) return undefined;
+    let reading: PdfReading | undefined;
+    let left = false;
+    openPdfOriginal(url).then(
+      (held) => {
+        if (left) return;
+        reading = new PdfReading(url, held, onFailure);
+        setRanged({ url, range: new OriginalTransport(reading) });
+      },
+      () => {
+        if (!left) onFailure();
+      },
+    );
+    return () => {
+      left = true;
+      reading?.close();
+    };
+  }, [url, whole, onFailure]);
+  // A new object per opening: react-pdf releases the document on unmount and never shares it across readers.
+  return useMemo(() => {
+    if (typeof url !== "string") return url;
+    if (whole) return { url };
+    return ranged?.url === url ? { range: ranged.range } : undefined;
+  }, [url, whole, ranged]);
+}
+
 /**
  * Shows the whole authorized original PDF, opened at the first cited page with the cited regions highlighted
- * from extraction provenance. Only pages near the viewport are rendered; the rest are sized placeholders.
+ * from extraction provenance. The cited page is drawn first and alone; then the pages near the viewport, and
+ * the page rail once those are drawn. Every other page stays a sized placeholder.
  */
 export function PdfView({
   url,
   pages,
   boxes,
   thumbnails = false,
+  steps,
   onReady,
 }: {
   /** A same-origin URL, or the file itself: the CSP (connect-src 'self') does not let pdf.js fetch blob: URLs. */
@@ -53,6 +103,8 @@ export function PdfView({
   boxes: readonly PdfHighlight[];
   /** A page rail beside the document, for a reader wide enough to hold one. */
   thumbnails?: boolean;
+  /** A group for the toolbar that steps between cited passages; the caller moves `pages` and `boxes`. */
+  steps?: ReactNode;
   /** Called once the page it opens at is drawn, so a caller can swap it in without a blank frame. */
   onReady?: () => void;
 }) {
@@ -68,8 +120,23 @@ export function PdfView({
   const [pageViews, setPageViews] = useState<Record<number, PdfPageView>>({});
   const [nearPages, setNearPages] = useState<ReadonlySet<number>>(() => new Set());
   const [visiblePage, setVisiblePage] = useState<number>();
-  // A new object per opening: react-pdf releases the document on unmount and never shares it across readers.
-  const file = useMemo(() => (typeof url === "string" ? { url } : url), [url]);
+  // Pages whose canvas has been drawn, or could not be: what the reader is no longer waiting for.
+  const [drawn, setDrawn] = useState<ReadonlySet<number>>(() => new Set());
+  // The reader scrolled, typed or picked a page, so the cited page no longer goes first.
+  const [moved, setMoved] = useState(false);
+  // The whole read mounts the document again, pages and canvas with it: what was counted and drawn starts over,
+  // so the observers and the opening scroll are set up on the new canvas.
+  const readWhole = useCallback(() => {
+    setWholeFile(true);
+    setPageCount(undefined);
+    setDrawn((known) => (known.size ? new Set() : known));
+  }, []);
+  const file = useOriginal(url, wholeFile, readWhole);
+  const worker = useReaderWorker();
+  const options = useMemo(
+    () => ({ ...(wholeFile ? WHOLE_OPTIONS : RANGE_OPTIONS), worker }),
+    [wholeFile, worker],
+  );
   const cited = pages.length ? pages : [1];
   const [firstCited = 1] = cited;
   const anchor = Math.min(firstCited, pageCount ?? firstCited);
@@ -93,10 +160,14 @@ export function PdfView({
           if (entry.isIntersecting) near.add(pageOf(entry));
           else near.delete(pageOf(entry));
         }
-        setNearPages(new Set(near));
+        setNearPages((known) => (sameSet(known, near) ? known : new Set(near)));
       },
       { root, rootMargin: "100% 0px" },
     );
+    // Any of these is the reader taking over from the opening scroll to the cited page.
+    const takeOver = () => setMoved(true);
+    const gestures = ["wheel", "touchmove", "keydown", "pointerdown"] as const;
+    for (const gesture of gestures) root.addEventListener(gesture, takeOver, { passive: true });
     const visibleObserver = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
@@ -115,6 +186,7 @@ export function PdfView({
     return () => {
       nearObserver.disconnect();
       visibleObserver.disconnect();
+      for (const gesture of gestures) root.removeEventListener(gesture, takeOver);
     };
   }, [pageCount]);
 
@@ -122,6 +194,10 @@ export function PdfView({
     currentPageRef.current = currentPage;
   }, [currentPage]);
 
+  // The first cited region of the anchor page, as a value: it changes only when another passage is cited, so
+  // a passage on the page already open is scrolled to as well and a repaint moves no one.
+  const region = boxes.find((box) => box.page === anchor);
+  const citedRegion = region && `${region.left}:${region.top}:${region.right}:${region.bottom}`;
   // Open at the cited region once its page is measured; a zoom keeps the reader on the page they were reading.
   useEffect(() => {
     if (!pageCount) return;
@@ -133,11 +209,14 @@ export function PdfView({
     } else {
       figures.current.get(page)?.scrollIntoView({ block: "start", inline: "nearest" });
     }
-  }, [pageCount, anchor, anchorView, renderedWidth]);
+  }, [pageCount, anchor, anchorView, renderedWidth, citedRegion]);
 
   const goToPage = (page: number) => {
+    setMoved(true);
     figures.current.get(page)?.scrollIntoView({ block: "start", inline: "nearest" });
   };
+  const settle = (page: number) =>
+    setDrawn((known) => (known.has(page) ? known : new Set(known).add(page)));
 
   const returnToCitation = () => {
     const target = firstBox.current ?? figures.current.get(anchor);
@@ -159,24 +238,29 @@ export function PdfView({
       </p>
     </PreviewCanvas>
   );
-  const rendered = new Set(pageCount ? pagesToRender(nearPages, anchor, pageCount) : []);
+  const near = pageCount ? pagesToRender(nearPages, anchor, pageCount) : [];
+  // The cited page goes first and alone: its neighbours would share the link and the worker with it.
+  const opened = moved || drawn.has(anchor);
+  const rendered = new Set(opened ? near : near.filter((page) => page === anchor));
+  const idle = opened && near.every((page) => drawn.has(page));
   const fallbackView = anchorView ?? Object.values(pageViews)[0];
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       <Document
         key={wholeFile ? "whole" : "range"}
-        file={file}
-        options={wholeFile ? WHOLE_OPTIONS : RANGE_OPTIONS}
+        file={worker ? file : undefined}
+        options={options}
         suspense={false}
         loading={loadingPages}
+        noData={loadingPages}
         error={wholeFile ? failed : loadingPages}
-        onLoadError={() => setWholeFile(true)}
+        onLoadError={readWhole}
         onLoadSuccess={(document) => setPageCount(document.numPages)}
         className="flex min-h-0 flex-1"
       >
         {thumbnails && pageCount ? (
-          <PdfThumbnails total={pageCount} current={currentPage} onGo={goToPage} />
+          <PdfThumbnails total={pageCount} current={currentPage} idle={idle} onGo={goToPage} />
         ) : null}
         <PreviewCanvas ref={container} className="pb-16">
           <div className="flex w-fit min-w-full flex-col gap-5">
@@ -212,7 +296,12 @@ export function PdfView({
                         loading=""
                         renderTextLayer={false}
                         renderAnnotationLayer={false}
-                        onRenderSuccess={pageNumber === anchor ? onReady : undefined}
+                        onRenderSuccess={() => {
+                          settle(pageNumber);
+                          if (pageNumber === anchor) onReady?.();
+                        }}
+                        onRenderError={() => settle(pageNumber)}
+                        onLoadError={() => settle(pageNumber)}
                         onLoadSuccess={(page) =>
                           setPageViews((current) =>
                             current[pageNumber]
@@ -279,6 +368,7 @@ export function PdfView({
               </Button>
             </ToolbarGroup>
           ) : null}
+          {steps}
           <ZoomControl
             label={zoom === 0 ? ui("Vừa khung") : ui("{{percent}}%", { percent: scale * 100 })}
             onOut={() => setZoom((value) => Math.max(0, value - 1))}
@@ -295,40 +385,83 @@ export function PdfView({
 const THUMBNAIL_WIDTH = 96;
 
 /**
- * The page rail: every page as a button, but only the ones scrolled into the rail are drawn, so opening a
- * long document does not render a hundred pages twice.
+ * The page rail: every page as a button. A thumbnail is a whole page to pdf.js — its bytes and its decode —
+ * so the rail draws one at a time, only for buttons in view, nearest the current page first, and only while
+ * the document canvas is `idle`. One that left the rail's surroundings is released.
  */
 function PdfThumbnails({
   total,
   current,
+  idle,
   onGo,
 }: {
   total: number;
   current: number;
+  /** The pages on the document canvas are drawn, so the rail may use the link and the worker. */
+  idle: boolean;
   onGo: (page: number) => void;
 }) {
   const ui = useAppTranslation();
   const rail = useRef<HTMLDivElement>(null);
   const buttons = useRef(new Map<number, HTMLElement>());
-  const [shown, setShown] = useState<ReadonlySet<number>>(() => new Set());
+  const [inView, setInView] = useState<ReadonlySet<number>>(() => new Set());
+  // Thumbnails that are mounted, and the one of them still being drawn.
+  const [made, setMade] = useState<ReadonlySet<number>>(() => new Set());
+  const [drawing, setDrawing] = useState<number>();
   useEffect(() => {
     const root = rail.current;
     if (!root) return undefined;
+    const pageOf = (entry: IntersectionObserverEntry) =>
+      Number((entry.target as HTMLElement).dataset.page);
     const near = new Set<number>();
-    const observer = new IntersectionObserver(
+    const seen = new Set<number>();
+    const nearObserver = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          const page = Number((entry.target as HTMLElement).dataset.page);
-          if (entry.isIntersecting) near.add(page);
-          else near.delete(page);
+          if (entry.isIntersecting) near.add(pageOf(entry));
+          else near.delete(pageOf(entry));
         }
-        setShown(new Set(near));
+        setMade((known) => {
+          const kept = new Set([...known].filter((page) => near.has(page)));
+          return kept.size === known.size ? known : kept;
+        });
+        setDrawing((page) => (page !== undefined && !near.has(page) ? undefined : page));
       },
       { root, rootMargin: "200% 0px" },
     );
-    for (const button of buttons.current.values()) observer.observe(button);
-    return () => observer.disconnect();
+    const seenObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) seen.add(pageOf(entry));
+          else seen.delete(pageOf(entry));
+        }
+        setInView((known) => (sameSet(known, seen) ? known : new Set(seen)));
+      },
+      { root },
+    );
+    for (const button of buttons.current.values()) {
+      nearObserver.observe(button);
+      seenObserver.observe(button);
+    }
+    return () => {
+      nearObserver.disconnect();
+      seenObserver.disconnect();
+    };
   }, [total]);
+  // The next thumbnail starts when the last one is drawn and the canvas has nothing left to draw. It is
+  // chosen while rendering, from what is in view now, and held in state so a scroll does not unseat it.
+  const next =
+    idle && drawing === undefined
+      ? nearestPage(
+          [...inView].filter((page) => !made.has(page)),
+          current,
+        )
+      : undefined;
+  if (next !== undefined) {
+    setDrawing(next);
+    setMade(new Set(made).add(next));
+  }
+  const finish = (page: number) => setDrawing((active) => (active === page ? undefined : active));
   // The rail follows the document, so the page being read stays visible in it.
   useEffect(() => {
     buttons.current.get(current)?.scrollIntoView({ block: "nearest" });
@@ -360,13 +493,16 @@ function PdfThumbnails({
                   className="flex items-center justify-center overflow-hidden bg-surface-document shadow-sm"
                   style={{ width: THUMBNAIL_WIDTH, height: Math.round(THUMBNAIL_WIDTH * 1.294) }}
                 >
-                  {shown.has(page) ? (
+                  {made.has(page) ? (
                     <Page
                       pageNumber={page}
                       width={THUMBNAIL_WIDTH}
                       loading=""
                       renderTextLayer={false}
                       renderAnnotationLayer={false}
+                      onRenderSuccess={() => finish(page)}
+                      onRenderError={() => finish(page)}
+                      onLoadError={() => finish(page)}
                     />
                   ) : null}
                 </span>
@@ -380,6 +516,12 @@ function PdfThumbnails({
       </ol>
     </nav>
   );
+}
+
+function sameSet(first: ReadonlySet<number>, second: ReadonlySet<number>) {
+  if (first.size !== second.size) return false;
+  for (const value of first) if (!second.has(value)) return false;
+  return true;
 }
 
 function useWidth(ref: React.RefObject<HTMLElement | null>, mounted: unknown) {

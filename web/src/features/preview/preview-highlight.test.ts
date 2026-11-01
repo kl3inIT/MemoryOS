@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { locatePassage, normalizeForMatch } from "./preview-highlight";
+import { locatePassage, matchTerms, normalizeForMatch } from "./preview-highlight";
 
 /** What the reader would see highlighted, so the assertions read as the reader's experience. */
 function highlighted(raw: string, passage: string, section?: string) {
@@ -155,6 +155,54 @@ describe("locatePassage", () => {
   it("refuses an empty passage and an empty document", () => {
     expect(highlighted("Doanh thu quý 3.", "   ")).toEqual({ confidence: "none" });
     expect(highlighted("", "Doanh thu quý 3.")).toEqual({ confidence: "none" });
+  });
+});
+
+/** The words a reader would see marked, in reading order. */
+function marked(raw: string, terms: string[], within?: { start: number; end: number }) {
+  return matchTerms(normalizeForMatch(raw), terms, within).map((term) =>
+    raw.slice(term.start, term.end),
+  );
+}
+
+describe("matchTerms", () => {
+  it("finds every occurrence of every term, whatever its capitals", () => {
+    expect(marked("Nghỉ phép năm: mỗi năm 12 ngày NGHỈ.", ["nghỉ", "năm"])).toEqual([
+      "Nghỉ",
+      "năm",
+      "năm",
+      "NGHỈ",
+    ]);
+  });
+
+  it("finds a word stored with combining marks, a soft hyphen or a line break inside the phrase", () => {
+    const decomposed = "nghỉ phép".normalize("NFD");
+    expect(marked(`Quy định ${decomposed} năm.`, ["nghỉ phép"])).toEqual([decomposed]);
+    expect(marked("Quy định nghỉ\u00adphép", ["nghỉphép"])).toEqual(["nghỉ\u00adphép"]);
+    expect(marked("Quy định nghỉ\n   phép năm.", ["nghỉ phép"])).toEqual(["nghỉ\n   phép"]);
+  });
+
+  it("takes the longer term where two start at the same character, and never overlaps", () => {
+    expect(marked("nghỉ phép năm và nghỉ lễ", ["nghỉ", "nghỉ phép", "phép"])).toEqual([
+      "nghỉ phép",
+      "nghỉ",
+    ]);
+  });
+
+  it("does not strip accents: a word typed without them marks nothing", () => {
+    expect(marked("Quy định nghỉ phép năm.", ["nghi phep"])).toEqual([]);
+  });
+
+  it("stays inside the span it is given", () => {
+    const raw = "năm trước. Trong năm nay có 12 ngày. năm sau";
+    const start = raw.indexOf("Trong");
+    const end = raw.indexOf(" năm sau");
+    expect(marked(raw, ["năm", "ngày. năm"], { start, end })).toEqual(["năm"]);
+  });
+
+  it("marks nothing for no terms or blank ones", () => {
+    expect(marked("Quy định nghỉ phép.", [])).toEqual([]);
+    expect(marked("Quy định nghỉ phép.", ["  ", ""])).toEqual([]);
   });
 });
 

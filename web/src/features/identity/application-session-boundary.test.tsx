@@ -282,59 +282,47 @@ describe("ApplicationSessionBoundary", () => {
     expectPrivateClientStatePurged(queryClient);
   });
 
-  it("resets active identity after a private query returns unauthenticated", async () => {
-    let authenticated = true;
-    server.use(
-      handleGetCurrentIdentity(async () =>
-        authenticated ? Response.json(OWNER_SESSION) : new Response(null, { status: 401 }),
-      ),
-    );
-    const queryClient = createMemoryOsQueryClient();
-    renderBoundary(queryClient);
-    expect(await screen.findByText("OWNER")).toBeInTheDocument();
-    authenticated = false;
+  it.each(["query", "mutation"] as const)(
+    "resets active identity after a private %s returns unauthenticated",
+    async (operation) => {
+      let authenticated = true;
+      server.use(
+        handleGetCurrentIdentity(async () =>
+          authenticated ? Response.json(OWNER_SESSION) : new Response(null, { status: 401 }),
+        ),
+      );
+      const queryClient = createMemoryOsQueryClient();
+      renderBoundary(queryClient);
+      expect(await screen.findByText("OWNER")).toBeInTheDocument();
+      authenticated = false;
 
-    await act(async () => {
-      await expect(
-        queryClient.fetchQuery({
-          queryKey: ["private-query"],
-          queryFn: async () => {
+      await act(async () => {
+        if (operation === "query") {
+          await expect(
+            queryClient.fetchQuery({
+              queryKey: ["private-query"],
+              queryFn: async () => {
+                throw new ApiError(401, new Error("expired"));
+              },
+              retry: false,
+            }),
+          ).rejects.toMatchObject({ status: 401 });
+          return;
+        }
+
+        const mutation = queryClient.getMutationCache().build(queryClient, {
+          mutationKey: ["private-mutation"],
+          mutationFn: async () => {
             throw new ApiError(401, new Error("expired"));
           },
-          retry: false,
-        }),
-      ).rejects.toMatchObject({ status: 401 });
-    });
+        });
+        await expect(mutation.execute(undefined)).rejects.toMatchObject({ status: 401 });
+      });
 
-    await waitFor(() => expect(redirectToSignIn).toHaveBeenCalledTimes(1));
-    expectPrivateClientStatePurged(queryClient);
-  });
-
-  it("resets active identity after a private mutation returns unauthenticated", async () => {
-    let authenticated = true;
-    server.use(
-      handleGetCurrentIdentity(async () =>
-        authenticated ? Response.json(OWNER_SESSION) : new Response(null, { status: 401 }),
-      ),
-    );
-    const queryClient = createMemoryOsQueryClient();
-    renderBoundary(queryClient);
-    expect(await screen.findByText("OWNER")).toBeInTheDocument();
-    authenticated = false;
-    const mutation = queryClient.getMutationCache().build(queryClient, {
-      mutationKey: ["private-mutation"],
-      mutationFn: async () => {
-        throw new ApiError(401, new Error("expired"));
-      },
-    });
-
-    await act(async () => {
-      await expect(mutation.execute(undefined)).rejects.toMatchObject({ status: 401 });
-    });
-
-    await waitFor(() => expect(redirectToSignIn).toHaveBeenCalledTimes(1));
-    expectPrivateClientStatePurged(queryClient);
-  });
+      await waitFor(() => expect(redirectToSignIn).toHaveBeenCalledTimes(1));
+      expectPrivateClientStatePurged(queryClient);
+    },
+  );
 
   it.each(["query", "mutation"] as const)(
     "refreshes canonical identity and purges private state after a forbidden %s reveals revoked membership",

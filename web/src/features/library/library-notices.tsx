@@ -2,7 +2,7 @@ import { Download, Trash2, X } from "lucide-react";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { IconButton } from "@/components/ui/icon-button";
+import { TooltipIconButton } from "@/components/composites/tooltip-icon-button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { archiveContentUrl, type LibraryArchive } from "./use-library-archive";
 
@@ -65,9 +65,14 @@ export function LibraryNotices({
         <Alert variant="destructive">
           <AlertTitle>{ui("Một số tệp không xóa được")}</AlertTitle>
           <AlertAction>
-            <IconButton size="sm" prominence="internal" aria-label={ui("Đóng")} onClick={onDismiss}>
+            <TooltipIconButton
+              size="sm"
+              prominence="internal"
+              aria-label={ui("Đóng")}
+              onClick={onDismiss}
+            >
               <X />
-            </IconButton>
+            </TooltipIconButton>
           </AlertAction>
           <AlertDescription>
             <ul className="flex flex-col gap-1">

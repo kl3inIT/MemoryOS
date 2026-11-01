@@ -1,23 +1,7 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { DocumentSourceIcon } from "./document-source-icon";
-import { documentKind, documentSourceLabels } from "./document-source-presentation";
-
-describe("documentKind", () => {
-  it("maps office, Google-native, text and image media types", () => {
-    expect(documentKind("application/pdf")).toBe("pdf");
-    expect(documentKind("application/vnd.google-apps.document")).toBe("document");
-    expect(documentKind("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")).toBe(
-      "spreadsheet",
-    );
-    expect(documentKind("text/csv; charset=utf-8")).toBe("spreadsheet");
-    expect(documentKind("application/vnd.google-apps.presentation")).toBe("presentation");
-    expect(documentKind("text/markdown")).toBe("text");
-    expect(documentKind("image/png")).toBe("image");
-    expect(documentKind("application/zip")).toBe("generic");
-    expect(documentKind(undefined)).toBe("generic");
-  });
-});
+import { documentSourceLabels } from "./document-source-presentation";
 
 describe("documentSourceLabels", () => {
   it("returns untranslated type and distinct provider labels", () => {

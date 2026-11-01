@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
 import { readMcpPreference, writeMcpPreference } from "./chat-mcp-preference";
 

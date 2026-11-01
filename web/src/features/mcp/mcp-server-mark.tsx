@@ -1,11 +1,143 @@
+import type { CSSProperties } from "react";
+import { Icon, type IconifyIcon } from "@iconify/react";
+import airtableLogo from "@iconify-icons/logos/airtable";
+import asanaLogo from "@iconify-icons/logos/asana-icon";
+import atlassianLogo from "@iconify-icons/logos/atlassian";
+import clickupLogo from "@iconify-icons/logos/clickup-icon";
+import confluenceLogo from "@iconify-icons/logos/confluence";
+import datadogLogo from "@iconify-icons/logos/datadog-icon";
+import dropboxLogo from "@iconify-icons/logos/dropbox";
+import figmaLogo from "@iconify-icons/logos/figma";
+import githubLogo from "@iconify-icons/logos/github-icon";
+import gitlabLogo from "@iconify-icons/logos/gitlab-icon";
+import gmailLogo from "@iconify-icons/logos/google-gmail";
+import googleCalendarLogo from "@iconify-icons/logos/google-calendar";
+import googleDriveLogo from "@iconify-icons/logos/google-drive";
+import intercomLogo from "@iconify-icons/logos/intercom-icon";
+import jiraLogo from "@iconify-icons/logos/jira";
+import linearLogo from "@iconify-icons/logos/linear-icon";
+import miroLogo from "@iconify-icons/logos/miro-icon";
+import notionLogo from "@iconify-icons/logos/notion-icon";
+import sentryLogo from "@iconify-icons/logos/sentry-icon";
+import slackLogo from "@iconify-icons/logos/slack-icon";
+import supabaseLogo from "@iconify-icons/logos/supabase-icon";
+import trelloLogo from "@iconify-icons/logos/trello";
+import zapierLogo from "@iconify-icons/logos/zapier-icon";
+import zendeskLogo from "@iconify-icons/logos/zendesk-icon";
+import boxIcon from "@iconify-icons/simple-icons/box";
+import canvaIcon from "@iconify-icons/simple-icons/canva";
+import hubspotIcon from "@iconify-icons/simple-icons/hubspot";
+import sharepointIcon from "@iconify-icons/simple-icons/microsoftsharepoint";
+import stripeIcon from "@iconify-icons/simple-icons/stripe";
 import { cn } from "@/lib/utils";
 
 /**
- * Identifies one MCP server in a list. An MCP server is an arbitrary third-party endpoint with no brand
- * mark to draw, and fetching its favicon would leak the Tenant's server list to that host, so the tile
- * shows a monogram taken from the slug the administrator chose.
+ * A service's own full-colour logo on a white tile, as ChatGPT shows its plugins; `tile` is used where the colour
+ * logo set has only a wordmark or nothing, drawing the one-colour mark white on the brand's colour. `monochrome` marks
+ * a near-black logo, inverted on a dark surface when it is drawn without its tile.
  */
-export function McpServerMark({ slug, className }: { slug: string; className?: string }) {
+type Brand = { logo: IconifyIcon; monochrome?: true } | { tile: IconifyIcon; color: string };
+
+/**
+ * Known services by a word of their MCP address or name, first match wins, so the more specific entries come
+ * first. The marks are bundled; fetching a server's favicon would tell that host the Tenant's server list.
+ */
+const brands: [string, Brand][] = [
+  ["googledrive", { logo: googleDriveLogo }],
+  ["drivemcp", { logo: googleDriveLogo }],
+  ["google drive", { logo: googleDriveLogo }],
+  ["gmail", { logo: gmailLogo }],
+  ["calendar", { logo: googleCalendarLogo }],
+  ["sharepoint", { tile: sharepointIcon, color: "#0B828C" }],
+  ["confluence", { logo: confluenceLogo }],
+  ["jira", { logo: jiraLogo }],
+  ["atlassian", { logo: atlassianLogo }],
+  ["linear", { logo: linearLogo, monochrome: true }],
+  ["notion", { logo: notionLogo }],
+  ["github", { logo: githubLogo, monochrome: true }],
+  ["gitlab", { logo: gitlabLogo }],
+  ["slack", { logo: slackLogo }],
+  ["figma", { logo: figmaLogo }],
+  ["hubspot", { tile: hubspotIcon, color: "#FF7A59" }],
+  ["asana", { logo: asanaLogo }],
+  ["stripe", { tile: stripeIcon, color: "#635BFF" }],
+  ["supabase", { logo: supabaseLogo }],
+  ["sentry", { logo: sentryLogo, monochrome: true }],
+  ["miro", { logo: miroLogo }],
+  ["canva", { tile: canvaIcon, color: "#00C4CC" }],
+  ["intercom", { logo: intercomLogo, monochrome: true }],
+  ["datadog", { logo: datadogLogo }],
+  ["dropbox", { logo: dropboxLogo }],
+  ["box.com", { tile: boxIcon, color: "#0061D5" }],
+  ["airtable", { logo: airtableLogo }],
+  ["clickup", { logo: clickupLogo }],
+  ["trello", { logo: trelloLogo }],
+  ["zapier", { logo: zapierLogo }],
+  ["zendesk", { logo: zendeskLogo, monochrome: true }],
+];
+
+function brandOf(url: string, name: string): Brand | undefined {
+  const haystack = `${url} ${name}`.toLowerCase();
+  return brands.find(([word]) => haystack.includes(word))?.[1];
+}
+
+const tileSize = {
+  md: { tile: "size-10 rounded-xl", logo: "size-6!", mark: "size-5!" },
+  sm: { tile: "size-7 rounded-lg", logo: "size-4!", mark: "size-3.5!" },
+  xs: { tile: "size-5 rounded-md", logo: "size-3!", mark: "size-3!" },
+};
+const tileClass = "inline-flex shrink-0 items-center justify-center";
+
+/**
+ * Identifies one MCP server in a list: the service's logo when the address or name names a known service,
+ * otherwise a monogram from the slug the administrator chose.
+ */
+export function McpServerMark({
+  slug,
+  url = "",
+  name = "",
+  size = "md",
+  bare = false,
+  className,
+}: {
+  slug: string;
+  url?: string;
+  name?: string;
+  size?: keyof typeof tileSize;
+  /** Draws a full-colour logo without its white tile; brand-colour tiles and monograms keep theirs. */
+  bare?: boolean;
+  className?: string;
+}) {
+  const brand = brandOf(url, name);
+  const sized = tileSize[size];
+  if (brand && "logo" in brand && bare) {
+    return (
+      <span aria-hidden="true" className={cn(tileClass, sized.tile, className)}>
+        <Icon icon={brand.logo} className={cn(sized.logo, brand.monochrome && "dark:invert")} />
+      </span>
+    );
+  }
+  if (brand && "logo" in brand) {
+    return (
+      <span
+        aria-hidden="true"
+        className={cn(tileClass, sized.tile, "bg-white ring-1 ring-black/10", className)}
+      >
+        <Icon icon={brand.logo} className={sized.logo} />
+      </span>
+    );
+  }
+  if (brand) {
+    return (
+      <span
+        aria-hidden="true"
+        className={cn(tileClass, sized.tile, "bg-(--mcp-brand) text-white", className)}
+        style={{ "--mcp-brand": brand.color } as CSSProperties}
+      >
+        <Icon icon={brand.tile} className={sized.mark} />
+      </span>
+    );
+  }
   const monogram =
     slug
       .replaceAll(/[^a-z0-9]/gi, "")
@@ -15,8 +147,10 @@ export function McpServerMark({ slug, className }: { slug: string; className?: s
     <span
       aria-hidden="true"
       className={cn(
-        "inline-flex size-8 shrink-0 items-center justify-center rounded-md",
-        "bg-surface-sunken font-secondary-body text-content-secondary uppercase",
+        tileClass,
+        sized.tile,
+        size === "md" ? "font-main-ui-action" : "text-xs font-medium",
+        "bg-surface-sunken text-content-secondary uppercase",
         className,
       )}
     >

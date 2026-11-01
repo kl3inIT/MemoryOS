@@ -10,6 +10,7 @@ import { libraryPreviewTarget, type LibraryFile } from "./library";
 import type { LibraryChat } from "./library-chat";
 import { DeleteFilesDialog, PurgeFilesDialog, RenameDialog } from "./library-dialogs";
 import { recordEntryOpened } from "./library-entries";
+import { useLibraryLayout } from "./library-layout-preference";
 import { LibraryEntryViews } from "./library-entry-views";
 import { LibraryNotices, TrashBanner } from "./library-notices";
 import { ContentResults, LibraryFiles } from "./library-results";
@@ -22,7 +23,6 @@ import {
   LibraryFilterPills,
   LibrarySelectionBar,
   LibraryToolbar,
-  type LibraryLayout,
   type LibraryToolbarHandlers,
 } from "./library-toolbar";
 import { LibraryDropZone, LibraryUploadButton, LibraryUploadTray } from "./library-uploads";
@@ -59,7 +59,7 @@ export function LibraryPage({
   });
   const uploads = useLibraryUploads();
   const archive = useLibraryArchive();
-  const [layout, setLayout] = useState<LibraryLayout>("list");
+  const [layout, setLayout] = useLibraryLayout();
   const [preview, setPreview] = useState<LibraryFile>();
   const [renaming, setRenaming] = useState<LibraryFile>();
   const [deleting, setDeleting] = useState<LibraryFile[]>();
@@ -119,7 +119,6 @@ export function LibraryPage({
           <PageHeader
             icon={<FolderOpen />}
             title={ui("Thư viện")}
-            description={ui("Mọi tệp, cuộc họp và tài liệu bạn xem và dùng được, ở cùng một chỗ.")}
             actions={
               <>
                 <LibraryUploadButton onFiles={uploads.start} />

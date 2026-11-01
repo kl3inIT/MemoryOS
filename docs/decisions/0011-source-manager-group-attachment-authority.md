@@ -30,5 +30,5 @@ Catalog visibility includes the recorded manager. Reading a restricted Source's 
 - A restricted Source with no Group is legitimate and reaches nobody until it is attached; the browser says so at creation and on Source detail.
 - Sources created before V47 have no recorded creator, so they have no manager and stay administrator-only until one is appointed.
 - Losing the Group-manager role withdraws Source authority without changing any association, which is the intended handover path: an administrator appoints someone else.
-- Google Drive credentials remain bound to the Actor who authorized them, so appointing a new manager does not transfer the Drive grant. That gap is recorded in the [increment](../increments/active/source-manager-group-authority/design.md) and remains open.
+- Google Drive credentials remain bound to the Actor who authorized them, so appointing a new manager does not transfer the Drive grant. That gap is recorded in the [increment](../increments/completed/source-manager-group-authority/design.md) and remains open.
 - Supersedes the association-derived scoped write rule described in earlier Connector revisions; item removal and Source deletion keep their global-only rule with the existing groupless-creator carve-out.

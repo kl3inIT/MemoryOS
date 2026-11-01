@@ -16,6 +16,7 @@ import {
   ChatComposerSend,
 } from "@/features/chat/composer/chat-composer";
 import { ChatComposerAttachments } from "@/features/chat/composer/chat-attachment-staging";
+import { ChatContextUsage } from "./chat-context-usage";
 import {
   ChatDictationButton,
   ChatDictationControls,
@@ -49,6 +50,7 @@ export function ChatThreadComposer({
   checking,
   sendDisabled,
   isEmpty,
+  placeholder,
 }: {
   composerMenu?: ReactNode;
   modelPicker: ReactNode;
@@ -62,6 +64,8 @@ export function ChatThreadComposer({
   sendDisabled: boolean;
   /** An empty thread centres the composer; a conversation keeps it at the bottom. */
   isEmpty: boolean;
+  /** The field's hint in place of "Nhập câu hỏi…". */
+  placeholder?: string;
 }) {
   const ui = useAppTranslation();
   const { t } = useTranslation("chatStatus");
@@ -104,7 +108,7 @@ export function ChatThreadComposer({
       <ChatVoiceFailure />
       <ChatSpeakingIndicator />
       <ChatAutoPlayback />
-      <ComposerPrimitive.Unstable_TriggerPopoverRoot>
+      <ComposerPrimitive.TriggerPopoverRoot>
         <ComposerPrimitive.AttachmentDropzone className="rounded-2xl data-[dragging]:ring-2">
           <ChatComposerRoot className="flex w-full flex-col gap-2 rounded-2xl border border-border-default bg-surface-raised p-2.5 shadow-sm transition-colors focus-within:border-border-strong">
             <ChatComposerDraft />
@@ -119,7 +123,7 @@ export function ChatThreadComposer({
                   ? ui("Đang nghe…")
                   : reading
                     ? ui("MemoryOS đang đọc…")
-                    : ui("Nhập câu hỏi…")
+                    : (placeholder ?? ui("Nhập câu hỏi…"))
               }
               rows={1}
               maxLength={32000}
@@ -141,6 +145,7 @@ export function ChatThreadComposer({
                   <ChatDictationControls />
                 ) : (
                   <>
+                    <ChatContextUsage />
                     {modelPicker}
                     <ChatDictationButton />
                     <AuiIf condition={(state) => !state.thread.isRunning}>
@@ -166,7 +171,7 @@ export function ChatThreadComposer({
             </div>
           </ChatComposerRoot>
         </ComposerPrimitive.AttachmentDropzone>
-      </ComposerPrimitive.Unstable_TriggerPopoverRoot>
+      </ComposerPrimitive.TriggerPopoverRoot>
     </ThreadPrimitive.ViewportFooter>
   );
 }

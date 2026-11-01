@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { expect, it, vi } from "vitest";
 import { MicrophoneUnavailableError } from "./capture/audio-capture";
 import { VoiceStreamError } from "./transcribe-socket";

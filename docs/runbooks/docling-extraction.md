@@ -34,6 +34,18 @@ There is no API key. The layout API and its vLLM backend have no authentication;
 
 A PaddleOCR-VL outage fails scanned documents with `SOURCE_EXTRACTION_CONNECTION_FAILED` (or `TIMEOUT`, `INTERNAL`); nothing falls back to Docling or Tesseract. Once the service is back, reindex the affected Source. Check reachability from the application node with `curl -sS -o /dev/null -w '%{http_code}' -X POST http://172.24.244.79:18080/layout-parsing`: an empty request answers 4xx, a refused or hanging connection is the network; the Worker logs `paddleocr_vl.request.completed` and `paddleocr_vl.extraction.failed` with the failure and HTTP status. The request contract is in the [ingestion contract](../specs/ingestion.md#paddleocr-vl-for-scans-and-images).
 
+### Documents read before boxes were kept for images and rotated pages
+
+A citation is marked on a picture, or on a PDF page turned by `/Rotate`, only when the document was read by the adapter that keeps those boxes. A document read earlier holds no such box in its stored extraction, so rebuilding chunks or the Search index does not help: the original has to be read again, with the existing Reindex.
+
+1. Which documents: image Sources files (PNG, JPEG, WebP, BMP, TIFF) and scanned PDFs with turned pages, whose `parser_configuration`, in the Document's `metadata_json`, starts `memoryos-extraction-v2;paddleocr-vl=` and does not contain `boxes=displayed-frame-v1`. A scanned PDF without a turned page gains nothing. In the product, such a document's citation opens the original with nothing marked and the rail reads "Không có lớp văn bản".
+2. Before starting: the organization's OCR reader on AI Provider › OCR is the PaddleOCR-VL connection and *Kiểm tra* passes. With another reader the reindex succeeds and still records no box.
+3. For each file: Sources › the Source › Files › the file's menu › Reindex (`SOURCES_MANAGE`, or the Source's recorded manager). The Source must not be paused. Reindex reads the stored original again and publishes a new generation under the same Document; the previous generation stays served until the new one is ready, and a failed attempt leaves it in place.
+4. Each reindex is one OCR request for the whole file, queued behind `MEMORYOS_EXTRACTION_PADDLEOCR_VL_MAX_CONCURRENT_REQUESTS`; reindex a large Source in batches and watch the Indexing history tab for `SOURCE_EXTRACTION_*` failures.
+5. Check one document of each kind: open a citation into it from Search; the region is marked and the rail reads "Đã đánh dấu".
+
+There is no bulk command for this and none is to be added for it.
+
 ## Local verification
 
 Start the pinned image with the environment and limits in `compose.base.yaml`, on a loopback-only test port if needed. Set `DOCLING_TEST_ENDPOINT` only in the test process, then run the checked-in wrapper:

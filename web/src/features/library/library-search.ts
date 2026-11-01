@@ -51,9 +51,8 @@ export const librarySearchSchema = z.object({
   provider: z.enum(["FILE", "GOOGLE_DRIVE", "SHAREPOINT", "LARK"]).optional().catch(undefined),
   access: z.enum(["PUBLIC", "PRIVATE", "SYNC"]).optional().catch(undefined),
   page: z.coerce.number().int().min(0).default(0).catch(0),
-  size: z.coerce
-    .number()
-    .refine((size) => (LIBRARY_PAGE_SIZES as readonly number[]).includes(size))
+  size: z
+    .union([z.literal("all"), z.coerce.number().pipe(z.literal(LIBRARY_PAGE_SIZES))])
     .default(LIBRARY_PAGE_SIZE)
     .catch(LIBRARY_PAGE_SIZE),
 });

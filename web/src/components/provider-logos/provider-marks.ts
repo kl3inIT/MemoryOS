@@ -7,8 +7,11 @@ export const providerMarks = {
   ANTHROPIC: { file: "anthropic.svg", monochrome: false },
   BRAVE: { file: "brave.svg", monochrome: false },
   CLOUDFLARE: { file: "cloudflare.svg", monochrome: false },
+  CUSTOM_HTTP: { file: "custom-http.svg", monochrome: true },
   EXA: { file: "exa.png", monochrome: false },
+  FAL: { file: "fal.svg", monochrome: false },
   FIRECRAWL: { file: "firecrawl.png", monochrome: false },
+  GEMINI: { file: "gemini.svg", monochrome: false },
   GOOGLE_PSE: { file: "google.svg", monochrome: false },
   LAYA: { file: "laya.svg", monochrome: false },
   NINEROUTER: { file: "nine-router.svg", monochrome: false },
@@ -20,6 +23,7 @@ export const providerMarks = {
   TAVILY: { file: "tavily.svg", monochrome: false },
   TYPESAFE: { file: "typesafe.png", monochrome: false },
   OPENAI: { file: "openai.svg", monochrome: true },
+  XAI: { file: "xai.svg", monochrome: true },
 } as const;
 
 export type ProviderMark = keyof typeof providerMarks;

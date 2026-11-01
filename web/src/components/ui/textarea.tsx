@@ -11,21 +11,27 @@ const textareaVariants = cva(
         /** Literal text a machine reads, such as a model's prompt prefix. */
         mono: "font-mono text-xs",
       },
+      /** `quiet` leaves the frame as it is on focus, as the name field of a form does: the caret shows the focus. */
+      focus: {
+        ring: "",
+        quiet: "focus-visible:border-input focus-visible:ring-0",
+      },
     },
-    defaultVariants: { variant: "default" },
+    defaultVariants: { variant: "default", focus: "ring" },
   },
 );
 
 function Textarea({
   className,
   variant,
+  focus,
   ...props
 }: React.ComponentProps<"textarea"> & VariantProps<typeof textareaVariants>) {
   return (
     <textarea
       data-slot="textarea"
       data-variant={variant ?? "default"}
-      className={cn(textareaVariants({ variant }), className)}
+      className={cn(textareaVariants({ variant, focus }), className)}
       {...props}
     />
   );

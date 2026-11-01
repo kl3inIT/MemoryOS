@@ -18,7 +18,7 @@ Chia theo **đối tượng dùng**, không theo môi trường: con người c�
 
 ## Mẫu đã có sẵn, chỉ mở rộng
 
-`api/src/main/docker/application-launcher.sh` **đã** đọc bốn khoá từ file rồi export thành biến môi trường: `MEMORYOS_REDIS_PASSWORD_FILE`, `MEMORYOS_OBJECT_STORAGE_SECRET_KEY_FILE`, `MEMORYOS_INTERPRETER_API_KEY_FILE`, `MEMORYOS_REDIS_TLS_CA_FILE`. Đây không phải cơ chế mới; nó là mẫu hiện hành, chỉ chưa phủ hết.
+`memoryos-api/src/main/docker/application-launcher.sh` **đã** đọc bốn khoá từ file rồi export thành biến môi trường: `MEMORYOS_REDIS_PASSWORD_FILE`, `MEMORYOS_OBJECT_STORAGE_SECRET_KEY_FILE`, `MEMORYOS_INTERPRETER_API_KEY_FILE`, `MEMORYOS_REDIS_TLS_CA_FILE`. Đây không phải cơ chế mới; nó là mẫu hiện hành, chỉ chưa phủ hết.
 
 Thay vì viết tay từng khoá, launcher xử lý chung: biến nào có dạng `<TÊN>_FILE` và trỏ tới file đọc được thì export `<TÊN>` từ nội dung file. `MEMORYOS_REDIS_TLS_CA_FILE` giữ xử lý riêng vì nó ánh xạ sang `MEMORYOS_REDIS_TLS_CA_CERTIFICATE` chứ không phải bỏ hậu tố.
 

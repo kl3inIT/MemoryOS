@@ -33,7 +33,8 @@ export function FormDialog({
   restoreFocusRef,
 }: {
   title: string;
-  description: string;
+  /** Omitted when the title and fields say enough; the dialog then has no description. */
+  description?: string;
   trigger?: ReactNode;
   children: ReactNode;
   onSubmit?: () => Promise<void>;
@@ -73,6 +74,8 @@ export function FormDialog({
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent
         showCloseButton={false}
+        // Radix accepts a dialog without a description only when the absence is explicit.
+        {...(description ? {} : { "aria-describedby": undefined })}
         className={cn(
           wide ? "sm:max-w-4xl" : "sm:max-w-2xl",
           // A definite height is what lets the body own the scrolling: percentage-free flex children cannot
@@ -114,7 +117,7 @@ export function FormDialog({
         >
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
-            <DialogDescription>{description}</DialogDescription>
+            {description && <DialogDescription>{description}</DialogDescription>}
           </DialogHeader>
           <fieldset
             disabled={pending}

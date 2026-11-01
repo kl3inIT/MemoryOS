@@ -36,6 +36,6 @@ networks:
     name: ${MEMORYOS_TELEMETRY_NETWORK:-memoryos-telemetry}
     external: true
   # Owned by this composition and created with it. Only the two services that must call out join
-  # it; the stores, the interpreter and its executors stay on internal networks alone.
+  # it; the stores and the sandbox server stay on internal networks alone.
   egress:
     name: ${MEMORYOS_EGRESS_NETWORK:-memoryos-egress}

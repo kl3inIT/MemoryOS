@@ -388,6 +388,20 @@ export function TaskModels(catalog: Catalog) {
       description: ui("Names new conversations. A small, fast model keeps the chat model free."),
       ariaLabel: ui("Conversation naming model"),
     },
+    CHAT_COMPACTION: {
+      title: ui("Long conversation summaries"),
+      description: ui(
+        "Summarizes the earlier turns of a long conversation so the chat model still knows them.",
+      ),
+      ariaLabel: ui("Long conversation summary model"),
+    },
+    AGENT_BUILDER: {
+      title: ui("Agent Builder"),
+      description: ui(
+        "Changes an assistant's settings when its editor asks. Needs a model that calls tools.",
+      ),
+      ariaLabel: ui("Agent Builder model"),
+    },
     MEETING_MINUTES: {
       title: ui("Meeting minutes"),
       description: ui("Writes the summary, decisions and action items of a recorded meeting."),

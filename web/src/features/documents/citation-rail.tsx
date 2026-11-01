@@ -29,8 +29,8 @@ export function CitationRail({
   children,
 }: {
   entries: readonly CitationEntry[];
-  /** Where each citation ended up in the original, in the same order; empty until the original is read. */
-  confidence: readonly CitationConfidence[];
+  /** Where each citation ended up in the original, in the same order; absent until the original is read. */
+  confidence: readonly (CitationConfidence | undefined)[];
   active: number;
   onActivate: (index: number) => void;
   /** False for an original with no text to search, such as an image or a PDF without OCR text. */

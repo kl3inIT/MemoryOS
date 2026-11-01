@@ -52,4 +52,4 @@ package-private by module design (Voice) or owns persistence while `connector.ad
 - A missing adapter stops the application at startup instead of failing a request.
 - More files per family, and a startup check in place of compile-time exhaustiveness; each registry has a test for
   completeness and duplicates.
-- Connectors move to this shape in [MEM-118](../increments/active/mem-118-connector-adapters-lark/design.md).
+- Connectors move to this shape in [MEM-118](../increments/completed/mem-118-connector-adapters-lark/design.md).

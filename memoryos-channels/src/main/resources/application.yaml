@@ -1,0 +1,159 @@
+spring:
+  config:
+    import:
+      - classpath:/memoryos-observability.yaml
+      - classpath:/memoryos-search.yaml
+  application:
+    name: memoryos-channels
+  main:
+    keep-alive: true
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: ${MEMORYOS_DATABASE_URL}
+    username: ${MEMORYOS_DATABASE_USERNAME}
+    password: ${MEMORYOS_DATABASE_PASSWORD}
+    hikari:
+      # A fixed-size pool, as the API's and the Worker's. A turn holds a connection only for its short reads and writes,
+      # never while the model answers, so a few serve the process's sixteen turns.
+      pool-name: memoryos-channels
+      maximum-pool-size: ${MEMORYOS_DATABASE_POOL_SIZE:5}
+      minimum-idle: ${MEMORYOS_DATABASE_POOL_SIZE:5}
+      connection-timeout: ${MEMORYOS_DATABASE_CONNECTION_TIMEOUT:10000}
+      max-lifetime: ${MEMORYOS_DATABASE_CONNECTION_LIFETIME:1500000}
+      leak-detection-threshold: ${MEMORYOS_DATABASE_LEAK_THRESHOLD:60000}
+  jpa:
+    open-in-view: false
+    hibernate:
+      # The API migrates the schema and starts first; this process only checks it.
+      ddl-auto: validate
+    properties:
+      hibernate.cache.use_second_level_cache: false
+      hibernate.cache.use_query_cache: false
+  data:
+    redis:
+      # Chat reply streams, as the API writes them. Commands are short and non-blocking.
+      host: ${MEMORYOS_REDIS_HOST:localhost}
+      port: ${MEMORYOS_REDIS_PORT:6379}
+      username: ${MEMORYOS_REDIS_USERNAME:}
+      password: ${MEMORYOS_REDIS_PASSWORD:}
+      connect-timeout: ${MEMORYOS_REDIS_CONNECT_TIMEOUT:2s}
+      timeout: ${MEMORYOS_REDIS_COMMAND_TIMEOUT:2s}
+      ssl:
+        enabled: ${MEMORYOS_REDIS_SSL_ENABLED:false}
+      repositories:
+        enabled: false
+      lettuce:
+        shutdown-timeout: 1s
+
+embabel:
+  agent:
+    platform:
+      llm-operations:
+        data-binding:
+          max-attempts: 2
+  models:
+    # As the API: every call names a catalog model, and a call that reaches the placeholder fails (MEM-211).
+    default-llm: setup-required
+
+# Native framework diagnostics include prompts, tool arguments/results and binding errors.
+logging:
+  level:
+    Embabel: OFF
+    com.embabel: OFF
+    # MEM-270: the OpenSandbox SDK logs every connect and renewal at INFO, several lines a tool call.
+    com.alibaba.opensandbox: WARN
+
+server:
+  port: ${MEMORYOS_CHANNELS_PORT:8082}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,db
+  health:
+    redis:
+      # Redis holds only reply streams; an outage degrades a reply, it does not make the process unready.
+      enabled: false
+
+memoryos:
+  chat:
+    catalog:
+      encryption-key: ${MEMORYOS_CHAT_CATALOG_ENCRYPTION_KEY:}
+    stream:
+      max-readers: 64
+    execution:
+      # MEM-246: a bot's turns. Every group question runs as the bot's one account, so a bound for each person
+      # would be the process's bound; the person's own rate is the channel's.
+      concurrency: ${MEMORYOS_CHANNELS_TURN_CONCURRENCY:24}
+      per-actor-concurrency: ${MEMORYOS_CHANNELS_TURN_CONCURRENCY:24}
+      max-waiting: 100
+      wait-limit: 60s
+      lease-ttl: 3m
+      lease-renewal: 30s
+      provider-read-timeout: 60s
+      max-cycles: 6
+      max-output-tokens: 1024
+      max-answer-characters: 1000000
+      mcp-call-timeout: 60s
+    storage:
+      library-bytes: ${MEMORYOS_CHAT_STORAGE_LIBRARY_BYTES:536870912}
+  # MEM-270: the Chat sandbox, as the API configures it.
+  sandbox:
+    computer-image: ${MEMORYOS_SANDBOX_COMPUTER_IMAGE:}
+    max-running: ${MEMORYOS_SANDBOX_MAX_RUNNING:3}
+    # The only domains a sandbox reaches: PyPI, so a command can `uv pip install` (Onyx Craft, ChatGPT); empty denies all.
+    allowed-domains: ${MEMORYOS_SANDBOX_ALLOWED_DOMAINS:pypi.org,files.pythonhosted.org}
+    opensandbox:
+      endpoint: ${MEMORYOS_SANDBOX_ENDPOINT:}
+      api-key: ${MEMORYOS_SANDBOX_API_KEY:}
+  channel:
+    credential-encryption-key: ${MEMORYOS_CHANNEL_CREDENTIAL_ENCRYPTION_KEY:}
+    credential-key-version: ${MEMORYOS_CHANNEL_CREDENTIAL_KEY_VERSION:}
+    web-url: ${MEMORYOS_CHANNEL_WEB_URL:}
+    # MEM-283: where another channel process passes a webhook request for a bot this one holds; Docker names each
+    # container by its host name on the network.
+    address: ${MEMORYOS_CHANNEL_ADDRESS:${HOSTNAME:localhost}:${MEMORYOS_CHANNELS_PORT:8082}}
+  whatsapp:
+    bridge-path: ${MEMORYOS_WHATSAPP_BRIDGE_PATH:/application/bin/memoryos-whatsapp-bridge}
+  mcp:
+    credential-encryption-key: ${MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY:}
+    connect-timeout: 5s
+    request-timeout: 30s
+  lark:
+    credential-encryption-key: ${MEMORYOS_LARK_CREDENTIAL_ENCRYPTION_KEY:}
+    credential-key-version: ${MEMORYOS_LARK_CREDENTIAL_KEY_VERSION:}
+  google-drive:
+    credential-encryption-key: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY:}
+    credential-key-version: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION:}
+  sharepoint:
+    credential-encryption-key: ${MEMORYOS_SHAREPOINT_CREDENTIAL_ENCRYPTION_KEY:}
+    credential-key-version: ${MEMORYOS_SHAREPOINT_CREDENTIAL_KEY_VERSION:}
+  object-storage:
+    upload:
+      lifetime: ${MEMORYOS_OBJECT_UPLOAD_LIFETIME:15m}
+      verification-lease: ${MEMORYOS_OBJECT_UPLOAD_VERIFICATION_LEASE:30s}
+      adoption-timeout: ${MEMORYOS_OBJECT_UPLOAD_ADOPTION_TIMEOUT:5m}
+      cleanup-lease: ${MEMORYOS_OBJECT_UPLOAD_CLEANUP_LEASE:1m}
+      cleanup-batch-size: ${MEMORYOS_OBJECT_UPLOAD_CLEANUP_BATCH_SIZE:16}
+    s3:
+      service-endpoint: ${MEMORYOS_OBJECT_STORAGE_SERVICE_ENDPOINT}
+      upload-endpoint: ${MEMORYOS_OBJECT_STORAGE_UPLOAD_ENDPOINT:${MEMORYOS_OBJECT_STORAGE_SERVICE_ENDPOINT}}
+      region: ${MEMORYOS_OBJECT_STORAGE_REGION:us-east-1}
+      bucket: ${MEMORYOS_OBJECT_STORAGE_BUCKET:memoryos}
+      access-key: ${MEMORYOS_OBJECT_STORAGE_ACCESS_KEY}
+      secret-key: ${MEMORYOS_OBJECT_STORAGE_SECRET_KEY}
+      path-style-access: ${MEMORYOS_OBJECT_STORAGE_PATH_STYLE_ACCESS:true}
+      readiness-key: ${MEMORYOS_OBJECT_STORAGE_READINESS_KEY:system/readiness}
+      authorization-lifetime: ${MEMORYOS_OBJECT_UPLOAD_AUTHORIZATION_LIFETIME:10m}
+      connect-timeout: ${MEMORYOS_OBJECT_STORAGE_CONNECT_TIMEOUT:2s}
+      read-timeout: ${MEMORYOS_OBJECT_STORAGE_READ_TIMEOUT:30s}

@@ -90,7 +90,7 @@ Most changes land in `core`. Run the owning test class narrowly. A plain unit te
 20 s once `core` is compiled:
 
 ```powershell
-.\gradlew.bat :core:test --tests '*IdentityValueObjectsTest' --no-daemon
+.\gradlew.bat :memoryos-core:test --tests '*IdentityValueObjectsTest' --no-daemon
 ```
 
 The full API with worker, Keycloak and MinIO was not run for this skill. It needs `infisical login` (only the user

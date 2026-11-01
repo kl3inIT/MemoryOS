@@ -1,2 +1,7 @@
 [mcp_servers.assistant-ui]
 url = "https://www.assistant-ui.com/mcp"
+
+[mcp_servers.playwright]
+command = "C:\\nvm4w\\nodejs\\npx.cmd"
+args = ["-y", "@playwright/mcp@latest"]
+env = { PATH = "C:\\nvm4w\\nodejs;C:\\Windows\\System32;C:\\Windows" }

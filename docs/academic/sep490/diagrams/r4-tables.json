@@ -1,0 +1,3463 @@
+[
+  {
+    "area": "Identity and access",
+    "table": "tenants",
+    "description": "The organization that owns all data. The current deployment holds exactly one tenant.",
+    "rows": [
+      [
+        "id",
+        "UUID",
+        "PRIMARY KEY",
+        ""
+      ],
+      [
+        "slug",
+        "VARCHAR(63)",
+        "NOT NULL, UNIQUE",
+        "Short unique name"
+      ],
+      [
+        "display_name",
+        "VARCHAR(200)",
+        "NOT NULL",
+        ""
+      ],
+      [
+        "status",
+        "VARCHAR(16)",
+        "NOT NULL",
+        "One of: ACTIVE, INACTIVE"
+      ],
+      [
+        "bootstrap_reference",
+        "VARCHAR(200)",
+        "NOT NULL",
+        "Reference of the first-owner setup"
+      ],
+      [
+        "created_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "updated_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "deployment_slot",
+        "SMALLINT",
+        "NOT NULL, UNIQUE, DEFAULT 1",
+        "Always 1, so the database holds one tenant"
+      ],
+      [
+        "authorization_version",
+        "BIGINT",
+        "NOT NULL, DEFAULT 0",
+        "Raised on every permission change so cached permissions are refreshed"
+      ]
+    ]
+  },
+  {
+    "area": "Identity and access",
+    "table": "actors",
+    "description": "A user account or a service account inside MemoryOS.",
+    "rows": [
+      [
+        "id",
+        "UUID",
+        "PRIMARY KEY",
+        ""
+      ],
+      [
+        "created_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "account_type",
+        "VARCHAR(16)",
+        "NOT NULL, DEFAULT 'STANDARD'",
+        "STANDARD for people, SERVICE for system accounts"
+      ],
+      [
+        "ui_language",
+        "VARCHAR(2)",
+        "NOT NULL, DEFAULT 'vi'",
+        "Language of the web interface; One of: vi, en"
+      ]
+    ]
+  },
+  {
+    "area": "Identity and access",
+    "table": "actor_profiles",
+    "description": "The name and email last received from the sign-in provider.",
+    "rows": [
+      [
+        "actor_id",
+        "UUID",
+        "PRIMARY KEY, FK → external_identity_bindings(actor_id)",
+        ""
+      ],
+      [
+        "issuer",
+        "TEXT",
+        "NOT NULL",
+        ""
+      ],
+      [
+        "subject",
+        "TEXT",
+        "NOT NULL",
+        ""
+      ],
+      [
+        "display_name",
+        "TEXT",
+        "",
+        ""
+      ],
+      [
+        "email",
+        "TEXT",
+        "",
+        ""
+      ],
+      [
+        "email_verified",
+        "BOOLEAN",
+        "NOT NULL",
+        "Whether the sign-in provider verified the email"
+      ],
+      [
+        "observed_at",
+        "TIMESTAMPTZ",
+        "NOT NULL",
+        "When these values were last received"
+      ]
+    ]
+  },
+  {
+    "area": "Identity and access",
+    "table": "external_identity_bindings",
+    "description": "Maps a Keycloak account (issuer and subject) to a MemoryOS user. MemoryOS stores no passwords.",
+    "rows": [
+      [
+        "issuer",
+        "TEXT",
+        "PRIMARY KEY (part)",
+        "OIDC issuer (Keycloak realm)"
+      ],
+      [
+        "subject",
+        "TEXT",
+        "PRIMARY KEY (part)",
+        "OIDC subject of the account"
+      ],
+      [
+        "actor_id",
+        "UUID",
+        "FK → actors(id), NOT NULL",
+        ""
+      ],
+      [
+        "created_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ]
+    ]
+  },
+  {
+    "area": "Identity and access",
+    "table": "tenant_memberships",
+    "description": "Links a user to the tenant with a role and an active or inactive status.",
+    "rows": [
+      [
+        "tenant_id",
+        "UUID",
+        "PRIMARY KEY (part), FK → tenants(id)",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "actor_id",
+        "UUID",
+        "PRIMARY KEY (part), FK → actors(id)",
+        ""
+      ],
+      [
+        "role",
+        "VARCHAR(16)",
+        "NOT NULL",
+        "OWNER can manage the whole tenant; One of: OWNER, MEMBER"
+      ],
+      [
+        "status",
+        "VARCHAR(16)",
+        "NOT NULL",
+        "An inactive member cannot sign in; One of: ACTIVE, INACTIVE"
+      ],
+      [
+        "created_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "updated_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ]
+    ]
+  },
+  {
+    "area": "Identity and access",
+    "table": "tenant_invitations",
+    "description": "An invitation for a person to join the tenant by email. Only the hash of the secret link is stored.",
+    "rows": [
+      [
+        "id",
+        "UUID",
+        "PRIMARY KEY",
+        ""
+      ],
+      [
+        "tenant_id",
+        "UUID",
+        "FK → tenants(id), NOT NULL",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "normalized_email",
+        "VARCHAR(254)",
+        "NOT NULL",
+        "Lower-case email of the invited person"
+      ],
+      [
+        "open_email_key",
+        "VARCHAR(254)",
+        "",
+        "Equals the email while the invitation is pending; one open invitation per email"
+      ],
+      [
+        "secret_digest",
+        "VARCHAR(64)",
+        "NOT NULL, UNIQUE",
+        "SHA-256 of the secret in the invitation link"
+      ],
+      [
+        "status",
+        "VARCHAR(16)",
+        "NOT NULL",
+        "One of: PENDING, ACCEPTED, EXPIRED, REVOKED"
+      ],
+      [
+        "created_by_actor_id",
+        "UUID",
+        "FK → actors(id), NOT NULL",
+        ""
+      ],
+      [
+        "created_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "updated_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "expires_at",
+        "TIMESTAMPTZ",
+        "NOT NULL",
+        ""
+      ],
+      [
+        "accepted_by_actor_id",
+        "UUID",
+        "FK → actors(id)",
+        ""
+      ],
+      [
+        "accepted_at",
+        "TIMESTAMPTZ",
+        "",
+        ""
+      ],
+      [
+        "revoked_by_actor_id",
+        "UUID",
+        "FK → actors(id)",
+        ""
+      ],
+      [
+        "revoked_at",
+        "TIMESTAMPTZ",
+        "",
+        ""
+      ]
+    ]
+  },
+  {
+    "area": "Identity and access",
+    "table": "iam_groups",
+    "description": "A group of members. Permissions, sources, models, meetings and MCP servers are given to groups.",
+    "rows": [
+      [
+        "tenant_id",
+        "UUID",
+        "PRIMARY KEY (part), FK → tenants(id)",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "id",
+        "UUID",
+        "PRIMARY KEY (part)",
+        ""
+      ],
+      [
+        "name",
+        "VARCHAR(200)",
+        "NOT NULL",
+        ""
+      ],
+      [
+        "system_key",
+        "VARCHAR(16)",
+        "",
+        "Marks the built-in Admin and Basic groups"
+      ],
+      [
+        "created_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "updated_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ]
+    ]
+  },
+  {
+    "area": "Identity and access",
+    "table": "iam_group_memberships",
+    "description": "Puts a member in a group and marks the group managers.",
+    "rows": [
+      [
+        "tenant_id",
+        "UUID",
+        "PRIMARY KEY (part)",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "group_id",
+        "UUID",
+        "PRIMARY KEY (part), FK → iam_groups(id)",
+        ""
+      ],
+      [
+        "actor_id",
+        "UUID",
+        "PRIMARY KEY (part), FK → tenant_memberships(actor_id)",
+        ""
+      ],
+      [
+        "is_manager",
+        "BOOLEAN",
+        "NOT NULL, DEFAULT false",
+        "A manager can change the members of this group"
+      ],
+      [
+        "created_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "updated_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ]
+    ]
+  },
+  {
+    "area": "Identity and access",
+    "table": "iam_group_capability_grants",
+    "description": "One permission that a group gives to its members.",
+    "rows": [
+      [
+        "tenant_id",
+        "UUID",
+        "PRIMARY KEY (part)",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "group_id",
+        "UUID",
+        "PRIMARY KEY (part), FK → iam_groups(id)",
+        ""
+      ],
+      [
+        "capability",
+        "VARCHAR(32)",
+        "PRIMARY KEY (part)",
+        "Permission given to the group; One of: SYSTEM_ADMIN, SYSTEM_BASIC, USERS_MANAGE, GROUPS_MANAGE, SOURCES_MANAGE, MODELS_MANAGE, MCP_MANAGE, AUDIT_READ, CHAT_HISTORY_READ"
+      ],
+      [
+        "created_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ]
+    ]
+  },
+  {
+    "area": "Identity and access",
+    "table": "audit_event",
+    "description": "One audit record for a sign-in, an account change, an access change or an administrative action.",
+    "rows": [
+      [
+        "id",
+        "UUID",
+        "PRIMARY KEY",
+        ""
+      ],
+      [
+        "tenant_id",
+        "UUID",
+        "FK → tenants(id), NOT NULL",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "occurred_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "action",
+        "VARCHAR(64)",
+        "NOT NULL",
+        "What happened, for example GROUP_MEMBER_CHANGE"
+      ],
+      [
+        "event_class",
+        "VARCHAR(32)",
+        "NOT NULL",
+        "One of: AUTHENTICATION, ACCOUNT_CHANGE, USER_ACCESS_MANAGEMENT, GROUP_MANAGEMENT, API_ACTIVITY"
+      ],
+      [
+        "outcome",
+        "VARCHAR(16)",
+        "NOT NULL",
+        "One of: SUCCESS, FAILURE, DENIED"
+      ],
+      [
+        "actor_id",
+        "UUID",
+        "",
+        "Who did it; empty for the system"
+      ],
+      [
+        "actor_label",
+        "VARCHAR(320)",
+        "",
+        "Name of the actor at that time"
+      ],
+      [
+        "actor_email",
+        "VARCHAR(320)",
+        "",
+        "Email of the actor at that time"
+      ],
+      [
+        "resource_type",
+        "VARCHAR(32)",
+        "",
+        "Type of the changed object"
+      ],
+      [
+        "resource_id",
+        "VARCHAR(200)",
+        "",
+        "Id of the changed object"
+      ],
+      [
+        "resource_label",
+        "VARCHAR(320)",
+        "",
+        ""
+      ],
+      [
+        "details",
+        "JSONB",
+        "NOT NULL, DEFAULT '{}'",
+        "Extra facts; never secrets or message content"
+      ],
+      [
+        "trace_id",
+        "VARCHAR(64)",
+        "",
+        "Links the record to logs and traces"
+      ],
+      [
+        "endpoint",
+        "VARCHAR(200)",
+        "",
+        "API endpoint that was called"
+      ],
+      [
+        "source_ip",
+        "VARCHAR(64)",
+        "",
+        "Client IP address"
+      ],
+      [
+        "schema_version",
+        "SMALLINT",
+        "NOT NULL, DEFAULT 1",
+        ""
+      ]
+    ]
+  },
+  {
+    "area": "Sources and documents",
+    "table": "connectors",
+    "description": "The platform type and name behind a source.",
+    "rows": [
+      [
+        "id",
+        "UUID",
+        "PRIMARY KEY",
+        ""
+      ],
+      [
+        "tenant_id",
+        "UUID",
+        "FK → tenants(id), NOT NULL",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "name",
+        "VARCHAR(120)",
+        "NOT NULL",
+        ""
+      ],
+      [
+        "connector_type",
+        "VARCHAR(32)",
+        "NOT NULL",
+        "One of: FILE, GOOGLE_DRIVE, SHAREPOINT, LARK"
+      ],
+      [
+        "status",
+        "VARCHAR(32)",
+        "NOT NULL",
+        "One of: ACTIVE, DELETING"
+      ],
+      [
+        "created_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "updated_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ]
+    ]
+  },
+  {
+    "area": "Sources and documents",
+    "table": "credentials",
+    "description": "The secret that a source uses to read a platform. The secret itself is encrypted in a table for each platform.",
+    "rows": [
+      [
+        "id",
+        "UUID",
+        "PRIMARY KEY",
+        ""
+      ],
+      [
+        "tenant_id",
+        "UUID",
+        "FK → tenants(id), NOT NULL",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "credential_kind",
+        "VARCHAR(32)",
+        "NOT NULL",
+        "One of: NO_AUTH, GOOGLE_OAUTH, GOOGLE_SERVICE_ACCOUNT, SHAREPOINT_APP, LARK_APP"
+      ],
+      [
+        "status",
+        "VARCHAR(32)",
+        "NOT NULL",
+        "ACTIVE, NEEDS_REAUTHORIZATION, REVOKED or NEEDS_UPDATE, depending on the kind"
+      ],
+      [
+        "created_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "updated_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "name",
+        "VARCHAR(120)",
+        "NOT NULL",
+        ""
+      ],
+      [
+        "owner_actor_id",
+        "UUID",
+        "FK → tenant_memberships(actor_id)",
+        "Empty for a shared credential"
+      ],
+      [
+        "credential_revision",
+        "BIGINT",
+        "NOT NULL, DEFAULT 1",
+        "Raised when the credential is replaced"
+      ],
+      [
+        "payload_revision",
+        "BIGINT",
+        "NOT NULL, DEFAULT 1",
+        "Raised when the secret is refreshed"
+      ]
+    ]
+  },
+  {
+    "area": "Sources and documents",
+    "table": "connector_credential_pairs",
+    "description": "A Source as the user sees it: one connector with one credential, its access mode and its sync status.",
+    "rows": [
+      [
+        "id",
+        "UUID",
+        "PRIMARY KEY",
+        ""
+      ],
+      [
+        "tenant_id",
+        "UUID",
+        "NOT NULL",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "connector_id",
+        "UUID",
+        "FK → connectors(id), NOT NULL",
+        ""
+      ],
+      [
+        "credential_id",
+        "UUID",
+        "FK → credentials(id), NOT NULL",
+        ""
+      ],
+      [
+        "access_type",
+        "VARCHAR(32)",
+        "NOT NULL",
+        "PUBLIC: all members; PRIVATE: chosen groups; SYNC: follows the platform permissions"
+      ],
+      [
+        "status",
+        "VARCHAR(32)",
+        "NOT NULL",
+        "One of: NOT_STARTED, INDEXING, ACTIVE, FAILED, PAUSED, DELETING"
+      ],
+      [
+        "pair_sequence",
+        "BIGINT",
+        "NOT NULL, DEFAULT 0",
+        "Raised on every sync so older attempts are ignored"
+      ],
+      [
+        "document_count",
+        "BIGINT",
+        "NOT NULL, DEFAULT 0",
+        "Number of indexed documents"
+      ],
+      [
+        "last_succeeded_at",
+        "TIMESTAMPTZ",
+        "",
+        "End of the last successful sync"
+      ],
+      [
+        "error_code",
+        "VARCHAR(64)",
+        "",
+        "Stable error code of the last failure"
+      ],
+      [
+        "created_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "updated_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "created_by_actor_id",
+        "UUID",
+        "FK → tenant_memberships(actor_id)",
+        "Member who created the source"
+      ],
+      [
+        "manager_actor_id",
+        "UUID",
+        "FK → tenant_memberships(actor_id)",
+        "Member who manages the source"
+      ],
+      [
+        "sync_error_code",
+        "VARCHAR(64)",
+        "",
+        "Error code of the last sync"
+      ]
+    ]
+  },
+  {
+    "area": "Sources and documents",
+    "table": "google_drive_sources",
+    "description": "Settings that only a Google Drive source has.",
+    "rows": [
+      [
+        "tenant_id",
+        "UUID",
+        "PRIMARY KEY (part)",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "source_id",
+        "UUID",
+        "PRIMARY KEY (part), FK → source_sync_state(source_id), FK → connector_credential_pairs(id)",
+        ""
+      ],
+      [
+        "scope_mode",
+        "VARCHAR(16)",
+        "NOT NULL, DEFAULT 'SPECIFIC'",
+        "GENERAL reads the whole drive; SPECIFIC reads chosen folders and files"
+      ],
+      [
+        "discovery_revision",
+        "BIGINT",
+        "NOT NULL, DEFAULT 0",
+        "Raised each time the scope is listed again"
+      ],
+      [
+        "discovered_at",
+        "TIMESTAMPTZ",
+        "",
+        ""
+      ],
+      [
+        "discovery_scope_revision",
+        "BIGINT",
+        "",
+        ""
+      ],
+      [
+        "discovery_credential_revision",
+        "BIGINT",
+        "",
+        ""
+      ]
+    ]
+  },
+  {
+    "area": "Sources and documents",
+    "table": "sharepoint_sources",
+    "description": "Settings that only a SharePoint source has.",
+    "rows": [
+      [
+        "tenant_id",
+        "UUID",
+        "PRIMARY KEY (part)",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "source_id",
+        "UUID",
+        "PRIMARY KEY (part), FK → source_sync_state(source_id), FK → connector_credential_pairs(id)",
+        ""
+      ],
+      [
+        "scope_mode",
+        "VARCHAR(16)",
+        "NOT NULL",
+        "ALL_SITES or chosen sites; One of: ALL_SITES, SPECIFIC"
+      ],
+      [
+        "include_documents",
+        "BOOLEAN",
+        "NOT NULL, DEFAULT true",
+        "Read files in document libraries"
+      ],
+      [
+        "include_pages",
+        "BOOLEAN",
+        "NOT NULL, DEFAULT false",
+        "Read site pages"
+      ],
+      [
+        "prune_interval_hours",
+        "INTEGER",
+        "NOT NULL, DEFAULT 168",
+        "How often deleted files are removed"
+      ],
+      [
+        "tenant_host",
+        "VARCHAR(255)",
+        "",
+        "SharePoint host name of the Microsoft 365 tenant"
+      ],
+      [
+        "refresh_window_end",
+        "TIMESTAMPTZ",
+        "",
+        "End of the change window already read"
+      ],
+      [
+        "last_pruned_at",
+        "TIMESTAMPTZ",
+        "",
+        ""
+      ],
+      [
+        "next_prune_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ]
+    ]
+  },
+  {
+    "area": "Sources and documents",
+    "table": "lark_sources",
+    "description": "Marks a source as a Lark source. Lark needs no extra settings.",
+    "rows": [
+      [
+        "tenant_id",
+        "UUID",
+        "PRIMARY KEY (part)",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "source_id",
+        "UUID",
+        "PRIMARY KEY (part), FK → source_sync_state(source_id), FK → connector_credential_pairs(id)",
+        ""
+      ]
+    ]
+  },
+  {
+    "area": "Sources and documents",
+    "table": "source_group_grants",
+    "description": "Gives one group access to the documents of one source.",
+    "rows": [
+      [
+        "tenant_id",
+        "UUID",
+        "PRIMARY KEY (part)",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "connector_credential_pair_id",
+        "UUID",
+        "PRIMARY KEY (part), FK → connector_credential_pairs(id)",
+        ""
+      ],
+      [
+        "group_id",
+        "UUID",
+        "PRIMARY KEY (part), FK → iam_groups(id)",
+        ""
+      ],
+      [
+        "created_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ]
+    ]
+  },
+  {
+    "area": "Sources and documents",
+    "table": "connector_items",
+    "description": "One file or page found in a source, with its latest version.",
+    "rows": [
+      [
+        "id",
+        "UUID",
+        "PRIMARY KEY",
+        ""
+      ],
+      [
+        "tenant_id",
+        "UUID",
+        "NOT NULL",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "connector_id",
+        "UUID",
+        "FK → connectors(id), NOT NULL",
+        ""
+      ],
+      [
+        "current_version_id",
+        "UUID",
+        "FK → connector_item_versions(id)",
+        "Latest saved version"
+      ],
+      [
+        "content_sha256",
+        "CHARACTER(64)",
+        "NOT NULL",
+        "SHA-256 of the content"
+      ],
+      [
+        "status",
+        "VARCHAR(32)",
+        "NOT NULL",
+        "One of: PENDING, INDEXED, FAILED, DELETING"
+      ],
+      [
+        "created_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "updated_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "provider_file_id",
+        "VARCHAR(256)",
+        "",
+        "File id on the platform; empty for uploaded files"
+      ],
+      [
+        "source_created_at",
+        "TIMESTAMPTZ",
+        "",
+        "Creation time on the platform"
+      ],
+      [
+        "source_updated_at",
+        "TIMESTAMPTZ",
+        "",
+        "Last change time on the platform"
+      ]
+    ]
+  },
+  {
+    "area": "Sources and documents",
+    "table": "connector_item_versions",
+    "description": "One saved version of an item. The file itself is in object storage.",
+    "rows": [
+      [
+        "id",
+        "UUID",
+        "PRIMARY KEY",
+        ""
+      ],
+      [
+        "tenant_id",
+        "UUID",
+        "NOT NULL",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "connector_id",
+        "UUID",
+        "FK → connectors(id), NOT NULL",
+        ""
+      ],
+      [
+        "connector_item_id",
+        "UUID",
+        "FK → connector_items(id), NOT NULL",
+        ""
+      ],
+      [
+        "revision_number",
+        "BIGINT",
+        "NOT NULL",
+        "1 for the first version, then 2, 3 and so on"
+      ],
+      [
+        "filename",
+        "VARCHAR(255)",
+        "NOT NULL",
+        ""
+      ],
+      [
+        "content_sha256",
+        "CHARACTER(64)",
+        "NOT NULL",
+        "SHA-256 of the content"
+      ],
+      [
+        "size_bytes",
+        "BIGINT",
+        "NOT NULL",
+        "File size; up to 100 MB for a binary file and 32 MB for an exported page"
+      ],
+      [
+        "created_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "stored_object_id",
+        "UUID",
+        "FK → stored_objects(id), NOT NULL",
+        "File in object storage"
+      ],
+      [
+        "input_format",
+        "VARCHAR(32)",
+        "NOT NULL, DEFAULT 'BINARY'",
+        "How the content was read from the platform"
+      ],
+      [
+        "provider_file_id",
+        "VARCHAR(256)",
+        "",
+        ""
+      ],
+      [
+        "provider_version",
+        "VARCHAR(512)",
+        "",
+        "Version or ETag on the platform"
+      ],
+      [
+        "source_url",
+        "VARCHAR(2048)",
+        "",
+        "Link to open the file on the platform"
+      ],
+      [
+        "scope_revision",
+        "BIGINT",
+        "",
+        "Source scope when this version was read"
+      ],
+      [
+        "credential_revision",
+        "BIGINT",
+        "",
+        "Credential when this version was read"
+      ]
+    ]
+  },
+  {
+    "area": "Sources and documents",
+    "table": "stored_objects",
+    "description": "Metadata of one file in MinIO object storage.",
+    "rows": [
+      [
+        "id",
+        "UUID",
+        "PRIMARY KEY",
+        ""
+      ],
+      [
+        "tenant_id",
+        "UUID",
+        "FK → tenants(id), NOT NULL",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "object_key",
+        "VARCHAR(240)",
+        "NOT NULL, UNIQUE",
+        "Key in the MinIO bucket"
+      ],
+      [
+        "filename",
+        "VARCHAR(255)",
+        "NOT NULL",
+        ""
+      ],
+      [
+        "declared_media_type",
+        "VARCHAR(160)",
+        "NOT NULL",
+        "MIME type given at upload"
+      ],
+      [
+        "size_bytes",
+        "BIGINT",
+        "NOT NULL",
+        ""
+      ],
+      [
+        "content_sha256",
+        "CHARACTER(64)",
+        "NOT NULL",
+        "SHA-256 of the content"
+      ],
+      [
+        "state",
+        "VARCHAR(32)",
+        "NOT NULL",
+        "STAGED until the upload is confirmed; One of: STAGED, ACTIVE, DELETE_PENDING"
+      ],
+      [
+        "expires_at",
+        "TIMESTAMPTZ",
+        "NOT NULL",
+        "A staged object is deleted after this time"
+      ],
+      [
+        "created_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "updated_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "input_kind",
+        "VARCHAR(32)",
+        "NOT NULL, DEFAULT 'BINARY'",
+        "How the file entered MemoryOS"
+      ]
+    ]
+  },
+  {
+    "area": "Sources and documents",
+    "table": "index_attempts",
+    "description": "One attempt to index one item version. The worker claims it with a lease and records the result.",
+    "rows": [
+      [
+        "id",
+        "UUID",
+        "PRIMARY KEY",
+        ""
+      ],
+      [
+        "tenant_id",
+        "UUID",
+        "NOT NULL",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "connector_id",
+        "UUID",
+        "NOT NULL",
+        "Copy of the connector for faster lookups"
+      ],
+      [
+        "connector_credential_pair_id",
+        "UUID",
+        "FK → connector_credential_pairs(id), NOT NULL",
+        ""
+      ],
+      [
+        "connector_item_id",
+        "UUID",
+        "FK → connector_items(id), NOT NULL",
+        ""
+      ],
+      [
+        "connector_item_version_id",
+        "UUID",
+        "FK → connector_item_versions(id), NOT NULL",
+        ""
+      ],
+      [
+        "pair_sequence",
+        "BIGINT",
+        "NOT NULL",
+        ""
+      ],
+      [
+        "item_sequence",
+        "BIGINT",
+        "NOT NULL",
+        "Order of attempts for the same item"
+      ],
+      [
+        "status",
+        "VARCHAR(32)",
+        "NOT NULL",
+        "One of: NOT_STARTED, IN_PROGRESS, SUCCEEDED, FAILED, SUPERSEDED, CANCELLED"
+      ],
+      [
+        "claim_token",
+        "UUID",
+        "",
+        "Set when a worker claims the row"
+      ],
+      [
+        "lease_expires_at",
+        "TIMESTAMPTZ",
+        "",
+        "Another worker may take over after this time"
+      ],
+      [
+        "error_code",
+        "VARCHAR(64)",
+        "",
+        "Stable error code of the last failure"
+      ],
+      [
+        "created_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "started_at",
+        "TIMESTAMPTZ",
+        "",
+        ""
+      ],
+      [
+        "completed_at",
+        "TIMESTAMPTZ",
+        "",
+        ""
+      ],
+      [
+        "delivery_id",
+        "UUID",
+        "",
+        "Redis Streams delivery that carries the job"
+      ],
+      [
+        "dispatch_token",
+        "UUID",
+        "",
+        "Set when the job is sent to Redis Streams"
+      ],
+      [
+        "dispatch_lease_expires_at",
+        "TIMESTAMPTZ",
+        "",
+        "The job is sent again after this time"
+      ],
+      [
+        "redis_message_id",
+        "VARCHAR(64)",
+        "",
+        "Redis Streams message id"
+      ],
+      [
+        "next_dispatch_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        "Earliest time to send the job"
+      ],
+      [
+        "dispatched_at",
+        "TIMESTAMPTZ",
+        "",
+        "When the job was sent"
+      ],
+      [
+        "dispatch_attempts",
+        "INTEGER",
+        "NOT NULL, DEFAULT 0",
+        "Number of times the job was sent"
+      ],
+      [
+        "processing_attempts",
+        "INTEGER",
+        "NOT NULL, DEFAULT 0",
+        "Number of times a worker started the job"
+      ],
+      [
+        "last_transport_error",
+        "VARCHAR(64)",
+        "",
+        "Last Redis error code"
+      ],
+      [
+        "origin_trace_id",
+        "VARCHAR(32)",
+        "",
+        "Trace of the request that started the sync"
+      ],
+      [
+        "origin_span_id",
+        "VARCHAR(16)",
+        "",
+        "Span of the request that started the sync"
+      ],
+      [
+        "deferred_attempts",
+        "INTEGER",
+        "NOT NULL, DEFAULT 0",
+        "Number of times the job was postponed"
+      ],
+      [
+        "source_sync_attempt_id",
+        "UUID",
+        "FK → source_sync_attempts(id)",
+        "Sync run that created this attempt"
+      ],
+      [
+        "error_message",
+        "VARCHAR(512)",
+        "",
+        "Short safe error message"
+      ],
+      [
+        "error_detail",
+        "VARCHAR(4096)",
+        "",
+        "Longer safe error detail"
+      ]
+    ]
+  },
+  {
+    "area": "Sources and documents",
+    "table": "documents",
+    "description": "The extracted text of one file and its indexing state.",
+    "rows": [
+      [
+        "id",
+        "UUID",
+        "PRIMARY KEY",
+        ""
+      ],
+      [
+        "tenant_id",
+        "UUID",
+        "FK → tenants(id), NOT NULL",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "status",
+        "VARCHAR(32)",
+        "NOT NULL",
+        "INELIGIBLE documents are never returned by search; One of: ELIGIBLE, INELIGIBLE"
+      ],
+      [
+        "created_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "updated_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "title",
+        "VARCHAR(255)",
+        "",
+        ""
+      ],
+      [
+        "media_type",
+        "VARCHAR(160)",
+        "",
+        "MIME type of the source file"
+      ],
+      [
+        "source_content_sha256",
+        "VARCHAR(64)",
+        "",
+        "Hash of the source file, used to skip unchanged files"
+      ],
+      [
+        "metadata_json",
+        "TEXT",
+        "",
+        "Author, dates and other file metadata"
+      ],
+      [
+        "extraction_artifact_id",
+        "UUID",
+        "FK → document_extraction_artifacts(id)",
+        "Saved Docling output"
+      ],
+      [
+        "content_generation",
+        "UUID",
+        "NOT NULL, DEFAULT gen_random_uuid()",
+        "New value each time new text is published"
+      ],
+      [
+        "chunk_count",
+        "INTEGER",
+        "",
+        "Number of chunks"
+      ],
+      [
+        "chunk_generation",
+        "UUID",
+        "",
+        "Generation that the chunks belong to"
+      ],
+      [
+        "searchable_generation",
+        "UUID",
+        "",
+        "Generation that search serves; the old one stays served while a new one is indexed"
+      ],
+      [
+        "search_index_identity",
+        "VARCHAR(160)",
+        "",
+        "Search index and embedding model that hold the document"
+      ],
+      [
+        "search_error_code",
+        "VARCHAR(64)",
+        "",
+        "Error code of the last indexing failure"
+      ],
+      [
+        "chunk_convention",
+        "VARCHAR(80)",
+        "",
+        "Chunking rules version; a change starts a rebuild"
+      ]
+    ]
+  },
+  {
+    "area": "Sources and documents",
+    "table": "documents_by_connector_credential_pair",
+    "description": "Links a document to the source and item it came from, and says whether search may return it.",
+    "rows": [
+      [
+        "tenant_id",
+        "UUID",
+        "PRIMARY KEY (part)",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "connector_id",
+        "UUID",
+        "NOT NULL",
+        "Copy of the connector for faster lookups"
+      ],
+      [
+        "connector_credential_pair_id",
+        "UUID",
+        "PRIMARY KEY (part), FK → connector_credential_pairs(id)",
+        ""
+      ],
+      [
+        "document_id",
+        "UUID",
+        "PRIMARY KEY (part), FK → documents(id)",
+        ""
+      ],
+      [
+        "connector_item_id",
+        "UUID",
+        "FK → connector_items(id), NOT NULL",
+        ""
+      ],
+      [
+        "retrieval_eligible",
+        "BOOLEAN",
+        "NOT NULL",
+        "False when the file left the source scope"
+      ],
+      [
+        "first_indexed_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "last_indexed_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ]
+    ]
+  },
+  {
+    "area": "Sources and documents",
+    "table": "document_chunks",
+    "description": "One searchable passage of a document, cut by the chunker. The same passages are indexed in OpenSearch.",
+    "rows": [
+      [
+        "tenant_id",
+        "UUID",
+        "PRIMARY KEY (part)",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "document_id",
+        "UUID",
+        "PRIMARY KEY (part), FK → documents(id)",
+        ""
+      ],
+      [
+        "generation",
+        "UUID",
+        "NOT NULL",
+        "Content generation that produced the chunk"
+      ],
+      [
+        "ordinal",
+        "INTEGER",
+        "PRIMARY KEY (part)",
+        "Position in the document"
+      ],
+      [
+        "content",
+        "TEXT",
+        "NOT NULL",
+        ""
+      ],
+      [
+        "headings_json",
+        "TEXT",
+        "NOT NULL",
+        "Headings above the passage"
+      ],
+      [
+        "block_index",
+        "INTEGER",
+        "NOT NULL",
+        "Source block in the extracted document"
+      ],
+      [
+        "part",
+        "INTEGER",
+        "NOT NULL",
+        "Part number when a long block is split"
+      ],
+      [
+        "provenance_json",
+        "TEXT",
+        "NOT NULL",
+        "Page and position for citations"
+      ],
+      [
+        "content_sha256",
+        "VARCHAR(64)",
+        "NOT NULL",
+        "SHA-256 of the content"
+      ],
+      [
+        "token_count",
+        "INTEGER",
+        "NOT NULL",
+        "Size of the passage in tokens"
+      ]
+    ]
+  },
+  {
+    "area": "Sources and documents",
+    "table": "document_set",
+    "description": "A named set of sources that a user can pick to narrow chat answers.",
+    "rows": [
+      [
+        "tenant_id",
+        "UUID",
+        "PRIMARY KEY (part), FK → tenants(id)",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "id",
+        "UUID",
+        "PRIMARY KEY (part)",
+        ""
+      ],
+      [
+        "owner_actor_id",
+        "UUID",
+        "FK → tenant_memberships(actor_id), NOT NULL",
+        "Member who created the set"
+      ],
+      [
+        "name",
+        "VARCHAR(200)",
+        "NOT NULL",
+        ""
+      ],
+      [
+        "description",
+        "VARCHAR(2000)",
+        "NOT NULL, DEFAULT ''",
+        ""
+      ],
+      [
+        "created_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "updated_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "deleted_at",
+        "TIMESTAMPTZ",
+        "",
+        "Set when moved to the trash"
+      ],
+      [
+        "revision",
+        "BIGINT",
+        "NOT NULL, DEFAULT 0",
+        "Optimistic locking; a write with an old value fails"
+      ],
+      [
+        "is_public",
+        "BOOLEAN",
+        "NOT NULL, DEFAULT false",
+        "Visible to all members"
+      ]
+    ]
+  },
+  {
+    "area": "Sources and documents",
+    "table": "document_set_source",
+    "description": "Adds a source to a document set.",
+    "rows": [
+      [
+        "tenant_id",
+        "UUID",
+        "PRIMARY KEY (part)",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "document_set_id",
+        "UUID",
+        "PRIMARY KEY (part), FK → document_set(id)",
+        ""
+      ],
+      [
+        "source_id",
+        "UUID",
+        "PRIMARY KEY (part), FK → connector_credential_pairs(id)",
+        ""
+      ]
+    ]
+  },
+  {
+    "area": "Chat and AI administration",
+    "table": "chat_project",
+    "description": "A project that groups conversations and files and adds its own instructions.",
+    "rows": [
+      [
+        "id",
+        "UUID",
+        "PRIMARY KEY",
+        ""
+      ],
+      [
+        "tenant_id",
+        "UUID",
+        "NOT NULL",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "owner_actor_id",
+        "UUID",
+        "FK → tenant_memberships(actor_id), NOT NULL",
+        "Owner of the project"
+      ],
+      [
+        "name",
+        "VARCHAR(200)",
+        "NOT NULL",
+        ""
+      ],
+      [
+        "description",
+        "VARCHAR(2000)",
+        "NOT NULL, DEFAULT ''",
+        ""
+      ],
+      [
+        "instructions",
+        "TEXT",
+        "NOT NULL, DEFAULT ''",
+        "Extra instructions added to every chat in the project"
+      ],
+      [
+        "revision",
+        "BIGINT",
+        "NOT NULL, DEFAULT 0",
+        "Optimistic locking; a write with an old value fails"
+      ],
+      [
+        "created_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "updated_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "file_ids",
+        "JSONB",
+        "NOT NULL, DEFAULT '[]'",
+        "Project files used as context"
+      ],
+      [
+        "icon_name",
+        "VARCHAR(40)",
+        "",
+        ""
+      ],
+      [
+        "position",
+        "INTEGER",
+        "NOT NULL",
+        "Order in the sidebar"
+      ]
+    ]
+  },
+  {
+    "area": "Chat and AI administration",
+    "table": "chat_session",
+    "description": "One conversation of one user.",
+    "rows": [
+      [
+        "id",
+        "UUID",
+        "PRIMARY KEY",
+        ""
+      ],
+      [
+        "tenant_id",
+        "UUID",
+        "NOT NULL",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "owner_actor_id",
+        "UUID",
+        "FK → tenant_memberships(actor_id), NOT NULL",
+        "Owner of the conversation"
+      ],
+      [
+        "root_message_id",
+        "UUID",
+        "FK → chat_message(id), NOT NULL",
+        "Root of the message tree"
+      ],
+      [
+        "title",
+        "VARCHAR(200)",
+        "NOT NULL",
+        ""
+      ],
+      [
+        "created_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "updated_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "project_id",
+        "UUID",
+        "FK → chat_project(id)",
+        ""
+      ],
+      [
+        "deleted_at",
+        "TIMESTAMPTZ",
+        "",
+        "Set when moved to the trash"
+      ],
+      [
+        "title_naming_pending",
+        "BOOLEAN",
+        "NOT NULL, DEFAULT true",
+        "True until a title is generated"
+      ],
+      [
+        "reasoning_effort",
+        "VARCHAR(16)",
+        "",
+        "Reasoning level chosen for the conversation"
+      ],
+      [
+        "archived_at",
+        "TIMESTAMPTZ",
+        "",
+        "Set when archived"
+      ],
+      [
+        "branched_from_session_id",
+        "UUID",
+        "FK → chat_session(id)",
+        "Conversation this one was branched from"
+      ],
+      [
+        "branched_from_message_id",
+        "UUID",
+        "",
+        "Message the branch starts after"
+      ],
+      [
+        "temporary",
+        "BOOLEAN",
+        "NOT NULL, DEFAULT false",
+        "A temporary chat is not saved in history"
+      ]
+    ]
+  },
+  {
+    "area": "Chat and AI administration",
+    "table": "chat_message",
+    "description": "One message in a conversation. Messages form a tree, so an answer can be edited or regenerated.",
+    "rows": [
+      [
+        "id",
+        "UUID",
+        "PRIMARY KEY",
+        ""
+      ],
+      [
+        "session_id",
+        "UUID",
+        "FK → chat_session(id), NOT NULL",
+        ""
+      ],
+      [
+        "parent_message_id",
+        "UUID",
+        "FK → chat_message(id)",
+        "Previous message in the tree"
+      ],
+      [
+        "latest_child_message_id",
+        "UUID",
+        "FK → chat_message(id)",
+        "Branch shown by default"
+      ],
+      [
+        "role",
+        "VARCHAR(16)",
+        "NOT NULL",
+        "ROOT is the hidden start of the tree; One of: ROOT, USER, ASSISTANT"
+      ],
+      [
+        "content",
+        "TEXT",
+        "NOT NULL, DEFAULT ''",
+        ""
+      ],
+      [
+        "status",
+        "VARCHAR(16)",
+        "NOT NULL",
+        "One of: COMPLETED, RUNNING, CANCELED, FAILED"
+      ],
+      [
+        "client_request_id",
+        "UUID",
+        "",
+        "Idempotency key sent by the browser"
+      ],
+      [
+        "original_assistant_message_id",
+        "UUID",
+        "FK → chat_message(id)",
+        "Answer that this one regenerates"
+      ],
+      [
+        "created_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "finished_at",
+        "TIMESTAMPTZ",
+        "",
+        "When the answer finished"
+      ],
+      [
+        "deadline_at",
+        "TIMESTAMPTZ",
+        "",
+        "A running answer fails after this time"
+      ],
+      [
+        "failure_code",
+        "VARCHAR(64)",
+        "",
+        "Error code of a failed answer"
+      ],
+      [
+        "model_name",
+        "VARCHAR(200)",
+        "",
+        "Model that wrote the answer"
+      ],
+      [
+        "input_tokens",
+        "BIGINT",
+        "",
+        ""
+      ],
+      [
+        "output_tokens",
+        "BIGINT",
+        "",
+        ""
+      ],
+      [
+        "cost_usd",
+        "DOUBLE PRECISION",
+        "",
+        "Cost of the answer in US dollars"
+      ],
+      [
+        "requested_model_configuration_id",
+        "UUID",
+        "",
+        "Model the user picked"
+      ],
+      [
+        "selected_model_configuration_id",
+        "UUID",
+        "",
+        "Model actually used"
+      ],
+      [
+        "model_selection_fallback",
+        "VARCHAR(32)",
+        "",
+        "Why another model was used"
+      ],
+      [
+        "sources",
+        "JSONB",
+        "NOT NULL, DEFAULT '[]'",
+        "Cited passages shown under the answer"
+      ],
+      [
+        "files",
+        "JSONB",
+        "NOT NULL, DEFAULT '[]'",
+        "Files attached to the message"
+      ],
+      [
+        "artifacts",
+        "JSONB",
+        "NOT NULL, DEFAULT '[]'",
+        "Files the assistant created"
+      ],
+      [
+        "activity",
+        "JSONB",
+        "DEFAULT '{\"steps\": []",
+        "Steps and reasoning shown while answering"
+      ],
+      [
+        "is_clarification",
+        "BOOLEAN",
+        "NOT NULL, DEFAULT false",
+        "The assistant asked a question instead of answering"
+      ],
+      [
+        "refusal_reason",
+        "VARCHAR(16)",
+        "",
+        "Why the assistant refused in grounded mode"
+      ],
+      [
+        "context_tokens",
+        "INTEGER",
+        "",
+        "Tokens sent to the model"
+      ],
+      [
+        "context_limit",
+        "INTEGER",
+        "",
+        "Context size of the model"
+      ]
+    ]
+  },
+  {
+    "area": "Chat and AI administration",
+    "table": "chat_feedback",
+    "description": "A user's thumbs up or thumbs down on an answer, with an optional comment.",
+    "rows": [
+      [
+        "id",
+        "UUID",
+        "PRIMARY KEY",
+        ""
+      ],
+      [
+        "tenant_id",
+        "UUID",
+        "NOT NULL",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "actor_id",
+        "UUID",
+        "FK → tenant_memberships(actor_id), NOT NULL",
+        ""
+      ],
+      [
+        "session_id",
+        "UUID",
+        "FK → chat_session(id), NOT NULL",
+        ""
+      ],
+      [
+        "assistant_message_id",
+        "UUID",
+        "FK → chat_message(id), NOT NULL",
+        ""
+      ],
+      [
+        "positive",
+        "BOOLEAN",
+        "",
+        "True for thumbs up, false for thumbs down"
+      ],
+      [
+        "comment",
+        "VARCHAR(4000)",
+        "NOT NULL, DEFAULT ''",
+        ""
+      ],
+      [
+        "reason",
+        "VARCHAR(100)",
+        "NOT NULL, DEFAULT ''",
+        "Reason chosen from a list"
+      ],
+      [
+        "updated_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "revision",
+        "BIGINT",
+        "NOT NULL, DEFAULT 0",
+        "Optimistic locking; a write with an old value fails"
+      ]
+    ]
+  },
+  {
+    "area": "Chat and AI administration",
+    "table": "chat_sharing",
+    "description": "Whether a conversation can be read by other members through a share link.",
+    "rows": [
+      [
+        "session_id",
+        "UUID",
+        "PRIMARY KEY, FK → chat_session(id)",
+        ""
+      ],
+      [
+        "tenant_id",
+        "UUID",
+        "NOT NULL",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "enabled",
+        "BOOLEAN",
+        "NOT NULL, DEFAULT false",
+        "The share link works only while true"
+      ],
+      [
+        "revision",
+        "BIGINT",
+        "NOT NULL, DEFAULT 0",
+        "Optimistic locking; a write with an old value fails"
+      ]
+    ]
+  },
+  {
+    "area": "Chat and AI administration",
+    "table": "chat_user_file",
+    "description": "A file that a user uploaded or that the assistant created, kept in the personal library.",
+    "rows": [
+      [
+        "id",
+        "UUID",
+        "PRIMARY KEY",
+        ""
+      ],
+      [
+        "tenant_id",
+        "UUID",
+        "NOT NULL",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "owner_actor_id",
+        "UUID",
+        "FK → tenant_memberships(actor_id), NOT NULL",
+        "Owner of the file"
+      ],
+      [
+        "request_id",
+        "UUID",
+        "NOT NULL",
+        "Idempotency key of the upload"
+      ],
+      [
+        "upload_id",
+        "UUID",
+        "FK → object_uploads(id)",
+        "Upload session in object storage"
+      ],
+      [
+        "filename",
+        "VARCHAR(255)",
+        "NOT NULL",
+        ""
+      ],
+      [
+        "media_type",
+        "VARCHAR(160)",
+        "NOT NULL",
+        ""
+      ],
+      [
+        "size_bytes",
+        "BIGINT",
+        "NOT NULL",
+        ""
+      ],
+      [
+        "content_sha256",
+        "VARCHAR(64)",
+        "NOT NULL",
+        "SHA-256 of the content"
+      ],
+      [
+        "status",
+        "VARCHAR(24)",
+        "NOT NULL, DEFAULT 'UPLOADING'",
+        "One of: UPLOADING, PROCESSING, READY, FAILED, DELETING, DELETED"
+      ],
+      [
+        "document_id",
+        "UUID",
+        "FK → documents(id)",
+        "Extracted document used in chat"
+      ],
+      [
+        "plaintext",
+        "TEXT",
+        "",
+        "Text of a small text file"
+      ],
+      [
+        "error_code",
+        "VARCHAR(64)",
+        "",
+        "Stable error code of the last failure"
+      ],
+      [
+        "created_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "updated_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "detected_media_type",
+        "VARCHAR(160)",
+        "",
+        "MIME type detected from the content"
+      ],
+      [
+        "copied_from_source",
+        "VARCHAR(16)",
+        "",
+        "Origin of a file copied into the library"
+      ],
+      [
+        "copied_from_id",
+        "UUID",
+        "",
+        "Id of the original file"
+      ],
+      [
+        "favorite_at",
+        "TIMESTAMPTZ",
+        "",
+        "Set when starred"
+      ],
+      [
+        "deleted_at",
+        "TIMESTAMPTZ",
+        "",
+        "Set when moved to the trash"
+      ],
+      [
+        "purge_after",
+        "TIMESTAMPTZ",
+        "",
+        "Deleted for good after this time"
+      ],
+      [
+        "temporary_session_id",
+        "UUID",
+        "",
+        "Temporary chat that owns the file"
+      ],
+      [
+        "thumbnail_stored_object_id",
+        "UUID",
+        "",
+        "Preview image"
+      ],
+      [
+        "thumbnail_object_key",
+        "VARCHAR(240)",
+        "",
+        ""
+      ],
+      [
+        "thumbnail_media_type",
+        "VARCHAR(100)",
+        "",
+        ""
+      ],
+      [
+        "stored_object_id",
+        "UUID",
+        "",
+        "File in object storage"
+      ]
+    ]
+  },
+  {
+    "area": "Chat and AI administration",
+    "table": "chat_settings",
+    "description": "Chat rules for the whole tenant: history visibility, grounded answers and guardrails.",
+    "rows": [
+      [
+        "tenant_id",
+        "UUID",
+        "PRIMARY KEY, FK → tenants(id)",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "revision",
+        "BIGINT",
+        "NOT NULL, DEFAULT 0",
+        "Optimistic locking; a write with an old value fails"
+      ],
+      [
+        "chat_history_visibility",
+        "VARCHAR(16)",
+        "NOT NULL, DEFAULT 'NORMAL'",
+        "How administrators may read chat history; One of: NORMAL, ANONYMIZED, DISABLED"
+      ],
+      [
+        "grounded_answers",
+        "BOOLEAN",
+        "NOT NULL, DEFAULT false",
+        "Answer only from cited documents"
+      ],
+      [
+        "grounded_allow_web",
+        "BOOLEAN",
+        "NOT NULL, DEFAULT false",
+        "Allow web results in grounded mode"
+      ],
+      [
+        "guardrail_topics",
+        "JSONB",
+        "NOT NULL, DEFAULT '[]'",
+        "Topics the assistant refuses"
+      ],
+      [
+        "blocked_phrases",
+        "JSONB",
+        "NOT NULL, DEFAULT '[]'",
+        "Phrases that block a message"
+      ],
+      [
+        "blocked_phrase_message",
+        "TEXT",
+        "",
+        "Reply shown when a phrase is blocked"
+      ]
+    ]
+  },
+  {
+    "area": "Chat and AI administration",
+    "table": "llm_provider",
+    "description": "An AI model provider set up by an administrator.",
+    "rows": [
+      [
+        "id",
+        "UUID",
+        "PRIMARY KEY",
+        ""
+      ],
+      [
+        "tenant_id",
+        "UUID",
+        "FK → tenants(id), NOT NULL",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "name",
+        "VARCHAR(200)",
+        "NOT NULL",
+        ""
+      ],
+      [
+        "adapter_type",
+        "VARCHAR(64)",
+        "NOT NULL",
+        "Protocol used to call the provider"
+      ],
+      [
+        "base_url",
+        "VARCHAR(2048)",
+        "NOT NULL",
+        "Provider API address"
+      ],
+      [
+        "enabled",
+        "BOOLEAN",
+        "NOT NULL, DEFAULT true",
+        ""
+      ],
+      [
+        "is_public",
+        "BOOLEAN",
+        "NOT NULL, DEFAULT true",
+        "False when only chosen groups may use it"
+      ],
+      [
+        "credential",
+        "TEXT",
+        "",
+        "API key, encrypted"
+      ],
+      [
+        "revision",
+        "BIGINT",
+        "NOT NULL, DEFAULT 1",
+        "Optimistic locking; a write with an old value fails"
+      ],
+      [
+        "data_boundary",
+        "VARCHAR(16)",
+        "NOT NULL, DEFAULT 'EXTERNAL'",
+        "INTERNAL keeps data inside the company network; One of: INTERNAL, EXTERNAL"
+      ]
+    ]
+  },
+  {
+    "area": "Chat and AI administration",
+    "table": "model_configuration",
+    "description": "One model of a provider that users can pick, with its settings.",
+    "rows": [
+      [
+        "id",
+        "UUID",
+        "PRIMARY KEY",
+        ""
+      ],
+      [
+        "tenant_id",
+        "UUID",
+        "NOT NULL",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "provider_id",
+        "UUID",
+        "FK → llm_provider(id), NOT NULL",
+        ""
+      ],
+      [
+        "model_name",
+        "VARCHAR(200)",
+        "NOT NULL",
+        "Model id at the provider"
+      ],
+      [
+        "display_name",
+        "VARCHAR(200)",
+        "NOT NULL",
+        "Name shown to users"
+      ],
+      [
+        "visible",
+        "BOOLEAN",
+        "NOT NULL, DEFAULT true",
+        "Shown in the model picker"
+      ],
+      [
+        "settings",
+        "JSONB",
+        "NOT NULL",
+        "Context size, prices and options"
+      ],
+      [
+        "revision",
+        "BIGINT",
+        "NOT NULL, DEFAULT 1",
+        "Optimistic locking; a write with an old value fails"
+      ]
+    ]
+  },
+  {
+    "area": "Chat and AI administration",
+    "table": "ai_usage",
+    "description": "Daily totals of AI calls, tokens and cost for one user, flow and model.",
+    "rows": [
+      [
+        "id",
+        "BIGINT",
+        "PRIMARY KEY",
+        ""
+      ],
+      [
+        "tenant_id",
+        "UUID",
+        "FK → tenants(id), NOT NULL",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "actor_id",
+        "UUID",
+        "FK → actors(id)",
+        ""
+      ],
+      [
+        "day",
+        "DATE",
+        "NOT NULL",
+        ""
+      ],
+      [
+        "flow",
+        "VARCHAR(32)",
+        "NOT NULL",
+        "Feature that made the AI call; One of: CHAT, CHAT_NAMING, CHAT_GUARDRAIL, CHAT_COMPACTION, EMBEDDING_QUERY, EMBEDDING_INDEXING, IMAGE_GENERATION, IMAGE_EDIT, SPEECH_TO_TEXT, TEXT_TO_SPEECH, MEETING_MINUTES, MEETING_CORRECTION, OCR"
+      ],
+      [
+        "provider_name",
+        "VARCHAR(200)",
+        "NOT NULL",
+        "Provider name at that time"
+      ],
+      [
+        "model_name",
+        "VARCHAR(200)",
+        "NOT NULL",
+        ""
+      ],
+      [
+        "provider_id",
+        "UUID",
+        "",
+        "Provider, if it still exists"
+      ],
+      [
+        "model_configuration_id",
+        "UUID",
+        "",
+        "Model, if it still exists"
+      ],
+      [
+        "data_boundary",
+        "VARCHAR(16)",
+        "",
+        "One of: INTERNAL, EXTERNAL"
+      ],
+      [
+        "calls",
+        "BIGINT",
+        "NOT NULL, DEFAULT 0",
+        "Number of calls"
+      ],
+      [
+        "input_tokens",
+        "BIGINT",
+        "NOT NULL, DEFAULT 0",
+        ""
+      ],
+      [
+        "output_tokens",
+        "BIGINT",
+        "NOT NULL, DEFAULT 0",
+        ""
+      ],
+      [
+        "cache_read_tokens",
+        "BIGINT",
+        "NOT NULL, DEFAULT 0",
+        "Input tokens read from the provider cache"
+      ],
+      [
+        "image_count",
+        "BIGINT",
+        "NOT NULL, DEFAULT 0",
+        ""
+      ],
+      [
+        "audio_seconds",
+        "NUMERIC(14,3)",
+        "NOT NULL, DEFAULT 0",
+        "Audio length for speech flows"
+      ],
+      [
+        "cost_usd",
+        "NUMERIC(18,8)",
+        "NOT NULL, DEFAULT 0",
+        ""
+      ],
+      [
+        "unknown_cost_calls",
+        "BIGINT",
+        "NOT NULL, DEFAULT 0",
+        "Calls whose price is unknown"
+      ]
+    ]
+  },
+  {
+    "area": "Chat and AI administration",
+    "table": "ai_usage_limit",
+    "description": "A token or cost budget for the tenant, a group or each person over a number of days.",
+    "rows": [
+      [
+        "id",
+        "UUID",
+        "PRIMARY KEY",
+        ""
+      ],
+      [
+        "tenant_id",
+        "UUID",
+        "FK → tenants(id), NOT NULL",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "scope",
+        "VARCHAR(16)",
+        "NOT NULL",
+        "Who the budget applies to; One of: TENANT, GROUP, PERSON"
+      ],
+      [
+        "group_id",
+        "UUID",
+        "FK → iam_groups(id)",
+        "Group for a GROUP budget"
+      ],
+      [
+        "token_budget",
+        "BIGINT",
+        "",
+        "Maximum tokens in the period"
+      ],
+      [
+        "cost_budget_usd",
+        "NUMERIC(18,8)",
+        "",
+        "Maximum cost in the period"
+      ],
+      [
+        "period_days",
+        "INTEGER",
+        "NOT NULL",
+        "Length of the period"
+      ],
+      [
+        "enabled",
+        "BOOLEAN",
+        "NOT NULL, DEFAULT true",
+        ""
+      ],
+      [
+        "created_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "updated_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ]
+    ]
+  },
+  {
+    "area": "Meetings and MCP",
+    "table": "meeting",
+    "description": "A recorded or uploaded meeting with its transcript, minutes and processing state.",
+    "rows": [
+      [
+        "tenant_id",
+        "UUID",
+        "PRIMARY KEY (part), FK → tenants(id)",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "id",
+        "UUID",
+        "PRIMARY KEY (part)",
+        ""
+      ],
+      [
+        "owner_actor_id",
+        "UUID",
+        "FK → tenant_memberships(actor_id), NOT NULL",
+        "Owner of the meeting"
+      ],
+      [
+        "title",
+        "VARCHAR(200)",
+        "NOT NULL",
+        ""
+      ],
+      [
+        "kind",
+        "VARCHAR(16)",
+        "NOT NULL",
+        "Online call or meeting in a room; One of: ONLINE, IN_PERSON"
+      ],
+      [
+        "language",
+        "VARCHAR(8)",
+        "",
+        "Spoken language; One of: vi, en"
+      ],
+      [
+        "participants",
+        "JSONB",
+        "NOT NULL, DEFAULT '[]'",
+        "Names of the participants"
+      ],
+      [
+        "terms",
+        "JSONB",
+        "NOT NULL, DEFAULT '[]'",
+        "Custom words that help the speech model"
+      ],
+      [
+        "notes",
+        "TEXT",
+        "NOT NULL, DEFAULT ''",
+        "Notes written by the user"
+      ],
+      [
+        "status",
+        "VARCHAR(16)",
+        "NOT NULL, DEFAULT 'RECORDING'",
+        "One of: RECORDING, TRANSCRIBING, ENDED"
+      ],
+      [
+        "provider",
+        "VARCHAR(32)",
+        "",
+        "Speech-to-text provider"
+      ],
+      [
+        "model",
+        "VARCHAR(200)",
+        "",
+        "Speech-to-text model"
+      ],
+      [
+        "diarized",
+        "BOOLEAN",
+        "NOT NULL, DEFAULT false",
+        "Speakers were separated"
+      ],
+      [
+        "created_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "ended_at",
+        "TIMESTAMPTZ",
+        "",
+        ""
+      ],
+      [
+        "updated_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "revision",
+        "BIGINT",
+        "NOT NULL, DEFAULT 0",
+        "Optimistic locking; a write with an old value fails"
+      ],
+      [
+        "minutes_status",
+        "VARCHAR(16)",
+        "NOT NULL, DEFAULT 'NONE'",
+        "State of the AI minutes; One of: NONE, PENDING, RUNNING, READY, FAILED"
+      ],
+      [
+        "minutes_attempts",
+        "INTEGER",
+        "NOT NULL, DEFAULT 0",
+        "Number of tries"
+      ],
+      [
+        "minutes_lease_until",
+        "TIMESTAMPTZ",
+        "",
+        "Another worker may take over after this time"
+      ],
+      [
+        "minutes_failure",
+        "VARCHAR(64)",
+        "",
+        "Error code of the last try"
+      ],
+      [
+        "minutes_summary",
+        "TEXT",
+        "NOT NULL, DEFAULT ''",
+        "Summary text of the minutes"
+      ],
+      [
+        "minutes_kind",
+        "VARCHAR(64)",
+        "NOT NULL, DEFAULT ''",
+        "Minutes template used"
+      ],
+      [
+        "minutes_generated_at",
+        "TIMESTAMPTZ",
+        "",
+        ""
+      ],
+      [
+        "audio_upload_id",
+        "UUID",
+        "",
+        "Upload of a recorded file"
+      ],
+      [
+        "audio_key",
+        "VARCHAR(512)",
+        "",
+        "Audio file in object storage"
+      ],
+      [
+        "audio_filename",
+        "VARCHAR(255)",
+        "",
+        ""
+      ],
+      [
+        "audio_media_type",
+        "VARCHAR(160)",
+        "",
+        ""
+      ],
+      [
+        "audio_size_bytes",
+        "BIGINT",
+        "",
+        ""
+      ],
+      [
+        "audio_provider",
+        "VARCHAR(32)",
+        "",
+        "Provider that transcribes the file"
+      ],
+      [
+        "audio_status",
+        "VARCHAR(16)",
+        "NOT NULL, DEFAULT 'NONE'",
+        "State of the uploaded audio transcription; One of: NONE, WAITING, PENDING, RUNNING, DONE, FAILED"
+      ],
+      [
+        "audio_attempts",
+        "INTEGER",
+        "NOT NULL, DEFAULT 0",
+        "Number of tries"
+      ],
+      [
+        "audio_lease_until",
+        "TIMESTAMPTZ",
+        "",
+        "Another worker may take over after this time"
+      ],
+      [
+        "audio_failure",
+        "VARCHAR(64)",
+        "",
+        "Error code of the last try"
+      ],
+      [
+        "correction_running_until",
+        "TIMESTAMPTZ",
+        "",
+        "Transcript correction is running until this time"
+      ],
+      [
+        "minutes_edited",
+        "BOOLEAN",
+        "NOT NULL, DEFAULT false",
+        "A user changed the minutes"
+      ],
+      [
+        "minutes_heading",
+        "JSONB",
+        "",
+        "Title, date and attendees of the minutes"
+      ]
+    ]
+  },
+  {
+    "area": "Meetings and MCP",
+    "table": "meeting_speaker",
+    "description": "A speaker label found in a meeting, with the name a user gave it.",
+    "rows": [
+      [
+        "tenant_id",
+        "UUID",
+        "PRIMARY KEY (part)",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "meeting_id",
+        "UUID",
+        "PRIMARY KEY (part), FK → meeting(id)",
+        ""
+      ],
+      [
+        "track",
+        "VARCHAR(8)",
+        "PRIMARY KEY (part)",
+        "MIC is the user's microphone; TAB is the meeting audio"
+      ],
+      [
+        "label",
+        "VARCHAR(16)",
+        "PRIMARY KEY (part)",
+        "Speaker label from the speech model"
+      ],
+      [
+        "name",
+        "VARCHAR(200)",
+        "",
+        "Name given by a user"
+      ],
+      [
+        "suggestion_dismissed",
+        "BOOLEAN",
+        "NOT NULL, DEFAULT false",
+        "The user rejected the suggested name"
+      ]
+    ]
+  },
+  {
+    "area": "Meetings and MCP",
+    "table": "meeting_utterance",
+    "description": "One piece of transcript with its speaker and time.",
+    "rows": [
+      [
+        "tenant_id",
+        "UUID",
+        "PRIMARY KEY (part)",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "id",
+        "UUID",
+        "PRIMARY KEY (part)",
+        ""
+      ],
+      [
+        "meeting_id",
+        "UUID",
+        "FK → meeting(id), NOT NULL",
+        ""
+      ],
+      [
+        "track",
+        "VARCHAR(8)",
+        "NOT NULL",
+        "One of: MIC, TAB"
+      ],
+      [
+        "speaker",
+        "VARCHAR(16)",
+        "FK → meeting_speaker(label), NOT NULL",
+        "Speaker label"
+      ],
+      [
+        "start_ms",
+        "BIGINT",
+        "NOT NULL",
+        "Start time from the beginning of the meeting"
+      ],
+      [
+        "end_ms",
+        "BIGINT",
+        "NOT NULL",
+        "End time from the beginning of the meeting"
+      ],
+      [
+        "text",
+        "TEXT",
+        "NOT NULL",
+        ""
+      ],
+      [
+        "confidence",
+        "REAL",
+        "NOT NULL",
+        "Confidence of the speech model"
+      ],
+      [
+        "created_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ],
+      [
+        "spans",
+        "JSONB",
+        "NOT NULL, DEFAULT '[]'",
+        "Word timings"
+      ],
+      [
+        "edit_source",
+        "VARCHAR(16)",
+        "",
+        "Who last changed the text"
+      ]
+    ]
+  },
+  {
+    "area": "Meetings and MCP",
+    "table": "meeting_minutes_item",
+    "description": "One decision, action item or topic in the meeting minutes.",
+    "rows": [
+      [
+        "tenant_id",
+        "UUID",
+        "PRIMARY KEY (part)",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "id",
+        "UUID",
+        "PRIMARY KEY (part)",
+        ""
+      ],
+      [
+        "meeting_id",
+        "UUID",
+        "FK → meeting(id), NOT NULL",
+        ""
+      ],
+      [
+        "kind",
+        "VARCHAR(16)",
+        "NOT NULL",
+        "DECISION, ACTION item or TOPIC"
+      ],
+      [
+        "position",
+        "INTEGER",
+        "NOT NULL",
+        "Order in the minutes"
+      ],
+      [
+        "text",
+        "TEXT",
+        "NOT NULL",
+        ""
+      ],
+      [
+        "owner",
+        "VARCHAR(200)",
+        "",
+        "Person responsible for an action"
+      ],
+      [
+        "due",
+        "VARCHAR(100)",
+        "",
+        "Deadline of an action, as spoken"
+      ],
+      [
+        "quote",
+        "TEXT",
+        "",
+        "Words from the transcript that support the item"
+      ],
+      [
+        "source_utterance_id",
+        "UUID",
+        "FK → meeting_utterance(id)",
+        "Transcript piece the item came from"
+      ],
+      [
+        "done",
+        "BOOLEAN",
+        "NOT NULL, DEFAULT false",
+        "Action item finished"
+      ],
+      [
+        "edited",
+        "BOOLEAN",
+        "NOT NULL, DEFAULT false",
+        "A user changed the item"
+      ]
+    ]
+  },
+  {
+    "area": "Meetings and MCP",
+    "table": "meeting_user_share",
+    "description": "Shares a meeting with one member.",
+    "rows": [
+      [
+        "tenant_id",
+        "UUID",
+        "PRIMARY KEY (part)",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "meeting_id",
+        "UUID",
+        "PRIMARY KEY (part), FK → meeting(id)",
+        ""
+      ],
+      [
+        "actor_id",
+        "UUID",
+        "PRIMARY KEY (part), FK → tenant_memberships(actor_id)",
+        ""
+      ],
+      [
+        "created_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ]
+    ]
+  },
+  {
+    "area": "Meetings and MCP",
+    "table": "meeting_group_share",
+    "description": "Shares a meeting with one group.",
+    "rows": [
+      [
+        "tenant_id",
+        "UUID",
+        "PRIMARY KEY (part)",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "meeting_id",
+        "UUID",
+        "PRIMARY KEY (part), FK → meeting(id)",
+        ""
+      ],
+      [
+        "group_id",
+        "UUID",
+        "PRIMARY KEY (part), FK → iam_groups(id)",
+        ""
+      ],
+      [
+        "created_at",
+        "TIMESTAMPTZ",
+        "NOT NULL, DEFAULT NOW()",
+        ""
+      ]
+    ]
+  },
+  {
+    "area": "Meetings and MCP",
+    "table": "mcp_server",
+    "description": "An external MCP server that chat can call tools from.",
+    "rows": [
+      [
+        "id",
+        "UUID",
+        "PRIMARY KEY",
+        ""
+      ],
+      [
+        "tenant_id",
+        "UUID",
+        "FK → tenants(id), NOT NULL",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "slug",
+        "VARCHAR(16)",
+        "NOT NULL",
+        "Short name used in tool names; unique in the tenant"
+      ],
+      [
+        "name",
+        "VARCHAR(200)",
+        "NOT NULL",
+        ""
+      ],
+      [
+        "description",
+        "VARCHAR(2000)",
+        "",
+        ""
+      ],
+      [
+        "url",
+        "VARCHAR(2048)",
+        "NOT NULL",
+        "Server address"
+      ],
+      [
+        "auth_type",
+        "VARCHAR(16)",
+        "NOT NULL",
+        "How MemoryOS signs in to the server; One of: NONE, API_TOKEN, OAUTH"
+      ],
+      [
+        "auth_performer",
+        "VARCHAR(16)",
+        "NOT NULL",
+        "ADMIN signs in once for everyone; PER_USER means each user signs in"
+      ],
+      [
+        "oauth_provider_mode",
+        "VARCHAR(16)",
+        "",
+        "Find OAuth settings automatically or use a known provider; One of: AUTO_DISCOVERY, KNOWN_PROVIDER"
+      ],
+      [
+        "oauth_scopes",
+        "JSONB",
+        "NOT NULL, DEFAULT '[]'",
+        "OAuth scopes to request"
+      ],
+      [
+        "oauth_additional_parameters",
+        "JSONB",
+        "NOT NULL, DEFAULT '{}'",
+        "Extra OAuth parameters"
+      ],
+      [
+        "header_template",
+        "TEXT",
+        "",
+        "Header for an API token"
+      ],
+      [
+        "status",
+        "VARCHAR(16)",
+        "NOT NULL",
+        "One of: CREATED, AWAITING_AUTH, FETCHING_TOOLS, CONNECTED, DISCONNECTED"
+      ],
+      [
+        "tenant_wide",
+        "BOOLEAN",
+        "NOT NULL, DEFAULT true",
+        "Available to all members; otherwise only to chosen groups"
+      ],
+      [
+        "last_refreshed_at",
+        "TIMESTAMPTZ",
+        "",
+        "Last time the tool list was read"
+      ],
+      [
+        "created_at",
+        "TIMESTAMPTZ",
+        "NOT NULL",
+        ""
+      ],
+      [
+        "updated_at",
+        "TIMESTAMPTZ",
+        "NOT NULL",
+        ""
+      ],
+      [
+        "revision",
+        "BIGINT",
+        "NOT NULL, DEFAULT 1",
+        "Optimistic locking; a write with an old value fails"
+      ]
+    ]
+  },
+  {
+    "area": "Meetings and MCP",
+    "table": "mcp_server_tool",
+    "description": "One tool of an MCP server, with the policy for calling it.",
+    "rows": [
+      [
+        "id",
+        "UUID",
+        "PRIMARY KEY",
+        ""
+      ],
+      [
+        "tenant_id",
+        "UUID",
+        "NOT NULL",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "server_id",
+        "UUID",
+        "FK → mcp_server(id), NOT NULL",
+        ""
+      ],
+      [
+        "name",
+        "VARCHAR(128)",
+        "NOT NULL",
+        "Tool name at the server"
+      ],
+      [
+        "title",
+        "VARCHAR(200)",
+        "",
+        ""
+      ],
+      [
+        "description",
+        "TEXT",
+        "NOT NULL, DEFAULT ''",
+        ""
+      ],
+      [
+        "input_schema",
+        "JSONB",
+        "NOT NULL",
+        "JSON Schema of the tool arguments"
+      ],
+      [
+        "annotations",
+        "JSONB",
+        "NOT NULL, DEFAULT '{}'",
+        "Hints from the server"
+      ],
+      [
+        "read_only",
+        "BOOLEAN",
+        "NOT NULL, DEFAULT false",
+        "The server says the tool changes nothing"
+      ],
+      [
+        "snapshot_at",
+        "TIMESTAMPTZ",
+        "NOT NULL",
+        "When the tool was read"
+      ],
+      [
+        "revision",
+        "BIGINT",
+        "NOT NULL, DEFAULT 1",
+        "Optimistic locking; a write with an old value fails"
+      ],
+      [
+        "policy",
+        "VARCHAR(8)",
+        "NOT NULL",
+        "ALWAYS runs, ASK needs the user's approval, OFF is hidden"
+      ],
+      [
+        "policy_customized",
+        "BOOLEAN",
+        "NOT NULL, DEFAULT false",
+        "An administrator changed the default policy"
+      ],
+      [
+        "app_resource_uri",
+        "VARCHAR(1024)",
+        "",
+        "UI resource for tool results"
+      ],
+      [
+        "model_visible",
+        "BOOLEAN",
+        "NOT NULL, DEFAULT true",
+        "The model can call the tool"
+      ],
+      [
+        "app_visible",
+        "BOOLEAN",
+        "NOT NULL, DEFAULT true",
+        "The web app can call the tool"
+      ]
+    ]
+  },
+  {
+    "area": "Meetings and MCP",
+    "table": "mcp_server_group",
+    "description": "Gives one group access to an MCP server.",
+    "rows": [
+      [
+        "tenant_id",
+        "UUID",
+        "PRIMARY KEY (part)",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "server_id",
+        "UUID",
+        "PRIMARY KEY (part), FK → mcp_server(id)",
+        ""
+      ],
+      [
+        "group_id",
+        "UUID",
+        "PRIMARY KEY (part), FK → iam_groups(id)",
+        ""
+      ]
+    ]
+  },
+  {
+    "area": "Meetings and MCP",
+    "table": "mcp_credential",
+    "description": "The token used to call an MCP server, either shared or for one user. The payload is encrypted.",
+    "rows": [
+      [
+        "id",
+        "UUID",
+        "PRIMARY KEY",
+        ""
+      ],
+      [
+        "tenant_id",
+        "UUID",
+        "NOT NULL",
+        "Owning tenant; part of every tenant-scoped key"
+      ],
+      [
+        "server_id",
+        "UUID",
+        "FK → mcp_server(id), NOT NULL",
+        ""
+      ],
+      [
+        "owner_actor_id",
+        "UUID",
+        "FK → actors(id)",
+        "Empty for a credential shared by all users"
+      ],
+      [
+        "oauth_client_id",
+        "UUID",
+        "FK → mcp_oauth_client(id)",
+        "OAuth client registered with the server"
+      ],
+      [
+        "payload",
+        "TEXT",
+        "NOT NULL",
+        "Access and refresh tokens, encrypted"
+      ],
+      [
+        "access_expires_at",
+        "TIMESTAMPTZ",
+        "",
+        "The access token is refreshed after this time"
+      ],
+      [
+        "status",
+        "VARCHAR(24)",
+        "NOT NULL",
+        "One of: ACTIVE, REAUTH_REQUIRED"
+      ],
+      [
+        "created_at",
+        "TIMESTAMPTZ",
+        "NOT NULL",
+        ""
+      ],
+      [
+        "updated_at",
+        "TIMESTAMPTZ",
+        "NOT NULL",
+        ""
+      ],
+      [
+        "revision",
+        "BIGINT",
+        "NOT NULL, DEFAULT 1",
+        "Optimistic locking; a write with an old value fails"
+      ]
+    ]
+  }
+]

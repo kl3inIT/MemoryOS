@@ -21,6 +21,23 @@ updates:
           - minor
           - patch
 
+  # MEM-283: whatsmeow follows WhatsApp's protocol; a bump is how a protocol change reaches the bridge.
+  - package-ecosystem: gomod
+    directory: /memoryos-integration-whatsapp/bridge
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Ho_Chi_Minh
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    groups:
+      gomod-minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
   - package-ecosystem: npm
     directories:
       - /web
@@ -39,27 +56,9 @@ updates:
           - minor
           - patch
 
-  # The archify skill lockfile is committed, so security alerts land on it; without this
-  # ecosystem Dependabot reports them without ever opening a fixing pull request.
-  - package-ecosystem: npm
-    directory: /.skills/archify
-    schedule:
-      interval: weekly
-      day: monday
-      time: "09:30"
-      timezone: Asia/Ho_Chi_Minh
-    open-pull-requests-limit: 5
-    labels:
-      - dependencies
-    groups:
-      skills-npm:
-        patterns:
-          - "*"
-
   - package-ecosystem: uv
     directories:
-      - /interpreter/service
-      - /interpreter/executor
+      - /memoryos-sandbox/computer
     schedule:
       interval: weekly
       day: monday
@@ -79,8 +78,8 @@ updates:
       - /
       - /web
       - /landing
-      - /interpreter/service
-      - /interpreter/executor
+      - /memoryos-sandbox/computer
+      - /memoryos-sandbox/server
       - /infrastructure/keycloak
       - /infrastructure/deployment/ocr
     schedule:
@@ -91,6 +90,12 @@ updates:
     open-pull-requests-limit: 10
     labels:
       - dependencies
+    # Java stays on the 25 LTS; a new Java major is a decision of its own, not a weekly bump.
+    ignore:
+      - dependency-name: bellsoft/liberica-runtime-container
+        update-types: ["version-update:semver-major"]
+      - dependency-name: eclipse-temurin
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: docker-compose
     directories:

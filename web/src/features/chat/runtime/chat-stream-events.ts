@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ApiError } from "@/lib/api";
+import { unavailableAppSchema } from "@/features/chat/activity/chat-activity";
 import type { GeneratedImage } from "@/features/chat/image/chat-image";
 import {
   generatedFileSchema,
@@ -22,6 +23,9 @@ export const outcomeSchema = eventSchema.extend({
   status: z.enum(["COMPLETED", "CANCELED", "FAILED"]),
   failureCode: z.string().max(100).nullish(),
   hasArtifacts: z.boolean().default(false),
+  /** MEM-267: what the reply's last model call carried, against the model's input limit. */
+  contextTokens: z.number().int().nonnegative().nullish(),
+  contextLimit: z.number().int().positive().nullish(),
 });
 export const codeSchema = eventSchema.extend({
   toolCallId: z.string().min(1).max(256),
@@ -30,7 +34,59 @@ export const codeSchema = eventSchema.extend({
   output: z.string().max(MAX_OUTPUT_CHARACTERS).nullish(),
   stream: z.enum(["stdout", "stderr"]).nullish(),
   files: z.array(generatedFileSchema).max(25).default([]),
+  /** MEM-270: a sandbox command's title, from the model's description, on its running stage. */
+  title: z.string().max(200).nullish(),
 });
+/**
+ * A tool call that waits for the person's approval, then the same call with the decision (MEM-253). It carries the
+ * call's arguments, bounded, because the person decides on them.
+ */
+export const toolApprovalSchema = eventSchema.extend({
+  toolCallId: z.string().min(1).max(256),
+  serverName: z.string().max(200),
+  toolName: z.string().max(128),
+  /** MEM-274: the tool's display name, when the server gives one. */
+  toolTitle: z.string().max(200).nullish(),
+  arguments: z.string().max(4000),
+  decision: z.enum(["APPROVED", "DECLINED", "NO_DECISION"]).nullish(),
+  /** MEM-267: the reply's owner may answer with "always allow". */
+  alwaysAllowable: z.boolean().default(false),
+});
+
+/** MEM-273: the reply's apps the person must connect first, sent before the model runs. */
+export const mcpUnavailableSchema = eventSchema.extend({
+  apps: z.array(unavailableAppSchema).max(32),
+});
+
+/**
+ * MEM-280: a change the Agent Builder made to the editor's unsaved form, with only the fields it changed, each with
+ * its whole new value.
+ */
+export const assistantChangeSchema = eventSchema.extend({
+  toolCallId: z.string().min(1).max(256),
+  change: z
+    .object({
+      name: z.string(),
+      title: z.string(),
+      description: z.string(),
+      avatarSeed: z.string(),
+      instructions: z.string(),
+      greeting: z.string(),
+      starterPrompts: z.array(z.string()),
+      tools: z.array(z.string()),
+      sourceIds: z.array(z.string()),
+      documentSetIds: z.array(z.string()),
+      mcpServerIds: z.array(z.string()),
+      modelConfigurationId: z.string(),
+      reasoningEffort: z.string(),
+      grounded: z.boolean(),
+    })
+    .partial(),
+});
+export type AssistantChange = z.infer<typeof assistantChangeSchema>;
+
+/** The reply waits for a turn, or has just been given one. */
+export const waitingSchema = eventSchema.extend({ waiting: z.boolean() });
 export const imageSchema = eventSchema.extend({
   stage: z.enum(["GENERATING", "COMPLETED", "FAILED"]),
   id: z.string().uuid().nullish(),
@@ -62,6 +118,7 @@ export function applyCodeEvent(
   run: z.infer<typeof codeSchema>,
 ) {
   const previous = codeRuns[run.toolCallId] ?? {
+    title: undefined,
     code: "",
     stdout: "",
     stderr: "",
@@ -75,6 +132,7 @@ export function applyCodeEvent(
     codeRuns: {
       ...codeRuns,
       [run.toolCallId]: {
+        title: run.stage === "RUNNING" ? (run.title ?? undefined) : previous.title,
         code: run.stage === "RUNNING" ? (run.code ?? "") : previous.code,
         stdout: onStderr ? previous.stdout : previous.stdout + delta,
         stderr: onStderr ? previous.stderr + delta : previous.stderr,

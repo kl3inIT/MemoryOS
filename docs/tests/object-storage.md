@@ -1,6 +1,6 @@
 # Object storage verification matrix
 
-Evidence boundary — 2026-09-09: the historical object-storage records below predate the isolated Google/main integration. Their original commands and migration numbers remain evidence for that revision only. The [integration ledger](../increments/active/google-drive-structured-ingestion/plan.md#isolated-main-integration--2026-09-09) records the later combined gates and migration mapping.
+Evidence boundary — 2026-09-09: the historical object-storage records below predate the isolated Google/main integration. Their original commands and migration numbers remain evidence for that revision only. The [integration ledger](../increments/completed/google-drive-structured-ingestion/plan.md#isolated-main-integration--2026-09-09) records the later combined gates and migration mapping.
 
 This matrix identifies retained automated coverage and separately labels historical deployment evidence. No validation was rerun during documentation consolidation. PostgreSQL lifecycle tests use controlled storage collaborators to exercise races; S3 adapter tests use MinIO. Neither establishes live Google authorization/acquisition end to end.
 
@@ -43,7 +43,7 @@ This matrix identifies retained automated coverage and separately labels histori
 
 | Contract | Evidence |
 | --- | --- |
-| Worker policy permits raw acquisition PUT/read/delete and extracted-artifact PUT/read/delete; API retains raw PUT/read; both have sentinel reads without bucket listing | `infrastructure/minio/bootstrap.sh`; [current local worker raw-policy smoke](../increments/active/google-drive-structured-ingestion/plan.md#actual-embedded-browser-and-storage-proof) observed PUT/GET/DELETE success, exact bytes, anonymous 403 and post-delete 404. Not a staging rollout; historical MEM-52 smoke predates raw worker PUT |
+| Worker policy permits raw acquisition PUT/read/delete and extracted-artifact PUT/read/delete; API retains raw PUT/read; both have sentinel reads without bucket listing | `infrastructure/minio/bootstrap.sh`; [current local worker raw-policy smoke](../increments/completed/google-drive-structured-ingestion/plan.md#actual-embedded-browser-and-storage-proof) observed PUT/GET/DELETE success, exact bytes, anonymous 403 and post-delete 404. Not a staging rollout; historical MEM-52 smoke predates raw worker PUT |
 | Bootstrap is private/idempotent, uses writable ephemeral client config and authenticates distinct API/worker sentinel users | Historical MEM-52 deployment smoke evidence |
 | Staging Console uses exact Keycloak OIDC callback and owner-only claims; owner access is read-only, service-account creation returns `403`, ordinary users get no storage policy, port `9001` is not host-published, and production has no Console/OIDC configuration | Historical MEM-56 Compose, Keycloak token, MinIO STS/S3 and browser acceptance evidence; not rerun for this cutover |
 

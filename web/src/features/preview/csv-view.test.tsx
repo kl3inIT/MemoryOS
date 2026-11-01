@@ -4,10 +4,10 @@ import { CsvView } from "./csv-view";
 
 const csv = "Khu vực,Doanh thu\nHà Nội,120\nĐà Nẵng,80\nCần Thơ,45\n";
 
-const LAID_OUT = { offsetHeight: 600, offsetWidth: 800 };
+const LAID_OUT = { offsetHeight: 600, offsetWidth: 800, clientHeight: 600, clientWidth: 800 };
 
 // Only the rows inside the scrolling window are rendered, and jsdom lays nothing out, so the window would be
-// zero high and the sheet would come out empty. These are the two measurements the window is taken from.
+// zero high and the sheet would come out empty. TanStack Virtual sizes the window by its client box and the lines by their offset box (virtual-core 3.19.6).
 beforeEach(() => {
   for (const [property, value] of Object.entries(LAID_OUT))
     Object.defineProperty(HTMLElement.prototype, property, { configurable: true, value });

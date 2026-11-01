@@ -4,7 +4,8 @@
   "project": ["src/**/*.{ts,tsx,css}", "scripts/**/*.{ts,mjs}", "tests/**/*.ts"],
   // The generated client, and the vendored shadcn primitives kept whole even where unused.
   "ignore": ["src/lib/hey-api/**", "src/components/ui/**"],
-  "ignoreDependencies": ["@base-ui/react"],
+  // Runtime packages of the vendored shadcn primitives (carousel, input-otp), kept with them.
+  "ignoreDependencies": ["@base-ui/react", "embla-carousel-react", "input-otp"],
   "ignoreIssues": {
     // assistant-ui registry elements keep their upstream export surface (every part, prop type and helper), so a
     // registry update stays a plain diff; unused files and dependencies there are still reported.

@@ -1,0 +1,105 @@
+import java.time.Duration
+
+plugins {
+    `java-library`
+    id("memoryos.java-conventions")
+    id("memoryos.classpath-isolation")
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    // Native Embabel method tools use reflected parameter names for their JSON schema and binding.
+    options.compilerArgs.add("-parameters")
+}
+
+tasks.withType<Test>().configureEach {
+    // The full PostgreSQL/migration corpus and real OpenSearch startup exceed ten minutes on a cold host.
+    timeout = Duration.ofMinutes(15)
+    // Modulith/ArchUnit metadata, the full persistence corpus and the OOXML schema type system the biên bản
+    // renderer loads all live in one test JVM; a gigabyte stopped being enough once every capability had tests.
+    maxHeapSize = "1536m"
+    // Core is the longest test task; each JVM owns a PostgreSQL container and template (TestDatabase). Two fit a
+    // developer machine; CI runs core alone on its runner and raises it through MEMORYOS_CORE_TEST_FORKS.
+    maxParallelForks = providers.environmentVariable("MEMORYOS_CORE_TEST_FORKS").map(String::toInt).getOrElse(2)
+    // Opt-in measurement must rerun when enabled instead of reusing a skipped result.
+    inputs.property("memoryosSearchAuthzMeasure", providers.environmentVariable("MEMORYOS_SEARCH_AUTHZ_MEASURE").orElse("false"))
+    // MEM-199: a fork that runs out of heap leaves its heap dump and GC log for CI to upload. Attaching jcmd from
+    // -XX:OnOutOfMemoryError hangs, because it runs while the JVM is stopped at the error.
+    val diagnostics = layout.buildDirectory.dir("test-diagnostics/$name").get().asFile
+    jvmArgs("-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=$diagnostics",
+            "-Xlog:gc*:file=$diagnostics/gc-%p.log:time,uptime,level,tags:filecount=0")
+    doFirst { diagnostics.mkdirs() }
+}
+
+// Core holds the ports; no platform SDK and no parser reaches it (ADR 0027).
+classpathIsolation {
+    forbiddenGroups.addAll("com.larksuite.oapi", "com.alibaba.opensandbox", "com.google.apis", "com.google.api-client", "com.microsoft.graph", "org.apache.tika", "ai.docling")
+}
+
+dependencies {
+    api(platform(libs.spring.modulith.bom))
+    api(libs.spring.modulith.api)
+    implementation(platform(libs.spring.boot.dependencies))
+    // OutboundHttp hands callers a RestClient.Builder.
+    api(libs.spring.web)
+    annotationProcessor(libs.spring.boot.configuration.processor)
+    implementation(platform(libs.aws.sdk.bom))
+    implementation(platform(libs.spring.ai.bom))
+    implementation(libs.spring.ai.openai)
+    implementation(libs.spring.ai.anthropic)
+    implementation(libs.embabel.api)
+    implementation(libs.embabel.openai)
+    implementation(libs.embabel.anthropic)
+    // System One (ADR 0026): JevGuardrail and, through it, the protocol client, which runs on a RestClient from
+    // OutboundHttp.
+    implementation(libs.typesafe.spring.ai)
+    // The OpenAI and Anthropic providers own their OkHttp transport for raw-call cancellation.
+    implementation(libs.okhttp)
+    implementation(libs.mcp)
+    // MEM-227: the MCP OAuth client builds and parses its messages with Nimbus and sends them over OutboundHttp.
+    implementation(libs.nimbus.oauth2.oidc.sdk)
+    implementation(libs.opensearch.java)
+    implementation(libs.httpclient5)
+    implementation(libs.jsoup)
+    implementation(libs.pdfbox)
+    implementation(libs.poi.ooxml)
+    implementation(libs.commons.csv)
+    // Search keeps recent query vectors, bounded in bytes and time (search-query-reuse increment).
+    implementation(libs.caffeine)
+    // Published as an AAR; its JAR carries the Java API and the native libraries for Linux, Windows and macOS. azure-core
+    // comes with it: SpeechConfig's endpoint overloads name its TokenCredential.
+    implementation(libs.azure.speech) {
+        artifact { type = "jar" }
+    }
+    implementation(libs.spring.boot.starter.jdbc)
+    implementation(libs.spring.boot.starter.data.redis)
+    implementation(libs.spring.security.crypto)
+    implementation(libs.jakarta.persistence.api)
+    implementation(libs.spring.data.jpa)
+    // @EntityScan on a module's WorkerComponents: the module names its own entities for a deployable that imports it.
+    implementation(libs.spring.boot.persistence)
+    implementation(libs.hibernate.core)
+    compileOnly(libs.spring.boot.starter.actuator)
+    implementation(libs.micrometer.core)
+    implementation(libs.micrometer.context)
+    implementation(libs.jackson.databind)
+    implementation(libs.keycloak.admin.client)
+    implementation(libs.aws.sdk.s3)
+    implementation(libs.aws.sdk.auth)
+    implementation(libs.aws.sdk.url.connection.client)
+
+    testImplementation(platform(libs.spring.modulith.bom))
+    testImplementation(libs.spring.modulith.starter.test)
+    testImplementation(libs.spring.boot.starter.data.jpa)
+    testImplementation(libs.flyway.core)
+    testRuntimeOnly(libs.flyway.database.postgresql)
+    testImplementation(libs.archunit.junit5)
+    testImplementation(libs.h2)
+    // In-process Streamable HTTP MCP servers for client tests.
+    testImplementation(libs.tomcat.embed.core)
+    testImplementation(libs.embabel.platform)
+    testImplementation(libs.spring.ai.model.tool)
+    testImplementation(libs.testcontainers.junit.jupiter)
+    testImplementation(libs.testcontainers.postgresql)
+    testRuntimeOnly(libs.postgresql)
+    testRuntimeOnly(libs.junit.platform.launcher)
+}

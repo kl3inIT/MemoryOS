@@ -1,0 +1,47 @@
+# Implementation plan
+
+Design: [design.md](design.md). Each pull request changes no behavior and is accepted when CI is green, staging
+deployed it and the checks below pass. A pull request whose CI is still red after two rounds of fixes stops for
+the owner. Production is not deployed while either is open.
+
+## 1. Names
+
+- [x] ADR superseding [0016](../../../decisions/0016-integration-bundle-named-sources.md): integrations by
+  platform, modules named `memoryos-*`, convention plugin, classpath isolation.
+- [x] `build-logic` convention plugin: Java 25 toolchain, JUnit platform, the ten-minute test timeout, the report
+  settings and the object-storage test properties now in the root `subprojects` block.
+- [x] Rename the directories and Gradle projects `core`, `api`, `worker`; root `clean` and `check`.
+- [x] `Dockerfile`; `ci.yml` (changed-area filter, matrix legs, result and diagnostics paths, `shellcheck`, the
+  migration path of the release bundle) with `deploy.sh`'s migration check in the same commit.
+- [x] The deployment tests that read files by module path; `scripts/sync-chat-known-models.mjs`.
+- [x] Current documents (`README.md`, `ARCHITECTURE.md`, `AGENTS.md`, guidelines, specs, test matrices,
+  runbooks), the skills, `.claude/rules/backend.md`. `.gitleaksignore` keeps its entries: they name the path a
+  finding had in its own commit, and a rename adds no line to scan. CodeRabbit filters name no module.
+- [x] CI gate green with both image jobs (pull request #605, merged as `f1836a36`).
+- [x] `Deploy staging` succeeded for `f1836a36`: API, Worker and web healthy on that revision, Flyway history still
+  154 applied migrations.
+
+## 2. Platforms
+
+- [x] Port in `core` for a snapshot reader keyed by input format; `SourceContentExtractorRouter` chooses from the
+  registered readers; a test for each format and for a format nobody registered.
+- [x] `RetryAfter` and its test to `core`'s shared kernel.
+- [x] `memoryos-integration-lark`, `-google`, `-microsoft`, `memoryos-extraction`: sources, tests, fixtures,
+  `AutoConfiguration.imports`, each declaring only its own SDK, with a `description` and a reason beside each
+  dependency.
+- [x] `memoryos-api` and `memoryos-worker` depend on the four; the API's excluded auto-configurations keep their
+  names.
+- [x] Classpath isolation check on `check`: no platform SDK on `memoryos-core`'s runtime classpath, none of
+  another platform's on an integration's.
+- [x] `SourcesDependencyRulesTest` becomes a rule test a module; in a platform module, packages serving different
+  capabilities do not import each other.
+- [x] `Dockerfile`, CI filter and legs, deployment tests naming `sources/`.
+- [x] Acceptance on staging for `0a7e440b` ([verification](verification.md)): the Lark Source synchronized and its
+  readers found what Lark shares with them; the three credential lists loaded; a Lark sheet, a Lark document and
+  a PDF were extracted again. Staging holds no Google snapshot, SharePoint page or XLSX to extract.
+
+## 3. Consolidation
+
+- [x] `ARCHITECTURE.md` (deployables and module map), `docs/guidelines/backend.md` ("Where things live"),
+  `docs/conventions.md` where it names the bundle, `AGENTS.md`.
+- [x] Roadmap; the increment moves to `completed/` with its verification.

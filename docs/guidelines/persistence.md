@@ -10,7 +10,7 @@ A temporary runtime profile, command, or endpoint is not an acceptable substitut
 
 ## Schema ownership
 
-- Capability-owned migrations live with the owning capability's resources. Core migrations are under `core/src/main/resources/db/migration/`; V1 establishes initial identity tables, while later IAM migrations add profiles, Account Type, authorization revision, Groups and Source associations.
+- Capability-owned migrations live with the owning capability's resources. Core migrations are under `memoryos-core/src/main/resources/db/migration/`; V1 establishes initial identity tables, while later IAM migrations add profiles, Account Type, authorization revision, Groups and Source associations.
 - Applied Flyway migrations are immutable against any retained database. An explicitly approved early-project baseline reset may replace them only together with recreating every MemoryOS database that recorded those checksums; never create checksum drift against a live schema history.
 - Uniqueness, referential integrity, and deletion behavior belong in database constraints when the database is the final concurrency authority.
 
@@ -36,6 +36,7 @@ Schema changes preserve committed data ([ADR 0018](../decisions/0018-schema-chan
 - Migrations are forward-only and append-only; never edit an applied migration or its checksum.
 - Never reset, recreate or squash a database, schema or table to reach a cleaner model. A change to an existing shape transforms the existing rows in the migration (or a bounded, idempotent backfill) and states what is kept, converted or deliberately lost; losing user-created data needs a recorded owner decision.
 - A genuinely additive capability still uses the next small migration.
+- A new migration takes a version above every one on `main` when it merges. The CI job `Migration order` (`.github/scripts/check-migration-order.sh`) fails a pull request or `main` push that adds a version at or below the base's newest, repeats a version or edits an existing migration; the CI Gate requires it, so a failed `main` run deploys nothing, so renumber in a new pull request.
 - Call out a migration that the previous release cannot run against: rollback is then a database restore.
 
 ## Operations

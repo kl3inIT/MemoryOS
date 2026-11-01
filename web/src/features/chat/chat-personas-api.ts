@@ -3,6 +3,7 @@ import type { NamedRef, Person } from "@/features/identity/principals";
 import { allPages } from "@/lib/all-pages";
 import {
   getChatPersonaQueryKey,
+  listChatAssistantsQueryKey,
   listChatPersonaLabelsQueryKey,
   listChatPersonaPinsQueryKey,
   listChatPersonasForAdministrationQueryKey,
@@ -37,11 +38,13 @@ export function personaOf({
   id,
   revision,
   builtin = false,
+  templateKey,
   permissions = {},
   name = "",
+  title,
   description = "",
   instructions = "",
-  taskPrompt = "",
+  greeting,
   starterPrompts = [],
   sourceIds = [],
   sources,
@@ -51,9 +54,8 @@ export function personaOf({
   mcpServers,
   fileIds = [],
   modelConfigurationId = null,
-  contextTokenLimit = null,
-  outputTokenLimit = null,
-  iconName,
+  reasoningEffort,
+  avatarSeed = "",
   hasAvatar = false,
   labels,
   owner,
@@ -65,11 +67,11 @@ export function personaOf({
   listed = true,
   featured = false,
   displayPriority,
-  replaceBaseSystemPrompt = false,
   grounded = false,
-  knowledgeCutoff,
   pinned = false,
   deletedAt,
+  openMcpServers,
+  publicBotMcpServers,
 }: PersonaView) {
   if (id === undefined || revision === undefined) {
     throw new TypeError("An agent view carries its id and revision.");
@@ -78,6 +80,8 @@ export function personaOf({
     id,
     revision,
     builtin,
+    /** A MemoryOS template: used as it is, copied with "Tạo bản riêng", only shown or hidden by administrators. */
+    template: Boolean(templateKey),
     permissions: {
       edit: permissions.edit ?? false,
       share: permissions.share ?? false,
@@ -88,9 +92,10 @@ export function personaOf({
       manage: permissions.manage ?? false,
     },
     name,
+    title: title ?? "",
     description,
     instructions,
-    taskPrompt,
+    greeting: greeting ?? "",
     starterPrompts,
     sourceIds,
     sources: namedRefsOf(sources),
@@ -100,9 +105,8 @@ export function personaOf({
     mcpServers: namedRefsOf(mcpServers),
     fileIds,
     modelConfigurationId,
-    contextTokenLimit,
-    outputTokenLimit,
-    iconName: iconName ?? null,
+    reasoningEffort: reasoningEffort ?? null,
+    avatarSeed,
     hasAvatar,
     labels: namedRefsOf(labels),
     owner: {
@@ -128,11 +132,12 @@ export function personaOf({
     listed,
     featured,
     displayPriority: displayPriority ?? null,
-    replaceBaseSystemPrompt,
     grounded,
-    knowledgeCutoff: knowledgeCutoff ?? null,
     pinned,
     deletedAt: deletedAt ?? null,
+    // MEM-299: servers open through this assistant alone, and those of its servers a public bot uses.
+    openMcpServers: namedRefsOf(openMcpServers),
+    publicBotMcpServers: namedRefsOf(publicBotMcpServers),
   };
 }
 export type Persona = ReturnType<typeof personaOf>;
@@ -144,7 +149,7 @@ function personaSourceOf({ id, name = "", type }: SourceOption) {
 
 /** The visibility shown on cards: Tenant-wide, shared with people or Groups, or private. */
 export function agentVisibility(persona: Persona) {
-  if (persona.builtin || persona.isPublic) return "public" as const;
+  if (persona.builtin || persona.template || persona.isPublic) return "public" as const;
   return persona.userShares.length > 0 || persona.groupShares.length > 0
     ? ("shared" as const)
     : ("private" as const);
@@ -186,13 +191,14 @@ export function personaSourcesOptions() {
 
 /**
  * Refreshes every read of agents after one changes: the lists (all views, all pages, the administration
- * list), the sidebar pins, the labels and, when given, the changed agent.
+ * list), the sidebar pins and assistants, the labels and, when given, the changed agent.
  */
 export function invalidateAgents(cache: QueryClient, personaId?: string) {
   return Promise.all([
     cache.invalidateQueries({ queryKey: listChatPersonasQueryKey() }),
     cache.invalidateQueries({ queryKey: listChatPersonasForAdministrationQueryKey() }),
     cache.invalidateQueries({ queryKey: listChatPersonaPinsQueryKey() }),
+    cache.invalidateQueries({ queryKey: listChatAssistantsQueryKey() }),
     cache.invalidateQueries({ queryKey: listChatPersonaLabelsQueryKey() }),
     personaId === undefined
       ? undefined
