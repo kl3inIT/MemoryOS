@@ -1,0 +1,72 @@
+{
+  "corpusFingerprint": "6f95c22c5f147a927312b04de4546dca187b2687032162e97efe4b0305ca91ee",
+  "questionSet": "corpus/questions.jsonl, 120 questions, frozen 2026-10-06",
+  "chatModel": "cx/gpt-6-luna through 9Router",
+  "judges": {"reference": "cx/gpt-6-luna", "second": "cx/gpt-6-sol"},
+  "concurrency": 2,
+  "runs": [
+    {
+      "file": "baseline-v3-standard.jsonl",
+      "label": "Baseline v3, standard mode",
+      "date": "2026-10-08",
+      "api": "main at 0782687f",
+      "evals": ["eval-ifh-2026-10-08T10:34:13", "eval-5RH-2026-10-31T08:05:55 (stage re-grade of the same replies)"]
+    },
+    {
+      "file": "baseline-v3-grounded.jsonl",
+      "label": "Baseline v3, grounded mode",
+      "date": "2026-10-08",
+      "api": "main at 0782687f",
+      "evals": ["eval-Yi1-2026-10-08T11:17:04", "eval-s5h-2026-10-31T07:53:32 (stage re-grade of the same replies)"]
+    },
+    {
+      "file": "retrieval-hybrid.jsonl",
+      "label": "Retrieval, hybrid search (released)",
+      "date": "2026-10-31",
+      "api": "main at dcdea3c5",
+      "evals": ["eval-cII-2026-10-31T07:43:05"]
+    },
+    {
+      "file": "retrieval-keyword.jsonl",
+      "label": "Retrieval, keyword search only",
+      "date": "2026-10-31",
+      "api": "probe image memoryos-api:p9-single-side on dcdea3c5, MEMORYOS_SEARCH_ABLATION=keyword",
+      "evals": ["eval-RRS-2026-10-31T07:59:59"]
+    },
+    {
+      "file": "retrieval-vector.jsonl",
+      "label": "Retrieval, vector search only",
+      "date": "2026-10-31",
+      "api": "probe image memoryos-api:p9-single-side on dcdea3c5, MEMORYOS_SEARCH_ABLATION=vector",
+      "evals": ["eval-tvq-2026-10-31T08:02:34"]
+    },
+    {
+      "file": "ablation-v0.jsonl",
+      "label": "V0, released pipeline (grounded)",
+      "date": "2026-10-31",
+      "api": "main at dcdea3c5",
+      "evals": ["eval-C2F-2026-10-31T08:30:18", "eval-cgM-2026-10-31T09:28:12 (error rows asked again)"]
+    },
+    {
+      "file": "ablation-v1a.jsonl",
+      "label": "V1, no query rewrite, run 1 (grounded)",
+      "date": "2026-10-31",
+      "api": "probe image memoryos-api:p9-steps on dcdea3c5, MEMORYOS_SEARCH_ABLATION=rewrite",
+      "evals": ["eval-FvU-2026-10-31T09:42:49", "eval-qY6-2026-10-31T12:00:32 (error rows asked again)"]
+    },
+    {
+      "file": "ablation-v6.jsonl",
+      "label": "V6, no adjacent chunks (grounded)",
+      "date": "2026-10-31",
+      "api": "probe image memoryos-api:p9-steps on dcdea3c5, MEMORYOS_SEARCH_ABLATION=neighbours",
+      "evals": ["eval-4MR-2026-10-31T12:07:06", "eval-Z8x-2026-10-31T13:15:08 (error rows asked again)"]
+    },
+    {
+      "file": "ablation-v1b.jsonl",
+      "label": "V1, no query rewrite, run 2 (grounded)",
+      "date": "2026-10-31",
+      "api": "probe image memoryos-api:p9-steps on dcdea3c5, MEMORYOS_SEARCH_ABLATION=rewrite",
+      "evals": ["eval-L6N-2026-10-31T13:28:48", "eval-Xff-2026-10-31T14:31:14 (error rows asked again)"]
+    }
+  ]
+}
