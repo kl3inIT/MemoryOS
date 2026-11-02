@@ -67,7 +67,7 @@ public class TranscriptSummarizer {
             } catch (RuntimeException failure) {
                 throw named(selected.binding(), failure);
             }
-            return clean(summary, lines.size());
+            return clean(summary, lines);
         }
     }
 
@@ -137,8 +137,12 @@ public class TranscriptSummarizer {
                 + body.substring(tail < 0 ? body.length() - half : tail + 1);
     }
 
-    /** Drops what the model could not support: empty text, an unknown line, or an action with no owner and no quote. */
-    private static TranscriptSummary clean(TranscriptSummary summary, int lines) {
+    /**
+     * Drops what the model could not support: empty text and an unknown line, then whatever {@link MinutesChecks}
+     * refuses (an owner that is not one person, a quote that was not said there, an item said twice).
+     */
+    static TranscriptSummary clean(TranscriptSummary summary, List<Line> transcript) {
+        int lines = transcript.size();
         var decisions = summary.decisions().stream()
                 .filter(decision -> decision.text() != null && !decision.text().isBlank())
                 .map(decision -> new TranscriptSummary.Decision(decision.text().strip(), blankToNull(decision.quote()),
@@ -158,9 +162,10 @@ public class TranscriptSummarizer {
                 .limit(MAX_TOPICS)
                 .map(topic -> new TranscriptSummary.Topic(topic.title().strip(), topic.line()))
                 .toList();
+        var checked = MinutesChecks.check(decisions, actions, transcript);
         String text = summary.summary() == null ? "" : summary.summary().strip();
-        return new TranscriptSummary(text, summary.kind() == null ? "" : summary.kind().strip(), decisions, actions,
-                topics);
+        return new TranscriptSummary(text, summary.kind() == null ? "" : summary.kind().strip(), checked.decisions(),
+                checked.actions(), topics);
     }
 
     private static int within(int line, int lines) {
