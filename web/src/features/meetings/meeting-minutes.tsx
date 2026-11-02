@@ -20,6 +20,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ApplicationSessionContext } from "@/features/identity/application-session-context";
+import { refusedBy } from "@/features/library/library";
 import { i18n } from "@/i18n";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
@@ -79,7 +80,11 @@ export function MinutesActions({ meeting }: { meeting: MeetingDetail }) {
     <div className="flex flex-wrap items-center gap-1">
       {failed ? (
         <p role="alert" className="text-sm text-status-danger-content">
-          {failureText(failed)}
+          {refusedBy(failed).length > 0
+            ? ui("Bản cũ của biên bản đang được dùng trong {{name}}", {
+                name: refusedBy(failed).join(", "),
+              })
+            : failureText(failed)}
         </p>
       ) : null}
       {meeting.owned &&

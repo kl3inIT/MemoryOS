@@ -1,6 +1,5 @@
 package io.memoryos.meeting;
 
-import io.memoryos.library.UserFile;
 import io.memoryos.library.UserFileInUseException;
 import io.memoryos.library.UserFileService;
 import io.memoryos.library.LibraryFile;
@@ -36,14 +35,16 @@ public class MeetingLibraryService {
     /**
      * Takes the minutes into the caller's library as they read now. Asking again returns the file already made while
      * the minutes still read the same; once an edit, a named voice or a new title changed them, that file is replaced,
-     * so whoever takes them into a conversation reads the current wording.
+     * so whoever takes them into a conversation reads the current wording. An earlier file a Project or an Agent
+     * still holds is neither pulled from them nor handed out as current: the call is refused and names the holder.
      */
     public PublishedMinutes publish(ActorId actor, UUID meetingId) {
         var meeting = meetings.get(actor, meetingId);
         if (meeting.minutes().status() != Meeting.MinutesStatus.READY)
             throw MeetingException.invalid("The minutes are not written yet.");
         byte[] markdown = MeetingMinutesMarkdown.render(meeting);
-        library.outdated(actor, LibraryFile.Source.MEETING, meetingId, markdown).ifPresent(file -> drop(actor, file));
+        library.outdated(actor, LibraryFile.Source.MEETING, meetingId, markdown)
+                .ifPresent(file -> files.delete(actor, file.id()));
         var file = library.publish(actor, LibraryFile.Source.MEETING, meetingId,
                 MeetingMinutesMarkdown.filename(meeting), "text/markdown", markdown);
         return new PublishedMinutes(file.id(), file.filename(), file.status().name());
@@ -51,21 +52,19 @@ public class MeetingLibraryService {
 
     /**
      * Queues the minutes to be written again. The published minutes are about to be wrong, so they are dropped and
-     * the next use publishes what was rewritten.
+     * the next use publishes what was rewritten; a file a Project or an Agent still holds is left alone rather than
+     * pulled out from under them.
      */
     public Meeting.Detail rerunMinutes(ActorId actor, UUID meetingId, boolean discardEdits) {
         var meeting = meetings.rerunMinutes(actor, meetingId, discardEdits);
-        library.published(actor, LibraryFile.Source.MEETING, meetingId).ifPresent(file -> drop(actor, file));
+        library.published(actor, LibraryFile.Source.MEETING, meetingId).ifPresent(file -> {
+            try {
+                files.delete(actor, file.id());
+            } catch (UserFileInUseException inUse) {
+                LOG.atInfo().addKeyValue("event", "meeting.minutes.publication_kept")
+                        .log("Published meeting minutes kept because something still uses them");
+            }
+        });
         return meeting;
-    }
-
-    /** Drops published minutes; a file a Project or an Agent still holds is left alone rather than pulled from them. */
-    private void drop(ActorId actor, UserFile file) {
-        try {
-            files.delete(actor, file.id());
-        } catch (UserFileInUseException inUse) {
-            LOG.atInfo().addKeyValue("event", "meeting.minutes.publication_kept")
-                    .log("Published meeting minutes kept because something still uses them");
-        }
     }
 }

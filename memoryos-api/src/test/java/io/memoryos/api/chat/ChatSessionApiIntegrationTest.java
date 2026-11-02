@@ -519,6 +519,31 @@ class ChatSessionApiIntegrationTest {
                             .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
                     .andExpect(status().isOk()).andExpect(jsonPath("$.fileId").value(rewritten));
 
+            // An earlier file a Project holds stays with the Project, and is not handed out as the current minutes.
+            jdbc.sql("UPDATE chat_user_file SET status = 'READY' WHERE id = :id")
+                    .param("id", UUID.fromString(rewritten)).update();
+            var project = Json.mapper().readTree(mockMvc.perform(post("/api/chat/projects")
+                            .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"name\":\"Ngân sách\",\"description\":\"\",\"instructions\":\"\",\"fileIds\":[\""
+                                    + rewritten + "\"]}"))
+                    .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+            mockMvc.perform(put("/api/meetings/" + meeting + "/minutes/summary").with(authentication(actor)).with(csrf())
+                            .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"summary\":\"Cuộc họp dời ngân sách sang tháng sau.\"}"))
+                    .andExpect(status().isOk());
+            mockMvc.perform(post("/api/meetings/" + meeting + "/library")
+                            .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.code").value("CHAT_FILE_IN_USE"))
+                    .andExpect(jsonPath("$.usedBy[0].name").value("Ngân sách"));
+            assertEquals(List.of("READY"), jdbc.sql("SELECT status FROM chat_user_file WHERE id = :id")
+                    .param("id", UUID.fromString(rewritten)).query(String.class).list());
+            mockMvc.perform(delete("/api/chat/projects/" + project.path("id").asText()).with(authentication(actor))
+                            .with(csrf()).header("X-MemoryOS-CSRF", "1")
+                            .param("revision", project.path("revision").asText()))
+                    .andExpect(status().isNoContent());
+
             mockMvc.perform(post("/api/meetings/" + meeting + "/library")
                             .with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
                     .andExpect(status().isNotFound());
