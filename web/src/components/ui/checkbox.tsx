@@ -11,7 +11,10 @@ function Checkbox({
 }: React.ComponentProps<typeof CheckboxPrimitive.Root> & {
   /** `soft` shows the focus as a button does: a faint ring and no dark border. */
   focus?: "ring" | "soft";
-  /** Keep a large, frequently toggled list's indicator mounted to avoid measuring animation styles per row. */
+  /**
+   * For a large, frequently toggled list: keep the indicator mounted, so Presence does not measure animation
+   * styles per row, and change colour at once, so a bulk toggle does not restyle every box on every frame.
+   */
   forceMountIndicator?: boolean;
 }) {
   return (
@@ -21,6 +24,7 @@ function Checkbox({
         "peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary data-[state=indeterminate]:border-primary data-[state=indeterminate]:bg-primary data-[state=indeterminate]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 dark:data-[state=indeterminate]:bg-primary pointer-coarse:after:-inset-3.5 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary",
         focus === "soft" &&
           "focus-visible:border-input focus-visible:ring-focus-ring/40 data-checked:focus-visible:border-primary",
+        forceMountIndicator && "transition-none",
         className,
       )}
       {...props}

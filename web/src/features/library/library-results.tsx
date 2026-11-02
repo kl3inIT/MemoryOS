@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useCallback, type ReactNode } from "react";
 import type { UseQueryResult } from "@tanstack/react-query";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -42,6 +42,25 @@ export function LibraryFiles({
 }) {
   const ui = useAppTranslation();
   const { page, files, selected, setSelected, sort } = library;
+  // Updates from the current selection, so the handlers keep their identity and an unchanged row skips its render.
+  const selectFile = useCallback(
+    (file: LibraryFile) =>
+      setSelected((current) =>
+        current.includes(file.id) ? current.filter((id) => id !== file.id) : [...current, file.id],
+      ),
+    [setSelected],
+  );
+  const selectDay = useCallback(
+    (day: readonly LibraryFile[], pick: boolean) => {
+      const ids = day.map((file) => file.id);
+      setSelected((current) =>
+        pick
+          ? [...current, ...ids.filter((id) => !current.includes(id))]
+          : current.filter((id) => !ids.includes(id)),
+      );
+    },
+    [setSelected],
+  );
   return (
     <>
       {page.isPending && <LibraryListSkeleton />}
@@ -106,21 +125,8 @@ export function LibraryFiles({
             selected={selected}
             grouped={sort === "NEWEST" && view !== "trash"}
             actions={actions}
-            onSelect={(file) =>
-              setSelected(
-                selected.includes(file.id)
-                  ? selected.filter((id) => id !== file.id)
-                  : [...selected, file.id],
-              )
-            }
-            onSelectDay={(day, pick) => {
-              const ids = day.map((file) => file.id);
-              setSelected(
-                pick
-                  ? [...selected, ...ids.filter((id) => !selected.includes(id))]
-                  : selected.filter((id) => !ids.includes(id)),
-              );
-            }}
+            onSelect={selectFile}
+            onSelectDay={selectDay}
           />
         </div>
       )}

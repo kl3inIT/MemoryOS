@@ -208,6 +208,19 @@ test("selects 50 files without remounting or measuring checkbox indicators", asy
   const indicator = first.locator('[data-slot="checkbox-indicator"]');
   await expect(first).toBeVisible();
   await expect(indicator).toBeHidden();
+  // A box toggled inside an Item, which `:has()` rules read, restyles its whole row, and a fading box restyles
+  // it on every frame; fifty of either made select-all slow. Each row's box sits beside its Item and is instant.
+  expect(
+    await page
+      .locator('[data-slot="checkbox"][aria-label^="Chọn selection-"]')
+      .evaluateAll((boxes) =>
+        boxes.every(
+          (box) =>
+            box.closest('[data-slot="item"]') === null &&
+            getComputedStyle(box).transitionProperty === "none",
+        ),
+      ),
+  ).toBe(true);
 
   // A timing threshold varies by host. Guard the measured cause of the pause instead: no per-box
   // Presence style reads or indicator remounts after the list has arrived.
