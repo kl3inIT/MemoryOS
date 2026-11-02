@@ -5,7 +5,7 @@ import {
   useAuiState,
   useRemoteThreadListRuntime,
 } from "@assistant-ui/react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useMatch, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useApplicationSession } from "@/features/identity/application-session-context";
@@ -14,6 +14,7 @@ import { useChatSpeechAdapter } from "@/features/voice/use-chat-speech-adapter";
 import type { ChatUiMessage } from "@/features/chat/chat-api";
 import { ChatMcpApps } from "@/features/chat/mcp/chat-mcp-apps";
 import { createChatAttachmentAdapter } from "@/features/library/files";
+import { createChatFollowUpAdapter } from "./chat-follow-up-adapter";
 import { ChatThreadRegistry } from "./chat-thread-controller";
 import { chatHistoryAdapter, createChatThreadListAdapter } from "./chat-thread-list-adapter";
 import { ChatThreadsContext } from "./chat-threads-context";
@@ -42,7 +43,7 @@ export function ChatRuntimeProvider({ children }: { children: ReactNode }) {
   const [runtimeHook] = useState(
     () =>
       function useMemoryOsThreadRuntime() {
-        return useChatThreadRuntime(registry);
+        return useChatThreadRuntime(registry, queries);
       },
   );
   const route = useRef({ onChatRoute, sessionId });
@@ -107,13 +108,15 @@ export function ChatRuntimeProvider({ children }: { children: ReactNode }) {
   );
 }
 
-function useChatThreadRuntime(registry: ChatThreadRegistry) {
+function useChatThreadRuntime(registry: ChatThreadRegistry, queries: QueryClient) {
   const id = useAuiState((state) => state.threadListItem.id);
   const remoteId = useAuiState((state) => state.threadListItem.remoteId);
   const controller = registry.obtain(id, remoteId);
   const state = useSyncExternalStore(controller.subscribe, controller.getState);
   const [attachments] = useState(() => createChatAttachmentAdapter(controller.setAttachmentError));
   const [history] = useState(() => chatHistoryAdapter(controller));
+  // MEM-266: always present, so opening a conversation never asks; the adapter checks the Tenant's switch itself.
+  const [suggestion] = useState(() => createChatFollowUpAdapter(controller, queries));
   const dictation = useChatDictationAdapter();
   const speech = useChatSpeechAdapter();
   const chat = useChat<ChatUiMessage>({
@@ -126,7 +129,7 @@ function useChatThreadRuntime(registry: ChatThreadRegistry) {
     onError: (cause) => controller.markUnfinished(cause),
   });
   const runtime = useAISDKRuntime(chat, {
-    adapters: { attachments, history, dictation, speech },
+    adapters: { attachments, history, dictation, speech, suggestion },
     // MEM-253: the server owns the paused tool call, so the answer goes to its decision endpoint, not the next send.
     onRespondToToolApproval: (response, { toolCallId }) =>
       controller.transport.decideToolCall(

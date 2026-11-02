@@ -40,7 +40,9 @@ import io.memoryos.usage.AiUsageFlow;
 import io.memoryos.usage.AiUsageRecorder;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -201,6 +203,24 @@ public class ChatTurnPersistence {
         var history = chats.history(session, null, 3);
         if (history.stream().noneMatch(message -> message.role() == ChatMessage.Role.ASSISTANT && message.status() == ChatMessage.Status.COMPLETED)) return Optional.empty();
         return chats.claimTitle(sessionId) ? Optional.of(new TitleInput(session, history)) : Optional.empty();
+    }
+
+    /**
+     * MEM-266: the last {@code limit} messages of the selected branch ending at {@code message}, oldest first, when
+     * that message is the branch's latest, a completed answer that is not a refusal, in a kept conversation the caller
+     * owns with no reply running; empty otherwise. A conversation the caller does not own is unavailable.
+     */
+    @Transactional(readOnly = true)
+    public Optional<List<ChatMessage>> followUpInput(ActorId actor, UUID sessionId, UUID message, int limit) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
+        var session = chats.findOwned(tenant, actor, sessionId, false).orElseThrow(ChatException::unavailable);
+        var answer = chats.message(sessionId, message).orElseThrow(ChatException::unavailable);
+        if (session.temporary() || chats.hasActiveReply(sessionId) || !message.equals(chats.leaf(session))
+                || answer.role() != ChatMessage.Role.ASSISTANT || answer.status() != ChatMessage.Status.COMPLETED
+                || answer.refusalReason() != null) return Optional.empty();
+        var history = new ArrayList<>(chats.context(sessionId, message, limit));
+        Collections.reverse(history);
+        return Optional.of(List.copyOf(history));
     }
 
     @Transactional

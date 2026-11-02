@@ -991,6 +991,10 @@ export type ChatSettingsResponse = {
      * In that mode, a person may still turn Web search on for a turn
      */
     groundedAllowWeb: boolean;
+    /**
+     * After each answer, offer three questions to ask next; each costs one more model call
+     */
+    followUpSuggestions: boolean;
     revision: number;
 };
 
@@ -1044,6 +1048,21 @@ export type ChatGuardrailsResponse = {
     blockedPhrases: Array<string>;
     blockedPhraseMessage: string;
     revision: number;
+};
+
+export type ChatFollowUpsRequest = {
+    /**
+     * After each answer, offer three questions to ask next; each costs one more model call
+     */
+    followUpSuggestions: boolean;
+    revision?: number;
+};
+
+export type ChatFollowUpsResponse = {
+    /**
+     * Up to three questions to ask next; empty when the answer gets none
+     */
+    suggestions: Array<string>;
 };
 
 export type ChatGroundedRequest = {
@@ -7015,6 +7034,47 @@ export type SaveChatGuardrailsResponses = {
 };
 
 export type SaveChatGuardrailsResponse = SaveChatGuardrailsResponses[keyof SaveChatGuardrailsResponses];
+
+export type SaveChatFollowUpsData = {
+    body: ChatFollowUpsRequest;
+    path?: never;
+    query?: never;
+    url: '/api/chat/settings/follow-ups';
+};
+
+export type SaveChatFollowUpsErrors = {
+    /**
+     * Invalid Chat settings
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Chat unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Chat settings changed
+     */
+    409: ApiProblem;
+};
+
+export type SaveChatFollowUpsError = SaveChatFollowUpsErrors[keyof SaveChatFollowUpsErrors];
+
+export type SaveChatFollowUpsResponses = {
+    /**
+     * Saved Tenant Chat settings
+     */
+    200: ChatSettingsResponse;
+};
+
+export type SaveChatFollowUpsResponse = SaveChatFollowUpsResponses[keyof SaveChatFollowUpsResponses];
 
 export type SaveChatGroundedData = {
     body: ChatGroundedRequest;
@@ -13119,6 +13179,50 @@ export type EditChatMessageResponses = {
 };
 
 export type EditChatMessageResponse = EditChatMessageResponses[keyof EditChatMessageResponses];
+
+export type SuggestChatFollowUpsData = {
+    body?: never;
+    path: {
+        sessionId: string;
+        messageId: string;
+    };
+    query?: never;
+    url: '/api/chat/sessions/{sessionId}/messages/{messageId}/follow-ups';
+};
+
+export type SuggestChatFollowUpsErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type SuggestChatFollowUpsError = SuggestChatFollowUpsErrors[keyof SuggestChatFollowUpsErrors];
+
+export type SuggestChatFollowUpsResponses = {
+    /**
+     * Up to three questions; empty when the answer gets none
+     */
+    200: ChatFollowUpsResponse;
+};
+
+export type SuggestChatFollowUpsResponse = SuggestChatFollowUpsResponses[keyof SuggestChatFollowUpsResponses];
 
 export type BranchChatSessionData = {
     body?: BranchChatSessionRequest;
@@ -19935,7 +20039,7 @@ export type GetAiCostSummaryData = {
         from: string;
         to: string;
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'AGENT_BUILDER' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'CHAT_FOLLOW_UPS' | 'AGENT_BUILDER' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
     };
     url: '/api/ai-costs/summary';
 };
@@ -20120,7 +20224,7 @@ export type ListAiCostDaysData = {
         to: string;
         split?: 'BOUNDARY' | 'MODEL' | 'NONE';
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'AGENT_BUILDER' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'CHAT_FOLLOW_UPS' | 'AGENT_BUILDER' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
     };
     url: '/api/ai-costs/daily';
 };
@@ -20160,7 +20264,7 @@ export type ListAiCostBreakdownData = {
         by: 'ACTOR' | 'GROUP' | 'MODEL' | 'FLOW' | 'PROVIDER';
         limit?: number;
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'AGENT_BUILDER' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'CHAT_FOLLOW_UPS' | 'AGENT_BUILDER' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
     };
     url: '/api/ai-costs/breakdown';
 };

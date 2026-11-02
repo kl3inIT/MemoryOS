@@ -2322,6 +2322,7 @@ Object.assign(englishUi, {
     "Phân loại câu hỏi trước khi trả lời: câu xã giao, câu hỏi hay chủ đề bị chặn. Cần model trả đúng định dạng.",
   "Question check model": "Model kiểm tra câu hỏi",
   "Long conversation summaries": "Tóm tắt hội thoại dài",
+  "Follow-up suggestions": "Gợi ý câu hỏi tiếp theo",
   "Summarizes the earlier turns of a long conversation so the chat model still knows them.":
     "Tóm tắt phần đầu của hội thoại dài để model chat vẫn nhớ những gì đã trao đổi.",
   "Long conversation summary model": "Model tóm tắt hội thoại dài",

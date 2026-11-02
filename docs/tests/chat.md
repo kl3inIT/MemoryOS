@@ -4,6 +4,19 @@ UI reuse follow-up: `chat-ui-polish.spec.ts` exercises the composer `+` menu ord
 
 Conversation history search: `ChatSessionApiIntegrationTest.searchChatHistoryUsesIndexesAllVersionsAndOwnerFilteredPagination` proves V50 indexes, title and unselected-version token matching, >64 KiB tail matching, owner/deletion/membership isolation, pagination and input validation on PostgreSQL, plus the matched-message `snippet` (delimited tokens; null for title-only and >64 KiB matches). `chat-history-search.spec.ts` checks the icon trigger beside the collapse/Close button and the collapsed rail entry, New chat on a blank query, server-only hits with a highlighted fragment and no local filtering, paging, navigation, stale-query suppression, error retry and focus at 1440/390px with a mocked endpoint. Receipts: [history search verification](../increments/completed/chat-history-search/verification.md).
 
+## Follow-up suggestions (MEM-266)
+
+| Behavior | Evidence |
+| --- | --- |
+| The latest completed answer gets suggestions from the `CHAT_NAMING` model and records `CHAT_FOLLOW_UPS` usage; switch off, an answer that may not have them, a spent budget and a failing model give none; another owner's conversation is unavailable | `ChatFollowUpsServiceTest` |
+| Model output is parsed into at most three clean, distinct questions of at most 160 characters | `ChatFollowUpsTest` |
+| On PostgreSQL: off by default with no model call, only model managers save the switch, a stale revision is refused, CSRF and another owner are refused, a question message gets none, one usage row is recorded | `ChatSessionApiIntegrationTest.followUpSuggestionsAreOfferedForTheLatestAnswerOnlyWhenTurnedOn` (CI) |
+| The adapter asks only for a completed answer of a kept conversation while the switch is on, marks the answer while it waits and shows nothing on failure | `chat-follow-up-adapter.test.ts` |
+| Chips under the last answer only, choosing one sends it, three placeholders while pending, nothing when none came | `chat-follow-ups.test.tsx` |
+| The administrator's switch saves at once with the revision | `admin-chat-settings.test.tsx` |
+| In the browser with a mocked endpoint: placeholders then chips, a chip asks its question and the next answer gets its own, a reload shows none, a failed answer asks nothing; screenshots at 1280 and 390 px | `chat-follow-ups.spec.ts` |
+| Real token cost per answer on staging | Open ([plan](../increments/active/mem-266-follow-up-suggestions/plan.md#acceptance)) |
+
 ## Chat standardization (MEM-202) — 2026-09-30
 
 | Behavior | Evidence |

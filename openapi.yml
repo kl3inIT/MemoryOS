@@ -3348,6 +3348,63 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/settings/follow-ups:
+    put:
+      tags:
+      - Chat Settings
+      summary: Offer follow-up questions after each answer; requires model management
+      operationId: saveChatFollowUps
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatFollowUpsRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Chat settings
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Chat settings changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved Tenant Chat settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSettingsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/settings/grounded:
     put:
       tags:
@@ -12038,6 +12095,69 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Accepted"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/sessions/{sessionId}/messages/{messageId}/follow-ups:
+    post:
+      tags:
+      - Chat
+      summary: "Suggest questions to ask after the latest answer of an owned conversation, when the Tenant offers them"
+      operationId: suggestChatFollowUps
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: messageId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Up to three questions; empty when the answer gets none
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatFollowUpsResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -21120,6 +21240,7 @@ paths:
           - CHAT_NAMING
           - CHAT_GUARDRAIL
           - CHAT_COMPACTION
+          - CHAT_FOLLOW_UPS
           - AGENT_BUILDER
           - DEEP_RESEARCH
           - EMBEDDING_QUERY
@@ -21376,6 +21497,7 @@ paths:
           - CHAT_NAMING
           - CHAT_GUARDRAIL
           - CHAT_COMPACTION
+          - CHAT_FOLLOW_UPS
           - AGENT_BUILDER
           - DEEP_RESEARCH
           - EMBEDDING_QUERY
@@ -21468,6 +21590,7 @@ paths:
           - CHAT_NAMING
           - CHAT_GUARDRAIL
           - CHAT_COMPACTION
+          - CHAT_FOLLOW_UPS
           - AGENT_BUILDER
           - DEEP_RESEARCH
           - EMBEDDING_QUERY
@@ -26503,12 +26626,16 @@ components:
           type: boolean
           description: "In that mode, a person may still turn Web search on for a\
             \ turn"
+        followUpSuggestions:
+          type: boolean
+          description: "After each answer, offer three questions to ask next; each costs one more model call"
         revision:
           type: integer
           format: int64
       required:
       - chatHistoryVisibility
       - deepResearchEnabled
+      - followUpSuggestions
       - groundedAllowWeb
       - groundedAnswers
       - revision
@@ -26619,6 +26746,28 @@ components:
       - blockedPhrases
       - revision
       - topics
+    ChatFollowUpsRequest:
+      type: object
+      properties:
+        followUpSuggestions:
+          type: boolean
+          description: "After each answer, offer three questions to ask next; each costs one more model call"
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - followUpSuggestions
+    ChatFollowUpsResponse:
+      type: object
+      properties:
+        suggestions:
+          type: array
+          description: Up to three questions to ask next; empty when the answer gets none
+          items:
+            type: string
+      required:
+      - suggestions
     ChatGroundedRequest:
       type: object
       properties:
