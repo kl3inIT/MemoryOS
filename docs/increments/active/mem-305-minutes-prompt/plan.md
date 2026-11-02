@@ -4,9 +4,10 @@
 - [x] Schema: field descriptions, items before the summary, quote and line before each item's words and owner.
 - [x] Transcript in a `<transcript>` block with the task restated after it.
 - [x] Tests: `TranscriptSummarizerTest` (instructions, layout, schema order and descriptions).
-- [ ] Deploy to staging and run the minutes benchmark (17 meetings × 3); compare with the MEM-304 baseline.
+- [x] Deploy to staging and run the minutes benchmark (17 meetings × 3); compare with the MEM-304 baseline.
 - [ ] Decide on step 2 (extraction per chunk) from the result.
 
 ## Status
 
 - 2026-11-02: opened after the owner asked for a prompt designed by practice rather than patched.
+- 2026-11-03: merged in #880 (31531d92) without a CodeRabbit review (rate limited; recorded on the PR; the owner chose merge when green). Benchmark `eval-fVF-2026-11-02T17:16:48`: actions found 0.34 → 0.64, decisions 0.34 → 0.57, owner right 0.51 → 0.77, owner wrong 0.45 → 0.15; written items in the key 0.72 → 0.62 (actions) and 0.79 → 0.69 (decisions), repeats 0.04 → 0.09. Kept: recall nearly doubles for a ten-point fall in precision. Numbers in `docs/tests/meeting.md`.

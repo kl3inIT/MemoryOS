@@ -93,3 +93,19 @@ The [minutes benchmark](../../tools/minutes-benchmark/README.md) on staging: 17 
 | Quotes found in their line (`quote_in_line`) | 0.96 |
 
 The minutes keep about a third of what the key holds, and most of what they write is in the key: they are short rather than wrong. Most wrong owners are a voice given where the key names nobody, often in meetings whose one voice carries several people.
+
+After the prompt was written by practice ([MEM-305](../increments/active/mem-305-minutes-prompt/design.md), `eval-fVF-2026-11-02T17:16:48`, same corpus, key and scoring):
+
+| Metric | Baseline | MEM-305 |
+| --- | --- | --- |
+| Actions found | 0.34 | 0.64 (0.59–0.70) |
+| Written actions in the key | 0.72 | 0.62 (0.60–0.63) |
+| Decisions found | 0.34 | 0.57 (0.49–0.68) |
+| Written decisions in the key | 0.79 | 0.69 (0.64–0.75) |
+| Owner right, where it can be told | 0.51 | 0.77 (0.72–0.80) |
+| Owner given but wrong | 0.45 | 0.15 (0.14–0.18) |
+| Owner unverifiable | 0.20 | 0.09 |
+| Repeated items | 0.04 | 0.09 |
+| Quotes found in their line | 0.96 | 0.94 |
+
+The minutes now find about two thirds of the actions and more than half of the decisions, and wrong owners fall to a third; they write somewhat more that the key does not hold, and repeat an item more often.
