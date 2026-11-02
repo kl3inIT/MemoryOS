@@ -76,3 +76,12 @@ def test_a_match_across_kinds_or_out_of_range_counts_as_none(tmp_path, monkeypat
 
     assert named["decision_recall"] == 0.0
     assert named["action_precision"] == 0.0
+
+
+def test_a_name_against_a_voice_nobody_named_is_not_counted_either_way(tmp_path, monkeypatch):
+    key = {"decisions": [], "actions": [{"text": "Gửi path spec", "line": 1, "owner": {"name": "Đạt"}}]}
+    written = {"decisions": [], "actions": [{"text": "Gửi spec", "line": 1, "owner": {"track": "MIC", "label": "1"}}]}
+    result = run(tmp_path, monkeypatch, written, key, {"W1": {"key": "K1", "why": "same work"}})
+
+    assert "owner_accuracy" not in result["namedScores"]
+    assert result["namedScores"]["owner_unverifiable"] == 1.0

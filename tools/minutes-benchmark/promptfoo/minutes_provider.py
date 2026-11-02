@@ -8,6 +8,7 @@ transcript, so the assertions compare them with the answer key.
 
 from __future__ import annotations
 
+import fcntl
 import json
 import os
 import sys
@@ -81,6 +82,16 @@ def call_api(prompt: str, options: dict, context: dict) -> dict:
     copy = context.get("vars", {}).get("copy")
     if not copy:
         return {"error": "the test names no copied meeting"}
+    # Repeats of one meeting may run at once; each must wait for the other's minutes, not read them.
+    with open(Path(os.environ.get("TMPDIR", "/tmp")) / f"minutes-{copy}.lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            return _write(copy)
+        finally:
+            fcntl.flock(lock, fcntl.LOCK_UN)
+
+
+def _write(copy: str) -> dict:
     api = _api()
     path = f"/api/meetings/{copy}"
     try:

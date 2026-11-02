@@ -16,7 +16,7 @@ from collections import defaultdict
 from pathlib import Path
 
 METRICS = ("action_recall", "action_precision", "decision_recall", "decision_precision", "owner_accuracy",
-           "owner_wrong", "duplicates", "quote_in_line")
+           "owner_wrong", "owner_unverifiable", "duplicates", "quote_in_line")
 
 
 def rows(path: Path) -> list[dict]:
@@ -29,12 +29,16 @@ def summarise(path: Path) -> None:
     by_repeat: dict[int, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
     pooled: dict[str, int] = defaultdict(int)
     failed = 0
-    for row in rows(path):
+    seen: dict[str, int] = defaultdict(int)
+    for row in sorted(rows(path), key=lambda r: r.get("testIdx", 0)):
         grading = row.get("gradingResult") or {}
-        if row.get("error") or not grading.get("namedScores"):
+        if row.get("error") or not grading:
             failed += 1
             continue
-        repeat = row.get("repeatIndex", 0)
+        # promptfoo lists a test's repeats one after another; the n-th row of a meeting is its n-th writing.
+        copy = (row.get("vars") or {}).get("copy", "")
+        repeat = seen[copy]
+        seen[copy] += 1
         for name, value in grading["namedScores"].items():
             by_repeat[repeat][name].append(value)
         for component in grading.get("componentResults") or [grading]:
@@ -44,7 +48,7 @@ def summarise(path: Path) -> None:
                 continue
             for name, value in counts.items():
                 pooled[name] += value
-    print(f"{path.name}: {sum(len(v['action_recall']) for v in by_repeat.values())} scored, {failed} failed")
+    print(f"{path.name}: {sum(seen.values())} writings of {len(seen)} meetings scored, {failed} failed")
     for metric in METRICS:
         means = [statistics.fmean(values[metric]) for values in by_repeat.values() if values.get(metric)]
         if not means:
@@ -53,7 +57,7 @@ def summarise(path: Path) -> None:
     if pooled.get("owner_checked"):
         checked = pooled["owner_checked"]
         print(f"  owners pooled       right {pooled.get('owner_right', 0)}/{checked}, wrong {pooled.get('owner_wrong', 0)},"
-              f" missing {pooled.get('owner_missing', 0)}")
+              f" missing {pooled.get('owner_missing', 0)}; unverifiable {pooled.get('owner_unverifiable', 0)}")
 
 
 if __name__ == "__main__":

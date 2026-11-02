@@ -22,11 +22,11 @@ The provider asks MemoryOS to write the copy's minutes again (`POST /api/meeting
 
 ### The answer key
 
-Per meeting: the decisions and the actions a careful note-taker would write, each with the transcript line it rests on, and for an action its owner — a voice of the meeting (`track`, `label`), a name the transcript gives, or none when the meeting leaves it open. Claude drafts each key from the transcript; the owner reviews it on a local page (transcript beside the items, editable, exported as JSON) and the reviewed file is frozen with the fingerprint. Reviewing is the costly part and is done once.
+Per meeting: the decisions and the actions a careful note-taker would write, each with the transcript line it rests on, and for an action its owner — a voice of the meeting (`track`, `label`), a name the transcript gives, or none when the meeting leaves it open. Claude drafts each key from the transcript and a second, independent Claude pass reviews it against the whole transcript and settles every doubtful item; the owner asked for the model to make those calls (2 November 2026) rather than review on the local page built for it. The key therefore measures how close the minutes come to a stronger model's careful reading, not to a participant's memory. The reviewed files are frozen with a fingerprint.
 
 ### Scoring
 
-The open judge is replaced by a narrow one: per meeting, one call to `cx/gpt-6-luna` through 9Router lines the produced items up with the key's (same decision or same commitment, one to one), and every metric is then counted, not judged:
+The open judge is replaced by a narrow one: per meeting, one call to `cx/gpt-6-luna` through 9Router lines the produced items up with the key's (same decision or same piece of work, with a reason per item; repeats may match one key item), and every metric is then counted, not judged:
 
 | Metric | Counted as |
 | --- | --- |
@@ -34,6 +34,7 @@ The open judge is replaced by a narrow one: per meeting, one call to `cx/gpt-6-l
 | `action_precision`, `decision_precision` | produced items that match a key item |
 | `owner_accuracy` | matched actions whose owner equals the key's: the same voice, the same name compared without case and spacing, or both none |
 | `owner_wrong` | matched actions given an owner other than the key's (a wrong owner is worse than none) |
+| `owner_unverifiable` | matched actions whose key names a person while the minutes give a voice nobody named; left out of the two above |
 | `duplicates` | produced items matched to a key item another produced item already matched |
 | `quote_in_line` | produced quotes found in the line they cite |
 

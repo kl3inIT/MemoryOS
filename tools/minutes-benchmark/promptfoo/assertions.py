@@ -23,12 +23,16 @@ RETRY_WAITS = (35, 70, 300)
 ALIGN = """You compare the minutes of a Vietnamese meeting with an answer key a person wrote for it.
 
 For every WRITTEN item, say which KEY item records the same thing: the same decision, or the same piece of work
-(the same task on the same object). Wording, detail, owner and deadline may differ; ignore them. A written item
-that records something the key does not have, or only part of a different key item, matches nothing. Several
-written items may match one key item when they repeat it. A decision only matches a decision and a piece of work
-only matches a piece of work.
+(the same task on the same object). Wording, detail, owner and deadline may differ; ignore them. The transcript
+comes from speech recognition, so the same name or term may be spelled differently in the two lists ("path spec"
+and "pubspec", "Luxy" and "Lark"); the quoted lines and their numbers help to tell. A written item that records
+something the key does not have matches nothing. Several written items may match one key item when they repeat
+it. A decision only matches a decision and a piece of work only matches a piece of work.
 
-Answer with JSON only: {"matches": {"W1": "K3", "W2": null, ...}} naming every written item once.
+Look at each written item in turn: give the key item it records, or null, with a reason of a few words.
+
+Answer with JSON only:
+{"matches": {"W1": {"key": "K3", "why": "..."}, "W2": {"key": null, "why": "..."}, ...}} naming every written item once.
 
 KEY
 %s
@@ -87,6 +91,12 @@ def same_owner(key: dict | None, written: dict | None, speakers: dict[tuple[str,
     return named_key is not None and named_key == named_written
 
 
+def unverifiable(key: dict | None, written: dict | None, speakers: dict[tuple[str, str], str | None]) -> bool:
+    """A name in the key against a voice that has no name: whether that voice is the person cannot be told."""
+    return bool(key and "name" in key and written and "track" in written
+                and not speakers.get((written["track"], written["label"])))
+
+
 def _ratio(part: int, whole: int) -> float | None:
     return part / whole if whole else None
 
@@ -104,7 +114,8 @@ def score(output: dict, context: dict) -> dict:
         "\n".join(_item_line("K", n, kind, item, lines) for n, (kind, item) in enumerate(keyed, 1)) or "(none)",
         "\n".join(_item_line("W", n, kind, item, lines) for n, (kind, item) in enumerate(written, 1)) or "(none)",
     )
-    matches = (_judge(prompt).get("matches") or {}) if written and keyed else {}
+    answered = (_judge(prompt).get("matches") or {}) if written and keyed else {}
+    matches = {w: (m.get("key") if isinstance(m, dict) else m) for w, m in answered.items()}
 
     matched_to: dict[int, list[int]] = {}
     for n, (kind, _) in enumerate(written, 1):
@@ -130,13 +141,18 @@ def score(output: dict, context: dict) -> dict:
             # The written item nearest the key's line stands for the others.
             best = min(writers, key=lambda w: abs((written[w - 1][1].get("line") or 0) - (item.get("line") or 0)))
             given = written[best - 1][1].get("owner")
-            add("owner_checked")
-            if same_owner(item.get("owner"), given, speakers):
-                add("owner_right")
-            elif given:
-                add("owner_wrong")
+            wanted = item.get("owner")
+            if unverifiable(wanted, given, speakers):
+                # The key names a person and the minutes give a voice nobody named: it may be that person.
+                add("owner_unverifiable")
             else:
-                add("owner_missing")
+                add("owner_checked")
+                if same_owner(wanted, given, speakers):
+                    add("owner_right")
+                elif given:
+                    add("owner_wrong")
+                else:
+                    add("owner_missing")
     quoted = [item for _, item in written if item.get("quote")]
     add("quotes", len(quoted))
     add("quotes_in_line", sum(1 for item in quoted if fold(item["quote"]) in fold(lines.get(item.get("line") or 0))))
@@ -148,6 +164,8 @@ def score(output: dict, context: dict) -> dict:
         "decision_precision": _ratio(counts.get("decision_matching", 0), counts["decision_written"]),
         "owner_accuracy": _ratio(counts.get("owner_right", 0), counts.get("owner_checked", 0)),
         "owner_wrong": _ratio(counts.get("owner_wrong", 0), counts.get("owner_checked", 0)),
+        "owner_unverifiable": _ratio(counts.get("owner_unverifiable", 0),
+                                     counts.get("owner_checked", 0) + counts.get("owner_unverifiable", 0)),
         "quote_in_line": _ratio(counts.get("quotes_in_line", 0), counts.get("quotes", 0)),
         "duplicates": _ratio(counts.get("duplicates", 0), counts["decision_written"] + counts["action_written"]),
     }
