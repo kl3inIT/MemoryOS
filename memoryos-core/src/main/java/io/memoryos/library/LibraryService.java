@@ -3,8 +3,10 @@ package io.memoryos.library;
 import io.memoryos.library.persistence.JdbcLibraryRepository;
 import io.memoryos.library.persistence.JdbcUserFileRepository;
 import io.memoryos.shared.ActorId;
+import io.memoryos.shared.Sha256;
 import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
+import io.memoryos.objectstorage.ContentSha256;
 import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.ObjectStorageException;
 import io.memoryos.objectstorage.ObjectStorageFailureCode;
@@ -194,6 +196,14 @@ public class LibraryService {
     public Optional<UserFile> published(ActorId actor, LibraryFile.Source source, UUID artifact) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(LibraryException::unavailable);
         return files.copy(tenant, actor, source.name(), artifact).map(row -> row.file());
+    }
+
+    /** The caller's file of this artifact when it was taken from other bytes than these: an earlier version of it. */
+    public Optional<UserFile> outdated(ActorId actor, LibraryFile.Source source, UUID artifact, byte[] bytes) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(LibraryException::unavailable);
+        var current = new ContentSha256(Sha256.hex(bytes));
+        return files.copy(tenant, actor, source.name(), artifact).filter(row -> !row.checksum().equals(current))
+                .map(row -> row.file());
     }
 
     /**
