@@ -28,6 +28,7 @@ export function ChatThread({
   readOnly = false,
   sendDisabled = false,
   placeholder,
+  followUpsFor,
 }: {
   /** Left of the composer toolbar: the `+` menu for files and tools. */
   composerMenu?: ReactNode;
@@ -50,6 +51,8 @@ export function ChatThread({
   sendDisabled?: boolean;
   /** The composer's hint in place of "Nhập câu hỏi…". */
   placeholder?: string;
+  /** The answer whose follow-up questions are being written (MEM-266). */
+  followUpsFor?: string;
 }) {
   const ui = useAppTranslation();
 
@@ -84,7 +87,7 @@ export function ChatThread({
                   message.role === "user" ? (
                     <UserMessage readOnly={readOnly} />
                   ) : (
-                    <AssistantMessage readOnly={readOnly} />
+                    <AssistantMessage readOnly={readOnly} followUpsFor={followUpsFor} />
                   )
                 }
               </ThreadPrimitive.Messages>

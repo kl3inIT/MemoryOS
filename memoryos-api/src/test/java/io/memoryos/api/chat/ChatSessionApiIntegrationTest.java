@@ -1832,6 +1832,69 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void followUpSuggestionsAreOfferedForTheLatestAnswerOnlyWhenTurnedOn() throws Exception {
+        // The Tenant is shared by this class: the switch left on would not change other turns, but keep it clean.
+        jdbc.sql("DELETE FROM chat_settings WHERE tenant_id = :tenant").param("tenant", TENANT).update();
+        jdbc.sql("DELETE FROM ai_usage WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        try {
+            followUpsRoundTrip();
+        } finally {
+            jdbc.sql("DELETE FROM chat_settings WHERE tenant_id = :tenant").param("tenant", TENANT).update();
+        }
+    }
+
+    private void followUpsRoundTrip() throws Exception {
+        when(model.stream(any(Prompt.class))).thenReturn(Flux.just(response("Gửi đơn trên cổng HR.", "stop", 12)));
+        var session = create();
+        var reply = send(session, UUID.randomUUID().toString());
+        awaitOutcome(reply.path("assistantMessageId").asText(), "COMPLETED");
+        var path = "/api/chat/sessions/" + session.path("id").asText() + "/messages/" + reply.path("assistantMessageId").asText()
+                + "/follow-ups";
+
+        // Off by default: nothing, and no model call beyond the answer.
+        mockMvc.perform(get("/api/chat/settings").with(authentication(actor))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.followUpSuggestions").value(false));
+        mockMvc.perform(post(path).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.suggestions.length()").value(0));
+        verify(model, times(1)).stream(any(Prompt.class));
+
+        // Only model managers turn it on, against the settings revision.
+        mockMvc.perform(put("/api/chat/settings/follow-ups").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"followUpSuggestions\":true,\"revision\":0}"))
+                .andExpect(status().isForbidden());
+        grantModelManagement();
+        mockMvc.perform(put("/api/chat/settings/follow-ups").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"followUpSuggestions\":true,\"revision\":0}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.followUpSuggestions").value(true));
+        mockMvc.perform(put("/api/chat/settings/follow-ups").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"followUpSuggestions\":false,\"revision\":7}"))
+                .andExpect(status().isConflict());
+
+        when(model.stream(any(Prompt.class))).thenAnswer(call -> {
+            var prompt = call.<Prompt>getArgument(0);
+            assertTrue(prompt.getContents().contains("Suggest exactly 3 short follow-up questions"));
+            assertTrue(prompt.getContents().contains("Gửi đơn trên cổng HR."));
+            return Flux.just(response("1. Mẫu đơn ở đâu?\n2. Nghỉ quá số ngày thì sao?\n3. Mẫu đơn ở đâu?\n4. Ai duyệt?", "stop", 20));
+        });
+        mockMvc.perform(post(path).with(authentication(actor))).andExpect(status().isForbidden());
+        mockMvc.perform(post(path).with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isNotFound());
+        mockMvc.perform(post(path).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.suggestions.length()").value(3))
+                .andExpect(jsonPath("$.suggestions[0]").value("Mẫu đơn ở đâu?"))
+                .andExpect(jsonPath("$.suggestions[2]").value("Ai duyệt?"));
+        var usage = jdbc.sql("SELECT calls FROM ai_usage WHERE tenant_id=:tenant AND flow='CHAT_FOLLOW_UPS'")
+                .param("tenant", TENANT).query(Long.class).single();
+        assertEquals(1L, usage);
+
+        // The question is not an answer: nothing, and no call.
+        var question = "/api/chat/sessions/" + session.path("id").asText() + "/messages/" + reply.path("userMessageId").asText()
+                + "/follow-ups";
+        mockMvc.perform(post(question).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.suggestions.length()").value(0));
+        verify(model, times(2)).stream(any(Prompt.class));
+    }
+
+    @Test
     void aiCostsReportTheLedgerOnlyToModelManagers() throws Exception {
         jdbc.sql("DELETE FROM ai_usage WHERE tenant_id=:tenant").param("tenant", TENANT).update();
         var today = LocalDate.now(ZoneOffset.UTC).toString();

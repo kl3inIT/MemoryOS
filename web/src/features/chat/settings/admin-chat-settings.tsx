@@ -6,6 +6,7 @@ import {
   Ban,
   FileCheck,
   Globe,
+  MessageCircleQuestionMark,
   MessageSquare,
   MoreHorizontal,
   Pencil,
@@ -48,6 +49,7 @@ import {
   getChatGuardrailsQueryKey,
   getChatSettingsOptions,
   getChatSettingsQueryKey,
+  saveChatFollowUpsMutation,
   saveChatGroundedMutation,
   saveChatGuardrailsMutation,
   saveChatHistoryVisibilityMutation,
@@ -148,17 +150,19 @@ function mutationError(error: unknown) {
 }
 
 /**
- * How answers are made: Deep research (as Onyx Chat Preferences, offered in the composer while enabled) and answers
- * from documents only (MEM-195, after Amazon Q Business response settings), whose Web option exists only under it.
+ * How answers are made: Deep research (as Onyx Chat Preferences, offered in the composer while enabled), answers
+ * from documents only (MEM-195, after Amazon Q Business response settings), whose Web option exists only under it,
+ * and follow-up questions under the latest answer (MEM-266), each one more model call.
  */
 function AnswersSection() {
   const ui = useAppTranslation();
   const { settings, onSuccess } = useChatSettings();
   const research = useMutation({ ...saveChatSettingsMutation(), onSuccess });
   const grounded = useMutation({ ...saveChatGroundedMutation(), onSuccess });
+  const followUps = useMutation({ ...saveChatFollowUpsMutation(), onSuccess });
   const id = useId();
   if (settings.isPending) return null;
-  const busy = research.isPending || grounded.isPending;
+  const busy = research.isPending || grounded.isPending || followUps.isPending;
   const change = (groundedAnswers: boolean, groundedAllowWeb: boolean) =>
     settings.data &&
     grounded.mutate({
@@ -167,7 +171,11 @@ function AnswersSection() {
   return (
     <ChatSection
       title={ui("Câu trả lời")}
-      error={mutationError(research.error) ?? mutationError(grounded.error)}
+      error={
+        mutationError(research.error) ??
+        mutationError(grounded.error) ??
+        mutationError(followUps.error)
+      }
     >
       {settings.isError ? (
         <LoadFailure />
@@ -226,6 +234,26 @@ function AnswersSection() {
               }
             />
           )}
+          <SettingRow
+            icon={<MessageCircleQuestionMark />}
+            title={ui("Gợi ý câu hỏi tiếp theo")}
+            htmlFor={`${id}-follow-ups`}
+            description={ui(
+              "Sau mỗi câu trả lời, đề xuất 3 câu hỏi để hỏi tiếp. Mỗi câu trả lời tốn thêm một lần gọi model, tính vào mức dùng của người hỏi.",
+            )}
+            control={
+              <Switch
+                id={`${id}-follow-ups`}
+                checked={settings.data.followUpSuggestions}
+                disabled={busy}
+                onCheckedChange={(checked) =>
+                  followUps.mutate({
+                    body: { followUpSuggestions: checked, revision: settings.data.revision },
+                  })
+                }
+              />
+            }
+          />
         </SettingRows>
       )}
     </ChatSection>

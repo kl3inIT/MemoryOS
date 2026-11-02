@@ -373,6 +373,7 @@ function ChatConversationBody({
         }
         onCheck={() => controller.check()}
         checking={state.checking}
+        followUpsFor={state.followUpsFor}
       />
     </>
   );
