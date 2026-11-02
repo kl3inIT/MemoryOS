@@ -1281,6 +1281,10 @@ export type ChatPreferencesInput = {
      * The assistant the member's direct messages to a bot answer with; null keeps the bot's own
      */
     channelPersonaId?: string | null;
+    /**
+     * Collapse a paste over 3 lines or 200 characters into a composer tile; absent is off
+     */
+    pasteAsTile?: boolean;
 };
 
 export type ChatMemory = {
@@ -1328,6 +1332,10 @@ export type ChatPreferences = {
      * The assistant the member's direct messages to a bot answer with; absent for the bot's own
      */
     channelPersonaId?: string | null;
+    /**
+     * Collapse a paste of more than 3 lines or 200 characters into a composer tile
+     */
+    pasteAsTile: boolean;
     displayName: string | null;
     email: string | null;
 };

@@ -1166,7 +1166,8 @@ export const zChatPreferencesInput = z.object({
         'HIGH'
     ]).optional(),
     autoScroll: z.boolean(),
-    channelPersonaId: z.uuid().nullish()
+    channelPersonaId: z.uuid().nullish(),
+    pasteAsTile: z.boolean().optional()
 });
 
 export const zChatMemory = z.object({
@@ -1198,6 +1199,7 @@ export const zChatPreferences = z.object({
     ]),
     autoScroll: z.boolean(),
     channelPersonaId: z.uuid().nullish(),
+    pasteAsTile: z.boolean(),
     displayName: z.string().nullable(),
     email: z.string().nullable()
 });
