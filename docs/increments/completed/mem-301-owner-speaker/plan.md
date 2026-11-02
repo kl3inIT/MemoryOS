@@ -15,8 +15,8 @@ Issue: [MEM-301](https://linear.app/memory-os/issue/MEM-301). See the [design](d
 - [x] Tests: `TranscriptSummarizerTest` (a speaker label of the transcript is kept), the minutes service or repository round trip, `MeetingService` edit with a voice, the biên bản and Markdown after a rename, the page.
 - [x] Measurement: 23 staging meetings through 9Router, owners judged for who does the work before and after the prompt change.
 - [x] Docs: `docs/specs/meeting.md`, `docs/tests/meeting.md`, roadmap.
-- [ ] Staging: rerun three meetings, name a voice, check the page, the biên bản and the Markdown.
-- [ ] Markdown already in a library: taking the minutes into a conversation again replaces a file that no longer reads as the minutes do (found on staging after #873: naming a voice changed the page and the biên bản, but the published Markdown kept "Người nói 1").
+- [x] Staging: rerun three meetings, name a voice, check the page, the biên bản and the Markdown.
+- [x] Markdown already in a library: taking the minutes into a conversation again replaces a file that no longer reads as the minutes do (found on staging after #873: naming a voice changed the page and the biên bản, but the published Markdown kept "Người nói 1").
 
 ## Verification
 
@@ -45,3 +45,5 @@ The judge itself is noisy (it marks "Nam" as someone else while naming Nam the d
 - 2026-11-02: opened after the owner chose to keep owners and link them to voices; implemented, tested on zm (core 36, API minutes and OpenAPI, web 53) and measured.
 
 Staging after #873 (2 November 2026): V197 ran and linked the 19 owners the dry run found, with no row breaking its rule. Rerunning three meetings gave 19 of 20 actions in the two technical meetings a voice as owner, where none had an owner before; the third, with named people, kept text owners. Naming Người nói 1 "Anh Khanh" renamed all four of its actions in the page data and in the biên bản; the Markdown already in the library still read "Người nói 1", which the step above fixes.
+
+After #876 (2 November 2026): taking the same minutes into a conversation after naming the voice replaced the library file, and the new one reads "Anh Khanh" four times and "Người nói 1" none. The voice was unnamed again and the test file deleted.
