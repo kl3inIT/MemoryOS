@@ -110,7 +110,7 @@ export function inkLines(
  * {@link inkLines} on a drawn source (the PDF page's canvas, a decoded picture) of `sourceWidth` ×
  * `sourceHeight` pixels, reading only the outline's bounds. `undefined` where the pixels cannot be read.
  */
-export function inkLinesFrom(
+function inkLinesFrom(
   source: CanvasImageSource,
   sourceWidth: number,
   sourceHeight: number,
