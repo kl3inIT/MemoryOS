@@ -4,14 +4,18 @@ import io.memoryos.shared.ActorId;
 import io.memoryos.usage.AiUsage;
 import io.memoryos.usage.AiUsageFlow;
 import io.memoryos.usage.AiUsageRecorder;
+import java.text.Normalizer;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,6 +57,9 @@ public class TranscriptCorrector {
     /** Two marked stretches this close together, with no sentence ending between, read as one. */
     static final int MERGE_GAP_CHARS = 5;
     static final int MERGE_GAP_WORDS = 8;
+    /** Words compared at the edges of a replacement: enough for a name like "Google Drive Workspace". */
+    private static final int EDGE_WORDS = 3;
+    private static final Pattern NOT_WORD = Pattern.compile("[^\\p{L}\\p{N}\\p{Mn}]+");
 
     private final ModelResolver models;
     private final ModelCalls calls;
@@ -230,8 +237,8 @@ public class TranscriptCorrector {
     }
 
     /** Drops what cannot be used: an unknown stretch, an empty replacement, or one that leaked its context back. */
-    private static List<TranscriptCorrections.Proposal> clean(TranscriptCorrections answered, List<Stretch> batch,
-                                                              Map<String, Line> byId) {
+    static List<TranscriptCorrections.Proposal> clean(TranscriptCorrections answered, List<Stretch> batch,
+                                                      Map<String, Line> byId) {
         var wanted = new LinkedHashMap<String, Stretch>();
         for (var stretch : batch) wanted.put(stretch.id(), stretch);
         var kept = new ArrayList<TranscriptCorrections.Proposal>(batch.size());
@@ -248,12 +255,42 @@ public class TranscriptCorrector {
             if (said.isEmpty() || said.equals(original)) continue;
             // A stretch is a few words; an answer several times its length has taken the context with it.
             if (said.length() > Math.max(80, original.length() * 3)) continue;
+            // "Google" answered as "Google Drive" before "Drive" reads "Google Drive Drive" once put in.
+            if (repeatsNeighbour(line.text(), start, end, said)) continue;
             if (!proposal.replace()) continue;
             kept.add(new TranscriptCorrections.Proposal(proposal.id(), true, said,
                     proposal.reason() == null ? "" : proposal.reason().strip(), score(proposal.confidence()),
                     score(proposal.contextFit()), score(proposal.meaningSafe()), proposal.matchedGlossary()));
         }
         return kept;
+    }
+
+    /**
+     * True when the replacement ends with the words that already follow the stretch, or begins with the words that
+     * already precede it, and the stretch itself did not: putting it in would say those words twice.
+     */
+    static boolean repeatsNeighbour(String line, int start, int end, String replacement) {
+        var said = words(replacement);
+        var heard = words(line.substring(start, end));
+        var before = words(line.substring(0, start));
+        var after = words(line.substring(end));
+        for (int count = 1; count <= Math.min(EDGE_WORDS, said.size()); count++) {
+            var tail = said.subList(said.size() - count, said.size());
+            if (after.size() >= count && after.subList(0, count).equals(tail)
+                    && !(heard.size() >= count && heard.subList(heard.size() - count, heard.size()).equals(tail)))
+                return true;
+            var head = said.subList(0, count);
+            if (before.size() >= count && before.subList(before.size() - count, before.size()).equals(head)
+                    && !(heard.size() >= count && heard.subList(0, count).equals(head)))
+                return true;
+        }
+        return false;
+    }
+
+    private static List<String> words(String text) {
+        String folded = Normalizer.normalize(text, Normalizer.Form.NFC).toLowerCase(Locale.ROOT).strip();
+        if (folded.isEmpty()) return List.of();
+        return Arrays.stream(NOT_WORD.split(folded)).filter(word -> !word.isEmpty()).toList();
     }
 
     private static double score(double value) {

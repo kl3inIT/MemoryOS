@@ -84,6 +84,37 @@ class TranscriptCorrectorTest {
                 "tidying how somebody spoke is a change to what was said");
     }
 
+    private static List<TranscriptCorrections.Proposal> answered(String line, int start, int end, String text) {
+        var stretch = new Stretch("s", "a", start, end);
+        var proposal = new TranscriptCorrections.Proposal("s", true, text, "", 0.9, 0.9, 0.9, false);
+        var byId = new LinkedHashMap<String, Line>();
+        byId.put("a", new Line("a", "Người nói 1", line));
+        return TranscriptCorrector.clean(new TranscriptCorrections(List.of(proposal)), List.of(stretch), byId);
+    }
+
+    private static List<TranscriptCorrections.Proposal> answered(String line, String stretch, String text) {
+        int start = line.indexOf(stretch);
+        return answered(line, start, start + stretch.length(), text);
+    }
+
+    @Test
+    void anAnswerThatRunsIntoTheNextWordsIsNotOffered() {
+        String line = "One Google Drive thì nó sẽ có một cái phần";
+
+        assertTrue(answered(line, "Google", "Google Drive").isEmpty(), "put in, it would read Google Drive Drive");
+        assertTrue(answered("Em làm việc với Lan nhé.", "việc", "làm việc").isEmpty(),
+                "nor one that repeats the word before it");
+        assertEquals(1, answered(line, "Google", "Gu-gồ").size(), "a replacement that keeps to its own words is offered");
+    }
+
+    @Test
+    void wordsTheSpeakerRepeatedMayStillEndAReplacement() {
+        String line = "One Google Drive Drive thì";
+
+        assertEquals(1, answered(line, "Google Drive", "Gu-gồ Drive").size(),
+                "the stretch already ended with Drive before the next Drive, so the answer repeats nothing new");
+    }
+
     @Test
     void englishMeetingsAreAnsweredInEnglish() {
         assertTrue(TranscriptCorrector.instructions(new Subject("Weekly", List.of(), "en")).contains("in English"));
