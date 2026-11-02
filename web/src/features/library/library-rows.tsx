@@ -1,4 +1,13 @@
-import { Fragment, useId, useState, type ReactNode } from "react";
+import {
+  Fragment,
+  memo,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { formatUiDay } from "@/i18n/format";
 import { useMutation } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
@@ -108,6 +117,7 @@ export function LibraryList({
   onSelectDay?: (files: readonly LibraryFile[], pick: boolean) => void;
 }) {
   const ui = useAppTranslation();
+  const rowActions = useSteadyActions(actions);
   const groups = grouped ? groupByDate(files) : [];
   // Read once when the list mounts, so a render stays pure.
   const [thisYear] = useState(() => new Date().getFullYear());
@@ -134,7 +144,7 @@ export function LibraryList({
           view={view}
           layout={layout}
           selected={selected}
-          actions={actions}
+          actions={rowActions}
           onSelect={onSelect}
           label={ui("Tệp")}
         />
@@ -149,7 +159,7 @@ export function LibraryList({
           view={view}
           layout={layout}
           selected={selected}
-          actions={actions}
+          actions={rowActions}
           onSelect={onSelect}
           onSelectDay={onSelectDay}
           label={heading(group)}
@@ -157,6 +167,37 @@ export function LibraryList({
         />
       ))}
     </div>
+  );
+}
+
+/**
+ * The page's row commands under one identity for the list's lifetime, each calling the page's latest handler, so
+ * a row whose file and selection did not change skips its render. A command the page leaves out stays out.
+ */
+function useSteadyActions(actions: RowActions): RowActions {
+  const latest = useRef(actions);
+  useLayoutEffect(() => {
+    latest.current = actions;
+  });
+  const asks = actions.onAsk !== undefined;
+  const adds = actions.onAddToProject !== undefined;
+  const removes = actions.onRemoveFromProject !== undefined;
+  return useMemo(
+    () => ({
+      onPreview: (file) => latest.current.onPreview(file),
+      onDelete: (file) => latest.current.onDelete(file),
+      onRename: (file) => latest.current.onRename(file),
+      onFavorite: (file) => latest.current.onFavorite(file),
+      onRestore: (file) => latest.current.onRestore(file),
+      onPurge: (file) => latest.current.onPurge(file),
+      onRetried: () => latest.current.onRetried(),
+      onAsk: asks ? (file) => latest.current.onAsk?.(file) : undefined,
+      onAddToProject: adds ? (file) => latest.current.onAddToProject?.(file) : undefined,
+      onRemoveFromProject: removes
+        ? async (file, project) => await latest.current.onRemoveFromProject?.(file, project)
+        : undefined,
+    }),
+    [asks, adds, removes],
   );
 }
 
@@ -249,7 +290,8 @@ function FileGroup({
   );
 }
 
-function LibraryRow({
+/** A row renders again only when its file or its selection changes; the commands keep their identity. */
+const LibraryRow = memo(function LibraryRow({
   file,
   view,
   selected,
@@ -269,56 +311,81 @@ function LibraryRow({
   return (
     // The row's state is drawn around the Item, which owns its own border: a pointer over the row, an open
     // menu (which takes the pointer off the row but still acts on its file) and, strongest, a chosen row.
+    // The state changes at once rather than fading: select-all changes fifty rows, and fifty fades restyle
+    // every row on every frame.
     <div
       className={cn(
-        "transition-colors hover:bg-surface-subtle has-[[data-state=open]]:bg-surface-subtle",
+        "flex items-center pl-3.25 hover:bg-surface-subtle has-[[data-state=open]]:bg-surface-subtle",
         selected && "bg-surface-sunken",
       )}
     >
-      <Item>
-        <Checkbox
-          focus="soft"
-          forceMountIndicator
-          aria-label={ui("Chọn {{name}}", { name: file.filename })}
-          checked={selected}
-          onCheckedChange={() => onSelect(file)}
-        />
-        {/* One box whatever the file is: a picture fills it, anything else centres its icon in it, so the
-          names below each other start at the same place. */}
-        <ItemMedia variant="image">
-          <span className="flex size-full items-center justify-center bg-surface-sunken">
-            <LibraryThumbnail file={file} className="size-full object-cover" />
-          </span>
-        </ItemMedia>
-        <ItemContent className="min-w-0">
-          <button
-            type="button"
-            className="flex min-w-0 items-center gap-2 rounded-sm text-left font-main-ui-action outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/40"
-            onClick={() => actions.onPreview(file)}
-          >
-            <FileName name={file.filename} />
-            {file.favorite && (
-              <Star
-                role="img"
-                className="size-3.5 shrink-0 fill-current text-status-warning-content"
-                aria-label={ui("Có gắn sao")}
-              />
-            )}
-          </button>
-          <ItemDescription>
-            <span className="flex items-center gap-x-1.5 overflow-hidden whitespace-nowrap">
-              <RowMeta file={file} view={view} dated={dated} />
-            </span>
-          </ItemDescription>
-          <FileUsage file={file} onRemove={actions.onRemoveFromProject} />
-        </ItemContent>
-        <ItemActions>
-          <RowActionButtons file={file} view={view} actions={actions} />
-        </ItemActions>
-      </Item>
+      {/* The checkbox sits beside the Item, not in it: the Item is a `group/item` that `:has()` rules read, so
+          a checkbox toggled inside it makes Chrome restyle the whole row, fifty rows at once on select-all.
+          Its margin pulls the Item's border and padding back to where the gap after the checkbox was, so the
+          picture and name keep their place; the checkbox stays above it, keeping its pointer area. */}
+      <Checkbox
+        focus="soft"
+        forceMountIndicator
+        aria-label={ui("Chọn {{name}}", { name: file.filename })}
+        checked={selected}
+        onCheckedChange={() => onSelect(file)}
+        className="z-10"
+      />
+      <RowBody file={file} view={view} actions={actions} dated={dated} />
     </div>
   );
-}
+});
+
+/** Everything in a row but its checkbox, which a change of selection leaves as it was. */
+const RowBody = memo(function RowBody({
+  file,
+  view,
+  actions,
+  dated,
+}: {
+  file: LibraryFile;
+  view: LibraryOwnedView;
+  actions: RowActions;
+  dated: boolean;
+}) {
+  const ui = useAppTranslation();
+  return (
+    <Item className="-ml-0.75 min-w-0 flex-1">
+      {/* One box whatever the file is: a picture fills it, anything else centres its icon in it, so the
+          names below each other start at the same place. */}
+      <ItemMedia variant="image">
+        <span className="flex size-full items-center justify-center bg-surface-sunken">
+          <LibraryThumbnail file={file} className="size-full object-cover" />
+        </span>
+      </ItemMedia>
+      <ItemContent className="min-w-0">
+        <button
+          type="button"
+          className="flex min-w-0 items-center gap-2 rounded-sm text-left font-main-ui-action outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/40"
+          onClick={() => actions.onPreview(file)}
+        >
+          <FileName name={file.filename} />
+          {file.favorite && (
+            <Star
+              role="img"
+              className="size-3.5 shrink-0 fill-current text-status-warning-content"
+              aria-label={ui("Có gắn sao")}
+            />
+          )}
+        </button>
+        <ItemDescription>
+          <span className="flex items-center gap-x-1.5 overflow-hidden whitespace-nowrap">
+            <RowMeta file={file} view={view} dated={dated} />
+          </span>
+        </ItemDescription>
+        <FileUsage file={file} onRemove={actions.onRemoveFromProject} />
+      </ItemContent>
+      <ItemActions>
+        <RowActionButtons file={file} view={view} actions={actions} />
+      </ItemActions>
+    </Item>
+  );
+});
 
 /** A file's own picture, or the icon it would have without one. */
 function LibraryThumbnail({
@@ -446,7 +513,7 @@ function RowMeta({
 }
 
 /** A grid card for the same file: the picture first, because that is why a grid was chosen. */
-function LibraryCard({
+const LibraryCard = memo(function LibraryCard({
   file,
   view,
   selected,
@@ -506,7 +573,7 @@ function LibraryCard({
       </div>
     </div>
   );
-}
+});
 
 /** The actions a file offers, which depend on whether it is usable, still arriving, or in the trash. */
 function RowActionButtons({
