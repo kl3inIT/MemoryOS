@@ -116,7 +116,10 @@ final class MeetingMinutesLayout {
 
         page.line("IV. Nhiệm vụ được giao:", true, BODY, Align.LEFT);
         if (minutes.actions().isEmpty()) page.listed(BLANK);
-        else numbered(minutes.actions().stream().map(MeetingMinutesLayout::assignment).toList(), page);
+        else {
+            var names = SpeakerNames.of(meeting);
+            numbered(minutes.actions().stream().map(action -> assignment(action, names.owner(action))).toList(), page);
+        }
         page.blank();
 
         page.indented("Cuộc họp kết thúc vào lúc " + or(heading.closed(), BLANK)
@@ -125,9 +128,9 @@ final class MeetingMinutesLayout {
     }
 
     /** "Kiểm tra bảng cân đối do Anh Minh thực hiện, thời hạn thứ Tư." */
-    private static String assignment(Meeting.MinutesItem action) {
+    private static String assignment(Meeting.MinutesItem action, @Nullable String owner) {
         var sentence = new StringBuilder(action.text());
-        if (action.owner() != null) sentence.append(" do ").append(action.owner()).append(" thực hiện");
+        if (owner != null) sentence.append(" do ").append(owner).append(" thực hiện");
         if (action.due() != null) sentence.append(", thời hạn ").append(action.due());
         if (sentence.charAt(sentence.length() - 1) != '.') sentence.append('.');
         return sentence.toString();

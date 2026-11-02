@@ -426,13 +426,14 @@ class MeetingController {
     @Operation(operationId = "editMeetingMinutesItem",
             summary = "Rewrite one decision or one piece of work, its owner and its deadline")
     @ApiResponse(responseCode = "200", description = "The item as it now reads", useReturnTypeSchema = true)
-    @ApiResponse(responseCode = "400", description = "A decision has no owner and no deadline")
+    @ApiResponse(responseCode = "400", description = "A decision has no owner and no deadline, or the owner is both a voice and a name")
     @ApiResponse(responseCode = "404", description = "Meeting or item not available")
     MeetingMinutesItemResponse editItem(@CurrentActor IdentityContext identity,
                                         @PathVariable UUID meetingId, @PathVariable UUID itemId,
                                         @Valid @RequestBody MeetingMinutesItemRequest body) {
+        var speaker = body.ownerSpeaker();
         return MeetingMinutesItemResponse.from(meetings.editItem(identity.actorId(), meetingId, itemId, body.text(),
-                body.owner(), body.due()));
+                body.owner(), speaker == null ? null : speaker.toSpeaker(), body.due()));
     }
 
     @PostMapping(value = "/{meetingId}/minutes/items", consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -441,8 +442,9 @@ class MeetingController {
     @ApiResponse(responseCode = "404", description = "Meeting not available")
     MeetingMinutesItemResponse addItem(@CurrentActor IdentityContext identity,
                                        @PathVariable UUID meetingId, @Valid @RequestBody MeetingNewMinutesItemRequest body) {
+        var speaker = body.ownerSpeaker();
         return MeetingMinutesItemResponse.from(meetings.addItem(identity.actorId(), meetingId, body.kind(),
-                body.text(), body.owner(), body.due()));
+                body.text(), body.owner(), speaker == null ? null : speaker.toSpeaker(), body.due()));
     }
 
     @DeleteMapping("/{meetingId}/minutes/items/{itemId}")

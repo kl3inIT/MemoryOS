@@ -24776,6 +24776,10 @@ components:
           type:
           - string
           - "null"
+        ownerSpeaker:
+          type: "null"
+          $ref: "#/components/schemas/MeetingSpeakerRef"
+          description: The voice that owns the work; named by the meeting's speakers
         due:
           type:
           - string
@@ -24804,6 +24808,21 @@ components:
       - quote
       - sourceUtteranceId
       - text
+    MeetingSpeakerRef:
+      type: object
+      description: "One voice of the meeting, as its speakers list names it"
+      properties:
+        track:
+          type: string
+          enum:
+          - MIC
+          - TAB
+        label:
+          type: string
+          pattern: "^[0-9A-Za-z_-]{1,16}$"
+      required:
+      - label
+      - track
     MeetingMinutesSummaryRequest:
       type: object
       properties:
@@ -24839,6 +24858,11 @@ components:
           - "null"
           maxLength: 200
           minLength: 0
+        ownerSpeaker:
+          type: "null"
+          $ref: "#/components/schemas/MeetingSpeakerRef"
+          description: "A voice of the meeting as the owner, instead of a written\
+            \ name"
         due:
           type:
           - string
@@ -29490,6 +29514,11 @@ components:
           - "null"
           maxLength: 200
           minLength: 0
+        ownerSpeaker:
+          type: "null"
+          $ref: "#/components/schemas/MeetingSpeakerRef"
+          description: "A voice of the meeting as the owner, instead of a written\
+            \ name"
         due:
           type:
           - string

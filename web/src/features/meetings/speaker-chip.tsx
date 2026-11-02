@@ -46,29 +46,49 @@ function SpeakerName({
   meeting,
   track,
   label,
+  compact,
 }: {
   meeting: MeetingDetail;
   track: MeetingTrack;
   label: string;
+  compact?: boolean;
 }) {
   const ui = useAppTranslation();
   return (
-    <span className="inline-flex items-center gap-2 text-sm font-medium text-content-primary">
-      <SpeakerBadge meeting={meeting} track={track} label={label} />
+    <span
+      className={cn(
+        "inline-flex items-center font-medium text-content-primary",
+        compact ? "gap-1.5 text-xs" : "gap-2 text-sm",
+      )}
+    >
+      <SpeakerBadge
+        meeting={meeting}
+        track={track}
+        label={label}
+        className={compact ? COMPACT_BADGE : undefined}
+      />
       {speakerName(meeting, track, label, ui)}
     </span>
   );
 }
 
-/** A voice in the meeting's panel; its owner names it from here. */
+/** The badge beside a line of small text, such as who owns a piece of work. */
+const COMPACT_BADGE = "size-4 text-2xs";
+
+/**
+ * A voice in the meeting's panel, or the voice that owns a piece of work; its owner names it from either, and the name
+ * reaches every place the voice appears.
+ */
 export function SpeakerChip({
   meeting,
   track,
   label,
+  compact,
 }: {
   meeting: MeetingDetail;
   track: MeetingTrack;
   label: string;
+  compact?: boolean;
 }) {
   const ui = useAppTranslation();
   const cache = useQueryClient();
@@ -85,7 +105,7 @@ export function SpeakerChip({
   });
   // Online, the microphone is the owner, who needs no name; a reader names nobody.
   if (!meeting.owned || (meeting.kind === "ONLINE" && track === "MIC"))
-    return <SpeakerName meeting={meeting} track={track} label={label} />;
+    return <SpeakerName meeting={meeting} track={track} label={label} compact={compact} />;
   const display = speakerName(meeting, track, label, ui);
 
   function save(value: string | null) {
@@ -103,12 +123,21 @@ export function SpeakerChip({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="inline-flex items-center gap-2 rounded text-sm font-medium text-content-primary hover:underline focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none"
+          className={cn(
+            "inline-flex items-center rounded font-medium text-content-primary hover:underline focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none",
+            compact ? "gap-1.5 text-xs" : "gap-2 text-sm",
+          )}
           aria-label={ui("Đặt tên cho {{name}}", { name: display })}
         >
-          <SpeakerBadge meeting={meeting} track={track} label={label} />
+          <SpeakerBadge
+            meeting={meeting}
+            track={track}
+            label={label}
+            className={compact ? COMPACT_BADGE : undefined}
+          />
           {display}
-          <Pencil className="size-3 text-content-muted" aria-hidden="true" />
+          {/* Beside a piece of work the item's own pencil edits it; a second one would read as the same action. */}
+          {!compact && <Pencil className="size-3 text-content-muted" aria-hidden="true" />}
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-64 p-2">

@@ -4225,6 +4225,33 @@ class ChatSessionApiIntegrationTest {
                     .content("{\"text\":\"Chốt ngân sách quý 4\",\"owner\":\"Anh Minh\",\"due\":null}"))
                     .andExpect(status().isBadRequest());
 
+            // Work given to a voice of the meeting points at that voice, so naming the voice names the work.
+            var voiced = Json.mapper().readTree(mockMvc.perform(
+                    put("/api/meetings/" + meeting + "/minutes/items/" + action).with(authentication(actor))
+                            .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"text\":\"Gửi bảng KPI tháng 9\",\"ownerSpeaker\":{\"track\":\"MIC\","
+                                    + "\"label\":\"1\"},\"due\":\"thứ Năm\"}"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertTrue(voiced.path("owner").isNull(), "a voice owns it, not a written name");
+            assertEquals("MIC", voiced.path("ownerSpeaker").path("track").asText());
+            assertEquals("1", voiced.path("ownerSpeaker").path("label").asText());
+            assertEquals("Người nói 1", jdbc.sql("""
+                    SELECT after FROM meeting_minutes_event
+                    WHERE tenant_id = :tenant AND meeting_id = :meeting AND item_id = CAST(:item AS uuid)
+                      AND field = 'OWNER' ORDER BY id DESC LIMIT 1
+                    """).param("tenant", TENANT).param("meeting", meeting).param("item", action.toString())
+                    .query(String.class).single(), "the record says who, as the transcript named the voice then");
+            // A voice and a name at once, or a voice the meeting never heard, is no owner.
+            mockMvc.perform(put("/api/meetings/" + meeting + "/minutes/items/" + action).with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"text\":\"Gửi bảng KPI\",\"owner\":\"Anh Minh\",\"ownerSpeaker\":{\"track\":\"MIC\","
+                            + "\"label\":\"1\"}}"))
+                    .andExpect(status().isBadRequest());
+            mockMvc.perform(put("/api/meetings/" + meeting + "/minutes/items/" + action).with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"text\":\"Gửi bảng KPI\",\"ownerSpeaker\":{\"track\":\"TAB\",\"label\":\"7\"}}"))
+                    .andExpect(status().isBadRequest());
+
             // What the model missed is written in, after the others of its kind, and what should not be there comes
             // out; both stay on the record as events.
             var added = Json.mapper().readTree(mockMvc.perform(
