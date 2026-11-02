@@ -4,12 +4,17 @@ import { IconButton } from "@/components/ui/icon-button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
 import { CitationRegion } from "./citation-region";
-import { frameBoxRect, type PdfHighlight } from "./pdf-pages";
+import { placedInkLines } from "./ink-outline";
+import { frameBoxRect, type PdfHighlight, type PlacedOutline } from "./pdf-pages";
 import { useObjectUrl } from "./use-object-url";
 
 type Layout = { left: number; top: number; width: number; height: number };
 
 const NO_BOXES: readonly PdfHighlight[] = [];
+
+/** A region's place on the picture, which names it among the regions of one picture. */
+const regionKey = (rect: { left: number; top: number; width: number; height: number }) =>
+  `${rect.left}:${rect.top}:${rect.width}:${rect.height}`;
 
 /**
  * Zoomed images are dragged rather than scrolled, as an image viewer does; at 100% there is nothing to pan.
@@ -61,6 +66,38 @@ export function ImageView({
         .filter((rect) => rect !== undefined)
     : [];
   const marked = natural && cited.length ? regions.length > 0 : undefined;
+  // A region with an outline is drawn around the ink of its lines once the picture's pixels have been read.
+  const [inked, setInked] = useState<{ src: string; lines: Record<string, PlacedOutline[]> }>();
+  const outlined = regions.filter((rect) => rect.outline);
+  const outlinedKey = natural ? `${natural.src}|${outlined.map(regionKey).join(",")}` : "";
+  const outlinedNow = useRef(outlined);
+  useEffect(() => {
+    outlinedNow.current = outlined;
+  });
+  useEffect(() => {
+    const image = picture.current;
+    if (!image || !natural || !outlinedNow.current.length) return undefined;
+    // After the paint: the outline shows at once and the lines replace it.
+    const timer = setTimeout(() => {
+      const lines: Record<string, PlacedOutline[]> = {};
+      for (const rect of outlinedNow.current) {
+        const found =
+          rect.outline &&
+          placedInkLines(
+            image,
+            natural.width,
+            natural.height,
+            rect,
+            rect.outline,
+            natural.width,
+            natural.height,
+          );
+        if (found) lines[regionKey(rect)] = found;
+      }
+      setInked({ src: natural.src, lines });
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [natural, outlinedKey]);
   const report = useRef(onMarked);
   useEffect(() => {
     report.current = onMarked;
@@ -160,6 +197,7 @@ export function ImageView({
               slot="image-citation-box"
               label={ui("Vùng được trích dẫn trên ảnh")}
               outline={rect.outline}
+              lines={inked && inked.src === src ? inked.lines[regionKey(rect)] : undefined}
               style={{
                 left: `${rect.left * 100}%`,
                 top: `${rect.top * 100}%`,
