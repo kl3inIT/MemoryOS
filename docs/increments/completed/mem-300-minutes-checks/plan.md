@@ -13,7 +13,7 @@ Issue: [MEM-300](https://linear.app/memory-os/issue/MEM-300). See the [design](d
 - [x] Tests: `TranscriptSummarizerTest` (each owner case, quote on its line, one line off, across lines, shortened, missing, lineless; each duplicate case), `TranscriptCorrectorTest` (the "Google Drive Drive" case, a repeat of the word before, and words the speaker really repeated).
 - [x] Measurement after: the same 23 + 23 through the new rules; cleared owners and dropped quotes listed for review.
 - [x] Documents: the Minutes and correction sections of `docs/specs/meeting.md`, `docs/tests/meeting.md`, the roadmap row.
-- [ ] Staging, after deployment: rerun the minutes of three real meetings and measure them.
+- [x] Staging, after deployment: rerun the minutes of three real meetings and measure them.
 
 ## Verification
 
@@ -40,3 +40,18 @@ Every cleared owner was a speaker label, a group, an organisation ("đơn vị q
 ## Status
 
 - 2026-11-02: increment opened from the staging audit; checks implemented and measured on staging data.
+- 2026-11-02: merged in PR #870 (merge commit `052cd7c0`) after five CodeRabbit findings were fixed. Accepted on staging the same day.
+
+## Staging acceptance
+
+On 2026-11-02 the API and Worker ran `052cd7c0`. The minutes of three meetings with the most faults were rerun as their owner through `POST /api/meetings/{id}/minutes`, and the stored result was exported and measured.
+
+| Meeting | Before: owners | After: owners | Before: items sharing a line | After |
+|---|---|---|---|---|
+| 28/09 meeting, 455 lines | 11 labels | 9 none | 1 | 0 |
+| IT, 668 lines | 10 labels, 1 person | 7 none | 0 | 0 |
+| SecondBite project, 884 lines | 6 labels, 3 groups, 2 several, 3 people, 2 none | 5 people, 9 none | 2 | 0 |
+
+Running the measurement script's checks over the three stored results changed nothing, so the Java checks and the script agree. Every quote stored is said in the transcript, in its line or a run of lines from it. The person owner the IT meeting had before is gone because the model did not write that action again in this run; the checks clear an owner but never remove an action for it.
+
+Most actions now have no owner, because most voices in these meetings are unnamed. Naming speakers after a meeting is what fills them, and is the next step.
