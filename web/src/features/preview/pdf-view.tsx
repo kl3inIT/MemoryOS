@@ -14,6 +14,7 @@ import {
   type PdfHighlight,
   type PdfPageView,
 } from "./pdf-pages";
+import { CitationRegion } from "./citation-region";
 import { BLOCK } from "./pdf-range-plan";
 import { openPdfOriginal, PdfReading } from "./pdf-range-source";
 import { useReaderWorker } from "./pdf-reader-worker";
@@ -142,7 +143,7 @@ export function PdfView({
   const anchor = Math.min(firstCited, pageCount ?? firstCited);
   const currentPage = visiblePage ?? anchor;
   const figures = useRef(new Map<number, HTMLElement>());
-  const firstBox = useRef<HTMLSpanElement | null>(null);
+  const firstBox = useRef<Element | null>(null);
   const currentPageRef = useRef(currentPage);
   const lastWidth = useRef(renderedWidth);
   const anchorView = pageViews[anchor];
@@ -327,17 +328,19 @@ export function PdfView({
                           .map((box, boxIndex) => {
                             const rect = pdfBoxRect(box, view, renderedWidth);
                             if (!rect) return null;
+                            const { outline, ...placed } = rect;
                             return (
-                              <span
+                              <CitationRegion
                                 key={`${box.left}:${box.top}:${boxIndex}`}
-                                ref={pageNumber === anchor && boxIndex === 0 ? firstBox : undefined}
-                                role="img"
-                                aria-label={ui("Vùng được trích dẫn trên trang {{page}}", {
+                                regionRef={
+                                  pageNumber === anchor && boxIndex === 0 ? firstBox : undefined
+                                }
+                                slot="pdf-citation-box"
+                                label={ui("Vùng được trích dẫn trên trang {{page}}", {
                                   page: pageNumber,
                                 })}
-                                data-slot="pdf-citation-box"
-                                className="absolute scroll-m-12 rounded-sm bg-pdf-highlight ring-1 ring-pdf-highlight-border/80"
-                                style={rect}
+                                outline={outline}
+                                style={placed}
                               />
                             );
                           })}

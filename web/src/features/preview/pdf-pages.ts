@@ -16,7 +16,15 @@ export type PdfHighlight = {
   bottom: number;
   origin: "TOPLEFT" | "BOTTOMLEFT";
   frame?: { width: number; height: number };
+  /**
+   * The block's own outline, `[x, y]` points in the same space and origin as the box and inside it: a tilted
+   * or curved block is drawn in its shape rather than as the upright box around it.
+   */
+  outline?: readonly (readonly [number, number])[];
 };
+
+/** Outline points as fractions of the placed rectangle, `[0, 0]` its top left and `[1, 1]` its bottom right. */
+export type PlacedOutline = [number, number][];
 
 export type PdfPageView = { view: readonly number[]; rotate: number };
 
@@ -50,6 +58,10 @@ export function frameBoxRect(box: PdfHighlight) {
     top: top / frame.height,
     width: width / frame.width,
     height: height / frame.height,
+    outline: box.outline?.map(([x, y]): [number, number] => [
+      (x - left) / width,
+      (y - top) / height,
+    ]),
   };
 }
 
@@ -64,19 +76,27 @@ export function pdfBoxRect(box: PdfHighlight, page: PdfPageView, renderedWidth: 
   const pageWidth = x1 - x0;
   const pageHeight = y1 - y0;
   if (pageWidth <= 0 || pageHeight <= 0) return undefined;
-  if (box.frame) {
+  const frame = box.frame;
+  if (frame) {
     const turned = Math.abs(page.rotate % 180) === 90;
     const shownWidth = turned ? pageHeight : pageWidth;
     const shownHeight = turned ? pageWidth : pageHeight;
     const placed = frameBoxRect(box);
-    if (!placed || !sameProportions(box.frame.width, box.frame.height, shownWidth, shownHeight))
+    if (!placed || !sameProportions(frame.width, frame.height, shownWidth, shownHeight))
       return undefined;
     const renderedHeight = (renderedWidth * shownHeight) / shownWidth;
-    return {
+    const rect = {
       top: placed.top * renderedHeight - 2,
       left: placed.left * renderedWidth - 2,
       width: placed.width * renderedWidth + 4,
       height: placed.height * renderedHeight + 4,
+    };
+    return {
+      ...rect,
+      outline: placedOutline(rect, box.outline, (x, y) => [
+        (x / frame.width) * renderedWidth,
+        (y / frame.height) * renderedHeight,
+      ]),
     };
   }
   if (page.rotate % 360 !== 0) return undefined;
@@ -90,12 +110,31 @@ export function pdfBoxRect(box: PdfHighlight, page: PdfPageView, renderedWidth: 
   const width = Math.abs(box.right - box.left);
   if (height <= 0 || width <= 0 || top < -1 || left < -1 || top > pageHeight || left > pageWidth)
     return undefined;
-  return {
+  const rect = {
     top: Math.max(0, top) * scale - 2,
     left: Math.max(0, left) * scale - 2,
     width: width * scale + 4,
     height: height * scale + 4,
   };
+  return {
+    ...rect,
+    outline: placedOutline(rect, box.outline, (x, y) => [
+      (x - x0) * scale,
+      (box.origin === "BOTTOMLEFT" ? y1 - y : y - y0) * scale,
+    ]),
+  };
+}
+
+/** An outline mapped to rendered pixels by `toPixels`, as fractions of the rectangle it is drawn in. */
+function placedOutline(
+  rect: { top: number; left: number; width: number; height: number },
+  outline: PdfHighlight["outline"],
+  toPixels: (x: number, y: number) => [number, number],
+): PlacedOutline | undefined {
+  return outline?.map(([x, y]) => {
+    const [px, py] = toPixels(x, y);
+    return [(px - rect.left) / rect.width, (py - rect.top) / rect.height];
+  });
 }
 
 /** Compact page label such as "4", "4–5" or "2, 7". */

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { IconButton } from "@/components/ui/icon-button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
+import { CitationRegion } from "./citation-region";
 import { frameBoxRect, type PdfHighlight } from "./pdf-pages";
 import { useObjectUrl } from "./use-object-url";
 
@@ -154,12 +155,11 @@ export function ImageView({
           style={{ ...layout, transform }}
         >
           {regions.map((rect, index) => (
-            <span
+            <CitationRegion
               key={`${rect.left}:${rect.top}:${index}`}
-              role="img"
-              aria-label={ui("Vùng được trích dẫn trên ảnh")}
-              data-slot="image-citation-box"
-              className="absolute rounded-sm bg-pdf-highlight ring-1 ring-pdf-highlight-border/80"
+              slot="image-citation-box"
+              label={ui("Vùng được trích dẫn trên ảnh")}
+              outline={rect.outline}
               style={{
                 left: `${rect.left * 100}%`,
                 top: `${rect.top * 100}%`,

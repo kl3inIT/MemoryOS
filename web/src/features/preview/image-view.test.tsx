@@ -89,3 +89,31 @@ it("draws only framed regions of the picture's one page and reports nothing when
   expect(screen.queryByRole("img", { name: "Vùng được trích dẫn trên ảnh" })).toBeNull();
   expect(onMarked).not.toHaveBeenCalled();
 });
+
+it("draws a tilted block in its outline and an upright one as its box", () => {
+  render(
+    view([
+      {
+        ...box,
+        outline: [
+          [100, 800],
+          [450, 300],
+          [500, 400],
+          [150, 900],
+        ],
+      },
+      { ...box, top: 1000, bottom: 1200 },
+    ]),
+  );
+  load(1000, 2000);
+
+  const [tilted, upright] = screen.getAllByRole("img", { name: "Vùng được trích dẫn trên ảnh" });
+  expect(tilted?.tagName.toLowerCase()).toBe("svg");
+  expect(tilted).toHaveAttribute("data-slot", "image-citation-box");
+  expect(tilted).toHaveStyle({ left: "10%", top: "15%", width: "40%", height: "30%" });
+  expect(tilted?.querySelector("polygon")?.getAttribute("points")).toBe(
+    `0,${5 / 6} 0.875,0 1,${1 / 6} 0.125,1`,
+  );
+  expect(upright?.tagName.toLowerCase()).toBe("span");
+  expect(upright).toHaveAttribute("data-slot", "image-citation-box");
+});

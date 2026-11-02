@@ -863,6 +863,143 @@ test("marks the cited region on an image original, through zoom and a turn, and 
   await expect(region).toHaveCount(0);
 });
 
+test("draws a tilted line and a curved heading of a picture in their own outlines, not their upright boxes", async ({
+  page,
+}) => {
+  // The fixture is 854 x 534 pixels. The OCR answered a tilted line in [171, 107, 598, 267] and a heading
+  // curved like an arch in [200, 300, 650, 480], each with the outline of its block.
+  const picture = readFileSync(
+    new URL("../fixtures/generated-files/bieu-do-doanh-thu.png", import.meta.url),
+  );
+  const tilted = [
+    [171, 227],
+    [568, 107],
+    [598, 147],
+    [201, 267],
+  ];
+  const curved = [
+    [200, 480],
+    [260, 360],
+    [425, 300],
+    [590, 360],
+    [650, 480],
+    [590, 420],
+    [425, 370],
+    [260, 420],
+  ];
+  const located = (box: number[], outline: number[][]) =>
+    `{"page_no":1,"bbox":{"l":${box[0]},"t":${box[1]},"r":${box[2]},"b":${box[3]},"coord_origin":"TOPLEFT",` +
+    `"frame_width":854,"frame_height":534,"polygon":${JSON.stringify(outline)}}}`;
+  const provenanceJson = `[${located([171, 107, 598, 267], tilted)},${located([200, 300, 650, 480], curved)}]`;
+  await page.route("**/api/search", (route) =>
+    route.fulfill({
+      json: {
+        page: 0,
+        hasMore: false,
+        totalResults: 1,
+        candidateLimit: 500,
+        sourceFacets: { total: 1, types: [{ type: "FILE", count: 1 }] },
+        results: [
+          {
+            documentId,
+            generation,
+            title: "Biểu đồ doanh thu.png",
+            mediaType: "image/png",
+            updatedAt: "2026-09-08T00:00:00Z",
+            score: 0.8,
+            sections: [{ ...sections[0], provenance: [{ ordinal: 2, provenanceJson }] }],
+            sourceTypes: ["FILE"],
+            authors: [],
+            providerUrl: null,
+          },
+        ],
+      },
+    }),
+  );
+  await page.route("**/api/search/documents/*?*", (route) =>
+    route.fulfill({
+      json: {
+        documentId,
+        generation,
+        title: "Biểu đồ doanh thu.png",
+        mediaType: "image/png",
+        passages: [passage, nextPassage],
+        firstOrdinal: 2,
+        totalChunks: 41,
+        hasMore: false,
+      },
+    }),
+  );
+  await page.route("**/api/search/documents/*/original?*", (route) =>
+    route.fulfill({ contentType: "image/png", body: picture }),
+  );
+
+  await page.goto("/search");
+  await page.getByRole("textbox", { name: "Search documents" }).fill("doanh thu");
+  await page.getByRole("main").getByRole("button", { name: "Search", exact: true }).click();
+  await page.getByRole("button", { name: "Biểu đồ doanh thu.png", exact: true }).click();
+
+  const dialog = page.getByRole("dialog");
+  const shown = dialog.getByRole("img", { name: "Biểu đồ doanh thu.png" });
+  const regions = dialog.locator('[data-slot="image-citation-box"]');
+  await expect(regions).toHaveCount(2);
+  await expect(regions.first()).toBeInViewport();
+  await expect(dialog.getByText("Highlighted")).toBeVisible();
+  // Both are outlines, not the rounded upright box.
+  await expect(dialog.locator('svg[data-slot="image-citation-box"] polygon')).toHaveCount(2);
+
+  /** Each vertex of a region's outline on screen, as shares of the picture's box on screen. */
+  const vertices = async (index: number) => {
+    const outer = await shown.boundingBox();
+    if (!outer) throw new Error("the picture is not laid out");
+    const points = await regions.nth(index).evaluate((region) => {
+      const polygon = region.querySelector("polygon");
+      const matrix = polygon?.getScreenCTM();
+      if (!polygon || !matrix) return [];
+      return Array.from(polygon.points, (point) => {
+        const onScreen = new DOMPoint(point.x, point.y).matrixTransform(matrix);
+        return [onScreen.x, onScreen.y];
+      });
+    });
+    return points.map(([x = NaN, y = NaN]) => [
+      (x - outer.x) / outer.width,
+      (y - outer.y) / outer.height,
+    ]);
+  };
+  const expectVertices = async (index: number, outline: number[][]) => {
+    const actual = await vertices(index);
+    expect(actual).toHaveLength(outline.length);
+    actual.forEach(([x = NaN, y = NaN], vertex) => {
+      expect(x).toBeCloseTo((outline[vertex]?.[0] ?? NaN) / 854, 2);
+      expect(y).toBeCloseTo((outline[vertex]?.[1] ?? NaN) / 534, 2);
+    });
+  };
+  await expectVertices(0, tilted);
+  await expectVertices(1, curved);
+
+  // The tilted line's corners of its upright box stay unmarked; the middle of the line is marked. The arch's
+  // hollow, inside its box but under the curve, stays unmarked.
+  const filled = (index: number, x: number, y: number) =>
+    regions
+      .nth(index)
+      .evaluate(
+        (region, [px, py]) =>
+          region.querySelector("polygon")?.isPointInFill(new DOMPoint(px, py)) ?? false,
+        [x, y],
+      );
+  expect(await filled(0, 0.02, 0.02)).toBe(false);
+  expect(await filled(0, 0.98, 0.98)).toBe(false);
+  expect(await filled(0, 0.5, 0.5)).toBe(true);
+  expect(await filled(1, 0.5, 0.9)).toBe(false);
+  expect(await filled(1, 0.5, 0.2)).toBe(true);
+
+  // Zoomed, each outline keeps its place on the picture.
+  await dialog.getByRole("button", { name: "Zoom in" }).click();
+  await page.waitForTimeout(400);
+  await expectVertices(0, tilted);
+  await expectVertices(1, curved);
+});
+
 /** One result with a match on every tenth passage, best first. */
 function matchedPassages(
   title: string,
