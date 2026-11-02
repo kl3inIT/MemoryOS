@@ -36,6 +36,7 @@ beforeEach(() => {
         temperatureDefault: null,
         reasoningEffortDefault: "OFF",
         autoScroll: true,
+        pasteAsTile: false,
         displayName: "Fixture Member",
         email: "member@example.com",
       },
