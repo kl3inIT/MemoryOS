@@ -56,7 +56,7 @@ public enum AuditAction {
     OCR_CONNECTION_CHANGE("ocr_connection.change", AuditEventClass.API_ACTIVITY, "change", "credentialChange"),
     INTERPRETER_CHANGE("interpreter.change", AuditEventClass.API_ACTIVITY, "enabled"),
     CHAT_SETTINGS_CHANGE("chat_settings.change", AuditEventClass.API_ACTIVITY, "deepResearchEnabled", "chatHistoryVisibility",
-            "groundedAnswers", "groundedAllowWeb", "guardrailTopics", "blockedPhrases"),
+            "groundedAnswers", "groundedAllowWeb", "guardrailTopics", "blockedPhrases", "followUpSuggestions"),
     /** MEM-195: a question stopped by a sensitive topic or a blocked phrase; the question itself is not recorded. */
     CHAT_GUARDRAIL_BLOCK("chat_guardrail.block", AuditEventClass.API_ACTIVITY, "rule", "topic", "agent", "session"),
     MCP_SERVER_CREATE("mcp_server.create", AuditEventClass.API_ACTIVITY, "after"),

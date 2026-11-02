@@ -8,6 +8,8 @@ public enum AiUsageFlow {
     CHAT_GUARDRAIL,
     /** MEM-268: the summary of a long conversation's earlier turns, recorded apart so Chat counts each turn once. */
     CHAT_COMPACTION,
+    /** MEM-266: the follow-up questions offered under an answer, recorded apart so Chat counts each turn once. */
+    CHAT_FOLLOW_UPS,
     /** MEM-280: an Agent Builder turn, which edits an assistant's unsaved settings rather than answering. */
     AGENT_BUILDER,
     DEEP_RESEARCH,
