@@ -1284,7 +1284,7 @@ export type ChatPreferencesInput = {
     /**
      * Collapse a paste over 3 lines or 200 characters into a composer tile; absent is off
      */
-    pasteAsTile?: boolean;
+    pasteAsTile?: boolean | null;
 };
 
 export type ChatMemory = {

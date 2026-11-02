@@ -27117,7 +27117,9 @@ components:
           description: The assistant the member's direct messages to a bot answer
             with; null keeps the bot's own
         pasteAsTile:
-          type: boolean
+          type:
+          - boolean
+          - "null"
           description: Collapse a paste over 3 lines or 200 characters into a composer
             tile; absent is off
       required:

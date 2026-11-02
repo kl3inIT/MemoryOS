@@ -1167,7 +1167,7 @@ export const zChatPreferencesInput = z.object({
     ]).optional(),
     autoScroll: z.boolean(),
     channelPersonaId: z.uuid().nullish(),
-    pasteAsTile: z.boolean().optional()
+    pasteAsTile: z.boolean().nullish()
 });
 
 export const zChatMemory = z.object({
