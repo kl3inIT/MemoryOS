@@ -133,6 +133,11 @@ export const vietnameseUi: Record<string, string> = {
     "Answers must cite a document; without one the assistant declines.",
   "Cho phép người dùng bật Tìm kiếm Web": "Let people turn on Web search",
   "Câu trả lời dùng nguồn Internet được ghi rõ.": "Answers that use Internet sources say so.",
+  // MEM-266 follow-up questions under the latest answer
+  "Gợi ý câu hỏi tiếp theo": "Follow-up suggestions",
+  "Sau mỗi câu trả lời, đề xuất 3 câu hỏi để hỏi tiếp. Mỗi câu trả lời tốn thêm một lần gọi model, tính vào mức dùng của người hỏi.":
+    "After each answer, suggest 3 questions to ask next. Each answer costs one more model call, counted in the asker's usage.",
+  "Đang gợi ý câu hỏi tiếp theo": "Suggesting follow-up questions",
   "Chủ đề nhạy cảm": "Sensitive topics",
   "Câu trả lời": "Answers",
   "Đã đủ 30 chủ đề.": "30 topics is the limit.",
