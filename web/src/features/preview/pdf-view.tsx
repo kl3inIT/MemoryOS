@@ -13,8 +13,10 @@ import {
   pdfBoxRect,
   type PdfHighlight,
   type PdfPageView,
+  type PlacedOutline,
 } from "./pdf-pages";
 import { CitationRegion } from "./citation-region";
+import { placedInkLines } from "./ink-outline";
 import { BLOCK } from "./pdf-range-plan";
 import { openPdfOriginal, PdfReading } from "./pdf-range-source";
 import { useReaderWorker } from "./pdf-reader-worker";
@@ -23,6 +25,10 @@ import { useReaderWorker } from "./pdf-reader-worker";
 // Image decoders (JBIG2, JPEG 2000) for scanned originals, copied from pdfjs-dist by vite.config.ts. The CSP does not
 // allow WebAssembly, so pdf.js uses their JavaScript fallbacks.
 const wasmUrl = `/assets/pdfjs-${pdfjs.version}/`;
+
+/** A recorded box's own coordinates, which name it whatever the zoom. */
+const boxKey = (box: PdfHighlight) =>
+  `${box.page}:${box.left}:${box.top}:${box.right}:${box.bottom}`;
 const RANGE_OPTIONS = {
   disableStream: true,
   disableAutoFetch: true,
@@ -143,6 +149,32 @@ export function PdfView({
   const anchor = Math.min(firstCited, pageCount ?? firstCited);
   const currentPage = visiblePage ?? anchor;
   const figures = useRef(new Map<number, HTMLElement>());
+  // A box with an outline is drawn around the ink of its lines once its page's canvas has been drawn and read.
+  const [inked, setInked] = useState<Record<string, PlacedOutline[]>>({});
+  const viewsNow = useRef(pageViews);
+  useEffect(() => {
+    viewsNow.current = pageViews;
+  });
+  const readInk = (pageNumber: number, width: number) => {
+    const outlined = boxes.filter((box) => box.page === pageNumber && box.outline);
+    if (!outlined.length) return;
+    // After the paint: the outline shows at once and the lines replace it.
+    setTimeout(() => {
+      const view = viewsNow.current[pageNumber];
+      const canvas = figures.current.get(pageNumber)?.querySelector("canvas");
+      if (!view || !canvas?.width || !canvas.height) return;
+      const scale = canvas.width / width;
+      const found: Record<string, PlacedOutline[]> = {};
+      for (const box of outlined) {
+        const rect = pdfBoxRect(box, view, width);
+        const lines =
+          rect?.outline &&
+          placedInkLines(canvas, canvas.width, canvas.height, rect, rect.outline, scale, scale);
+        if (lines) found[boxKey(box)] = lines;
+      }
+      if (Object.keys(found).length) setInked((current) => ({ ...current, ...found }));
+    }, 0);
+  };
   const firstBox = useRef<Element | null>(null);
   const currentPageRef = useRef(currentPage);
   const lastWidth = useRef(renderedWidth);
@@ -299,6 +331,7 @@ export function PdfView({
                         renderAnnotationLayer={false}
                         onRenderSuccess={() => {
                           settle(pageNumber);
+                          readInk(pageNumber, renderedWidth);
                           if (pageNumber === anchor) onReady?.();
                         }}
                         onRenderError={() => settle(pageNumber)}
@@ -340,6 +373,7 @@ export function PdfView({
                                   page: pageNumber,
                                 })}
                                 outline={outline}
+                                lines={inked[boxKey(box)]}
                                 style={placed}
                               />
                             );
