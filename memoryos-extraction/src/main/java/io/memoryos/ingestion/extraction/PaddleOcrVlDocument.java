@@ -146,6 +146,7 @@ final class PaddleOcrVlDocument {
                         : frame != null ? box(pixels, frame, scaleX, scaleY)
                         : shownWidth > 0 ? framed(pixels, scaleX, scaleY, shownWidth, shownHeight)
                         : null;
+                if (box != null) box = outlined(box, item.path("block_polygon_points"), frame, scaleX, scaleY);
                 var locations = List.of(Location.page(index + 1, box));
                 int position = blocks.size();
                 if (PICTURES.contains(label)) {
@@ -225,6 +226,58 @@ final class PaddleOcrVlDocument {
         bottom = Math.min(height, bottom);
         if (right <= left || bottom <= top) return null;
         return new BoundingBox(left, top, right, bottom, CoordOrigin.TOPLEFT, width, height);
+    }
+
+    /**
+     * The box with the block's outline, when the answer gave one that can be drawn: {@code
+     * block_polygon_points}, {@code [x, y]} pixels in the space of {@code block_bbox}, mapped exactly
+     * as the box (user space from the CropBox's corner, or the frame), held to the box. An outline
+     * with too few or too many points, a point that is not a number or lies more than a pixel outside
+     * the box, no area, or that is the box's own four corners leaves the box as it is.
+     */
+    private static BoundingBox outlined(BoundingBox box, JsonNode points, PdfLayout.@Nullable Frame frame,
+            double scaleX, double scaleY) {
+        if (!points.isArray() || points.size() < BoundingBox.MIN_POLYGON_POINTS
+                || points.size() > BoundingBox.MAX_POLYGON_POINTS) return box;
+        double minX = Math.min(box.l(), box.r());
+        double maxX = Math.max(box.l(), box.r());
+        double minY = Math.min(box.t(), box.b());
+        double maxY = Math.max(box.t(), box.b());
+        var outline = new ArrayList<List<Double>>(points.size());
+        boolean corners = points.size() == 4;
+        for (JsonNode point : points) {
+            if (!point.isArray() || point.size() != 2 || !point.get(0).isNumber() || !point.get(1).isNumber()) return box;
+            double px = point.get(0).asDouble();
+            double py = point.get(1).asDouble();
+            if (!Double.isFinite(px) || !Double.isFinite(py)) return box;
+            double x = frame != null ? frame.x0() + px * scaleX : px * scaleX;
+            double y = frame != null ? frame.y0() + frame.height() - py * scaleY : py * scaleY;
+            if (x < minX - scaleX || x > maxX + scaleX || y < minY - scaleY || y > maxY + scaleY) return box;
+            x = Math.clamp(x, minX, maxX);
+            y = Math.clamp(y, minY, maxY);
+            boolean onCorner = (Math.abs(x - minX) <= scaleX || Math.abs(x - maxX) <= scaleX)
+                    && (Math.abs(y - minY) <= scaleY || Math.abs(y - maxY) <= scaleY);
+            corners &= onCorner;
+            outline.add(List.of(round(x), round(y)));
+        }
+        if (corners || !(Math.abs(area(outline)) > scaleX * scaleY)) return box;
+        return box.withPolygon(outline);
+    }
+
+    /** Twice the signed area of a closed outline (shoelace), in the outline's own unit squared. */
+    private static double area(List<List<Double>> outline) {
+        double sum = 0;
+        for (int i = 0; i < outline.size(); i++) {
+            List<Double> from = outline.get(i);
+            List<Double> to = outline.get((i + 1) % outline.size());
+            sum += from.get(0) * to.get(1) - to.get(0) * from.get(1);
+        }
+        return sum;
+    }
+
+    /** Hundredths of the unit: finer than a pixel of any rendering, and a short provenance string. */
+    private static double round(double value) {
+        return Math.round(value * 100) / 100.0;
     }
 
     /**

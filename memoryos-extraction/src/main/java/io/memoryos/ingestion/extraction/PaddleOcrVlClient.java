@@ -114,6 +114,9 @@ final class PaddleOcrVlClient implements AutoCloseable {
             // series and returned an invented table with wrong numbers (MEM-192 design).
             byte[] prefix = ("{\"fileType\":" + type.code + ",\"visualize\":false,\"mergeTables\":false,"
                     + "\"useDocOrientationClassify\":false,\"useDocUnwarping\":false,\"useChartRecognition\":false,"
+                    // Named rather than left to the service's default: "auto" answers each block's outline
+                    // (a quadrilateral for a tilted block, a polygon for a curved one) beside its box.
+                    + "\"layoutShapeMode\":\"auto\","
                     + "\"file\":\"")
                     .getBytes(StandardCharsets.US_ASCII);
             byte[] suffix = "\"}".getBytes(StandardCharsets.US_ASCII);

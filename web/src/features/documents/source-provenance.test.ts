@@ -76,6 +76,40 @@ describe("readSourceLocation", () => {
     expect(readSourceLocation(['{"source":[{"page_no":5}],"tableRow":2}']).row).toBeUndefined();
   });
 
+  it("reads a block's outline onto its box, and the box alone when the outline is malformed", () => {
+    const outlined = (polygon: string) =>
+      `{"page_no":1,"bbox":{"l":100,"t":100,"r":700,"b":400,"coord_origin":"TOPLEFT","frame_width":1000,"frame_height":800,"polygon":${polygon}}}`;
+    expect(
+      readSourceLocation([outlined("[[100,340],[650,100],[700,160],[150,400]]")]).boxes,
+    ).toEqual([
+      {
+        page: 1,
+        left: 100,
+        top: 100,
+        right: 700,
+        bottom: 400,
+        origin: "TOPLEFT",
+        frame: { width: 1000, height: 800 },
+        outline: [
+          [100, 340],
+          [650, 100],
+          [700, 160],
+          [150, 400],
+        ],
+      },
+    ]);
+    for (const broken of [
+      "[[100,340],[650,100]]",
+      '[[100,340],[650,"100"],[700,160]]',
+      '"x"',
+      "[[1,2,3],[4,5],[6,7]]",
+    ]) {
+      const [only] = readSourceLocation([outlined(broken)]).boxes;
+      expect(only?.outline, broken).toBeUndefined();
+      expect(only?.frame, broken).toEqual({ width: 1000, height: 800 });
+    }
+  });
+
   it("reads the frame a box is measured in, and no box when the frame is unusable", () => {
     const framed = (frame: string, origin = "TOPLEFT") =>
       `{"page_no":1,"bbox":{"l":158,"t":286,"r":1520,"b":876,"coord_origin":"${origin}"${frame}}}`;

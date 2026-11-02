@@ -46,6 +46,10 @@ A citation is marked on a picture, or on a PDF page turned by `/Rotate`, only wh
 
 There is no bulk command for this and none is to be added for it.
 
+### Documents read before outlines were kept
+
+A scan or picture read before `outlines=block-polygon-v1` appeared in its `parser_configuration` marks every cited block with its upright box, which for a tilted line or a curved heading covers much more than the text ([citation-polygons](../increments/active/citation-polygons/design.md)). The same Reindex brings the outlines, with the same preconditions and cost as above; only documents whose citations are read on crooked or curved pages gain anything. Check one: the cited block is marked in its own shape rather than as a rectangle.
+
 ## Local verification
 
 Start the pinned image with the environment and limits in `compose.base.yaml`, on a loopback-only test port if needed. Set `DOCLING_TEST_ENDPOINT` only in the test process, then run the checked-in wrapper:

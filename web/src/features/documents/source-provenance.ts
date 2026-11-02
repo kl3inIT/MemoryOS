@@ -92,9 +92,11 @@ function readBox(page: number, value: unknown): ProvenanceBox | undefined {
     coord_origin: origin,
     frame_width: width,
     frame_height: height,
+    polygon,
   } = value as Record<string, unknown>;
   const finite = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n);
   if (![l, t, r, b].every(finite)) return undefined;
+  const outline = readOutline(polygon, finite);
   const box: ProvenanceBox = {
     page,
     left: l as number,
@@ -102,12 +104,28 @@ function readBox(page: number, value: unknown): ProvenanceBox | undefined {
     right: r as number,
     bottom: b as number,
     origin: origin === "TOPLEFT" ? "TOPLEFT" : "BOTTOMLEFT",
+    ...(outline ? { outline } : {}),
   };
   if (width === undefined && height === undefined) return box;
   // A box that names a frame is in that frame or nowhere: read as user space it would be drawn elsewhere.
   if (!finite(width) || !finite(height) || width <= 0 || height <= 0 || origin !== "TOPLEFT")
     return undefined;
   return { ...box, frame: { width, height } };
+}
+
+/** A block's outline: three or more finite `[x, y]` points. Anything else is no outline, and the box stands alone. */
+function readOutline(
+  value: unknown,
+  finite: (n: unknown) => n is number,
+): [number, number][] | undefined {
+  if (!Array.isArray(value) || value.length < 3) return undefined;
+  const points: [number, number][] = [];
+  for (const point of value) {
+    if (!Array.isArray(point) || point.length !== 2 || !finite(point[0]) || !finite(point[1]))
+      return undefined;
+    points.push([point[0], point[1]]);
+  }
+  return points;
 }
 
 /**

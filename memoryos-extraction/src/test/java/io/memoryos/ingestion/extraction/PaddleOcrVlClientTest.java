@@ -75,7 +75,8 @@ class PaddleOcrVlClientTest {
         assertFalse(body.path("mergeTables").asBoolean(true));
         assertFalse(body.path("useDocOrientationClassify").asBoolean(true));
         assertFalse(body.path("useDocUnwarping").asBoolean(true));
-        assertEquals(7, body.size(), "no key, no other option");
+        assertEquals("auto", body.path("layoutShapeMode").asString());
+        assertEquals(8, body.size(), "no key, no other option");
         assertArrayEquals(document, Base64.getDecoder().decode(body.path("file").asString()));
 
         var image = mapper.readTree(requests.poll(5, TimeUnit.SECONDS).body());
@@ -96,6 +97,8 @@ class PaddleOcrVlClientTest {
             var body = mapper.readTree(requests.poll(5, TimeUnit.SECONDS).body());
             assertTrue(body.path("useChartRecognition").isBoolean());
             assertFalse(body.path("useChartRecognition").asBoolean());
+            // Named, so a server whose default became "rect" still answers each block's outline.
+            assertEquals("auto", body.path("layoutShapeMode").asString());
         }
     }
 
