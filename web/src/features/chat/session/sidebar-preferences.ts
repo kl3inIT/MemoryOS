@@ -36,14 +36,14 @@ export function useSidebarSectionOpen(storageKey: string) {
   return [state === "open", (open: boolean) => setState(open ? "open" : "closed")] as const;
 }
 
-/** The row counts the assistants section offers, as LobeHub's agent page sizes. */
-export const ASSISTANT_ROW_LIMITS = [5, 10, 15, 20] as const;
+/** The row counts the assistants section offers: three, then LobeHub's agent page sizes. */
+export const ASSISTANT_ROW_LIMITS = [3, 5, 10, 15, 20] as const;
 export type AssistantRowLimit = (typeof ASSISTANT_ROW_LIMITS)[number];
-const ROW_LIMIT_CHOICES = ["5", "10", "15", "20"] as const;
+const ROW_LIMIT_CHOICES = ["3", "5", "10", "15", "20"] as const;
 
-/** How many assistants the home sidebar lists before "Xem thêm"; five, as LobeHub's `agentPageSize`. */
+/** How many assistants the home sidebar lists before "Xem thêm"; three, so the sections below stay in view. */
 export function useAssistantRowLimit(storageKey: string) {
-  const [limit, setLimit] = useStoredChoice(storageKey, ROW_LIMIT_CHOICES, "5");
+  const [limit, setLimit] = useStoredChoice(storageKey, ROW_LIMIT_CHOICES, "3");
   return [
     Number(limit) as AssistantRowLimit,
     (next: AssistantRowLimit) => setLimit(`${next}` as const),

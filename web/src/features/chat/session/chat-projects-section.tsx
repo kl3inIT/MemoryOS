@@ -181,7 +181,7 @@ export function ChatProjectsSection({ onNavigate }: { onNavigate?: () => void })
           <Link
             to="/projects"
             onClick={onNavigate}
-            className="flex h-8 items-center rounded-lg px-2 text-sm text-content-muted outline-none hover:bg-surface-subtle hover:text-content-primary"
+            className="flex h-8 items-center rounded-lg px-2 text-sm text-content-muted outline-none hover:bg-surface-sunken hover:text-content-primary"
           >
             {ui("Xem tất cả dự án")}
           </Link>
@@ -418,7 +418,7 @@ function ProjectConversations({
           type="button"
           disabled={sessions.isFetchingNextPage}
           onClick={() => void sessions.fetchNextPage()}
-          className="flex h-8 w-full cursor-pointer items-center rounded-lg px-2 text-left text-xs text-content-muted outline-none hover:bg-surface-subtle hover:text-content-primary disabled:cursor-default disabled:opacity-60"
+          className="flex h-8 w-full cursor-pointer items-center rounded-lg px-2 text-left text-xs text-content-muted outline-none hover:bg-surface-sunken hover:text-content-primary disabled:cursor-default disabled:opacity-60"
         >
           {ui("Xem thêm")}
         </button>
