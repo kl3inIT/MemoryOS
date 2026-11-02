@@ -61,7 +61,8 @@ class TranscriptSummarizerTest {
             new TranscriptSummarizer.Line(3, "Người nói 1", "00:12", "Còn thì bọn em sẽ gửi lại"),
             new TranscriptSummarizer.Line(4, "Người nói 1", "00:14", "đường tiếp cận."),
             new TranscriptSummarizer.Line(5, "Người nói 2", "00:20", "Ok, vậy chốt là dùng SDK."),
-            new TranscriptSummarizer.Line(6, "Người nói 1", "00:25", "Vâng."));
+            new TranscriptSummarizer.Line(6, "Người nói 1", "00:25", "Vâng."),
+            new TranscriptSummarizer.Line(7, "Người nói 2", "00:30", "Chốt dùng Postgres. Lan viết tài liệu cài đặt nhé."));
 
     private static TranscriptSummary minutes(List<TranscriptSummary.Decision> decisions,
                                              List<TranscriptSummary.Action> actions) {
@@ -138,6 +139,44 @@ class TranscriptSummarizerTest {
         assertEquals(List.of("Xuất SDK để AI gọi sang hệ thống.", "Viết tài liệu hướng dẫn dùng SDK."),
                 checked.actions().stream().map(TranscriptSummary.Action::text).toList(),
                 "the same words are one action wherever they point; different work on one line stays");
+    }
+
+    @Test
+    void aDecisionBesideAnActionInTheSameLineStays() {
+        var decision = new TranscriptSummary.Decision("Dùng Postgres.", "Chốt dùng Postgres.", 7);
+        var action = new TranscriptSummary.Action("Viết tài liệu cài đặt.", "Lan", null,
+                "Lan viết tài liệu cài đặt nhé.", 7);
+
+        var checked = minutes(List.of(decision), List.of(action));
+
+        assertEquals(1, checked.decisions().size(), "two sentences in one line are two items");
+        assertEquals(1, checked.actions().size());
+    }
+
+    @Test
+    void aRepeatAddsWhatTheFirstOneLackedAndWorkOfTwoPeopleStaysTwo() {
+        var bare = new TranscriptSummary.Action("Xuất SDK để AI gọi sang hệ thống.", null, null, null, 0);
+        var full = new TranscriptSummary.Action("Xuất SDK để AI gọi sang hệ thống", "anh Bình", "thứ Sáu",
+                "Ok, vậy chốt là dùng SDK.", 5);
+
+        var merged = minutes(List.of(), List.of(bare, full)).actions();
+
+        assertEquals(1, merged.size());
+        assertEquals("Xuất SDK để AI gọi sang hệ thống.", merged.getFirst().text());
+        assertEquals("anh Bình", merged.getFirst().owner());
+        assertEquals("thứ Sáu", merged.getFirst().due());
+        assertEquals(5, merged.getFirst().line());
+        assertEquals("Ok, vậy chốt là dùng SDK.", merged.getFirst().quote());
+
+        var other = new TranscriptSummary.Action("Xuất SDK để AI gọi sang hệ thống", "chị Mai", null, null, 5);
+        assertEquals(2, minutes(List.of(), List.of(full, other)).actions().size());
+    }
+
+    @Test
+    void aQuoteMatchesWholeWordsOnly() {
+        var line = List.of("Dùng SDKs.");
+
+        assertNull(MinutesChecks.cite("SDK", 1, line, line.stream().map(MinutesChecks::bare).toList()).quote());
     }
 
     @Test

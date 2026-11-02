@@ -47,30 +47,60 @@ final class MinutesChecks {
                        List<TranscriptSummarizer.Line> lines) {
         var originals = lines.stream().map(TranscriptSummarizer.Line::text).toList();
         var texts = originals.stream().map(MinutesChecks::bare).toList();
-        var cited = new ArrayList<TranscriptSummary.Decision>(decisions.size());
-        for (var decision : decisions) {
-            var at = cite(decision.quote(), decision.line(), originals, texts);
-            cited.add(new TranscriptSummary.Decision(decision.text(), at.quote(), at.line()));
-        }
-        var actionLines = new HashSet<Integer>();
         var keptActions = new ArrayList<TranscriptSummary.Action>(actions.size());
         for (var action : actions) {
             var at = cite(action.quote(), action.line(), originals, texts);
             var checked = new TranscriptSummary.Action(action.text(), owner(action.owner()), action.due(), at.quote(),
                     at.line());
-            if (keptActions.stream().noneMatch(kept -> same(kept.text(), kept.line(), checked.text(), checked.line()))) {
-                keptActions.add(checked);
-                if (checked.line() > 0) actionLines.add(checked.line());
-            }
+            int twin = -1;
+            for (int index = 0; index < keptActions.size() && twin < 0; index++)
+                if (sameAction(keptActions.get(index), checked)) twin = index;
+            if (twin < 0) keptActions.add(checked);
+            else keptActions.set(twin, merged(keptActions.get(twin), checked));
         }
-        // An action carries the owner and the deadline; a decision on the same sentence is the action restated.
-        var keptDecisions = new ArrayList<TranscriptSummary.Decision>(cited.size());
-        for (var decision : cited) {
-            if (decision.line() > 0 && actionLines.contains(decision.line())) continue;
-            if (keptDecisions.stream().noneMatch(kept -> same(kept.text(), kept.line(), decision.text(), decision.line())))
-                keptDecisions.add(decision);
+        var keptDecisions = new ArrayList<TranscriptSummary.Decision>(decisions.size());
+        for (var decision : decisions) {
+            var at = cite(decision.quote(), decision.line(), originals, texts);
+            var checked = new TranscriptSummary.Decision(decision.text(), at.quote(), at.line());
+            // An action carries the owner and the deadline; a decision on its sentence is the action restated.
+            if (keptActions.stream().anyMatch(action -> restates(action, checked))) continue;
+            int twin = -1;
+            for (int index = 0; index < keptDecisions.size() && twin < 0; index++) {
+                var kept = keptDecisions.get(index);
+                if (same(kept.text(), kept.line(), checked.text(), checked.line())) twin = index;
+            }
+            if (twin < 0) keptDecisions.add(checked);
+            else if (keptDecisions.get(twin).quote() == null && checked.quote() != null)
+                keptDecisions.set(twin, new TranscriptSummary.Decision(keptDecisions.get(twin).text(), checked.quote(),
+                        checked.line()));
         }
         return new Items(List.copyOf(keptDecisions), List.copyOf(keptActions));
+    }
+
+    /** The same work, given to the same person or to nobody named. */
+    private static boolean sameAction(TranscriptSummary.Action kept, TranscriptSummary.Action other) {
+        if (kept.owner() != null && other.owner() != null && !fold(kept.owner()).equals(fold(other.owner())))
+            return false;
+        return same(kept.text(), kept.line(), other.text(), other.line());
+    }
+
+    /** The first action's words, with what only the repeat said: its owner, its deadline, its quote and line. */
+    private static TranscriptSummary.Action merged(TranscriptSummary.Action kept, TranscriptSummary.Action other) {
+        boolean ownCitation = kept.quote() != null || other.quote() == null;
+        var cited = ownCitation ? kept : other;
+        int line = cited.line() > 0 ? cited.line() : (ownCitation ? other : kept).line();
+        return new TranscriptSummary.Action(kept.text(), kept.owner() != null ? kept.owner() : other.owner(),
+                kept.due() != null ? kept.due() : other.due(), cited.quote(), line);
+    }
+
+    /** A decision resting on the sentence an action rests on, or saying the same thing on its line. */
+    private static boolean restates(TranscriptSummary.Action action, TranscriptSummary.Decision decision) {
+        if (action.line() <= 0 || action.line() != decision.line()) return false;
+        if (action.quote() != null && decision.quote() != null) {
+            String a = bare(action.quote()), d = bare(decision.quote());
+            if (holds(a, d) || holds(d, a)) return true;
+        }
+        return overlap(action.text(), decision.text()) >= SAME_LINE_OVERLAP;
     }
 
     /** One person, or nobody: a speaker label, a group and several people are not an owner. */
@@ -94,17 +124,17 @@ final class MinutesChecks {
         if (wanted.isEmpty()) return new Cited(null, line);
         int count = texts.size();
         if (line >= 1 && line <= count) {
-            if (texts.get(line - 1).contains(wanted)) return new Cited(quote, line);
+            if (holds(texts.get(line - 1), wanted)) return new Cited(quote, line);
             for (int offset : NEAREST_FIRST) {
                 int other = line + offset;
-                if (offset != 0 && other >= 1 && other <= count && texts.get(other - 1).contains(wanted))
+                if (offset != 0 && other >= 1 && other <= count && holds(texts.get(other - 1), wanted))
                     return new Cited(quote, other);
             }
             for (int offset : NEAREST_FIRST)
                 for (int width = 2; width <= 3; width++) {
                     int start = line + offset;
                     if (start >= 1 && start + width - 1 <= count
-                            && String.join(" ", texts.subList(start - 1, start - 1 + width)).contains(wanted))
+                            && holds(String.join(" ", texts.subList(start - 1, start - 1 + width)), wanted))
                         return new Cited(quote, start);
                 }
             for (int offset : NEAREST_FIRST) {
@@ -117,7 +147,7 @@ final class MinutesChecks {
         }
         int found = 0;
         for (int other = 1; other <= count; other++) {
-            if (!texts.get(other - 1).contains(wanted)) continue;
+            if (!holds(texts.get(other - 1), wanted)) continue;
             if (found > 0) return new Cited(null, line);
             found = other;
         }
@@ -161,6 +191,11 @@ final class MinutesChecks {
             found.add(new Token(Normalizer.normalize(matcher.group(), Normalizer.Form.NFC).toLowerCase(Locale.ROOT),
                     matcher.start(), matcher.end()));
         return found;
+    }
+
+    /** Whether the words of {@code wanted} appear in {@code text} as whole words; both already {@link #bare}. */
+    private static boolean holds(String text, String wanted) {
+        return (" " + text + " ").contains(" " + wanted + " ");
     }
 
     private static boolean same(String text, int line, String otherText, int otherLine) {

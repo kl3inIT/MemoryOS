@@ -116,6 +116,17 @@ class TranscriptCorrectorTest {
     }
 
     @Test
+    void aRepeatTheSpeakerMadeIsNotMadeLonger() {
+        assertTrue(answered("Dùng Drive Drive.", "Drive", "Google Drive Drive").isEmpty(),
+                "two Drives would become three");
+    }
+
+    @Test
+    void aWordThatEndsOneSentenceAndOpensTheNextIsNoRepeat() {
+        assertEquals(1, answered("Hãy chuấn bị ngây. Ngay khi xong thì báo.", "chuấn bị ngây", "chuẩn bị ngay").size());
+    }
+
+    @Test
     void englishMeetingsAreAnsweredInEnglish() {
         assertTrue(TranscriptCorrector.instructions(new Subject("Weekly", List.of(), "en")).contains("in English"));
     }

@@ -57,8 +57,9 @@ public class TranscriptCorrector {
     /** Two marked stretches this close together, with no sentence ending between, read as one. */
     static final int MERGE_GAP_CHARS = 5;
     static final int MERGE_GAP_WORDS = 8;
-    /** Words compared at the edges of a replacement: enough for a name like "Google Drive Workspace". */
+    /** The longest run of words checked for a repeat: enough for a name like "Google Drive Workspace". */
     private static final int EDGE_WORDS = 3;
+    private static final String SENTENCE_END = ".!?";
     private static final Pattern NOT_WORD = Pattern.compile("[^\\p{L}\\p{N}\\p{Mn}]+");
 
     private final ModelResolver models;
@@ -266,25 +267,32 @@ public class TranscriptCorrector {
     }
 
     /**
-     * True when the replacement ends with the words that already follow the stretch, or begins with the words that
-     * already precede it, and the stretch itself did not: putting it in would say those words twice.
+     * True when putting the replacement in would say a word, or a run of up to three words, twice in a row more often
+     * than the sentence already did ("Google" answered as "Google Drive" before "Drive"). Only the stretch's own
+     * sentence is compared, so a word that ends one sentence and opens the next is no repeat.
      */
     static boolean repeatsNeighbour(String line, int start, int end, String replacement) {
-        var said = words(replacement);
-        var heard = words(line.substring(start, end));
-        var before = words(line.substring(0, start));
-        var after = words(line.substring(end));
-        for (int count = 1; count <= Math.min(EDGE_WORDS, said.size()); count++) {
-            var tail = said.subList(said.size() - count, said.size());
-            if (after.size() >= count && after.subList(0, count).equals(tail)
-                    && !(heard.size() >= count && heard.subList(heard.size() - count, heard.size()).equals(tail)))
-                return true;
-            var head = said.subList(0, count);
-            if (before.size() >= count && before.subList(before.size() - count, before.size()).equals(head)
-                    && !(heard.size() >= count && heard.subList(0, count).equals(head)))
-                return true;
-        }
-        return false;
+        int from = start, to = end;
+        while (from > 0 && SENTENCE_END.indexOf(line.charAt(from - 1)) < 0) from--;
+        while (to < line.length() && SENTENCE_END.indexOf(line.charAt(to)) < 0) to++;
+        var before = words(line.substring(from, start));
+        var after = words(line.substring(end, to));
+        var heard = new ArrayList<>(before);
+        heard.addAll(words(line.substring(start, end)));
+        heard.addAll(after);
+        var changed = new ArrayList<>(before);
+        changed.addAll(words(replacement));
+        changed.addAll(after);
+        return repeats(changed) > repeats(heard);
+    }
+
+    /** How many times a run of one to three words is followed at once by the same run. */
+    private static int repeats(List<String> words) {
+        int found = 0;
+        for (int size = 1; size <= EDGE_WORDS; size++)
+            for (int at = 0; at + 2 * size <= words.size(); at++)
+                if (words.subList(at, at + size).equals(words.subList(at + size, at + 2 * size))) found++;
+        return found;
     }
 
     private static List<String> words(String text) {
