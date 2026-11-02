@@ -87,6 +87,26 @@ class StructuredDocumentChunkerTest {
     }
 
     @Test
+    void aBoxKeepsItsOutlineAndABoxWithoutOneIsWrittenAsBefore() {
+        var chunks = chunker.chunk("Ảnh nghiêng", """
+                {"schema":"memoryos-extraction-v2","blocks":[
+                  {"index":0,"kind":"HEADING","headingLevel":1,"text":"Dòng chéo",
+                   "locations":[{"page_no":1,"bbox":{"l":100.0,"t":100.0,"r":700.0,"b":400.0,"coord_origin":"TOPLEFT",
+                     "frame_width":1000.0,"frame_height":800.0,
+                     "polygon":[[100.0,340.0],[650.0,100.0],[700.0,160.0],[150.0,400.0]]}}]},
+                  {"index":1,"kind":"HEADING","headingLevel":1,"text":"Đoạn thẳng",
+                   "locations":[{"page_no":1,"bbox":{"l":100.0,"t":720.0,"r":900.0,"b":790.0,"coord_origin":"TOPLEFT",
+                     "frame_width":1000.0,"frame_height":800.0}}]}]}
+                """);
+
+        assertEquals("{\"page_no\":1,\"bbox\":{\"l\":100.0,\"t\":100.0,\"r\":700.0,\"b\":400.0,\"coord_origin\":\"TOPLEFT\","
+                + "\"frame_width\":1000.0,\"frame_height\":800.0,"
+                + "\"polygon\":[[100.0,340.0],[650.0,100.0],[700.0,160.0],[150.0,400.0]]}}", chunks.get(0).provenanceJson());
+        assertEquals("{\"page_no\":1,\"bbox\":{\"l\":100.0,\"t\":720.0,\"r\":900.0,\"b\":790.0,\"coord_origin\":\"TOPLEFT\","
+                + "\"frame_width\":1000.0,\"frame_height\":800.0}}", chunks.get(1).provenanceJson());
+    }
+
+    @Test
     void tableKeepsHeadersNumbersAndRowLocation() {
         var chunks = chunker.chunk("Báo cáo KPI", """
                 {"schema":"memoryos-extraction-v2","blocks":[{"index":4,"kind":"TABLE","text":"","table":{

@@ -99,12 +99,21 @@ public record ExtractedDocument(
      * {@code frame_height} is measured from the top left of a frame of that size as a reader sees it,
      * x right and y down, in the frame's own unit: a pixel of a picture after its EXIF orientation,
      * or a point of a PDF page as displayed, {@code /Rotate} applied. Its origin is {@code TOPLEFT}.
+     *
+     * <p>{@code polygon}, when present, is the block's own outline as {@code [x, y]} points in the
+     * same space and origin as the box, inside it: a tilted or curved block drawn in its own shape
+     * rather than as the upright box around it. The box stays the outline's bounds.
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record BoundingBox(double l, double t, double r, double b,
             @JsonProperty("coord_origin") CoordOrigin coordOrigin,
             @JsonProperty("frame_width") @Nullable Double frameWidth,
-            @JsonProperty("frame_height") @Nullable Double frameHeight) {
+            @JsonProperty("frame_height") @Nullable Double frameHeight,
+            @Nullable List<List<Double>> polygon) {
+        /** The fewest and the most points an outline has. */
+        public static final int MIN_POLYGON_POINTS = 3;
+        public static final int MAX_POLYGON_POINTS = 64;
+
         public BoundingBox {
             Objects.requireNonNull(coordOrigin, "coordOrigin");
             if ((frameWidth == null) != (frameHeight == null)) {
@@ -113,11 +122,34 @@ public record ExtractedDocument(
             if (frameWidth != null && (coordOrigin != CoordOrigin.TOPLEFT || !(frameWidth > 0) || !(frameHeight > 0))) {
                 throw new IllegalArgumentException("a framed box is measured from the top left of a frame with a size");
             }
+            if (polygon != null) {
+                if (polygon.size() < MIN_POLYGON_POINTS || polygon.size() > MAX_POLYGON_POINTS) {
+                    throw new IllegalArgumentException("an outline has 3 to 64 points");
+                }
+                for (List<Double> point : polygon) {
+                    if (point == null || point.size() != 2 || point.stream().anyMatch(value -> value == null
+                            || !Double.isFinite(value))) {
+                        throw new IllegalArgumentException("an outline point is a finite [x, y]");
+                    }
+                }
+                polygon = polygon.stream().map(List::copyOf).toList();
+            }
         }
 
         /** A box in PDF user space. */
         public BoundingBox(double l, double t, double r, double b, CoordOrigin coordOrigin) {
-            this(l, t, r, b, coordOrigin, null, null);
+            this(l, t, r, b, coordOrigin, null, null, null);
+        }
+
+        /** A box without an outline. */
+        public BoundingBox(double l, double t, double r, double b, CoordOrigin coordOrigin,
+                @Nullable Double frameWidth, @Nullable Double frameHeight) {
+            this(l, t, r, b, coordOrigin, frameWidth, frameHeight, null);
+        }
+
+        /** This box with the given outline. */
+        public BoundingBox withPolygon(List<List<Double>> outline) {
+            return new BoundingBox(l, t, r, b, coordOrigin, frameWidth, frameHeight, outline);
         }
     }
 

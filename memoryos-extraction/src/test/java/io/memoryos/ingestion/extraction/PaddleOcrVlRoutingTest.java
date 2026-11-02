@@ -209,7 +209,7 @@ class PaddleOcrVlRoutingTest {
             assertEquals("TOPLEFT", location.path("bbox").path("coord_origin").asString());
             assertEquals(1685, location.path("bbox").path("frame_width").asDouble());
             assertEquals(1191, location.path("bbox").path("frame_height").asDouble());
-            assertTrue(result.metadata().get("parser_configuration").contains(";boxes=displayed-frame-v1"));
+            assertTrue(result.metadata().get("parser_configuration").contains(";boxes=displayed-frame-v1;outlines=block-polygon-v1"));
         }
     }
 

@@ -284,6 +284,74 @@ class PaddleOcrVlDocumentTest {
     }
 
     @Test
+    void aTiltedOrCurvedBlockOfAPictureKeepsItsOutlineInThePicturesPixels() throws Exception {
+        // layoutShapeMode "auto": a quadrilateral for a tilted line, a polygon for a curved heading,
+        // the box alone for an upright paragraph (its outline is the box's own corners).
+        var blocks = PaddleOcrVlDocument.blocks(mapper.readTree("""
+                [{"prunedResult":{"width":1000,"height":800,"model_settings":{"use_doc_preprocessor":false},
+                  "parsing_res_list":[
+                  {"block_label":"text","block_content":"dòng chéo","block_bbox":[100,100,700,400],
+                   "block_polygon_points":[[100,340],[650,100],[700,160],[150,400]]},
+                  {"block_label":"paragraph_title","block_content":"chữ cong","block_bbox":[200,500,800,700],
+                   "block_polygon_points":[[200,700],[300,560],[500,500],[700,560],[800,700],[700,640],[500,590],[300,640]]},
+                  {"block_label":"text","block_content":"đoạn thẳng","block_bbox":[100,720,900,790],
+                   "block_polygon_points":[[100,720],[900,720],[900,790],[100,790]]}]}}]
+                """), List.of());
+
+        var tilted = Objects.requireNonNull(blocks.get(0).locations().getFirst().bbox());
+        assertFramed(100, 100, 700, 400, 1000, 800, tilted);
+        assertEquals(List.of(List.of(100.0, 340.0), List.of(650.0, 100.0), List.of(700.0, 160.0),
+                List.of(150.0, 400.0)), tilted.polygon());
+        var curved = Objects.requireNonNull(blocks.get(1).locations().getFirst().bbox());
+        assertEquals(8, Objects.requireNonNull(curved.polygon()).size());
+        assertEquals(List.of(500.0, 500.0), curved.polygon().get(2));
+        assertNull(Objects.requireNonNull(blocks.get(2).locations().getFirst().bbox()).polygon());
+    }
+
+    @Test
+    void anOutlineOnAnUprightPdfPageIsInUserSpaceLikeItsBox() throws Exception {
+        // A 1000 x 500 rendering of a 500 x 250 pt page: half a point a pixel, y up from the bottom.
+        var box = Objects.requireNonNull(onlyBox("""
+                [{"prunedResult":{"width":1000,"height":500,"parsing_res_list":[
+                  {"block_label":"text","block_content":"dòng chéo","block_bbox":[100,100,500,300],
+                   "block_polygon_points":[[100,260],[460,100],[500,140],[140,300]]}]}}]
+                """, List.of(upright(500, 250))));
+
+        assertBox(50, 200, 250, 100, box);
+        assertEquals(List.of(List.of(50.0, 120.0), List.of(230.0, 200.0), List.of(250.0, 180.0),
+                List.of(70.0, 100.0)), box.polygon());
+    }
+
+    @Test
+    void anOutlineThatCannotBeDrawnLeavesTheBoxAlone() throws Exception {
+        for (String points : List.of(
+                "[[100,100],[300,100]]", // too few points
+                "[[100,100],[300,100],[300,\"x\"]]", // not a number
+                "[[100,100],[340,100],[300,400],[100,400]]", // past the box by more than a pixel
+                "[[100,100],[200,250],[300,400]]", // no area
+                "[[100,100],[300,100],[300,400],[100,400]]", // the box's own corners
+                "\"[[100,100],[300,100],[200,400]]\"", // text, not points
+                "[" + "[100,100],".repeat(64) + "[300,400]]")) { // more than 64 points
+            var box = Objects.requireNonNull(onlyBox("""
+                    [{"prunedResult":{"width":1000,"height":800,"model_settings":{"use_doc_preprocessor":false},
+                      "parsing_res_list":[{"block_label":"text","block_content":"đoạn","block_bbox":[100,100,300,400],
+                      "block_polygon_points":%s}]}}]
+                    """.formatted(points), List.of()));
+
+            assertFramed(100, 100, 300, 400, 1000, 800, box);
+            assertNull(box.polygon(), points);
+        }
+        // A point within a pixel of the box is held to it.
+        var held = Objects.requireNonNull(onlyBox("""
+                [{"prunedResult":{"width":1000,"height":800,"model_settings":{"use_doc_preprocessor":false},
+                  "parsing_res_list":[{"block_label":"text","block_content":"đoạn","block_bbox":[100,100,300,400],
+                  "block_polygon_points":[[99.5,380],[250,100],[300,130],[150,400.4]]}]}}]
+                """, List.of()));
+        assertEquals(List.of(List.of(100.0, 380.0), List.of(250.0, 100.0), List.of(300.0, 130.0),
+                List.of(150.0, 400.0)), held.polygon());
+    }
+
+    @Test
     void labelsMapOntoBlockKindsAndABoxMayArriveAsText() throws Exception {
         var results = mapper.readTree("""
                 [{"prunedResult":{"width":1000,"height":2000,"parsing_res_list":[
