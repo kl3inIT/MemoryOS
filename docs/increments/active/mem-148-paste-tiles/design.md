@@ -10,7 +10,7 @@ characters, collapse it into a compact tile instead of inserting it inline", sto
 
 ## Decision
 
-1. **A personal preference, off by default.** `chat_preferences.paste_as_tile` (V197, `BOOLEAN NOT NULL
+1. **A personal preference, off by default.** `chat_preferences.paste_as_tile` (V198, `BOOLEAN NOT NULL
    DEFAULT FALSE`) rides on `ChatPreferences` and `GET/PUT /api/chat/preferences` as `pasteAsTile`. A
    missing row reads as off, as Onyx. In `PUT` the member is optional and an absent value is off, so an
    older client that does not know it saves the default rather than failing. Settings › Chat shows it as

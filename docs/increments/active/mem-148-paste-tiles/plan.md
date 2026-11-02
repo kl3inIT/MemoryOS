@@ -4,7 +4,7 @@ One pull request on `phamnhatanh/mem-148-thu-gon-doan-dan-dai-thanh-the-trong-o-
 per concern.
 
 - [x] 1. Docs: this design and plan; an Active row in `docs/roadmap.md`.
-- [x] 2. Backend: V197 adds `chat_preferences.paste_as_tile`; `ChatPreferences`,
+- [x] 2. Backend: V198 adds `chat_preferences.paste_as_tile`; `ChatPreferences`,
       `JdbcChatPreferencesRepository`, `ChatPreferencesRequest`/`ChatPreferencesResponse` carry it;
       `openapi.yml` gains the member only (inserted into the committed file); the Hey API client is
       regenerated.
