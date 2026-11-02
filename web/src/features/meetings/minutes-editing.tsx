@@ -185,7 +185,14 @@ export function EditableItem({
       onSubmit={async (value) => {
         const saved = await edit.mutateAsync({
           path: { meetingId: meeting.id, itemId: item.id },
-          body: { text: value.text, ...ownerOf(value.owner, voices), due: value.due || null },
+          body: {
+            text: value.text,
+            // An owner left as it was keeps its voice, even when another voice shows the same name.
+            ...(item.ownerSpeaker && value.owner.trim() === owner
+              ? { owner: null, ownerSpeaker: item.ownerSpeaker }
+              : ownerOf(value.owner, voices)),
+            due: value.due || null,
+          },
         });
         patchMeeting(cache, meeting.id, (current) => withMinutesItem(current, saved));
         setEditing(false);

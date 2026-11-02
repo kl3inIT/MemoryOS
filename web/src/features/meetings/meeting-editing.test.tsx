@@ -203,6 +203,53 @@ describe("the minutes items", () => {
     expect(await screen.findByRole("button", { name: "Đặt tên cho Chị Lan" })).toBeVisible();
   });
 
+  it("keeps the voice of work whose owner was left alone, even beside a voice of the same name", async () => {
+    const sent: unknown[] = [];
+    server.use(
+      handleGetMeeting({
+        body: {
+          ...meeting(),
+          speakers: [
+            { track: "MIC", label: "1", name: "Lan" },
+            { track: "MIC", label: "2", name: "Lan" },
+          ],
+          minutes: {
+            ...meeting().minutes,
+            actions: [{ ...item("a5", "Gửi sơ đồ"), ownerSpeaker: { track: "MIC", label: "2" } }],
+          },
+        },
+      }),
+      handleEditMeetingMinutesItem(async ({ request }) => {
+        const body = await request.json();
+        sent.push(body);
+        return HttpResponse.json({ ...item("a5", body.text), ownerSpeaker: body.ownerSpeaker });
+      }),
+    );
+    const user = userEvent.setup();
+    mount((current) => (
+      <MinutesItems
+        meeting={current}
+        items={current.minutes.actions}
+        kind="ACTION"
+        onReveal={() => undefined}
+      />
+    ));
+
+    await user.click(await screen.findByRole("button", { name: "Sửa" }));
+    await user.type(screen.getByRole("textbox", { name: "Nội dung" }), " kiến trúc");
+    await user.click(screen.getByRole("button", { name: "Lưu" }));
+
+    await screen.findByText("Gửi sơ đồ kiến trúc");
+    expect(sent).toEqual([
+      {
+        text: "Gửi sơ đồ kiến trúc",
+        owner: null,
+        ownerSpeaker: { track: "MIC", label: "2" },
+        due: null,
+      },
+    ]);
+  });
+
   it("keeps an edit open with the failure when the server refuses it", async () => {
     server.use(
       handleEditMeetingMinutesItem(() =>

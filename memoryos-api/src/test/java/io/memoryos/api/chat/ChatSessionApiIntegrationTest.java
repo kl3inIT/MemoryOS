@@ -4714,7 +4714,10 @@ class ChatSessionApiIntegrationTest {
             assertEquals(utterances[0].toString(), topics.get(0).path("sourceUtteranceId").asText());
             assertEquals("Số liệu KPI", topics.get(1).path("text").asText());
             var action = minutes.path("actions").get(0);
-            assertEquals("Chị Lan", action.path("owner").asText());
+            // "Chị Lan" is the name of a voice of this meeting, so the work points at that voice.
+            assertTrue(action.path("owner").isNull());
+            assertEquals("MIC", action.path("ownerSpeaker").path("track").asText());
+            assertEquals("2", action.path("ownerSpeaker").path("label").asText());
             assertEquals("chiều nay", action.path("due").asText());
             assertEquals(utterances[1].toString(), action.path("sourceUtteranceId").asText());
             assertFalse(action.path("done").asBoolean());
