@@ -75,3 +75,21 @@ Live Soniox acceptance with real meetings, real microphones and shared tabs rema
 | A transcribed recording's 300 lines and their speakers, the minutes items, the shares and the correction proposals are each written in a fixed number of statements, with every column intact | `MeetingRepositoryTest.aTranscribedRecordingItsMinutesAndItsSharesAreWrittenInAFixedNumberOfStatements` |
 | Every voice is named one way — a name, the owner on an online microphone, otherwise numbered in the meeting's language — and times read `mm:ss` then `h:mm:ss`, in the exports and in the minutes prompt | `MeetingTranscriptExportTest.everyVoiceIsNamedTheOneWayThePageNamesIt`, `ChatSessionApiIntegrationTest.endingAMeetingWritesItsMinutesFromTheTranscriptWithTheLinesTheyRestOn` |
 | PDF text wraps greedily, cuts a word longer than a line without losing a character, and draws a character the face lacks as `?` | `PdfTextTest` |
+
+## Minutes benchmark baseline (MEM-304, 2026-11-02)
+
+The [minutes benchmark](../../tools/minutes-benchmark/README.md) on staging: 17 of the owner's meetings copied to the *Minutes Benchmark* account (corpus `fbc0c2298a0c`), an answer key of 61 decisions and 97 actions drafted and reviewed by Claude from the transcripts (keys `a69c329e6e93`), minutes written by the deployed pipeline with the Tenant's `MEETING_MINUTES` model `cx/gpt-6-luna`, three writings per meeting (`eval-q2P-2026-11-02T15:09:26`, scored again with the final scoring). Mean over meetings and writings, with the range of the three writings:
+
+| Metric | Baseline |
+| --- | --- |
+| Actions found (`action_recall`) | 0.34 (0.32–0.36) |
+| Written actions in the key (`action_precision`) | 0.72 (0.59–0.81) |
+| Decisions found (`decision_recall`) | 0.34 (0.30–0.41) |
+| Written decisions in the key (`decision_precision`) | 0.79 (0.67–0.86) |
+| Owner right, where it can be told (`owner_accuracy`) | 0.51 (0.46–0.55) |
+| Owner given but wrong (`owner_wrong`) | 0.45 (0.44–0.46) |
+| Owner a voice nobody named against a name (`owner_unverifiable`) | 0.20 |
+| Repeated items (`duplicates`) | 0.04 |
+| Quotes found in their line (`quote_in_line`) | 0.96 |
+
+The minutes keep about a third of what the key holds, and most of what they write is in the key: they are short rather than wrong. Most wrong owners are a voice given where the key names nobody, often in meetings whose one voice carries several people.
