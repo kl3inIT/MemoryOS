@@ -37,13 +37,15 @@ choice and starts off.
 
 | Frame | Node | Implemented as |
 | --- | --- | --- |
-| 01 desktop | 4:25369 | Under the last assistant answer, below its action bar (16 px: the frame's 12 px gap plus 4 px padding), the suggestions wrap in a row with 8 px gaps. Each chip is `Button prominence="secondary"` with `h-auto max-w-full text-left whitespace-normal`, as `StarterPromptButtons`. No label |
-| 02 loading | 4:25393 | Three `Skeleton` pills of the chip height while the request runs |
+| 01 desktop | 4:25369 | Under the last assistant answer, below its action bar (16 px: the frame's 12 px gap plus 4 px padding), the suggestions wrap in a row with 8 px gaps. Each chip is `Button prominence="secondary"` with `h-auto max-w-full text-left whitespace-normal`, as `StarterPromptButtons`, plus the frame's 8 px vertical padding (`py-2`, a 38 px chip for one line), which the starters do not have. No label |
+| 02 loading | 4:25393 | Three `Skeleton` pills 38 px high (`h-9.5`, the one-line chip) while the request runs, 320, 208 and 336 px wide on a wide thread as in the frame |
 | 03 phone 390 | 4:25417 | Below the thread's `@xl` container width the chips stack at full width |
-| 04 admin | 4:25441 | `SettingRow` with a `Switch` after "Chỉ trả lời từ tài liệu của tổ chức", icon `Sparkles`, title "Gợi ý câu hỏi tiếp theo", the frame's description. The frame's "Mới · MEM-266" badge is a design annotation and is not shipped |
+| 04 admin | 4:25441 | `SettingRow` with a `Switch` after "Chỉ trả lời từ tài liệu của tổ chức", icon `MessageCircleQuestionMark` (the frame suggests a sparkle; `Sparkles` already marks the question-check model row on this page), title "Gợi ý câu hỏi tiếp theo", the frame's description. The frame's "Mới · MEM-266" badge is a design annotation and is not shipped |
 
 Clicking a chip sends the question at once (`SuggestionPrimitive.Trigger send`), unlike a starter, which fills the
-composer. A new question clears the suggestions (assistant-ui clears them when a run starts).
+composer. A new question clears the suggestions (assistant-ui clears them when a run starts). The trigger is rendered
+inside the answer, where the composer in scope is the message's edit composer, which an answer does not have; it is
+therefore `clearComposer={false}`, and a draft in the thread composer stays as it was.
 
 Not shown: a shared read-only conversation (`useExternalStoreRuntime`, no adapter), the assistant test chat and the
 Agent Builder (their own runtime without an adapter, and temporary conversations on the server), a temporary
