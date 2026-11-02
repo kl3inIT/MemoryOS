@@ -13,3 +13,4 @@
 
 - 2026-11-02: opened; data source decided by the owner (19 of their meetings, server only).
 - 2026-11-02: account invited and signed in as role `minutes`; 19 meetings copied (fingerprint `fbc0c2298a0c`, a second run copies nothing); provider, scoring and config run end to end on one meeting (eval-oXe-2026-11-02T14:42:12, 19 s). The drafting found that meetings 06 and 07, and 12 and the first half of 13, are the same meeting recorded twice.
+- 2026-11-02: the owner agreed to drop 07 and 12 (the same meetings as 06 and the first half of 13); `copies.json` lists them under `dropped` and the config builder skips them, so 17 meetings are scored and the others keep their numbers.

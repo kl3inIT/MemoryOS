@@ -24,11 +24,13 @@ def main() -> None:
     args = parser.parse_args()
 
     copies = json.loads(args.copies.read_text(encoding="utf-8"))
+    # A meeting recorded twice is kept once, so its errors are not counted twice; numbers stay as copied.
+    dropped = set(copies.get("dropped") or {})
     tests = []
     for number, entry in enumerate(copies["copies"].values(), 1):
         name = f"{number:02}"
         key = args.keys / f"{name}.json"
-        if args.only and name not in args.only:
+        if name in dropped or (args.only and name not in args.only):
             continue
         if not key.exists():
             continue

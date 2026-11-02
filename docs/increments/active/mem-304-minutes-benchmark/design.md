@@ -10,7 +10,7 @@ A benchmark beside the RAG one ([MEM-230](../mem-230-rag-bench-promptfoo/design.
 
 ### Data: 19 of the owner's meetings, never in git
 
-The owner chose (2 November 2026) the 19 staging meetings of the MemoryOS Admin account that MEM-300 and MEM-301 measured; the four meetings of other people are left out. They are real Vietnamese meetings with real recognition and diarization errors, which is where wrong owners come from; a written meeting would score better than the product does. The repository may be public, so transcripts, the answer key and per-item results stay on the staging server under `/apps/memoryos/promptfoo/minutes/`; git holds the code, the method and aggregate numbers only.
+The owner chose (2 November 2026) the 19 staging meetings of the MemoryOS Admin account that MEM-300 and MEM-301 measured; the four meetings of other people are left out. Two of the 19 turned out to be the same meeting recorded twice (06 and 07; 12 and the first half of 13), so 07 and 12 are dropped and 17 are scored. They are real Vietnamese meetings with real recognition and diarization errors, which is where wrong owners come from; a written meeting would score better than the product does. The repository may be public, so transcripts, the answer key and per-item results stay on the staging server under `/apps/memoryos/promptfoo/minutes/`; git holds the code, the method and aggregate numbers only.
 
 ### Copies owned by a benchmark account
 
