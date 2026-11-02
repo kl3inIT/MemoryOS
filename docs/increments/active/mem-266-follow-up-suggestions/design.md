@@ -24,7 +24,7 @@ choice and starts off.
 | Where suggestions are written | The API, through `POST /api/chat/sessions/{sessionId}/messages/{messageId}/follow-ups`; the browser sends no prompt and never calls a provider | The provider key and the prompt stay on the server; the server reads the transcript it trusts |
 | Web adapter | A `SuggestionAdapter` of our own (`generate` calls the endpoint with the last assistant message's id) instead of `createSuggestionAdapter` | `createSuggestionAdapter` builds the prompt from the browser's transcript and passes it to `complete`; sending that prompt to the server would let a browser choose what the model is asked. Deviation from the issue's suggestion, same runtime contract |
 | Model | The `CHAT_NAMING` task model, resolved as naming resolves it (`ChatModelSelector.resolveFlow`) | Same small, cheap task as a title; no new model setting (decided with the owner) |
-| Usage | Recorded as its own `AiUsageFlow.CHAT_FOLLOW_UPS`, failed calls included, labelled "Gợi ý câu hỏi tiếp theo" in the PDF report and "Follow-up suggestions" in AI costs | The cost is visible apart from Chat and naming. V198 widens the `ai_usage` flow check |
+| Usage | Recorded as its own `AiUsageFlow.CHAT_FOLLOW_UPS`, failed calls included, labelled "Gợi ý câu hỏi tiếp theo" in the PDF report and "Follow-up suggestions" in AI costs | The cost is visible apart from Chat and naming. V199 widens the `ai_usage` flow check |
 | Administrator control | `chat_settings.follow_up_suggestions`, default `FALSE`; a switch in Quản trị › Chat › Câu trả lời, saved by `PUT /api/chat/settings/follow-ups` with the settings revision | One Tenant switch, as Deep research and grounded answers. No per-member preference for now (owner's decision) |
 | When the server answers with nothing | Setting off; the message is not the latest of the selected branch; not an assistant message; not `COMPLETED`; a refusal (`refusal_reason`); a temporary conversation (Agent Builder and the assistant test chat); a reply still running; no free turn slot; the asker's AI budget spent; the model failing or answering nothing usable. All return `200 {"suggestions": []}` | Suggestions are optional; the page renders nothing rather than an error |
 | When the server refuses | A conversation the caller does not own, or an unknown message, is `404 CHAT_UNAVAILABLE`, as every owner-only Chat route | No disclosure of other people's conversations |
@@ -55,7 +55,7 @@ conversation in Chat, a failed or stopped answer, and any answer but the last.
 
 - `POST /api/chat/sessions/{sessionId}/messages/{messageId}/follow-ups` (`suggestChatFollowUps`) → `ChatFollowUpsResponse { suggestions: string[] }`, at most three.
 - `ChatSettingsResponse.followUpSuggestions: boolean`; `PUT /api/chat/settings/follow-ups` (`saveChatFollowUps`) with `ChatFollowUpsRequest { followUpSuggestions, revision }`, model managers only, audited as `CHAT_SETTINGS_CHANGE` with `followUpSuggestions`.
-- V198: `chat_settings.follow_up_suggestions BOOLEAN NOT NULL DEFAULT FALSE`; the `ai_usage` flow check gains `CHAT_FOLLOW_UPS`.
+- V199: `chat_settings.follow_up_suggestions BOOLEAN NOT NULL DEFAULT FALSE`; the `ai_usage` flow check gains `CHAT_FOLLOW_UPS`.
 - `ChatTurnService.suggestFollowUps(actor, session, message)`; `ChatModelExecutor.suggestFollowUps(binding, messages, accounting)`.
 
 ## Out of scope

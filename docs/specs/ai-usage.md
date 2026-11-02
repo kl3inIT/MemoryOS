@@ -23,7 +23,7 @@ The `usage` capability records every AI call MemoryOS makes into a daily ledger 
 | Conversation naming | `ChatTurnService.recordNaming` after the title call | Same, on the naming model |
 | Question check (guardrail) | `ChatTurnService.recordCheck` after the check's call, on the model that ran it | Same; recorded apart from `CHAT` since 2026-10-02, so Chat counts each turn once |
 | Long conversation summary | `ChatCompactions` after the summary call, on the `CHAT_COMPACTION` model, failed calls included | Same; apart from `CHAT`, as Onyx records `CHAT_HISTORY_SUMMARIZATION` (V172 adds the flow, V173 validates it) |
-| Follow-up suggestions | `ChatTurnService.recordFollowUps` after the suggestion call, on the `CHAT_NAMING` model, failed calls included | Same; apart from `CHAT` (V198 adds the flow with `NOT VALID`; every new row is checked) |
+| Follow-up suggestions | `ChatTurnService.recordFollowUps` after the suggestion call, on the `CHAT_NAMING` model, failed calls included | Same; apart from `CHAT` (V199 adds the flow with `NOT VALID`; every new row is checked) |
 | Agent Builder | `ChatTurnService` when a builder turn settles, as a Chat turn is, on the `AGENT_BUILDER` model | Same; apart from `CHAT`, so Chat counts answers only (V190 adds the flow, V191 validates it) |
 | Search and indexing embeddings | `ValidatedEmbeddingService` per batch with a known caller | Reported tokens; priced by `memoryos.search.embedding-input-price-per-million`, unknown when unset |
 | Image generation and editing | `ImageProviderClient` after a delivered image | One image; cost unknown |
