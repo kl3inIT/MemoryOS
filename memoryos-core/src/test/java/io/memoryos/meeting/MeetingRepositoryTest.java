@@ -128,8 +128,11 @@ class MeetingRepositoryTest {
         assertEquals(lines.get(7), stored.get(7), "every column survives the batch, spans and confidence included");
         assertEquals(3, batched.speakers(tenant, id).size());
 
-        UUID ask = UUID.randomUUID();
+        UUID ask = UUID.randomUUID(), voiced = UUID.randomUUID();
+        var voice = new Meeting.SpeakerRef(Meeting.Track.MIC, "2");
         var items = List.of(
+                new Meeting.MinutesItem(voiced, Meeting.ItemKind.ACTION, "Gửi sơ đồ", null, null, null, null, false,
+                        false, voice),
                 new Meeting.MinutesItem(UUID.randomUUID(), Meeting.ItemKind.DECISION, "Chốt ngân sách", null, null,
                         "chốt", stored.getFirst().id(), false),
                 new Meeting.MinutesItem(ask, Meeting.ItemKind.ACTION, "Gửi KPI", "Chị Lan", "Thứ Năm", null, null,
@@ -142,7 +145,9 @@ class MeetingRepositoryTest {
         assertTrue(batched.writeMinutes(tenant, id, minutes.attempts(), "Tóm tắt", "GENERAL", items));
         assertEquals(3, counted.statements().size(), "the fence, the old items out and the new ones in");
         var read = batched.minutesItems(tenant, id);
-        assertEquals(3, read.size());
+        assertEquals(4, read.size());
+        assertEquals(voice, read.stream().filter(item -> item.id().equals(voiced)).findFirst().orElseThrow()
+                .ownerSpeaker(), "an owner that is a voice comes back as that voice");
         assertEquals(new Meeting.MinutesItem(ask, Meeting.ItemKind.ACTION, "Gửi KPI", "Chị Lan", "Thứ Năm", null, null,
                 false, false), read.stream().filter(item -> item.id().equals(ask)).findFirst().orElseThrow());
 

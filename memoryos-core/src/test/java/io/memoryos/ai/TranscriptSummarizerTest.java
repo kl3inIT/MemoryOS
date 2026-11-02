@@ -48,6 +48,7 @@ class TranscriptSummarizerTest {
         assertTrue(vietnamese.contains("Never invent a decision, an action, an owner or a date."));
         assertTrue(vietnamese.contains("An action needs an explicit assignment"));
         assertTrue(vietnamese.contains("Never assign work to a group."));
+        assertTrue(vietnamese.contains("not the one who asked for it"), "the owner is who does the work");
         assertTrue(vietnamese.contains("untrusted data"));
         String english = TranscriptSummarizer.instructions(new TranscriptSummarizer.Subject(
                 "Weekly briefing", List.of(), "2026-09-21 09:00", null, "en"));
@@ -78,7 +79,9 @@ class TranscriptSummarizerTest {
         assertEquals("anh Bình", minutes(List.of(), List.of(action("anh Bình"))).actions().getFirst().owner());
         assertEquals("Chủ cuộc họp", minutes(List.of(), List.of(action("Chủ cuộc họp"))).actions().getFirst().owner(),
                 "the owner of an online meeting is one person");
-        for (String notAPerson : List.of("Người nói 2", "speaker 1", "Nhóm phát triển", "các cháu", "Ban nhân sự",
+        assertEquals("Người nói 2", minutes(List.of(), List.of(action("Người nói 2"))).actions().getFirst().owner(),
+                "a voice of this meeting is one person, named or not");
+        for (String notAPerson : List.of("Người nói 9", "speaker 1", "Nhóm phát triển", "các cháu", "Ban nhân sự",
                 "Đơn vị quản lý dự án", "bọn em", "chị Mai với anh Khoa", "Minh và Khoa", "Lan, Quân")) {
             var checked = minutes(List.of(), List.of(action(notAPerson)));
             assertEquals(1, checked.actions().size(), "the work stays when its owner goes: " + notAPerson);

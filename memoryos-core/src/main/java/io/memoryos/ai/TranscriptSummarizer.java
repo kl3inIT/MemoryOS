@@ -99,7 +99,9 @@ public class TranscriptSummarizer {
                 - Never invent a decision, an action, an owner or a date. If the transcript does not say it, leave it out.
                 - An action needs an explicit assignment: someone says they will do it, or someone with authority \
                 assigns it. "We should look into this" is not an action.
-                - owner is the person named in the transcript, or null. Never assign work to a group.
+                - owner is the one person who will do the work, not the one who asked for it. Write their name as \
+                the transcript gives it, or, when a speaker takes the work on themselves, the speaker name shown \
+                before their lines. null when it is unclear who will do it. Never assign work to a group.
                 - due is the deadline as the meeting said it, such as Friday or 30/09, or null.
                 - quote is the sentence the item rests on, copied exactly from the transcript.
                 - line is the number in brackets at the start of that sentence's line.

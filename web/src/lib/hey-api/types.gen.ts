@@ -281,6 +281,10 @@ export type MeetingMinutesItem = {
     id: string;
     text: string;
     owner: string | null;
+    /**
+     * The voice that owns the work; named by the meeting's speakers
+     */
+    ownerSpeaker?: MeetingSpeakerRef;
     due: string | null;
     /**
      * The transcript sentence the item rests on
@@ -292,6 +296,14 @@ export type MeetingMinutesItem = {
      * Whether these words are the owner's rather than the model's
      */
     edited: boolean;
+};
+
+/**
+ * One voice of the meeting, as its speakers list names it
+ */
+export type MeetingSpeakerRef = {
+    track: 'MIC' | 'TAB';
+    label: string;
 };
 
 export type MeetingMinutesSummaryRequest = {
@@ -312,6 +324,10 @@ export type MeetingMinutesSummary = {
 export type MeetingMinutesItemRequest = {
     text: string;
     owner?: string | null;
+    /**
+     * A voice of the meeting as the owner, instead of a written name
+     */
+    ownerSpeaker?: MeetingSpeakerRef;
     due?: string | null;
 };
 
@@ -2225,6 +2241,10 @@ export type MeetingNewMinutesItemRequest = {
     kind: 'DECISION' | 'ACTION';
     text: string;
     owner?: string | null;
+    /**
+     * A voice of the meeting as the owner, instead of a written name
+     */
+    ownerSpeaker?: MeetingSpeakerRef;
     due?: string | null;
 };
 
