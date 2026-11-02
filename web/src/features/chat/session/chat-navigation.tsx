@@ -259,7 +259,7 @@ function RecentTopics({ onNavigate }: { onNavigate?: () => void }) {
         <Link
           to="/history"
           onClick={onNavigate}
-          className="mt-0.5 flex h-8 items-center rounded-lg px-2 text-sm text-content-muted outline-none hover:bg-surface-subtle hover:text-content-primary focus-visible:ring-2 focus-visible:ring-ring"
+          className="mt-0.5 flex h-8 items-center rounded-lg px-2 text-sm text-content-muted outline-none hover:bg-surface-sunken hover:text-content-primary focus-visible:ring-2 focus-visible:ring-ring"
         >
           {ui("Xem tất cả")}
         </Link>
@@ -409,7 +409,7 @@ function AssistantSidebar({
             to="/history"
             search={{ assistant: personaId }}
             onClick={onNavigate}
-            className="mt-1 flex h-8 items-center rounded-lg px-3 text-sm text-content-muted outline-none hover:bg-surface-subtle hover:text-content-primary focus-visible:ring-2 focus-visible:ring-ring"
+            className="mt-1 flex h-8 items-center rounded-lg px-3 text-sm text-content-muted outline-none hover:bg-surface-sunken hover:text-content-primary focus-visible:ring-2 focus-visible:ring-ring"
           >
             {ui("Xem tất cả")}
           </Link>
