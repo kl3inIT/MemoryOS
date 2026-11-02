@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useChatPreferences } from "@/features/identity/chat-preferences";
 import type { ConnectionState } from "@/features/chat/runtime/chat-transport";
 import { ChatAttachmentStaging } from "@/features/chat/composer/chat-attachment-staging";
+import { ChatPasteTiles } from "@/features/chat/composer/chat-paste-tiles";
 import { ChatSelectionToolbar } from "./chat-quote";
 import { ChatThreadComposer } from "./chat-thread-composer";
 import { AssistantMessage, UserMessage } from "./chat-thread-messages";
@@ -89,20 +90,22 @@ export function ChatThread({
               </ThreadPrimitive.Messages>
             </div>
             {!readOnly && (
-              <ChatThreadComposer
-                composerMenu={composerMenu}
-                modelPicker={modelPicker}
-                modelNotice={modelNotice}
-                connection={connection}
-                stopping={stopping}
-                onStop={onStop}
-                error={error}
-                onCheck={onCheck}
-                checking={checking}
-                sendDisabled={sendDisabled}
-                isEmpty={isEmpty}
-                placeholder={placeholder}
-              />
+              <ChatPasteTiles>
+                <ChatThreadComposer
+                  composerMenu={composerMenu}
+                  modelPicker={modelPicker}
+                  modelNotice={modelNotice}
+                  connection={connection}
+                  stopping={stopping}
+                  onStop={onStop}
+                  error={error}
+                  onCheck={onCheck}
+                  checking={checking}
+                  sendDisabled={sendDisabled}
+                  isEmpty={isEmpty}
+                  placeholder={placeholder}
+                />
+              </ChatPasteTiles>
             )}
             {isEmpty && afterComposer && (
               <div className="mx-auto w-full max-w-3xl pb-8">{afterComposer}</div>

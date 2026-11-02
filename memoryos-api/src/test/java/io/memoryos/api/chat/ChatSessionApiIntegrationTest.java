@@ -3452,6 +3452,26 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void collapsingLargePastesIsOffUntilTheMemberTurnsItOn() throws Exception {
+        // MEM-148: Onyx's Collapse Large Pastes is off for a member who never chose.
+        mockMvc.perform(get("/api/chat/preferences").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.pasteAsTile").value(false));
+        var body = Json.mapper().createObjectNode().put("workRole", "").put("personalPreferences", "").put("autoScroll", true);
+        mockMvc.perform(put("/api/chat/preferences").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content(body.deepCopy().put("pasteAsTile", true).toString()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.pasteAsTile").value(true));
+        mockMvc.perform(get("/api/chat/preferences").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.pasteAsTile").value(true));
+        // Nobody else's composer changes.
+        mockMvc.perform(get("/api/chat/preferences").with(authentication(other)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.pasteAsTile").value(false));
+        // The whole record is replaced: a client that leaves the member out saves it off.
+        mockMvc.perform(put("/api/chat/preferences").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.pasteAsTile").value(false));
+    }
+
+    @Test
     void reasoningLevelIsPinnedPerConversationAndDefaultsBelongToTheMember() throws Exception {
         String session = create().path("id").asText();
         // A conversation starts with nothing pinned; the model configuration decides.

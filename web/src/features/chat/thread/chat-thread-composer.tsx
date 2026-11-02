@@ -16,6 +16,8 @@ import {
   ChatComposerSend,
 } from "@/features/chat/composer/chat-composer";
 import { ChatComposerAttachments } from "@/features/chat/composer/chat-attachment-staging";
+import { ChatPasteLimitAlert } from "@/features/chat/composer/chat-paste-tiles";
+import { useLargePaste } from "@/features/chat/composer/chat-paste-tiles-context";
 import { ChatContextUsage } from "./chat-context-usage";
 import {
   ChatDictationButton,
@@ -71,6 +73,7 @@ export function ChatThreadComposer({
   const { t } = useTranslation("chatStatus");
   const dictating = useAuiState((state) => state.composer.dictation != null);
   const reading = useAutoPlayback().phase !== "idle";
+  const onPaste = useLargePaste();
   return (
     <ThreadPrimitive.ViewportFooter
       className={cn(
@@ -127,6 +130,7 @@ export function ChatThreadComposer({
               }
               rows={1}
               maxLength={32000}
+              onPaste={onPaste}
               className="max-h-48 min-h-12 w-full resize-none bg-transparent px-2.5 py-1.5 text-base leading-6 outline-none placeholder:text-content-muted"
             />
             <ChatPromptShortcutPopover />
@@ -135,6 +139,7 @@ export function ChatThreadComposer({
                 {ui("Mỗi tin nhắn có tối đa 20 tệp. Hãy gỡ bớt trước khi gửi.")}
               </p>
             </AuiIf>
+            <ChatPasteLimitAlert />
             <div
               data-testid="chat-composer-actions"
               className="flex flex-nowrap items-center justify-between gap-2"
