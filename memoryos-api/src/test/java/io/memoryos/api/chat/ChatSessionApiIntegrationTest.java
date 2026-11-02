@@ -4853,7 +4853,7 @@ class ChatSessionApiIntegrationTest {
                     "the model reads the names and times the transcript shows");
             assertTrue(prompt.contains("[2] 00:05 Chị Lan: Em gửi bảng KPI tháng 9 chiều nay."),
                     "a named speaker reaches the model under that name");
-            assertTrue(prompt.contains("Never invent a decision"));
+            assertTrue(prompt.contains("must be supported by the transcript"), "the minutes prompt reaches the model");
 
             mockMvc.perform(put("/api/meetings/" + meeting + "/minutes/" + action.path("id").asText())
                     .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
