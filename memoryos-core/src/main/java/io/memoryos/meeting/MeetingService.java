@@ -229,12 +229,15 @@ public class MeetingService {
         return new Meeting.MinutesSummary(clean, true);
     }
 
-    /** Rewrites one decision or one piece of work: what it says, who owns it, when it is due. */
+    /**
+     * Rewrites one decision or one piece of work: what it says, who owns it, when it is due. The owner is a voice of the
+     * meeting or a name, never both.
+     */
     @Transactional
     public Meeting.MinutesItem editItem(ActorId actor, UUID id, UUID itemId, String itemText, @Nullable String owner,
-            @Nullable String due) {
+            Meeting.@Nullable SpeakerRef ownerSpeaker, @Nullable String due) {
         UUID tenant = tenant(actor);
-        meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
+        var meeting = meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
         var item = meetings.lockItem(tenant, id, itemId).orElseThrow(MeetingException::notFound);
         // A topic is the model's place in the timeline, not a line of the minutes the owner answers for.
         if (item.kind() == Meeting.ItemKind.TOPIC) throw MeetingException.notFound();
@@ -242,15 +245,19 @@ public class MeetingService {
         String cleanOwner = optional(owner, MAX_NAME, "An owner");
         String cleanDue = optional(due, MAX_DUE, "A deadline");
         // A decision belongs to the meeting, not to a person, so it carries neither an owner nor a deadline.
-        if (item.kind() != Meeting.ItemKind.ACTION && (cleanOwner != null || cleanDue != null))
+        if (item.kind() != Meeting.ItemKind.ACTION && (cleanOwner != null || ownerSpeaker != null || cleanDue != null))
             throw MeetingException.invalid("A decision has no owner and no deadline.");
+        var names = voices(tenant, id, meeting.kind(), meeting.language(), cleanOwner, ownerSpeaker);
         record Change(Meeting.MinutesField field, String before, String after) {}
         var changes = new ArrayList<Change>(3);
         if (!cleanText.equals(item.text()))
             changes.add(new Change(Meeting.MinutesField.TEXT, item.text(), cleanText));
-        if (!Objects.equals(cleanOwner, item.owner()))
-            changes.add(new Change(Meeting.MinutesField.OWNER, item.owner() == null ? "" : item.owner(),
-                    cleanOwner == null ? "" : cleanOwner));
+        if (!Objects.equals(cleanOwner, item.owner()) || !Objects.equals(ownerSpeaker, item.ownerSpeaker())) {
+            String before = names.owner(item);
+            String after = ownerSpeaker == null ? cleanOwner : names.of(ownerSpeaker.track(), ownerSpeaker.label());
+            changes.add(new Change(Meeting.MinutesField.OWNER, before == null ? "" : before,
+                    after == null ? "" : after));
+        }
         if (!Objects.equals(cleanDue, item.due()))
             changes.add(new Change(Meeting.MinutesField.DUE, item.due() == null ? "" : item.due(),
                     cleanDue == null ? "" : cleanDue));
@@ -259,7 +266,7 @@ public class MeetingService {
             meetings.recordMinutesEdit(tenant, id, itemId, change.field(), actor.value(), change.before(),
                     change.after());
         var rewritten = new Meeting.MinutesItem(item.id(), item.kind(), cleanText, cleanOwner, cleanDue, item.quote(),
-                item.sourceUtteranceId(), item.done(), true);
+                item.sourceUtteranceId(), item.done(), true, ownerSpeaker);
         meetings.rewriteItem(tenant, id, rewritten);
         return rewritten;
     }
@@ -270,7 +277,7 @@ public class MeetingService {
      */
     @Transactional
     public Meeting.MinutesItem addItem(ActorId actor, UUID id, Meeting.@Nullable ItemKind kind, String itemText,
-            @Nullable String owner, @Nullable String due) {
+            @Nullable String owner, Meeting.@Nullable SpeakerRef ownerSpeaker, @Nullable String due) {
         UUID tenant = tenant(actor);
         var meeting = meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
         if (meeting.minutesStatus() != Meeting.MinutesStatus.READY)
@@ -280,15 +287,32 @@ public class MeetingService {
         String cleanText = text(itemText, MAX_ITEM, "An item");
         String cleanOwner = optional(owner, MAX_NAME, "An owner");
         String cleanDue = optional(due, MAX_DUE, "A deadline");
-        if (kind == Meeting.ItemKind.DECISION && (cleanOwner != null || cleanDue != null))
+        if (kind == Meeting.ItemKind.DECISION && (cleanOwner != null || ownerSpeaker != null || cleanDue != null))
             throw MeetingException.invalid("A decision has no owner and no deadline.");
+        voices(tenant, id, meeting.kind(), meeting.language(), cleanOwner, ownerSpeaker);
         if (meetings.minutesItems(tenant, id).stream().filter(item -> item.kind() == kind).count() >= MAX_ITEMS)
             throw MeetingException.invalid("The minutes hold at most " + MAX_ITEMS + " items of a kind.");
         UUID itemId = UUID.randomUUID();
-        var added = new Meeting.MinutesItem(itemId, kind, cleanText, cleanOwner, cleanDue, null, null, false, true);
+        var added = new Meeting.MinutesItem(itemId, kind, cleanText, cleanOwner, cleanDue, null, null, false, true,
+                ownerSpeaker);
         meetings.addItem(tenant, id, added);
         meetings.recordMinutesEdit(tenant, id, itemId, Meeting.MinutesField.TEXT, actor.value(), "", cleanText);
         return added;
+    }
+
+    /**
+     * The meeting's voices, once an owner is known to be one of them or a name, not both. A voice the meeting never
+     * heard is no owner.
+     */
+    private SpeakerNames voices(UUID tenant, UUID id, Meeting.Kind kind, @Nullable String language,
+            @Nullable String owner, Meeting.@Nullable SpeakerRef ownerSpeaker) {
+        if (owner != null && ownerSpeaker != null)
+            throw MeetingException.invalid("An owner is a voice of the meeting or a name, not both.");
+        var speakers = meetings.speakers(tenant, id);
+        if (ownerSpeaker != null && speakers.stream().noneMatch(speaker -> speaker.track() == ownerSpeaker.track()
+                && speaker.label().equals(ownerSpeaker.label())))
+            throw MeetingException.invalid("That voice is not in this meeting.");
+        return SpeakerNames.of(speakers, kind, language);
     }
 
     /** Takes out a decision or a piece of work that should not be in the minutes; its words stay in the events. */

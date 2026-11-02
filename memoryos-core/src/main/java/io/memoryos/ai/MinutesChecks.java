@@ -47,10 +47,11 @@ final class MinutesChecks {
                        List<TranscriptSummarizer.Line> lines) {
         var originals = lines.stream().map(TranscriptSummarizer.Line::text).toList();
         var texts = originals.stream().map(MinutesChecks::bare).toList();
+        var speakers = lines.stream().map(line -> fold(line.speaker())).collect(Collectors.toSet());
         var keptActions = new ArrayList<TranscriptSummary.Action>(actions.size());
         for (var action : actions) {
             var at = cite(action.quote(), action.line(), originals, texts);
-            var checked = new TranscriptSummary.Action(action.text(), owner(action.owner()), action.due(), at.quote(),
+            var checked = new TranscriptSummary.Action(action.text(), owner(action.owner(), speakers), action.due(), at.quote(),
                     at.line());
             int twin = -1;
             for (int index = 0; index < keptActions.size() && twin < 0; index++)
@@ -103,10 +104,14 @@ final class MinutesChecks {
         return overlap(action.text(), decision.text()) >= SAME_LINE_OVERLAP;
     }
 
-    /** One person, or nobody: a speaker label, a group and several people are not an owner. */
-    static @Nullable String owner(@Nullable String owner) {
+    /**
+     * One person, or nobody. A voice of the transcript is one person, named or not; a speaker label of no voice here,
+     * a group and several people are not an owner.
+     */
+    static @Nullable String owner(@Nullable String owner, Set<String> speakers) {
         if (owner == null || owner.isBlank()) return null;
         String folded = fold(owner);
+        if (speakers.contains(folded)) return owner;
         if (LABEL.matcher(folded).matches() || GROUP.matcher(folded).find() || SEVERAL.matcher(folded).find()) return null;
         return owner;
     }
