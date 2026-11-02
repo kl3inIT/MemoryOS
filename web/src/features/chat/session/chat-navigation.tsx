@@ -200,7 +200,7 @@ function RailAssistants({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 /**
- * The latest topics across assistants, each with its assistant's face (ChatGPT's recent chats); the history page
+ * The latest topics across assistants, as text rows with their time (ChatGPT's recent chats); the history page
  * holds the rest. Rows come from the assistant-ui thread list, which the open conversation shares.
  */
 function RecentTopics({ onNavigate }: { onNavigate?: () => void }) {
@@ -208,7 +208,6 @@ function RecentTopics({ onNavigate }: { onNavigate?: () => void }) {
   const isLoading = useAuiState((state) => state.threads.isLoading);
   const threadIds = useAuiState((state) => state.threads.threadIds);
   const items = useAuiState((state) => state.threads.threadItems);
-  const faceOf = useAssistantFaces();
   const topicTime = useTopicTime();
   const byId = new Map(items.map((item) => [item.id, item]));
   const recent = threadIds.flatMap((threadId) => {
@@ -232,7 +231,6 @@ function RecentTopics({ onNavigate }: { onNavigate?: () => void }) {
             threadId={session.threadId}
             session={session}
             onNavigate={onNavigate}
-            leading={<AgentAvatar agent={faceOf(session.personaId)} size="sm" />}
             trailing={
               <time
                 dateTime={session.updatedAt}
@@ -259,7 +257,7 @@ function RecentTopics({ onNavigate }: { onNavigate?: () => void }) {
         <Link
           to="/history"
           onClick={onNavigate}
-          className="mt-0.5 flex h-8 items-center rounded-lg px-2 text-sm text-content-muted outline-none hover:bg-surface-subtle hover:text-content-primary focus-visible:ring-2 focus-visible:ring-ring"
+          className="mt-0.5 flex h-8 items-center rounded-lg px-2 text-sm text-content-muted outline-none hover:bg-surface-sunken hover:text-content-primary focus-visible:ring-2 focus-visible:ring-ring"
         >
           {ui("Xem tất cả")}
         </Link>
@@ -272,13 +270,11 @@ function ChatThreadRow({
   threadId,
   session,
   onNavigate,
-  leading,
   trailing,
 }: {
   threadId: string;
   session: ChatSession;
   onNavigate?: () => void;
-  leading?: ReactNode;
   trailing?: ReactNode;
 }) {
   const { runtime } = useChatThreads();
@@ -287,7 +283,6 @@ function ChatThreadRow({
     <ChatSessionRow
       session={session}
       onNavigate={onNavigate}
-      leading={leading}
       trailing={trailing}
       rename={(title) => item().rename(title)}
       deleteSession={() => item().delete()}
@@ -409,7 +404,7 @@ function AssistantSidebar({
             to="/history"
             search={{ assistant: personaId }}
             onClick={onNavigate}
-            className="mt-1 flex h-8 items-center rounded-lg px-3 text-sm text-content-muted outline-none hover:bg-surface-subtle hover:text-content-primary focus-visible:ring-2 focus-visible:ring-ring"
+            className="mt-1 flex h-8 items-center rounded-lg px-3 text-sm text-content-muted outline-none hover:bg-surface-sunken hover:text-content-primary focus-visible:ring-2 focus-visible:ring-ring"
           >
             {ui("Xem tất cả")}
           </Link>
