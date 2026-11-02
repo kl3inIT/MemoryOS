@@ -236,6 +236,56 @@ public final class ChatTurnService implements AutoCloseable {
         }
     }
 
+    /** MEM-266: how many messages of the branch, ending at the answer, the follow-up suggestions read. */
+    static final int FOLLOW_UP_CONTEXT = 6;
+
+    /**
+     * MEM-266: up to three questions the person might ask next, offered under the latest answer. The browser asks
+     * after an answer completes, never in the answer stream; nothing is stored. Only an answer that may have them gets
+     * any: an empty list means none, whether the setting is off, the answer is not the latest completed one of a kept
+     * conversation, no slot is free, the budget is spent or the model failed. A conversation the caller does not own
+     * is unavailable.
+     */
+    public List<String> suggestFollowUps(ActorId actor, UUID session, UUID message) {
+        if (settings == null || !settings.followUpSuggestions(actor)) return skipped(session, "disabled");
+        var input = persistence.followUpInput(actor, session, message, FOLLOW_UP_CONTEXT - 1);
+        if (input.isEmpty()) return skipped(session, "not_latest_answer");
+        if (!accepting.get() || !occupyForNaming()) return skipped(session, "busy");
+        try {
+            // A spent budget offers nothing rather than failing the answer it would follow.
+            if (spending != null) {
+                try { spending.enforce(actor); }
+                catch (AiUsageLimitException refused) { return skipped(session, "budget_exhausted"); }
+            }
+            try (var selected = models.resolveFlow(actor, session, ModelFlow.CHAT_NAMING)) {
+                // The callback records usage even when the call fails.
+                return model.suggestFollowUps(selected.binding(), input.orElseThrow(),
+                        accounting -> recordFollowUps(actor, selected, accounting));
+            } catch (RuntimeException failure) {
+                // Never log conversation/provider payloads.
+                LOG.atWarn().addKeyValue("event", "chat.follow_ups.failed").addKeyValue("session_id", session)
+                        .addKeyValue("error_type", failure.getClass().getName()).log("Chat follow-up suggestions unavailable");
+                return List.of();
+            }
+        } finally { vacate(null); }
+    }
+
+    private static List<String> skipped(UUID session, String reason) {
+        LOG.atDebug().addKeyValue("event", "chat.follow_ups.skipped").addKeyValue("session_id", session)
+                .addKeyValue("reason", reason).log("Chat follow-up suggestions skipped");
+        return List.of();
+    }
+
+    private void recordFollowUps(ActorId actor, ModelResolver.Resolved selected, ModelAccounting accounting) {
+        try {
+            persistence.recordUsage(new ChatTurnPersistence.Usage(null, actor, AiUsageFlow.CHAT_FOLLOW_UPS, selected.modelConfigurationId(),
+                    selected.provenance(), selected.binding().service().getName(), accounting));
+        } catch (RuntimeException failure) {
+            LOG.atWarn().addKeyValue("event", "chat.follow_ups.usage_not_recorded")
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Chat follow-up usage not recorded");
+        }
+    }
+
     public Accepted send(ActorId actor, UUID session, UUID parent, UUID request, String text, @Nullable UUID modelConfigurationId) {
         return command(actor, session, ChatCommand.builder(ChatCommand.Operation.SEND, parent, request, text)
                 .modelConfigurationId(modelConfigurationId)

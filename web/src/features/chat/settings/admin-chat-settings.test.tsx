@@ -120,6 +120,7 @@ beforeEach(() => {
     chatHistoryVisibility: "NORMAL",
     groundedAnswers: false,
     groundedAllowWeb: false,
+    followUpSuggestions: false,
     revision: 3,
   };
   guardrails = {

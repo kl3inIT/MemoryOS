@@ -13,9 +13,11 @@ public record ChatSettingsResponse(
         boolean groundedAnswers,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "In that mode, a person may still turn Web search on for a turn")
         boolean groundedAllowWeb,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "After each answer, offer three questions to ask next; each costs one more model call")
+        boolean followUpSuggestions,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long revision) {
     public static ChatSettingsResponse from(ChatSettingsService.View view) {
         return new ChatSettingsResponse(view.deepResearchEnabled(), view.chatHistoryVisibility(),
-                view.groundedAnswers(), view.groundedAllowWeb(), view.revision());
+                view.groundedAnswers(), view.groundedAllowWeb(), view.followUpSuggestions(), view.revision());
     }
 }

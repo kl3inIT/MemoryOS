@@ -927,6 +927,7 @@ export const zChatSettingsResponse = z.object({
     ]),
     groundedAnswers: z.boolean(),
     groundedAllowWeb: z.boolean(),
+    followUpSuggestions: z.boolean(),
     revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
 });
 
@@ -960,6 +961,15 @@ export const zChatGuardrailsResponse = z.object({
     blockedPhrases: z.array(z.string()),
     blockedPhraseMessage: z.string(),
     revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+});
+
+export const zChatFollowUpsRequest = z.object({
+    followUpSuggestions: z.boolean(),
+    revision: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
+});
+
+export const zChatFollowUpsResponse = z.object({
+    suggestions: z.array(z.string())
 });
 
 export const zChatGroundedRequest = z.object({
@@ -5113,6 +5123,13 @@ export const zSaveChatGuardrailsBody = zChatGuardrailsRequest;
  */
 export const zSaveChatGuardrailsResponse = zChatGuardrailsResponse;
 
+export const zSaveChatFollowUpsBody = zChatFollowUpsRequest;
+
+/**
+ * Saved Tenant Chat settings
+ */
+export const zSaveChatFollowUpsResponse = zChatSettingsResponse;
+
 export const zSaveChatGroundedBody = zChatGroundedRequest;
 
 /**
@@ -6752,6 +6769,16 @@ export const zEditChatMessagePath = z.object({
  * Reserved edited branch
  */
 export const zEditChatMessageResponse = zAccepted;
+
+export const zSuggestChatFollowUpsPath = z.object({
+    sessionId: z.uuid(),
+    messageId: z.uuid()
+});
+
+/**
+ * Up to three questions; empty when the answer gets none
+ */
+export const zSuggestChatFollowUpsResponse = zChatFollowUpsResponse;
 
 export const zBranchChatSessionBody = zBranchChatSessionRequest;
 
@@ -8431,6 +8458,7 @@ export const zGetAiCostSummaryQuery = z.object({
         'CHAT_NAMING',
         'CHAT_GUARDRAIL',
         'CHAT_COMPACTION',
+        'CHAT_FOLLOW_UPS',
         'AGENT_BUILDER',
         'DEEP_RESEARCH',
         'EMBEDDING_QUERY',
@@ -8500,6 +8528,7 @@ export const zListAiCostDaysQuery = z.object({
         'CHAT_NAMING',
         'CHAT_GUARDRAIL',
         'CHAT_COMPACTION',
+        'CHAT_FOLLOW_UPS',
         'AGENT_BUILDER',
         'DEEP_RESEARCH',
         'EMBEDDING_QUERY',
@@ -8536,6 +8565,7 @@ export const zListAiCostBreakdownQuery = z.object({
         'CHAT_NAMING',
         'CHAT_GUARDRAIL',
         'CHAT_COMPACTION',
+        'CHAT_FOLLOW_UPS',
         'AGENT_BUILDER',
         'DEEP_RESEARCH',
         'EMBEDDING_QUERY',
