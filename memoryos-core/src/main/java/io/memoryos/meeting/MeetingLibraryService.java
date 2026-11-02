@@ -32,13 +32,21 @@ public class MeetingLibraryService {
     /** The minutes as a file in the caller's library. */
     public record PublishedMinutes(UUID fileId, String filename, String status) {}
 
-    /** Takes the written minutes into the caller's library; asking again returns the file already made. */
+    /**
+     * Takes the minutes into the caller's library as they read now. Asking again returns the file already made while
+     * the minutes still read the same; once an edit, a named voice or a new title changed them, that file is replaced,
+     * so whoever takes them into a conversation reads the current wording. An earlier file a Project or an Agent
+     * still holds is neither pulled from them nor handed out as current: the call is refused and names the holder.
+     */
     public PublishedMinutes publish(ActorId actor, UUID meetingId) {
         var meeting = meetings.get(actor, meetingId);
         if (meeting.minutes().status() != Meeting.MinutesStatus.READY)
             throw MeetingException.invalid("The minutes are not written yet.");
+        byte[] markdown = MeetingMinutesMarkdown.render(meeting);
+        library.outdated(actor, LibraryFile.Source.MEETING, meetingId, markdown)
+                .ifPresent(file -> files.delete(actor, file.id()));
         var file = library.publish(actor, LibraryFile.Source.MEETING, meetingId,
-                MeetingMinutesMarkdown.filename(meeting), "text/markdown", MeetingMinutesMarkdown.render(meeting));
+                MeetingMinutesMarkdown.filename(meeting), "text/markdown", markdown);
         return new PublishedMinutes(file.id(), file.filename(), file.status().name());
     }
 

@@ -1,5 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { HttpResponse } from "msw";
 import {
   RouterProvider,
   createMemoryHistory,
@@ -13,8 +15,10 @@ import {
   type ApplicationSession,
 } from "@/features/identity/application-session-context";
 import { i18n } from "@/i18n/index";
+import { handlePublishMeetingMinutes } from "@/lib/hey-api/msw.gen";
 import type { MeetingDetail } from "@/lib/hey-api/types.gen";
-import { MinutesSummary } from "./meeting-minutes";
+import { server } from "@/test/msw";
+import { MinutesActions, MinutesSummary } from "./meeting-minutes";
 
 function failed(failure: string | null): MeetingDetail {
   return {
@@ -64,15 +68,21 @@ async function show(failure: string | null, capabilities: ApplicationSession["ca
     capabilities,
     scopedCapabilities: [],
   };
+  inRouter(
+    <ApplicationSessionContext value={session}>
+      <MinutesSummary meeting={failed(failure)} />
+    </ApplicationSessionContext>,
+  );
+  return screen.findByRole("alert");
+}
+
+/** Renders a part of the meeting page inside a router, as the page has one. */
+function inRouter(element: React.ReactNode) {
   const rootRoute = createRootRoute();
   const route = createRoute({
     getParentRoute: () => rootRoute,
     path: "/",
-    component: () => (
-      <ApplicationSessionContext value={session}>
-        <MinutesSummary meeting={failed(failure)} />
-      </ApplicationSessionContext>
-    ),
+    component: () => element,
   });
   const router = createRouter({
     routeTree: rootRoute.addChildren([route]),
@@ -83,7 +93,6 @@ async function show(failure: string | null, capabilities: ApplicationSession["ca
       <RouterProvider router={router} />
     </QueryClientProvider>,
   );
-  return screen.findByRole("alert");
 }
 
 beforeEach(async () => {
@@ -127,5 +136,34 @@ describe("minutes that could not be written", () => {
 
   it("ask for another try when the cause is unknown", async () => {
     expect(await show("MEETING_MINUTES_FAILED")).toHaveTextContent("Hãy thử lại.");
+  });
+});
+
+describe("taking the minutes into a conversation", () => {
+  it("names what still holds an earlier copy instead of opening a conversation with it", async () => {
+    server.use(
+      handlePublishMeetingMinutes(() =>
+        HttpResponse.json(
+          {
+            status: 409,
+            code: "CHAT_FILE_IN_USE",
+            usedBy: [{ kind: "PROJECT", id: "p", name: "Ngân sách" }],
+          },
+          { status: 409, headers: { "Content-Type": "application/problem+json" } },
+        ),
+      ),
+    );
+    const meeting = failed(null);
+    inRouter(
+      <MinutesActions
+        meeting={{ ...meeting, minutes: { ...meeting.minutes, status: "READY", summary: "Chốt." } }}
+      />,
+    );
+
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Mở trong Chat" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Bản cũ của biên bản đang được dùng trong Ngân sách",
+    );
   });
 });

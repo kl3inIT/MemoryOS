@@ -823,6 +823,8 @@ export const vietnameseUi: Record<string, string> = {
   "Ngày tạo": "Created",
   "Chọn {{name}}": "Select {{name}}",
   "Đang dùng trong {{name}}": "Used in {{name}}",
+  "Bản cũ của biên bản đang được dùng trong {{name}}":
+    "An earlier copy of these minutes is used in {{name}}",
   "Xem trước {{name}}": "Preview {{name}}",
   "Trang trước": "Previous page",
   "Trang sau": "Next page",
