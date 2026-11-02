@@ -14,11 +14,13 @@ import { ApplicationSessionProvider } from "@/features/identity/application-sess
 import {
   handleGetChatGuardrails,
   handleGetChatSettings,
+  handleSaveChatFollowUps,
   handleSaveChatGrounded,
   handleSaveChatGuardrails,
   handleSaveChatHistoryVisibility,
 } from "@/lib/hey-api/msw.gen";
 import type {
+  ChatFollowUpsRequest,
   ChatGroundedRequest,
   ChatGuardrailsRequest,
   ChatGuardrailsResponse,
@@ -59,6 +61,7 @@ const LEADERS: ChatGuardrailTopic = {
 let settings: ChatSettingsResponse;
 let guardrails: ChatGuardrailsResponse;
 const savedGrounded = vi.fn<(body: ChatGroundedRequest) => void>();
+const savedFollowUps = vi.fn<(body: ChatFollowUpsRequest) => void>();
 const savedHistory = vi.fn<(body: ChatHistoryVisibilityRequest) => void>();
 const savedGuardrails = vi.fn<(body: ChatGuardrailsRequest) => void>();
 
@@ -69,6 +72,12 @@ function show() {
     handleSaveChatGrounded(async ({ request }) => {
       const body = await request.json();
       savedGrounded(body);
+      settings = { ...settings, ...body, revision: settings.revision + 1 };
+      return HttpResponse.json(settings);
+    }),
+    handleSaveChatFollowUps(async ({ request }) => {
+      const body = await request.json();
+      savedFollowUps(body);
       settings = { ...settings, ...body, revision: settings.revision + 1 };
       return HttpResponse.json(settings);
     }),
@@ -161,6 +170,20 @@ it("offers Web search only under answers from documents", async () => {
       groundedAllowWeb: true,
       revision: 4,
     }),
+  );
+});
+
+it("turns follow-up suggestions on, off by default (MEM-266)", async () => {
+  const user = show();
+  const answers = await screen.findByRole("region", { name: "Answers" });
+  const followUps = within(answers).getByRole("switch", { name: "Follow-up suggestions" });
+  expect(followUps).not.toBeChecked();
+
+  await user.click(followUps);
+
+  expect(savedFollowUps).toHaveBeenCalledWith({ followUpSuggestions: true, revision: 3 });
+  await waitFor(() =>
+    expect(within(answers).getByRole("switch", { name: "Follow-up suggestions" })).toBeChecked(),
   );
 });
 
