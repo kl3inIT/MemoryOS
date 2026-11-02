@@ -65,7 +65,10 @@ def _judge(prompt: str) -> dict:
             with urllib.request.urlopen(urllib.request.Request(url, body, headers), timeout=600) as response:
                 answer = json.load(response)["choices"][0]["message"]["content"]
             found = re.search(r"\{.*\}", answer, re.S)
-            return json.loads(found.group(0)) if found else {}
+            if not found:
+                # No alignment is not an alignment of nothing: retried, then surfaced as a failed grading.
+                raise json.JSONDecodeError("the judge answered without JSON", answer, 0)
+            return json.loads(found.group(0))
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, KeyError):
             if wait is None:
                 raise

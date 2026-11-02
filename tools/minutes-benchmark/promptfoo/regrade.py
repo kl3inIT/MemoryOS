@@ -19,9 +19,17 @@ WORKERS = 2
 
 
 def regrade(row: dict) -> dict:
-    output = row["response"]["output"]
-    output = json.loads(output) if isinstance(output, str) else output
-    result = assertions.score(output, {"vars": row["vars"]})
+    """One row scored again; a row with no minutes, or one the judge could not score, is marked failed."""
+    output = (row.get("response") or {}).get("output")
+    if row.get("error") or not output:
+        return row
+    try:
+        output = json.loads(output) if isinstance(output, str) else output
+        result = assertions.score(output, {"vars": row["vars"]})
+    except Exception as failure:  # noqa: BLE001 - one row's failure must not lose the others
+        row["error"] = f"regrade failed: {type(failure).__name__}: {failure}"
+        row["gradingResult"] = None
+        return row
     row["gradingResult"] = {**result, "componentResults": [result]}
     row["namedScores"] = result["namedScores"]
     return row

@@ -31,14 +31,15 @@ def summarise(path: Path) -> None:
     failed = 0
     seen: dict[str, int] = defaultdict(int)
     for row in sorted(rows(path), key=lambda r: r.get("testIdx", 0)):
+        # promptfoo lists a test's repeats one after another; the n-th row of a meeting is its n-th writing, failed
+        # or not, so a failed writing does not shift the ones after it into its place.
+        copy = (row.get("vars") or {}).get("copy", "")
+        repeat = seen[copy]
+        seen[copy] += 1
         grading = row.get("gradingResult") or {}
         if row.get("error") or not grading:
             failed += 1
             continue
-        # promptfoo lists a test's repeats one after another; the n-th row of a meeting is its n-th writing.
-        copy = (row.get("vars") or {}).get("copy", "")
-        repeat = seen[copy]
-        seen[copy] += 1
         for name, value in grading["namedScores"].items():
             by_repeat[repeat][name].append(value)
         for component in grading.get("componentResults") or [grading]:
@@ -48,7 +49,7 @@ def summarise(path: Path) -> None:
                 continue
             for name, value in counts.items():
                 pooled[name] += value
-    print(f"{path.name}: {sum(seen.values())} writings of {len(seen)} meetings scored, {failed} failed")
+    print(f"{path.name}: {sum(seen.values()) - failed} writings of {len(seen)} meetings scored, {failed} failed")
     for metric in METRICS:
         means = [statistics.fmean(values[metric]) for values in by_repeat.values() if values.get(metric)]
         if not means:
