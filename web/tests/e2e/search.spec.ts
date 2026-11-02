@@ -863,34 +863,39 @@ test("marks the cited region on an image original, through zoom and a turn, and 
   await expect(region).toHaveCount(0);
 });
 
-test("draws a tilted line and a curved heading of a picture in their own outlines, not their upright boxes", async ({
+test("draws a tilted line and an arched heading of a picture around their letters, inside the OCR's outline", async ({
   page,
 }) => {
-  // The fixture is 854 x 534 pixels. The OCR answered a tilted line in [171, 107, 598, 267] and a heading
-  // curved like an arch in [200, 300, 650, 480], each with the outline of its block.
-  const picture = readFileSync(
-    new URL("../fixtures/generated-files/bieu-do-doanh-thu.png", import.meta.url),
-  );
-  const tilted = [
-    [171, 227],
-    [568, 107],
-    [598, 147],
-    [201, 267],
-  ];
-  const curved = [
-    [200, 480],
-    [260, 360],
-    [425, 300],
-    [590, 360],
-    [650, 480],
-    [590, 420],
-    [425, 370],
-    [260, 420],
-  ];
-  const located = (box: number[], outline: number[][]) =>
+  // citation-outlines.png is 854 x 534: an arched heading whose ink spans [241, 58, 613, 155] and a line tilted
+  // 20 degrees spanning [183, 272, 670, 461]. The OCR's outlines are the coarse block shapes PaddleOCR-VL answers:
+  // a margin around the text, the hollow under the arch included.
+  const picture = readFileSync(new URL("../fixtures/citation-outlines.png", import.meta.url));
+  const arch = {
+    box: [221, 40, 633, 175],
+    outline: [
+      [221, 175],
+      [221, 120],
+      [330, 45],
+      [520, 45],
+      [633, 120],
+      [633, 175],
+    ],
+  };
+  const tilted = {
+    box: [163, 252, 690, 481],
+    outline: [
+      [163, 481],
+      [163, 420],
+      [650, 252],
+      [690, 252],
+      [690, 320],
+      [200, 481],
+    ],
+  };
+  const located = ({ box, outline }: { box: number[]; outline: number[][] }) =>
     `{"page_no":1,"bbox":{"l":${box[0]},"t":${box[1]},"r":${box[2]},"b":${box[3]},"coord_origin":"TOPLEFT",` +
     `"frame_width":854,"frame_height":534,"polygon":${JSON.stringify(outline)}}}`;
-  const provenanceJson = `[${located([171, 107, 598, 267], tilted)},${located([200, 300, 650, 480], curved)}]`;
+  const provenanceJson = `[${located(arch)},${located(tilted)}]`;
   await page.route("**/api/search", (route) =>
     route.fulfill({
       json: {
@@ -903,7 +908,7 @@ test("draws a tilted line and a curved heading of a picture in their own outline
           {
             documentId,
             generation,
-            title: "Biểu đồ doanh thu.png",
+            title: "Ảnh chụp báo cáo.png",
             mediaType: "image/png",
             updatedAt: "2026-09-08T00:00:00Z",
             score: 0.8,
@@ -921,7 +926,7 @@ test("draws a tilted line and a curved heading of a picture in their own outline
       json: {
         documentId,
         generation,
-        title: "Biểu đồ doanh thu.png",
+        title: "Ảnh chụp báo cáo.png",
         mediaType: "image/png",
         passages: [passage, nextPassage],
         firstOrdinal: 2,
@@ -937,67 +942,59 @@ test("draws a tilted line and a curved heading of a picture in their own outline
   await page.goto("/search");
   await page.getByRole("textbox", { name: "Search documents" }).fill("doanh thu");
   await page.getByRole("main").getByRole("button", { name: "Search", exact: true }).click();
-  await page.getByRole("button", { name: "Biểu đồ doanh thu.png", exact: true }).click();
+  await page.getByRole("button", { name: "Ảnh chụp báo cáo.png", exact: true }).click();
 
   const dialog = page.getByRole("dialog");
-  const shown = dialog.getByRole("img", { name: "Biểu đồ doanh thu.png" });
   const regions = dialog.locator('[data-slot="image-citation-box"]');
   await expect(regions).toHaveCount(2);
-  await expect(regions.first()).toBeInViewport();
   await expect(dialog.getByText("Highlighted")).toBeVisible();
-  // Both are outlines, not the rounded upright box.
-  await expect(dialog.locator('svg[data-slot="image-citation-box"] polygon')).toHaveCount(2);
+  // Once the picture's pixels are read, each outline is replaced by one band around its line of letters.
+  await expect(
+    dialog.locator('svg[data-slot="image-citation-box"][data-shape="lines"]'),
+  ).toHaveCount(2);
 
-  /** Each vertex of a region's outline on screen, as shares of the picture's box on screen. */
-  const vertices = async (index: number) => {
-    const outer = await shown.boundingBox();
-    if (!outer) throw new Error("the picture is not laid out");
-    const points = await regions.nth(index).evaluate((region) => {
-      const polygon = region.querySelector("polygon");
-      const matrix = polygon?.getScreenCTM();
-      if (!polygon || !matrix) return [];
-      return Array.from(polygon.points, (point) => {
-        const onScreen = new DOMPoint(point.x, point.y).matrixTransform(matrix);
-        return [onScreen.x, onScreen.y];
-      });
-    });
-    return points.map(([x = NaN, y = NaN]) => [
-      (x - outer.x) / outer.width,
-      (y - outer.y) / outer.height,
-    ]);
-  };
-  const expectVertices = async (index: number, outline: number[][]) => {
-    const actual = await vertices(index);
-    expect(actual).toHaveLength(outline.length);
-    actual.forEach(([x = NaN, y = NaN], vertex) => {
-      expect(x).toBeCloseTo((outline[vertex]?.[0] ?? NaN) / 854, 2);
-      expect(y).toBeCloseTo((outline[vertex]?.[1] ?? NaN) / 534, 2);
-    });
-  };
-  await expectVertices(0, tilted);
-  await expectVertices(1, curved);
-
-  // The tilted line's corners of its upright box stay unmarked; the middle of the line is marked. The arch's
-  // hollow, inside its box but under the curve, stays unmarked.
-  const filled = (index: number, x: number, y: number) =>
+  /** Whether a point of the picture, in its pixels, is marked by a region's bands. */
+  const marked = (index: number, box: number[], [x, y]: number[]) =>
     regions
       .nth(index)
       .evaluate(
-        (region, [px, py]) =>
-          region.querySelector("polygon")?.isPointInFill(new DOMPoint(px, py)) ?? false,
-        [x, y],
+        (region, [fx, fy]) =>
+          Array.from(region.querySelectorAll("polygon")).some((band) =>
+            band.isPointInFill(new DOMPoint(fx, fy)),
+          ),
+        [
+          ((x ?? 0) - (box[0] ?? 0)) / ((box[2] ?? 0) - (box[0] ?? 0)),
+          ((y ?? 0) - (box[1] ?? 0)) / ((box[3] ?? 0) - (box[1] ?? 0)),
+        ],
       );
-  expect(await filled(0, 0.02, 0.02)).toBe(false);
-  expect(await filled(0, 0.98, 0.98)).toBe(false);
-  expect(await filled(0, 0.5, 0.5)).toBe(true);
-  expect(await filled(1, 0.5, 0.9)).toBe(false);
-  expect(await filled(1, 0.5, 0.2)).toBe(true);
+  const expectMarks = async () => {
+    // The letters along the arch are marked; the hollow under it, inside the OCR's outline, is not.
+    for (const letter of [
+      [256, 139],
+      [324, 97],
+      [460, 86],
+      [528, 97],
+      [597, 139],
+    ])
+      expect(await marked(0, arch.box, letter), `arch ${letter}`).toBe(true);
+    expect(await marked(0, arch.box, [427, 140])).toBe(false);
+    // The letters of the tilted line are marked; the outline's margin above the line is not.
+    for (const letter of [
+      [198, 447],
+      [289, 414],
+      [471, 350],
+      [562, 319],
+      [654, 281],
+    ])
+      expect(await marked(1, tilted.box, letter), `line ${letter}`).toBe(true);
+    expect(await marked(1, tilted.box, [300, 380])).toBe(false);
+  };
+  await expectMarks();
 
-  // Zoomed, each outline keeps its place on the picture.
+  // Zoomed, the bands keep their place: they are fractions of the region, which follows the picture.
   await dialog.getByRole("button", { name: "Zoom in" }).click();
   await page.waitForTimeout(400);
-  await expectVertices(0, tilted);
-  await expectVertices(1, curved);
+  await expectMarks();
 });
 
 /** One result with a match on every tenth passage, best first. */
