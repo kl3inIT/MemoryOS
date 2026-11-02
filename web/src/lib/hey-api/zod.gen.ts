@@ -253,12 +253,21 @@ export const zMeetingItemRequest = z.object({
 });
 
 /**
+ * One voice of the meeting, as its speakers list names it
+ */
+export const zMeetingSpeakerRef = z.object({
+    track: z.enum(['MIC', 'TAB']),
+    label: z.string().regex(/^[0-9A-Za-z_-]{1,16}$/)
+});
+
+/**
  * A decision the meeting reached or work it handed out
  */
 export const zMeetingMinutesItem = z.object({
     id: z.uuid(),
     text: z.string(),
     owner: z.string().nullable(),
+    ownerSpeaker: zMeetingSpeakerRef.optional(),
     due: z.string().nullable(),
     quote: z.string().nullable(),
     sourceUtteranceId: z.uuid().nullable(),
@@ -281,6 +290,7 @@ export const zMeetingMinutesSummary = z.object({
 export const zMeetingMinutesItemRequest = z.object({
     text: z.string().min(0).max(2000),
     owner: z.string().min(0).max(200).nullish(),
+    ownerSpeaker: zMeetingSpeakerRef.optional(),
     due: z.string().min(0).max(100).nullish()
 });
 
@@ -1176,7 +1186,8 @@ export const zChatPreferencesInput = z.object({
         'HIGH'
     ]).optional(),
     autoScroll: z.boolean(),
-    channelPersonaId: z.uuid().nullish()
+    channelPersonaId: z.uuid().nullish(),
+    pasteAsTile: z.boolean().nullish()
 });
 
 export const zChatMemory = z.object({
@@ -1208,6 +1219,7 @@ export const zChatPreferences = z.object({
     ]),
     autoScroll: z.boolean(),
     channelPersonaId: z.uuid().nullish(),
+    pasteAsTile: z.boolean(),
     displayName: z.string().nullable(),
     email: z.string().nullable()
 });
@@ -2084,6 +2096,7 @@ export const zMeetingNewMinutesItemRequest = z.object({
     kind: z.enum(['DECISION', 'ACTION']),
     text: z.string().min(0).max(2000),
     owner: z.string().min(0).max(200).nullish(),
+    ownerSpeaker: zMeetingSpeakerRef.optional(),
     due: z.string().min(0).max(100).nullish()
 });
 

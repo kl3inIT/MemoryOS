@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useAppForm, setServerErrors, useProblemErrors } from "@/components/form/app-form";
@@ -15,7 +15,9 @@ import {
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { presentProblem } from "@/lib/problem-presentation";
 import { cn } from "@/lib/utils";
+import type { MeetingSpeakerRef } from "@/lib/hey-api/types.gen";
 import { InputField, TextareaField } from "./meeting-form-fields";
+import { speakerName } from "./speakers";
 import {
   patchMeeting,
   withAddedMinutesItem,
@@ -26,6 +28,28 @@ import {
 } from "./meetings-api";
 
 type ItemValues = { text: string; owner: string; due: string };
+
+/** A voice of the meeting as the owner reads it, offered as who takes a piece of work. */
+type Voice = { name: string; ref: MeetingSpeakerRef };
+
+function useVoices(meeting: MeetingDetail): Voice[] {
+  const ui = useAppTranslation();
+  return meeting.speakers.map((speaker) => ({
+    name: speakerName(meeting, speaker.track, speaker.label, ui),
+    ref: { track: speaker.track, label: speaker.label },
+  }));
+}
+
+/**
+ * Who takes the work, as the API stores it: the voice shown under the typed name when exactly one is, so naming the
+ * voice later names the work too; otherwise the name as typed.
+ */
+function ownerOf(value: string, voices: Voice[]) {
+  const typed = value.trim();
+  if (!typed) return { owner: null };
+  const [only, ...others] = voices.filter((voice) => voice.name === typed);
+  return only && others.length === 0 ? { owner: null, ownerSpeaker: only.ref } : { owner: typed };
+}
 
 /**
  * The pencil sits beside the line it edits and shows on hover or focus, as Fireflies and Otter do; a device without
@@ -131,6 +155,7 @@ export function EditableItem({
   const cache = useQueryClient();
   const [editing, setEditing] = useState(false);
   const edit = useMutation(editMeetingMinutesItemMutation());
+  const voices = useVoices(meeting);
   const remove = useMutation({
     ...removeMeetingMinutesItemMutation(),
     onSuccess: () =>
@@ -148,15 +173,26 @@ export function EditableItem({
       </div>
     );
 
+  const owner = item.ownerSpeaker
+    ? speakerName(meeting, item.ownerSpeaker.track, item.ownerSpeaker.label, ui)
+    : (item.owner ?? "");
   return (
     <ItemForm
       kind={kind}
-      initial={{ text: item.text, owner: item.owner ?? "", due: item.due ?? "" }}
+      voices={voices}
+      initial={{ text: item.text, owner, due: item.due ?? "" }}
       submitLabel={ui("Lưu")}
       onSubmit={async (value) => {
         const saved = await edit.mutateAsync({
           path: { meetingId: meeting.id, itemId: item.id },
-          body: { text: value.text, owner: value.owner || null, due: value.due || null },
+          body: {
+            text: value.text,
+            // An owner left as it was keeps its voice, even when another voice shows the same name.
+            ...(item.ownerSpeaker && value.owner.trim() === owner
+              ? { owner: null, ownerSpeaker: item.ownerSpeaker }
+              : ownerOf(value.owner, voices)),
+            due: value.due || null,
+          },
         });
         patchMeeting(cache, meeting.id, (current) => withMinutesItem(current, saved));
         setEditing(false);
@@ -207,6 +243,7 @@ export function NewItem({
   const cache = useQueryClient();
   const [open, setOpen] = useState(false);
   const add = useMutation(addMeetingMinutesItemMutation());
+  const voices = useVoices(meeting);
 
   if (!open)
     return (
@@ -221,12 +258,13 @@ export function NewItem({
   return (
     <ItemForm
       kind={kind}
+      voices={voices}
       initial={{ text: "", owner: "", due: "" }}
       submitLabel={ui("Thêm")}
       onSubmit={async (value) => {
         const added = await add.mutateAsync({
           path: { meetingId: meeting.id },
-          body: { kind, text: value.text, owner: value.owner || null, due: value.due || null },
+          body: { kind, text: value.text, ...ownerOf(value.owner, voices), due: value.due || null },
         });
         patchMeeting(cache, meeting.id, (current) => withAddedMinutesItem(current, kind, added));
         setOpen(false);
@@ -242,6 +280,7 @@ export function NewItem({
  */
 function ItemForm({
   kind,
+  voices,
   initial,
   submitLabel,
   onSubmit,
@@ -249,6 +288,7 @@ function ItemForm({
   extra,
 }: {
   kind: "ACTION" | "DECISION";
+  voices: Voice[];
   initial: ItemValues;
   submitLabel: string;
   onSubmit: (value: ItemValues) => Promise<void>;
@@ -258,6 +298,7 @@ function ItemForm({
   const ui = useAppTranslation();
   const problemErrors = useProblemErrors();
   const assignable = kind === "ACTION";
+  const listed = `${useId()}-voices`;
   const form = useAppForm({
     defaultValues: initial,
     onSubmit: async ({ value, formApi }) => {
@@ -286,8 +327,22 @@ function ItemForm({
         </form.AppField>
         {assignable && (
           <div className="grid gap-2 sm:grid-cols-2">
+            <datalist id={listed}>
+              {voices.map((voice) => (
+                <option key={`${voice.ref.track}-${voice.ref.label}`} value={voice.name}>
+                  {voice.name}
+                </option>
+              ))}
+            </datalist>
             <form.AppField name="owner">
-              {() => <InputField label={ui("Người nhận")} maxLength={200} />}
+              {() => (
+                <InputField
+                  label={ui("Người nhận")}
+                  maxLength={200}
+                  list={listed}
+                  className="[&::-webkit-calendar-picker-indicator]:hidden!"
+                />
+              )}
             </form.AppField>
             <form.AppField name="due">
               {() => <InputField label={ui("Hạn")} maxLength={100} />}

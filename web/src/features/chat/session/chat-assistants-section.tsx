@@ -249,7 +249,7 @@ export function AssistantsSection({
           type="button"
           aria-expanded={expanded}
           onClick={() => setExpanded(!expanded)}
-          className="mt-0.5 flex h-8 w-full cursor-pointer items-center rounded-lg px-2 text-left text-sm text-content-muted outline-none hover:bg-surface-subtle hover:text-content-primary focus-visible:ring-2 focus-visible:ring-ring"
+          className="mt-0.5 flex h-8 w-full cursor-pointer items-center rounded-lg px-2 text-left text-sm text-content-muted outline-none hover:bg-surface-sunken hover:text-content-primary focus-visible:ring-2 focus-visible:ring-ring"
         >
           {expanded ? ui("Thu gọn") : ui("Xem thêm ({{v1}})", { v1: hidden })}
         </button>
@@ -325,7 +325,7 @@ function AssistantRow({
   );
   const className = cn(
     "flex min-w-0 items-center gap-2.5 rounded-lg px-2 py-1 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
-    selected ? "bg-surface-sunken" : "hover:bg-surface-subtle",
+    selected ? "bg-surface-sunken" : "hover:bg-surface-sunken",
   );
   // A gone assistant without a topic has nothing to open.
   if (!assistant.usable && !topic) return <div className={cn(className, "pr-8")}>{content}</div>;

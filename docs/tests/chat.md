@@ -654,6 +654,9 @@ Receipts: [MEM-112 verification](../increments/completed/mem-112-chat-mcp-client
 | Delete all chats removes only the caller's sessions | `ChatSessionApiIntegrationTest.deleteAllChatsRemovesOnlyTheCallersConversations` |
 | MCP OAuth can return to Settings → Connections and never leaves MemoryOS | `memoryos-api/src/test/java/io/memoryos/api/mcp/McpReturnPathTest.java` |
 | Preferences save through one PUT, drafts save on blur, theme and profile render | `chat-preferences.test.tsx`, `general-settings-page.test.tsx` under `web/src/features/identity/` |
+| MEM-148: `pasteAsTile` is off without a row, saved on by its owner only, and an absent member in `PUT` saves it off; Settings › Chat's *Collapse large pastes* starts off and saves with the whole record | `ChatSessionApiIntegrationTest.collapsingLargePastesIsOffUntilTheMemberTurnsItOn` (Spring API, PostgreSQL); `chat-preferences.test.tsx` |
+| MEM-148: a paste over 3 lines or 200 characters becomes a tile (boundaries and a trailing line break included), none while the preference is off; a tile is edited in its dialog without the dialog's submit reaching the composer, removed by × or an emptied text, and restored after a remount; Send and Enter send the typed text and the tiles in paste order; past 32,000 characters Send is blocked with an alert | `web/src/features/chat/composer/chat-paste-tiles.test.tsx` (assistant-ui local runtime, production composer wrappers) |
+| MEM-148: a five-line paste waits as a tile, opens to its text, and is sent with the typed question | `web/tests/e2e/chat-paste-tiles.spec.ts` (fixture backend) |
 | Delete all confirmation and Connections connect/disconnect | `danger-zone-section.test.tsx`, `connections-settings-page.test.tsx` |
 
 ## User memory (MEM-250)

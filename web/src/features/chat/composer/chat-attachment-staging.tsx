@@ -8,6 +8,8 @@ import {
 } from "./chat-attachment-staging-context";
 import { libraryUpload, type LibraryFile } from "@/features/library/library";
 import { composerAttachment } from "./use-composer-file-selection";
+import { ChatPasteTile } from "./chat-paste-tiles";
+import { usePasteTiles } from "./chat-paste-tiles-context";
 
 type StagedFile = {
   key: string;
@@ -75,8 +77,19 @@ export function ChatAttachmentStaging({ children }: { children: ReactNode }) {
   return <AttachmentStagingContext value={value}>{children}</AttachmentStagingContext>;
 }
 
-/** The draft's files: the attachments assistant-ui holds, plus the library copies still being prepared. */
+/**
+ * The draft's files: the attachments assistant-ui holds, plus the library copies still being prepared, then the
+ * collapsed pastes (MEM-148) in the same two rows.
+ */
 export function ChatComposerAttachments() {
   const { pending } = useChatAttachmentStaging();
-  return <ComposerAttachments pending={pending} />;
+  const tiles = usePasteTiles()?.tiles ?? [];
+  return (
+    <ComposerAttachments
+      pending={pending}
+      extra={tiles.map((tile) => (
+        <ChatPasteTile key={`paste:${tile.id}`} tile={tile} />
+      ))}
+    />
+  );
 }

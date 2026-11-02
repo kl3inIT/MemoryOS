@@ -42,7 +42,8 @@ public class MeetingRepository {
             FROM meeting m
             """;
     private static final String UTTERANCE = "id, track, speaker, start_ms, end_ms, text, confidence, spans, edit_source";
-    private static final String ITEM = "id, kind, text, owner, due, quote, source_utterance_id, done, edited";
+    private static final String ITEM =
+            "id, kind, text, owner, due, quote, source_utterance_id, done, edited, owner_track, owner_label";
     private static final String CORRECTION = """
             id, utterance_id, run_id, span_start, span_end, before, after, reason, confidence, context_fit, \
             meaning_safe, matched_glossary, status""";
@@ -408,13 +409,14 @@ public class MeetingRepository {
         // The position is the item's place in the list the model wrote, counted across kinds as it always was.
         jdbc.sql("""
                 INSERT INTO meeting_minutes_item(tenant_id, id, meeting_id, kind, position, text, owner, due, quote,
-                                                 source_utterance_id)
+                                                 source_utterance_id, owner_track, owner_label)
                 SELECT :tenant, item.id, :meeting, item.kind, item.position - 1, item.text, item.owner, item.due,
-                       item.quote, item.source
+                       item.quote, item.source, item.owner_track, item.owner_label
                 FROM unnest(CAST(:ids AS uuid[]), CAST(:kinds AS text[]), CAST(:texts AS text[]),
                             CAST(:owners AS text[]), CAST(:dues AS text[]), CAST(:quotes AS text[]),
-                            CAST(:sources AS uuid[]))
-                         WITH ORDINALITY AS item(id, kind, text, owner, due, quote, source, position)
+                            CAST(:sources AS uuid[]), CAST(:ownerTracks AS text[]), CAST(:ownerLabels AS text[]))
+                         WITH ORDINALITY AS item(id, kind, text, owner, due, quote, source, owner_track, owner_label,
+                                                 position)
                 """).param("tenant", tenant).param("meeting", meeting)
                 .param("ids", texts(items, item -> item.id().toString()))
                 .param("kinds", texts(items, item -> item.kind().name()))
@@ -424,6 +426,8 @@ public class MeetingRepository {
                 .param("quotes", texts(items, Meeting.MinutesItem::quote))
                 .param("sources", texts(items, item -> item.sourceUtteranceId() == null ? null
                         : item.sourceUtteranceId().toString()))
+                .param("ownerTracks", texts(items, MeetingRepository::ownerTrack))
+                .param("ownerLabels", texts(items, MeetingRepository::ownerLabel))
                 .update();
         return true;
     }
@@ -462,14 +466,16 @@ public class MeetingRepository {
     /** An item the owner wrote in, after the others of its kind. */
     public void addItem(UUID tenant, UUID meeting, Meeting.MinutesItem item) {
         jdbc.sql("""
-                INSERT INTO meeting_minutes_item(tenant_id, id, meeting_id, kind, position, text, owner, due, edited)
+                INSERT INTO meeting_minutes_item(tenant_id, id, meeting_id, kind, position, text, owner, due, edited,
+                                                 owner_track, owner_label)
                 VALUES (:tenant, :id, :meeting, :kind,
                         (SELECT COALESCE(max(position) + 1, 0) FROM meeting_minutes_item
                          WHERE tenant_id = :tenant AND meeting_id = :meeting AND kind = :kind),
-                        :text, :owner, :due, TRUE)
+                        :text, :owner, :due, TRUE, :ownerTrack, :ownerLabel)
                 """).param("tenant", tenant).param("id", item.id()).param("meeting", meeting)
                 .param("kind", item.kind().name()).param("text", item.text()).param("owner", item.owner())
-                .param("due", item.due()).update();
+                .param("due", item.due()).param("ownerTrack", ownerTrack(item)).param("ownerLabel", ownerLabel(item))
+                .update();
         markMinutesEdited(tenant, meeting);
     }
 
@@ -495,10 +501,12 @@ public class MeetingRepository {
     /** Writes what an item now says. The event beside it is the only history of what it said before. */
     public void rewriteItem(UUID tenant, UUID meeting, Meeting.MinutesItem item) {
         jdbc.sql("""
-                UPDATE meeting_minutes_item SET text = :text, owner = :owner, due = :due, edited = TRUE
+                UPDATE meeting_minutes_item SET text = :text, owner = :owner, due = :due, owner_track = :ownerTrack,
+                       owner_label = :ownerLabel, edited = TRUE
                 WHERE tenant_id = :tenant AND meeting_id = :meeting AND id = :item
                 """).param("tenant", tenant).param("meeting", meeting).param("item", item.id())
-                .param("text", item.text()).param("owner", item.owner()).param("due", item.due()).update();
+                .param("text", item.text()).param("owner", item.owner()).param("due", item.due())
+                .param("ownerTrack", ownerTrack(item)).param("ownerLabel", ownerLabel(item)).update();
         markMinutesEdited(tenant, meeting);
     }
 
@@ -939,9 +947,24 @@ public class MeetingRepository {
     }
 
     private static Meeting.MinutesItem item(ResultSet r, int ignored) throws SQLException {
+        String ownerTrack = r.getString("owner_track");
+        String ownerLabel = r.getString("owner_label");
+        var ownerSpeaker = ownerTrack == null || ownerLabel == null ? null
+                : new Meeting.SpeakerRef(Meeting.Track.valueOf(ownerTrack), ownerLabel);
         return new Meeting.MinutesItem(r.getObject("id", UUID.class), Meeting.ItemKind.valueOf(r.getString("kind")),
                 r.getString("text"), r.getString("owner"), r.getString("due"), r.getString("quote"),
-                r.getObject("source_utterance_id", UUID.class), r.getBoolean("done"), r.getBoolean("edited"));
+                r.getObject("source_utterance_id", UUID.class), r.getBoolean("done"), r.getBoolean("edited"),
+                ownerSpeaker);
+    }
+
+    private static @Nullable String ownerTrack(Meeting.MinutesItem item) {
+        var speaker = item.ownerSpeaker();
+        return speaker == null ? null : speaker.track().name();
+    }
+
+    private static @Nullable String ownerLabel(Meeting.MinutesItem item) {
+        var speaker = item.ownerSpeaker();
+        return speaker == null ? null : speaker.label();
     }
 
     private static Meeting.Correction correction(ResultSet r, int ignored) throws SQLException {

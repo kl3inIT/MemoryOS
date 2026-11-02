@@ -1,6 +1,17 @@
 // English for the Vietnamese source keys. Natural source keys are static UI copy, never document text, filenames or API identifiers.
 // Natural source keys are static UI copy, never document text, filenames or API identifiers.
 export const vietnameseUi: Record<string, string> = {
+  // MEM-148 large pastes collapse into composer tiles
+  "Thu gọn đoạn dán dài": "Collapse large pastes",
+  "Đoạn dán dài hơn 3 dòng hoặc 200 ký tự hiện thành thẻ gọn thay vì chèn vào ô nhập.":
+    "Collapse a paste longer than 3 lines or 200 characters into a compact tile instead of inserting it into the field.",
+  "Đoạn dán": "Pasted text",
+  "1 dòng": "1 line",
+  "Xem đoạn dán, {{lines}}": "Open pasted text, {{lines}}",
+  "Nội dung đoạn dán": "Pasted text content",
+  "Gỡ đoạn dán": "Remove pasted text",
+  "Tin nhắn dài hơn 32.000 ký tự. Hãy gỡ hoặc rút gọn đoạn dán trước khi gửi.":
+    "The message is longer than 32,000 characters. Remove or shorten a pasted text before sending.",
   // MEM-285 a Zalo group answers only once an administrator allows it
   "Cho phép trả lời": "Allow answers",
   "Cho phép trả lời trong {{v1}}": "Allow answers in {{v1}}",

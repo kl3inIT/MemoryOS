@@ -24899,6 +24899,10 @@ components:
           type:
           - string
           - "null"
+        ownerSpeaker:
+          type: "null"
+          $ref: "#/components/schemas/MeetingSpeakerRef"
+          description: The voice that owns the work; named by the meeting's speakers
         due:
           type:
           - string
@@ -24927,6 +24931,21 @@ components:
       - quote
       - sourceUtteranceId
       - text
+    MeetingSpeakerRef:
+      type: object
+      description: "One voice of the meeting, as its speakers list names it"
+      properties:
+        track:
+          type: string
+          enum:
+          - MIC
+          - TAB
+        label:
+          type: string
+          pattern: "^[0-9A-Za-z_-]{1,16}$"
+      required:
+      - label
+      - track
     MeetingMinutesSummaryRequest:
       type: object
       properties:
@@ -24962,6 +24981,11 @@ components:
           - "null"
           maxLength: 200
           minLength: 0
+        ownerSpeaker:
+          type: "null"
+          $ref: "#/components/schemas/MeetingSpeakerRef"
+          description: "A voice of the meeting as the owner, instead of a written\
+            \ name"
         due:
           type:
           - string
@@ -27265,6 +27289,12 @@ components:
           format: uuid
           description: The assistant the member's direct messages to a bot answer
             with; null keeps the bot's own
+        pasteAsTile:
+          type:
+          - boolean
+          - "null"
+          description: Collapse a paste over 3 lines or 200 characters into a composer
+            tile; absent is off
       required:
       - autoScroll
       - personalPreferences
@@ -27350,6 +27380,10 @@ components:
           format: uuid
           description: The assistant the member's direct messages to a bot answer
             with; absent for the bot's own
+        pasteAsTile:
+          type: boolean
+          description: Collapse a paste of more than 3 lines or 200 characters into
+            a composer tile
         displayName:
           type:
           - string
@@ -27363,6 +27397,7 @@ components:
       - defaultModelId
       - displayName
       - email
+      - pasteAsTile
       - personalPreferences
       - reasoningEffortDefault
       - temperatureDefault
@@ -29639,6 +29674,11 @@ components:
           - "null"
           maxLength: 200
           minLength: 0
+        ownerSpeaker:
+          type: "null"
+          $ref: "#/components/schemas/MeetingSpeakerRef"
+          description: "A voice of the meeting as the owner, instead of a written\
+            \ name"
         due:
           type:
           - string

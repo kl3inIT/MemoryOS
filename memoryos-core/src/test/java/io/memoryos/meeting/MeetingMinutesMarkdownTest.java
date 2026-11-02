@@ -62,6 +62,20 @@ class MeetingMinutesMarkdownTest {
         assertFalse(text.contains("## Việc cần làm"));
     }
 
+    @Test
+    void workOwnedByAVoiceIsNamedAsTheVoiceIsNamedNow() {
+        var voice = new Meeting.SpeakerRef(Meeting.Track.MIC, "1");
+        var minutes = new Meeting.Minutes(Meeting.MinutesStatus.READY, null, "Tóm tắt.", "Họp",
+                Instant.parse("2026-09-21T03:15:00Z"), List.of(),
+                List.of(new Meeting.MinutesItem(UUID.randomUUID(), Meeting.ItemKind.ACTION, "Gửi sơ đồ kiến trúc", null,
+                        null, null, null, false, false, voice)));
+
+        assertTrue(render(meeting(List.of(new Meeting.Speaker(Meeting.Track.MIC, "1", null)), minutes))
+                .contains("- Gửi sơ đồ kiến trúc — Người nói 1\n"), "an unnamed voice reads as the transcript reads it");
+        assertTrue(render(meeting(List.of(new Meeting.Speaker(Meeting.Track.MIC, "1", "Chị Lan")), minutes))
+                .contains("- Gửi sơ đồ kiến trúc — Chị Lan\n"), "naming the voice names the work, with no rerun");
+    }
+
     private static String render(Meeting.Detail meeting) {
         return new String(MeetingMinutesMarkdown.render(meeting), StandardCharsets.UTF_8);
     }
@@ -79,6 +93,12 @@ class MeetingMinutesMarkdownTest {
                 List.of(new Meeting.MinutesItem(UUID.randomUUID(), Meeting.ItemKind.ACTION,
                         "Kiểm tra bảng cân đối", "Anh Minh", "thứ Tư", "Anh Minh kiểm tra lại các bảng cân đối.",
                         null, false)));
+    }
+
+    private static Meeting.Detail meeting(List<Meeting.Speaker> speakers, Meeting.Minutes minutes) {
+        return new Meeting.Detail(UUID.randomUUID(), "Họp", Meeting.Kind.IN_PERSON, "vi", List.of(), List.of(), "",
+                Meeting.Status.ENDED, "SONIOX", true, Instant.parse("2026-09-21T02:00:00Z"),
+                Instant.parse("2026-09-21T03:15:00Z"), 4, speakers, List.of(), minutes, audio(), true, List.of());
     }
 
     private static Meeting.Detail meeting() {

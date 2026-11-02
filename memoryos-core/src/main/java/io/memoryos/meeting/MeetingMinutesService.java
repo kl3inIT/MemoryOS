@@ -73,7 +73,7 @@ public class MeetingMinutesService {
         var subject = new TranscriptSummarizer.Subject(meeting.title(), meeting.participants(),
                 WHEN.format(meeting.createdAt()), meeting.notes(), meeting.language());
         var summary = summarizer.summarize(new ActorId(claim.owner()), claim.tenant(), subject, lines);
-        var items = items(summary, utterances);
+        var items = items(summary, utterances, names);
         boolean stored = Boolean.TRUE.equals(tx.execute(ignored -> meetings.writeMinutes(claim.tenant(), claim.id(),
                 claim.attempts(), summary.summary(), summary.kind(), items)));
         // Another replica took the meeting over after this lease lapsed; it owns the outcome.
@@ -81,15 +81,20 @@ public class MeetingMinutesService {
     }
 
     /** Turns the model's line numbers back into utterance ids, so every item can be traced to what was said. */
-    private static List<Meeting.MinutesItem> items(TranscriptSummary summary, List<Meeting.Utterance> utterances) {
+    private static List<Meeting.MinutesItem> items(TranscriptSummary summary, List<Meeting.Utterance> utterances,
+                                                   SpeakerNames names) {
         var items = new ArrayList<Meeting.MinutesItem>(summary.decisions().size() + summary.actions().size());
         for (var decision : summary.decisions())
             items.add(new Meeting.MinutesItem(UUID.randomUUID(), Meeting.ItemKind.DECISION, bounded(decision.text()), null,
                     null, bounded(decision.quote()), source(decision.line(), utterances), false));
-        for (var action : summary.actions())
+        for (var action : summary.actions()) {
+            // An owner the transcript showed as a voice points at that voice, so naming it later names the work.
+            String owner = shortText(action.owner());
+            var voice = owner == null ? null : names.voice(owner);
             items.add(new Meeting.MinutesItem(UUID.randomUUID(), Meeting.ItemKind.ACTION, bounded(action.text()),
-                    shortText(action.owner()), shortText(action.due()), bounded(action.quote()),
-                    source(action.line(), utterances), false));
+                    voice == null ? owner : null, shortText(action.due()), bounded(action.quote()),
+                    source(action.line(), utterances), false, false, voice));
+        }
         for (var topic : summary.topics())
             items.add(new Meeting.MinutesItem(UUID.randomUUID(), Meeting.ItemKind.TOPIC, bounded(topic.title()), null,
                     null, null, source(topic.line(), utterances), false));

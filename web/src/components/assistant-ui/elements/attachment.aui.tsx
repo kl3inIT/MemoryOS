@@ -10,7 +10,7 @@ import {
   Dialog as DialogPrimitive,
   Avatar as AvatarPrimitive,
 } from "radix-ui";
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactElement } from "react";
 const Tooltip = TooltipPrimitive.Root;
 const TooltipProvider = TooltipPrimitive.Provider;
 const TooltipTrigger = TooltipPrimitive.Trigger;
@@ -322,8 +322,11 @@ function PendingAttachmentUI({ item }: { item: ComposerPendingAttachment }) {
  */
 export function ComposerAttachments({
   pending = [],
+  extra = [],
 }: {
   pending?: readonly ComposerPendingAttachment[];
+  /** Further keyed tiles after the files, such as the draft's collapsed pastes. */
+  extra?: readonly ReactElement[];
 }) {
   const { t } = useTranslation("attachments");
   const attachments = useAuiState((state) => state.composer.attachments);
@@ -336,6 +339,7 @@ export function ComposerAttachments({
       />
     )),
     ...pending.map((item) => <PendingAttachmentUI key={`pending:${item.id}`} item={item} />),
+    ...extra,
   ];
   if (items.length === 0) return null;
   return (

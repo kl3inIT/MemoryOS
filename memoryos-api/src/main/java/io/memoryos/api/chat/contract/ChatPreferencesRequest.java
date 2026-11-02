@@ -18,10 +18,14 @@ public record ChatPreferencesRequest(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean autoScroll,
         @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true,
                 description = "The assistant the member's direct messages to a bot answer with; null keeps the bot's own")
-        @Nullable UUID channelPersonaId
+        @Nullable UUID channelPersonaId,
+        @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED,
+                nullable = true,
+                description = "Collapse a paste over 3 lines or 200 characters into a composer tile; absent is off")
+        @Nullable Boolean pasteAsTile
 ) {
     public ChatPreferences toInput() {
         return new ChatPreferences(workRole, personalPreferences, defaultModelId, temperatureDefault, reasoningEffortDefault,
-                autoScroll, channelPersonaId);
+                autoScroll, channelPersonaId, Boolean.TRUE.equals(pasteAsTile));
     }
 }
