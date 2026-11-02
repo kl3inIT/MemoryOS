@@ -289,7 +289,8 @@
   --sidebar-foreground: var(--content-primary);
   --sidebar-primary: var(--action-primary);
   --sidebar-primary-foreground: var(--action-primary-foreground);
-  --sidebar-accent: var(--action-ghost-hover);
+  /* The sidebar sits on the canvas, which the ghost hover equals; its rows hover one step darker. */
+  --sidebar-accent: var(--surface-sunken);
   --sidebar-accent-foreground: var(--content-primary);
   --sidebar-border: var(--border-subtle);
   --sidebar-ring: var(--focus-ring);
