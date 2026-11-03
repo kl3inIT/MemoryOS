@@ -16,6 +16,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.Semaphore;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,6 +48,15 @@ public class TranscriptSummarizer {
     static final int PART_CHARS = 15_000;
     /** Lines a part repeats from the one before, so work said across a boundary is read whole. */
     static final int OVERLAP_LINES = 10;
+    /** At most this much of a part repeats the one before, so long lines still move the reading on. */
+    static final int OVERLAP_CHARS = PART_CHARS / 5;
+    /** Parts read at once: the model's provider takes a few calls at a time, not every part of a long meeting. */
+    static final int PARTS_AT_ONCE = 3;
+    /**
+     * The first reading ends within this, leaving the second its {@link #TIMEOUT}, so both fit the ten minutes the
+     * minutes job holds a meeting for before another worker may take it.
+     */
+    static final Duration FIRST_READING = Duration.ofMinutes(5);
     private static final Logger LOG = LoggerFactory.getLogger(TranscriptSummarizer.class);
 
     private final ModelResolver models;
@@ -120,12 +133,7 @@ public class TranscriptSummarizer {
             try {
                 var decisions = new ArrayList<TranscriptSummary.Decision>();
                 var actions = new ArrayList<TranscriptSummary.Action>();
-                var parts = parts(lines);
-                for (int part = 0; part < parts.size(); part++) {
-                    // The binding carries the level chosen for the minutes task, medium unless an administrator changed it.
-                    var found = calls.generateObject(selected.binding(), extraction(subject),
-                            part(subject, parts.get(part), part + 1, parts.size()), Extraction.class, TIMEOUT,
-                            MAX_OUTPUT_TOKENS, accounting -> record(tenant, actor, selected, accounting));
+                for (var found : readParts(actor, tenant, selected, subject, parts(readable(lines)))) {
                     found.decisions().stream().filter(decision -> hasText(decision.text())).forEach(decisions::add);
                     found.actions().stream().filter(action -> hasText(action.text())).forEach(actions::add);
                 }
@@ -140,9 +148,71 @@ public class TranscriptSummarizer {
     }
 
     /**
-     * The transcript in parts of about {@link #PART_CHARS} characters, on line boundaries, each opening with the last
-     * {@link #OVERLAP_LINES} lines of the part before, so work said across a boundary is read whole. A transcript that
-     * fits is one part.
+     * Reads the parts a few at a time, in their order, within {@link #FIRST_READING}: each call may take what is left
+     * of it, so a slow provider fails the reading in time for the job to try again rather than outlast its hold on the
+     * meeting. The binding carries the level chosen for the minutes task, medium unless an administrator changed it.
+     */
+    private List<Extraction> readParts(ActorId actor, UUID tenant, ModelResolver.Resolved selected, Subject subject,
+                                       List<List<Line>> parts) {
+        var deadline = Instant.now().plus(FIRST_READING);
+        var permits = new Semaphore(PARTS_AT_ONCE);
+        String instructions = extraction(subject);
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            var readings = new ArrayList<Future<Extraction>>(parts.size());
+            for (int part = 0; part < parts.size(); part++) {
+                String input = part(subject, parts.get(part), part + 1, parts.size());
+                readings.add(executor.submit(() -> {
+                    permits.acquire();
+                    try {
+                        var left = Duration.between(Instant.now(), deadline);
+                        if (left.isNegative() || left.isZero()) throw TurnFailure.DEADLINE.exception();
+                        return calls.generateObject(selected.binding(), instructions, input, Extraction.class,
+                                left.compareTo(TIMEOUT) < 0 ? left : TIMEOUT, MAX_OUTPUT_TOKENS,
+                                accounting -> record(tenant, actor, selected, accounting));
+                    } finally {
+                        permits.release();
+                    }
+                }));
+            }
+            var found = new ArrayList<Extraction>(parts.size());
+            try {
+                for (var reading : readings) found.add(reading.get());
+            } catch (ExecutionException failure) {
+                readings.forEach(reading -> reading.cancel(true));
+                if (failure.getCause() instanceof RuntimeException cause) throw cause;
+                throw new IllegalStateException("A part of the minutes could not be read", failure.getCause());
+            } catch (InterruptedException interrupted) {
+                readings.forEach(reading -> reading.cancel(true));
+                Thread.currentThread().interrupt();
+                throw TurnFailure.DEADLINE.exception();
+            }
+            return found;
+        }
+    }
+
+    /**
+     * The lines the first reading takes: all of them up to {@link #MAX_INPUT_CHARS}, past it the opening and the end,
+     * as the second reading's transcript keeps them, so a very long meeting costs no more calls than a long one.
+     */
+    static List<Line> readable(List<Line> lines) {
+        int total = lines.stream().mapToInt(line -> render(line).length()).sum();
+        if (total <= MAX_INPUT_CHARS) return lines;
+        int head = 0;
+        for (int size = 0; head < lines.size() && size + render(lines.get(head)).length() <= MAX_INPUT_CHARS / 2; head++)
+            size += render(lines.get(head)).length();
+        int tail = lines.size();
+        for (int size = 0; tail > head && size + render(lines.get(tail - 1)).length() <= MAX_INPUT_CHARS / 2; tail--)
+            size += render(lines.get(tail - 1)).length();
+        var kept = new ArrayList<Line>(head + lines.size() - tail);
+        kept.addAll(lines.subList(0, head));
+        kept.addAll(lines.subList(tail, lines.size()));
+        return kept;
+    }
+
+    /**
+     * The transcript in parts of about {@link #PART_CHARS} characters, on line boundaries, each opening with up to
+     * {@link #OVERLAP_LINES} lines and {@link #OVERLAP_CHARS} characters of the part before, so work said across a
+     * boundary is read whole while every part still moves the reading on. A transcript that fits is one part.
      */
     static List<List<Line>> parts(List<Line> lines) {
         var parts = new ArrayList<List<Line>>();
@@ -154,7 +224,11 @@ public class TranscriptSummarizer {
                 size += render(lines.get(end++)).length();
             parts.add(List.copyOf(lines.subList(start, end)));
             if (end == lines.size()) break;
-            start = Math.max(end - OVERLAP_LINES, start + 1);
+            int next = end;
+            for (int overlap = 0; next > start + 1 && end - next < OVERLAP_LINES
+                    && overlap + render(lines.get(next - 1)).length() <= OVERLAP_CHARS; next--)
+                overlap += render(lines.get(next - 1)).length();
+            start = next;
         }
         return parts;
     }

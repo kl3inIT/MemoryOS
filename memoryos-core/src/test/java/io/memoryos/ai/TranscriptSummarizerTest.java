@@ -103,6 +103,28 @@ class TranscriptSummarizerTest {
     }
 
     @Test
+    void longLinesStillMoveTheReadingOnAndAVeryLongMeetingCostsNoMoreThanALongOne() {
+        String said = "Một câu rất dài. ".repeat(800);
+        var wide = IntStream.rangeClosed(1, 40)
+                .mapToObj(n -> new TranscriptSummarizer.Line(n, "Người nói 1", "00:00", said)).toList();
+        var parts = TranscriptSummarizer.parts(wide);
+        assertEquals(40, parts.size(), "a line past the overlap budget is not read twice");
+        assertEquals(40, parts.stream().mapToInt(List::size).sum());
+
+        var endless = IntStream.rangeClosed(1, 20_000)
+                .mapToObj(n -> new TranscriptSummarizer.Line(n, "Người nói 1", "00:00", "Một câu đủ dài để chia phần."))
+                .toList();
+        var kept = TranscriptSummarizer.readable(endless);
+        int size = kept.stream().mapToInt(line -> TranscriptSummarizer.render(line).length()).sum();
+        assertTrue(size <= TranscriptSummarizer.MAX_INPUT_CHARS, "read up to the budget, " + size);
+        assertEquals(1, kept.getFirst().number(), "the opening is read");
+        assertEquals(20_000, kept.getLast().number(), "the end is read");
+        assertTrue(TranscriptSummarizer.parts(kept).size()
+                <= TranscriptSummarizer.MAX_INPUT_CHARS / (TranscriptSummarizer.PART_CHARS - TranscriptSummarizer.OVERLAP_CHARS) + 1);
+        assertEquals(TWO, TranscriptSummarizer.readable(TWO), "a meeting within the budget is read whole");
+    }
+
+    @Test
     void theMinutesKeepTheEvidenceOfTheClearestCandidateAndLeaveOutTheRest() {
         var decisions = List.of(
                 new TranscriptSummary.Decision("Chốt ngân sách", "Chốt ngân sách trước thứ Năm.", 1),

@@ -3,6 +3,7 @@
 - [x] Parts: line-bounded, about 15,000 characters, 10 lines of overlap; a short transcript is one part.
 - [x] First reading per part with the MEM-305 rules for a part; candidates with evidence first.
 - [x] Second reading of the whole with the numbered candidates: groups, left-out candidates, topics, summary, kind; never adds.
+- [x] Bounds: first reading capped at 120,000 characters (both ends), overlap capped at 3,000 characters, three parts at once within five minutes.
 - [x] Assembly: evidence, owner and deadline from the group's candidates; unknown, repeated and wrong-kind numbers ignored.
 - [x] Tests: `TranscriptSummarizerTest` (parts, prompts, assembly, both schemas), `ChatSessionApiIntegrationTest` (two readings, two usage rows).
 - [ ] Deploy to staging and run the minutes benchmark; compare with MEM-305.
