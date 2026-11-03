@@ -42,12 +42,15 @@ class TranscriptSummarizerTest {
         String body = IntStream.rangeClosed(1, 3_000)
                 .mapToObj(line -> "[" + line + "] 00:00:00 Người nói 1: Một câu dài để vượt ngưỡng.\n")
                 .collect(Collectors.joining());
-        String bounded = TranscriptSummarizer.bounded(body);
+        String bounded = TranscriptSummarizer.bounded(body, TranscriptSummarizer.MAX_INPUT_CHARS, true);
         assertTrue(body.length() > 120_000, "the transcript has to pass the budget for this to mean anything");
         assertTrue(bounded.length() < body.length());
         assertTrue(bounded.startsWith("[1] "), "the opening is kept");
         assertTrue(bounded.endsWith("[3000] 00:00:00 Người nói 1: Một câu dài để vượt ngưỡng.\n"), "the end is kept");
         assertTrue(bounded.contains("part of the meeting is missing"), "the model is told to say so");
+        String read = TranscriptSummarizer.bounded(body, TranscriptSummarizer.MAX_INPUT_CHARS, false);
+        assertFalse(read.contains("part of the meeting is missing"), "not when the first reading read the middle");
+        assertTrue(read.contains("the candidates were read from it"));
     }
 
     @Test
@@ -73,8 +76,9 @@ class TranscriptSummarizerTest {
         assertTrue(instructions.contains("Put the candidates that record one thing in one group, the clearest first"));
         assertTrue(instructions.contains("Leave out a candidate that does not belong"));
         assertTrue(instructions.contains("Group only the candidates you are given"));
+        assertTrue(instructions.contains("the candidate with the final one goes first"), "a changed deadline wins");
         assertTrue(instructions.contains("Decisions are every choice the meeting settled"), "both readings agree");
-        String prompt = TranscriptSummarizer.review(SUBJECT, TWO,
+        String prompt = TranscriptSummarizer.review(SUBJECT, TWO, false,
                 List.of(new TranscriptSummary.Decision("Chốt ngân sách", "Chốt ngân sách trước thứ Năm.", 1)),
                 List.of(new TranscriptSummary.Action("Gửi bảng KPI", "Chị Lan", "chiều nay", "Em gửi bảng KPI chiều nay.", 2)));
         int candidates = prompt.indexOf("<candidates>");
@@ -129,23 +133,24 @@ class TranscriptSummarizerTest {
         var decisions = List.of(
                 new TranscriptSummary.Decision("Chốt ngân sách", "Chốt ngân sách trước thứ Năm.", 1),
                 new TranscriptSummary.Decision("Chốt ngân sách quý 4", "quý 4", 7),
-                new TranscriptSummary.Decision("Dùng mã 903", "mã 903", 5));
+                new TranscriptSummary.Decision("Dùng mã 903", "mã 903", 5),
+                new TranscriptSummary.Decision("Chốt ngân sách sai dòng", "ngân sách", 99));
         var actions = List.of(
                 new TranscriptSummary.Action("Gửi KPI", null, null, "Em gửi bảng KPI chiều nay.", 2),
                 new TranscriptSummary.Action("Gửi bảng KPI", "Chị Lan", "chiều nay", "bảng KPI", 4),
                 new TranscriptSummary.Action("Tách lời phút 38", null, null, "tách lời", 6));
         var reviewed = new TranscriptSummarizer.Consolidation(
-                List.of(new TranscriptSummarizer.Consolidation.Group(List.of("d1", "D2", "D9", "A1"), "Chốt ngân sách quý 4 trước thứ Năm"),
-                        new TranscriptSummarizer.Consolidation.Group(List.of("D2"), "Lặp lại")),
+                List.of(new TranscriptSummarizer.Consolidation.Group(List.of("D4", "d1", "D2", "D9", "A1"), "Chốt ngân sách quý 4 trước thứ Năm"),
+                        new TranscriptSummarizer.Consolidation.Group(List.of("D02", "D001"), "Lặp lại")),
                 List.of(new TranscriptSummarizer.Consolidation.Group(List.of("A1", "A2"), " "),
                         new TranscriptSummarizer.Consolidation.Group(List.of("D3", "A99999999"), "Sai loại")),
                 List.of(new TranscriptSummary.Topic("Ngân sách", 1)), "Tóm tắt.", "Giao ban");
-        var minutes = TranscriptSummarizer.assemble(reviewed, decisions, actions);
+        var minutes = TranscriptSummarizer.assemble(reviewed, decisions, actions, 10);
 
-        assertEquals(1, minutes.decisions().size(), "a candidate placed once is not placed again");
+        assertEquals(1, minutes.decisions().size(), "a candidate placed once is not placed again, as D02 or D001 either");
         var decision = minutes.decisions().getFirst();
         assertEquals("Chốt ngân sách quý 4 trước thứ Năm", decision.text());
-        assertEquals(1, decision.line(), "the evidence is the first candidate's");
+        assertEquals(1, decision.line(), "the evidence is the first candidate's whose line is in the transcript");
         assertEquals("Chốt ngân sách trước thứ Năm.", decision.quote());
         assertEquals(1, minutes.actions().size(), "a candidate in no group, or of the other kind, is left out");
         var action = minutes.actions().getFirst();

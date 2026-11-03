@@ -20,6 +20,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
+import java.util.function.IntUnaryOperator;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -138,9 +139,9 @@ public class TranscriptSummarizer {
                     found.actions().stream().filter(action -> hasText(action.text())).forEach(actions::add);
                 }
                 var reviewed = calls.generateObject(selected.binding(), consolidation(subject),
-                        review(subject, lines, decisions, actions), Consolidation.class, TIMEOUT, MAX_OUTPUT_TOKENS,
+                        review(subject, lines, readable(lines).size() < lines.size(), decisions, actions), Consolidation.class, TIMEOUT, MAX_OUTPUT_TOKENS,
                         accounting -> record(tenant, actor, selected, accounting));
-                return clean(assemble(reviewed, decisions, actions), lines);
+                return clean(assemble(reviewed, decisions, actions, lines.size()), lines);
             } catch (RuntimeException failure) {
                 throw named(selected.binding(), failure);
             }
@@ -234,26 +235,27 @@ public class TranscriptSummarizer {
     }
 
     /**
-     * The minutes from the second reading's groups. Every item keeps the evidence of the candidate listed first: its
+     * The minutes from the second reading's groups. Every item keeps the evidence of the first candidate whose line is
+     * in the transcript: its
      * quote and line, which the first reading took from the transcript and {@link MinutesChecks} checks. An action
      * takes the first owner and deadline a candidate of its group gives. A number that names no candidate, one already
      * placed, or a candidate of the other kind is ignored, and a candidate in no group is left out.
      */
     static TranscriptSummary assemble(Consolidation reviewed, List<TranscriptSummary.Decision> decisions,
-                                      List<TranscriptSummary.Action> actions) {
+                                      List<TranscriptSummary.Action> actions, int lines) {
         var placed = new HashSet<String>();
         var keptDecisions = new ArrayList<TranscriptSummary.Decision>();
         for (var group : reviewed.decisions()) {
             var members = members(group, 'D', decisions.size(), placed);
             if (members.isEmpty()) continue;
-            var first = decisions.get(members.getFirst());
+            var first = decisions.get(evidence(members, member -> decisions.get(member).line(), lines));
             keptDecisions.add(new TranscriptSummary.Decision(said(group, first.text()), first.quote(), first.line()));
         }
         var keptActions = new ArrayList<TranscriptSummary.Action>();
         for (var group : reviewed.actions()) {
             var members = members(group, 'A', actions.size(), placed);
             if (members.isEmpty()) continue;
-            var first = actions.get(members.getFirst());
+            var first = actions.get(evidence(members, member -> actions.get(member).line(), lines));
             @Nullable String owner = null;
             @Nullable String due = null;
             for (int member : members) {
@@ -265,6 +267,12 @@ public class TranscriptSummarizer {
                     first.line()));
         }
         return new TranscriptSummary(reviewed.summary(), reviewed.kind(), keptDecisions, keptActions, reviewed.topics());
+    }
+
+    /** The first candidate of a group whose line is in the transcript, or its first when none is. */
+    private static int evidence(List<Integer> members, IntUnaryOperator line, int lines) {
+        return members.stream().filter(member -> within(line.applyAsInt(member), lines) > 0).findFirst()
+                .orElse(members.getFirst());
     }
 
     /** The group's own words for its one thing, or its first candidate's when the reading gave none. */
@@ -280,7 +288,7 @@ public class TranscriptSummarizer {
             if (id.length() < 2 || id.length() > 7 || id.charAt(0) != kind
                     || !id.substring(1).chars().allMatch(Character::isDigit)) continue;
             int number = Integer.parseInt(id.substring(1));
-            if (number >= 1 && number <= count && placed.add(id)) members.add(number - 1);
+            if (number >= 1 && number <= count && placed.add(kind + Integer.toString(number))) members.add(number - 1);
         }
         return members;
     }
@@ -379,7 +387,8 @@ public class TranscriptSummarizer {
 
                 Several candidates may record the same decision or the same piece of work in different words, because \
                 it came up more than once or the parts overlapped. Put the candidates that record one thing in one \
-                group, the clearest first, and say that thing once. Two different pieces of work stay two groups even \
+                group, the clearest first, and say that thing once; when the meeting changed an owner or a deadline, \
+                the candidate with the final one goes first. Two different pieces of work stay two groups even \
                 when they were said together. Leave out a candidate that does not belong by the definitions above, \
                 such as work done during the meeting or information someone gave; keep every other one, since a \
                 missing item costs the reader more than one extra short item. Group only the candidates you are \
@@ -394,27 +403,31 @@ public class TranscriptSummarizer {
     }
 
     /** The whole transcript, then the candidates with their evidence, then the task again. */
-    static String review(Subject subject, List<Line> lines, List<TranscriptSummary.Decision> decisions,
+    static String review(Subject subject, List<Line> lines, boolean missing, List<TranscriptSummary.Decision> decisions,
                          List<TranscriptSummary.Action> actions) {
-        var text = heading(subject);
-        var body = new StringBuilder();
-        lines.forEach(line -> body.append(render(line)));
-        text.append("\n<transcript>\n").append(bounded(body.toString())).append("</transcript>\n\n<candidates>\n");
+        var candidates = new StringBuilder();
         for (int i = 0; i < decisions.size(); i++) {
             var decision = decisions.get(i);
-            text.append('D').append(i + 1).append(" [line ").append(decision.line()).append("] ").append(decision.text())
-                    .append(quoted(decision.quote())).append('\n');
+            candidates.append('D').append(i + 1).append(" [line ").append(decision.line()).append("] ")
+                    .append(decision.text()).append(quoted(decision.quote())).append('\n');
         }
         for (int i = 0; i < actions.size(); i++) {
             var action = actions.get(i);
-            text.append('A').append(i + 1).append(" [line ").append(action.line()).append("] ").append(action.text());
+            candidates.append('A').append(i + 1).append(" [line ").append(action.line()).append("] ").append(action.text());
             String owner = action.owner();
-            if (owner != null && !owner.isBlank()) text.append(" (owner: ").append(owner.strip()).append(')');
+            if (owner != null && !owner.isBlank()) candidates.append(" (owner: ").append(owner.strip()).append(')');
             String due = action.due();
-            if (due != null && !due.isBlank()) text.append(" (due: ").append(due.strip()).append(')');
-            text.append(quoted(action.quote())).append('\n');
+            if (due != null && !due.isBlank()) candidates.append(" (due: ").append(due.strip()).append(')');
+            candidates.append(quoted(action.quote())).append('\n');
         }
-        return text.append("</candidates>\n\n")
+        // The candidates take their room from the transcript's, so the input stays near what one reading of the whole
+        // meeting used; the transcript keeps at least half of it.
+        int budget = Math.max(MAX_INPUT_CHARS - candidates.length(), MAX_INPUT_CHARS / 2);
+        var body = new StringBuilder();
+        lines.forEach(line -> body.append(render(line)));
+        var text = heading(subject);
+        return text.append("\n<transcript>\n").append(bounded(body.toString(), budget, missing))
+                .append("</transcript>\n\n<candidates>\n").append(candidates).append("</candidates>\n\n")
                 .append("Settle the minutes of this meeting from the candidates: one group for each decision and each ")
                 .append("piece of work, the candidates that do not belong left out, then the topics, the summary and ")
                 .append("the kind of meeting.\n").toString();
@@ -442,15 +455,20 @@ public class TranscriptSummarizer {
         return "en".equals(subject.language()) ? "English" : "Vietnamese";
     }
 
-    /** A transcript past the budget keeps its opening and its end, where decisions are made, and says what is missing. */
-    static String bounded(String body) {
-        if (body.length() <= MAX_INPUT_CHARS) return body;
-        int half = MAX_INPUT_CHARS / 2;
+    /**
+     * A transcript past the budget keeps its opening and its end, where decisions are made. When the first reading did
+     * not read the middle either, the summary must say part of the meeting is missing; otherwise the candidates cover
+     * it and the summary must not.
+     */
+    static String bounded(String body, int budget, boolean missing) {
+        if (body.length() <= budget) return body;
+        int half = budget / 2;
         int head = body.lastIndexOf('\n', half);
         int tail = body.indexOf('\n', body.length() - half);
-        return body.substring(0, head < 0 ? half : head)
-                + "\n[…] The middle of this transcript is not shown. Say in the summary that part of the meeting is missing.\n"
-                + body.substring(tail < 0 ? body.length() - half : tail + 1);
+        String note = missing
+                ? "\n[…] The middle of this transcript is not shown. Say in the summary that part of the meeting is missing.\n"
+                : "\n[…] The middle of this transcript is not shown here, but the candidates were read from it.\n";
+        return body.substring(0, head < 0 ? half : head) + note + body.substring(tail < 0 ? body.length() - half : tail + 1);
     }
 
     /**
