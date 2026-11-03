@@ -8,8 +8,10 @@
 - [x] Tests: `TranscriptSummarizerTest` (parts, prompts, assembly, both schemas), `ChatSessionApiIntegrationTest` (two readings, two usage rows).
 - [x] First measurement: decision recall fell to 0.37; see the design.
 - [x] Merge-only step: no exclusion of information, every candidate kept.
-- [ ] Deploy the merge-only step to staging and measure it; keep or revert.
+- [x] Merge-only step measured: still worse than MEM-305.
+- [x] Reverted (#882, #883); results recorded in the design and the meeting test matrix.
 
 ## Status
 
 - 2026-11-03: opened after the MEM-305 result; the owner agreed to merge the repeat and extra fix with reading in parts.
+- 2026-11-03: measured twice, worse than MEM-305 both times; reverted at the owner's go-ahead.

@@ -4780,20 +4780,14 @@ class ChatSessionApiIntegrationTest {
             prompts.add(text);
             if (call.getArgument(0, Prompt.class).getOptions() instanceof OpenAiChatOptions options
                     && options.getOutputSchema() != null) schemas.add(options.getOutputSchema());
-            // MEM-306: the first reading notes candidates in each part; the second, which is given them, groups them.
-            if (text.contains("<candidates>")) return response("""
-                    {"decisions":[{"candidates":["D1","D2"],"text":"Chốt ngân sách quý 4 trước thứ Năm"}],
-                     "actions":[{"candidates":["A1"],"text":"Gửi bảng KPI tháng 9"},{"candidates":["A2"],"text":"Không có"}],
-                     "topics":[{"title":"Số liệu KPI","line":2},{"title":"Ngân sách quý 4","line":1},
-                               {"title":"Trùng dòng","line":1},{"title":"Không có dòng này","line":9}],
-                     "summary":"Cuộc họp chốt ngân sách quý 4 trước thứ Năm.","kind":"Giao ban tuần"}
-                    """, "stop", 40);
             return response("""
-                    {"decisions":[{"quote":"Chốt ngân sách quý 4 trước thứ Năm.","line":1,"text":"Chốt ngân sách quý 4 trước thứ Năm"},
-                                  {"quote":"Chốt ngân sách quý 4","line":1,"text":"Ngân sách quý 4"}],
-                     "actions":[{"quote":"Em gửi bảng KPI tháng 9 chiều nay.","line":2,"text":"Gửi bảng KPI tháng 9",
-                                 "owner":"Chị Lan","due":"chiều nay"},
-                                {"quote":null,"line":9,"text":"","owner":null,"due":null}]}
+                    {"summary":"Cuộc họp chốt ngân sách quý 4 trước thứ Năm.","kind":"Giao ban tuần",
+                     "decisions":[{"text":"Chốt ngân sách quý 4 trước thứ Năm","quote":"Chốt ngân sách quý 4 trước thứ Năm.","line":1}],
+                     "actions":[{"text":"Gửi bảng KPI tháng 9","owner":"Chị Lan","due":"chiều nay",
+                                 "quote":"Em gửi bảng KPI tháng 9 chiều nay.","line":2},
+                                {"text":"","owner":null,"due":null,"quote":null,"line":9}],
+                     "topics":[{"title":"Số liệu KPI","line":2},{"title":"Ngân sách quý 4","line":1},
+                               {"title":"Trùng dòng","line":1},{"title":"Không có dòng này","line":9}]}
                     """, "stop", 40);
         });
         UUID meeting = UUID.randomUUID();
@@ -4910,9 +4904,8 @@ class ChatSessionApiIntegrationTest {
                     .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(heading))
                     .andExpect(status().isBadRequest())
                     .andExpect(header().string("Content-Type", Matchers.startsWith(MediaType.APPLICATION_PROBLEM_JSON_VALUE)));
-            assertEquals(2, jdbc.sql("SELECT sum(calls) FROM ai_usage WHERE tenant_id=:tenant AND flow='MEETING_MINUTES'")
-                    .param("tenant", TENANT).query(Integer.class).single(),
-                    "each reading, of the one part and of the whole, is billed to the owner's Tenant");
+            assertEquals(1, jdbc.sql("SELECT sum(calls) FROM ai_usage WHERE tenant_id=:tenant AND flow='MEETING_MINUTES'")
+                    .param("tenant", TENANT).query(Integer.class).single(), "the call is billed to the owner's Tenant");
         } finally {
             jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
             jdbc.sql("DELETE FROM ai_usage WHERE tenant_id=:tenant AND flow='MEETING_MINUTES'").param("tenant", TENANT).update();
