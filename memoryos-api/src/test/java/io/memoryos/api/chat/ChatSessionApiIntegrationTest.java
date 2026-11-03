@@ -4904,7 +4904,7 @@ class ChatSessionApiIntegrationTest {
                     .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(heading))
                     .andExpect(status().isBadRequest())
                     .andExpect(header().string("Content-Type", Matchers.startsWith(MediaType.APPLICATION_PROBLEM_JSON_VALUE)));
-            assertEquals(1, jdbc.sql("SELECT count(*) FROM ai_usage WHERE tenant_id=:tenant AND flow='MEETING_MINUTES'")
+            assertEquals(1, jdbc.sql("SELECT sum(calls) FROM ai_usage WHERE tenant_id=:tenant AND flow='MEETING_MINUTES'")
                     .param("tenant", TENANT).query(Integer.class).single(), "the call is billed to the owner's Tenant");
         } finally {
             jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
