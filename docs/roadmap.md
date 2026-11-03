@@ -361,6 +361,8 @@ MEM-36 and MEM-68 are Done. MEM-25 is Done. MEM-55 and MEM-69 are In Progress wi
 
 MEM-79 (standalone OCR in Rancher) is [superseded](increments/superseded/mem-79-rancher-ocr/design.md) by MEM-192 and MEM-171: production OCR runs through PaddleOCR-VL and Docling on the Compose nodes. The [Rancher OCR recipe](../infrastructure/deployment/ocr/README.md) is kept as history and is not the current deployment; Compose runs the upstream Docling Serve image.
 
+MEM-306 (minutes read in parts, then merged) was [measured and reverted](increments/superseded/mem-306-minutes-chunks/design.md#result): it scored below the single reading of MEM-305 on the minutes benchmark.
+
 The [separate structured-chunking draft](increments/superseded/structured-document-chunking/design.md) is retained as historical input. Its DocumentVersion/profile proposals are not current implementation instructions.
 
 Create or link an issue and add an active increment record before implementation begins.

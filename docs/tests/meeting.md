@@ -109,3 +109,5 @@ After the prompt was written by practice ([MEM-305](../increments/active/mem-305
 | Quotes found in their line | 0.96 | 0.94 |
 
 The minutes now find about two thirds of the actions and more than half of the decisions, and wrong owners fall to a third; they write somewhat more that the key does not hold, and repeat an item more often.
+
+Reading the transcript in parts and then merging the candidates ([MEM-306](../increments/superseded/mem-306-minutes-chunks/design.md#result)) was measured twice against MEM-305 and reverted: it found more actions (up to 0.73) but wrote more outside the key (decisions in the key down to 0.45), found fewer decisions (0.37 or 0.50) and barely reduced repeats.
