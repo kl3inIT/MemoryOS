@@ -60,6 +60,7 @@ class TranscriptSummarizerTest {
         assertTrue(vietnamese.contains("Decisions are every choice the meeting settled"));
         assertTrue(vietnamese.contains("Actions are every piece of work someone will do after the meeting"));
         assertTrue(vietnamese.contains("an idea nobody took up does not"), "a proposal is not a decision");
+        assertTrue(vietnamese.contains("information someone gave"), "information is not a decision");
         assertTrue(vietnamese.contains("Work already done, or done during the meeting, is not an action"));
         assertTrue(vietnamese.contains("The one who asks is not the owner"), "the owner is who does the work");
         assertTrue(vietnamese.contains("leave the owner empty and keep the item"), "unowned work is still work");
@@ -73,7 +74,7 @@ class TranscriptSummarizerTest {
     void theSecondReadingMergesAndLeavesOutButNeverAdds() {
         String instructions = TranscriptSummarizer.consolidation(SUBJECT);
         assertTrue(instructions.contains("Put the candidates that record one thing in one group, the clearest first"));
-        assertTrue(instructions.contains("Put every candidate in a group"));
+        assertTrue(instructions.contains("Leave out a candidate that does not belong"));
         assertTrue(instructions.contains("Group only the candidates you are given"));
         assertTrue(instructions.contains("the candidate with the final one goes first"), "a changed deadline wins");
         assertTrue(instructions.contains("Decisions are every choice the meeting settled"), "both readings agree");
@@ -128,7 +129,7 @@ class TranscriptSummarizerTest {
     }
 
     @Test
-    void theMinutesKeepTheEvidenceOfTheClearestCandidateAndEveryCandidateNoGroupHolds() {
+    void theMinutesKeepTheEvidenceOfTheClearestCandidateAndLeaveOutTheRest() {
         var decisions = List.of(
                 new TranscriptSummary.Decision("Chốt ngân sách", "Chốt ngân sách trước thứ Năm.", 1),
                 new TranscriptSummary.Decision("Chốt ngân sách quý 4", "quý 4", 7),
@@ -146,14 +147,12 @@ class TranscriptSummarizerTest {
                 List.of(new TranscriptSummary.Topic("Ngân sách", 1)), "Tóm tắt.", "Giao ban");
         var minutes = TranscriptSummarizer.assemble(reviewed, decisions, actions, 10);
 
-        assertEquals(2, minutes.decisions().size(), "a candidate placed once is not placed again, as D02 or D001 either");
-        assertEquals("Dùng mã 903", minutes.decisions().get(1).text(), "a candidate in no group is an item of its own");
+        assertEquals(1, minutes.decisions().size(), "a candidate placed once is not placed again, as D02 or D001 either");
         var decision = minutes.decisions().getFirst();
         assertEquals("Chốt ngân sách quý 4 trước thứ Năm", decision.text());
         assertEquals(1, decision.line(), "the evidence is the first candidate's whose line is in the transcript");
         assertEquals("Chốt ngân sách trước thứ Năm.", decision.quote());
-        assertEquals(2, minutes.actions().size(), "a number of the other kind places nothing");
-        assertEquals("Tách lời phút 38", minutes.actions().get(1).text(), "the second reading merges, it does not leave out");
+        assertEquals(1, minutes.actions().size(), "a candidate in no group, or of the other kind, is left out");
         var action = minutes.actions().getFirst();
         assertEquals("Gửi KPI", action.text(), "a group without words keeps its first candidate's");
         assertEquals(2, action.line());

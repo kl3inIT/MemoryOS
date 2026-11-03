@@ -239,8 +239,7 @@ public class TranscriptSummarizer {
      * in the transcript: its
      * quote and line, which the first reading took from the transcript and {@link MinutesChecks} checks. An action
      * takes the first owner and deadline a candidate of its group gives. A number that names no candidate, one already
-     * placed, or a candidate of the other kind is ignored, and a candidate in no group becomes an item of its own: the
-     * second reading merges, it does not leave out (MEM-306: leaving out lost real decisions on the benchmark).
+     * placed, or a candidate of the other kind is ignored, and a candidate in no group is left out.
      */
     static TranscriptSummary assemble(Consolidation reviewed, List<TranscriptSummary.Decision> decisions,
                                       List<TranscriptSummary.Action> actions, int lines) {
@@ -267,10 +266,6 @@ public class TranscriptSummarizer {
             keptActions.add(new TranscriptSummary.Action(said(group, first.text()), owner, due, first.quote(),
                     first.line()));
         }
-        for (int i = 0; i < decisions.size(); i++)
-            if (!placed.contains("D" + (i + 1))) keptDecisions.add(decisions.get(i));
-        for (int i = 0; i < actions.size(); i++)
-            if (!placed.contains("A" + (i + 1))) keptActions.add(actions.get(i));
         return new TranscriptSummary(reviewed.summary(), reviewed.kind(), keptDecisions, keptActions, reviewed.topics());
     }
 
@@ -319,7 +314,8 @@ public class TranscriptSummarizer {
     private static final String WHAT_COUNTS = """
             Decisions are every choice the meeting settled: an option chosen, an approach agreed, a date or a scope \
             fixed, a rule set, something approved or ruled out. A proposal counts once it is accepted, even by a short \
-            "ok" or "vâng"; an idea nobody took up does not.
+            "ok" or "vâng"; an idea nobody took up does not, and neither does information someone gave, such as how a \
+            system works or what a rule says.
 
             Actions are every piece of work someone will do after the meeting: work a person took on, work someone was \
             asked to do and did not refuse, and a next step the meeting agreed on. Work already done, or done during \
@@ -393,10 +389,10 @@ public class TranscriptSummarizer {
                 it came up more than once or the parts overlapped. Put the candidates that record one thing in one \
                 group, the clearest first, and say that thing once; when the meeting changed an owner or a deadline, \
                 the candidate with the final one goes first. Two different pieces of work stay two groups even \
-                when they were said together. Put every candidate in a group: a candidate that records nothing \
-                another does is a group of its own, since a missing item costs the reader more than one extra short \
-                item. Group only the candidates you are given: an item no candidate records cannot be checked against \
-                the transcript.
+                when they were said together. Leave out a candidate that does not belong by the definitions above, \
+                such as work done during the meeting or information someone gave; keep every other one, since a \
+                missing item costs the reader more than one extra short item. Group only the candidates you are \
+                given: an item no candidate records cannot be checked against the transcript.
 
                 Then name the subjects the meeting moved through, with the line where each began, write the summary \
                 and say what kind of meeting it was. Where the transcript is broken or a part of it is missing, say \
@@ -433,7 +429,7 @@ public class TranscriptSummarizer {
         return text.append("\n<transcript>\n").append(bounded(body.toString(), budget, missing))
                 .append("</transcript>\n\n<candidates>\n").append(candidates).append("</candidates>\n\n")
                 .append("Settle the minutes of this meeting from the candidates: one group for each decision and each ")
-                .append("piece of work, every candidate in one of them, then the topics, the summary and ")
+                .append("piece of work, the candidates that do not belong left out, then the topics, the summary and ")
                 .append("the kind of meeting.\n").toString();
     }
 
