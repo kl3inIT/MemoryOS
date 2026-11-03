@@ -1,0 +1,12 @@
+# MEM-306 plan
+
+- [x] Parts: line-bounded, about 15,000 characters, 10 lines of overlap; a short transcript is one part.
+- [x] First reading per part with the MEM-305 rules for a part; candidates with evidence first.
+- [x] Second reading of the whole with the numbered candidates: groups, left-out candidates, topics, summary, kind; never adds.
+- [x] Assembly: evidence, owner and deadline from the group's candidates; unknown, repeated and wrong-kind numbers ignored.
+- [x] Tests: `TranscriptSummarizerTest` (parts, prompts, assembly, both schemas), `ChatSessionApiIntegrationTest` (two readings, two usage rows).
+- [ ] Deploy to staging and run the minutes benchmark; compare with MEM-305.
+
+## Status
+
+- 2026-11-03: opened after the MEM-305 result; the owner agreed to merge the repeat and extra fix with reading in parts.
