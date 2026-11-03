@@ -16,12 +16,18 @@ After the prompt was written by practice ([MEM-305](../mem-305-minutes-prompt/de
 ## Decision
 
 1. **First reading, per part.** The transcript is cut on line boundaries into parts of about 15,000 characters (about 4,000 tokens), each repeating the last 10 lines of the part before. Each part is read with the MEM-305 rules for one part and returns candidate decisions and actions, each with its quote and line first.
-2. **Second reading, of the whole.** One call reads the whole transcript (bounded as before) with the candidates, numbered `D1…` and `A1…`, and returns groups: the candidates that record one thing, the clearest first, and that thing said once. It leaves out a candidate that does not belong (work done during the meeting, information someone gave, an idea nobody took up) and writes the topics, the summary and the kind. It cannot add an item: every item of the minutes rests on a candidate.
+2. **Second reading, of the whole.** One call reads the whole transcript (bounded as before) with the candidates, numbered `D1…` and `A1…`, and returns groups: the candidates that record one thing, the clearest first, and that thing said once. It places every candidate in a group (a candidate no group holds becomes an item of its own) and writes the topics, the summary and the kind. It cannot add an item: every item of the minutes rests on a candidate.
 3. **Evidence from the candidate.** An item takes the quote and line of its group's first candidate whose line is in the transcript, and an action the first owner and deadline a candidate of its group gives, the candidate with a changed owner or deadline being put first; numbers that name no candidate, one already placed (however written: D1, D01) or one of the other kind are ignored. `MinutesChecks` (MEM-300) and owner linking (MEM-301) then run as before.
-4. Both readings share the definitions of a decision and an action, now saying that information someone gave is not a decision. Each call's usage is recorded.
+4. Both readings share the definitions of a decision and an action. Each call's usage is recorded.
 
 5. **Bounded cost and time.** The first reading takes at most 120,000 characters, the opening and the end past that as the second reading's transcript keeps them, so at most about ten parts; a part repeats at most 10 lines and 3,000 characters of the one before, so long lines still move the reading on. Parts are read three at a time within five minutes, each call taking what is left of them, and the second reading has its four: both fit the ten minutes the minutes job holds a meeting (a background security review of the first version found the uncapped reading could outlast that hold and multiply calls).
 
 A meeting that fits in one part takes two calls instead of one; the longest benchmark meeting (57,000 characters) takes five. Kept only if the benchmark shows fewer repeats and extras without losing recall.
 
 Known limit: a failed attempt repeats every part on retry, at most about eleven calls per attempt. Keeping part results across attempts needs a store keyed by transcript version and waits for the benchmark result.
+
+## First measurement and the merge-only step
+
+Measured on staging (eval `eval-LKq-2026-11-03T02:57:29`, 17 meetings × 3) against MEM-305: action recall 0.65 (0.64), action precision 0.57 (0.62), decision recall 0.37 (0.57), decision precision 0.62 (0.69), owner accuracy 0.73 (0.77), duplicates 0.06 (0.09), quote in line 0.97 (0.94). The writings hold about as many items as before (2.5 decisions and 8.2 actions against 2.8 and 7.7) but lose real decisions, so the leaving out is the likely cause: the rule that information someone gave is not a decision, and the second reading's licence to drop candidates.
+
+The second step keeps the parts and the merging and removes both: the definitions no longer exclude information, the second reading is told to put every candidate in a group, and a candidate it places in no group becomes an item of its own. If decision recall comes back, leaving out is the cause; the increment is reverted if the result is still worse than MEM-305.

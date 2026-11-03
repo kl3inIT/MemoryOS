@@ -6,7 +6,9 @@
 - [x] Bounds: first reading capped at 120,000 characters (both ends), overlap capped at 3,000 characters, three parts at once within five minutes.
 - [x] Assembly: evidence, owner and deadline from the group's candidates; unknown, repeated and wrong-kind numbers ignored.
 - [x] Tests: `TranscriptSummarizerTest` (parts, prompts, assembly, both schemas), `ChatSessionApiIntegrationTest` (two readings, two usage rows).
-- [ ] Deploy to staging and run the minutes benchmark; compare with MEM-305.
+- [x] First measurement: decision recall fell to 0.37; see the design.
+- [x] Merge-only step: no exclusion of information, every candidate kept.
+- [ ] Deploy the merge-only step to staging and measure it; keep or revert.
 
 ## Status
 
