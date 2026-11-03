@@ -1,7 +1,6 @@
 package io.memoryos.ai;
 
 import java.util.ArrayList;
-import java.util.List;
 import org.springframework.ai.converter.BeanOutputConverter;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -41,10 +40,5 @@ final class OutputSchemas {
             object.put("additionalProperties", false);
         }
         if (node.has("items")) close(node.path("items"));
-        // A type used in more than one place is written once among the definitions and referred to by $ref; strict
-        // mode holds those objects to the same rules.
-        for (String definitions : List.of("$defs", "definitions"))
-            if (node.path(definitions) instanceof ObjectNode shared)
-                for (var definition : shared.properties()) close(definition.getValue());
     }
 }
