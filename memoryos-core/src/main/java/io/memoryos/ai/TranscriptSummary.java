@@ -9,9 +9,9 @@ import org.jspecify.annotations.Nullable;
  * What a model made of one transcript. Every decision and action cites the line it rests on, so a reader can check it;
  * an item without a quote is dropped rather than shown unsupported.
  *
- * <p>The schema sent to the model is generated from these records (MEM-305): each field says what it holds, and the
- * property order is the order the model writes in. The items come before the summary, which then sums up what was
- * found, and each item's quote and line come before its words and owner, so the item is written from its evidence.
+ * <p>The first reading's schema is generated from the item records (MEM-305): each field says what it holds, and the
+ * property order is the order the model writes in, so an item's quote and line come before its words and owner and
+ * the item is written from its evidence. The record as a whole is what the two readings add up to (MEM-306).
  */
 @JsonPropertyOrder({"decisions", "actions", "topics", "summary", "kind"})
 public record TranscriptSummary(
