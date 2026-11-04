@@ -24,6 +24,7 @@ import io.memoryos.connector.SourceId;
 import io.memoryos.document.DocumentChanged;
 import io.memoryos.document.DocumentChunk;
 import io.memoryos.document.DocumentContent;
+import io.memoryos.document.DocumentContentException;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.application.DocumentChunkService;
 import io.memoryos.document.application.StructuredDocumentChunker;
@@ -334,6 +335,33 @@ class SearchIndexWorkIntegrationTest {
         maintenance.reconcile();
         assertFalse(chunks.isCurrent(tenant, document, generation(document), IDENTITY), "Missing chunks still require a full rewrite");
         assertEquals("NOT_STARTED", jdbc.sql("SELECT status FROM search_index_operations WHERE action='INDEX'").query(String.class).single());
+    }
+
+    @Test
+    void repairAndRebuildLeaveAContentRejectionFailedButRetryAnOldRetryableFailure() {
+        publish(null);
+        doThrow(new DocumentContentException("SEARCH_INDEX_CONTENT_LIMIT", "document exceeds chunk limit"))
+                .when(index).index(any(), any());
+        try (var scheduler = Executors.newSingleThreadScheduledExecutor()) {
+            var coordinator = new SearchIngestionCoordinator(work, chunks, index, tx, scheduler, new SimpleMeterRegistry());
+            assertEquals(IngestionCoordinator.Outcome.FAILED, coordinator.process(delivery()));
+        }
+        jdbc.sql("UPDATE search_index_operations SET completed_at=CURRENT_TIMESTAMP - INTERVAL '1' HOUR").update();
+        var maintenance = new SearchProjectionMaintenance(chunks, work, index, new DataSourceTransactionManager(dataSource), 64);
+        maintenance.reconcile();
+        assertEquals("FAILED", jdbc.sql("SELECT status FROM search_index_operations").query(String.class).single(),
+                "Repair must not retry content that fails the same way every time");
+        assertEquals("SEARCH_INDEX_CONTENT_LIMIT", jdbc.sql("SELECT search_error_code FROM documents").query(String.class).single());
+
+        // The same rejection in an index being rebuilt is not queued again either.
+        jdbc.sql("UPDATE search_index_operations SET index_identity=:future").param("future", IDENTITY + "-future").update();
+        assertEquals(0, work.enqueueRebuild(IDENTITY + "-future", 64));
+
+        jdbc.sql("UPDATE search_index_operations SET index_identity=:identity, error_code='SEARCH_INDEX_FAILED'")
+                .param("identity", IDENTITY).update();
+        maintenance.reconcile();
+        assertEquals("NOT_STARTED", jdbc.sql("SELECT status FROM search_index_operations").query(String.class).single(),
+                "A failure that may heal is still retried after 15 minutes");
     }
 
     @Test
