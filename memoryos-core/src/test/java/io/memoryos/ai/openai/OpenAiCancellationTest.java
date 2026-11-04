@@ -130,6 +130,36 @@ class OpenAiCancellationTest {
         } finally { meters.close(); }
     }
 
+    @Test
+    void aCallThatDoesNotStreamWaitsForItsAnswerPastTheReadGap() throws Exception {
+        var meters = new SimpleMeterRegistry();
+        var adapter = new OpenAiProviderAdapter(ObservationRegistry.NOOP, meters);
+        try (var server = new ServerSocket(0, 8, InetAddress.getByName("127.0.0.1"));
+             var executor = Executors.newVirtualThreadPerTaskExecutor();
+             var client = client(adapter, server, Duration.ofSeconds(1))) {
+            server.setSoTimeout(15000);
+            executor.submit(() -> {
+                try (var socket = server.accept()) {
+                    socket.setSoTimeout(15000);
+                    readRequest(socket.getInputStream());
+                    // A reasoning model writing minutes is silent until the whole answer is ready.
+                    Thread.sleep(2500);
+                    byte[] body = ("{\"id\":\"fixture\",\"object\":\"chat.completion\",\"created\":1,\"model\":\"fixture\","
+                            + "\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"Minutes\"},"
+                            + "\"finish_reason\":\"stop\"}]}").getBytes(StandardCharsets.UTF_8);
+                    var output = socket.getOutputStream();
+                    output.write(("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: " + body.length
+                            + "\r\nConnection: close\r\n\r\n").getBytes(StandardCharsets.US_ASCII));
+                    output.write(body);
+                    output.flush();
+                }
+                return null;
+            });
+            var response = client.binding().service().getChatModel().call(prompt());
+            assertEquals("Minutes", response.getResult().getOutput().getText());
+        } finally { meters.close(); }
+    }
+
     private static ProviderAdapter.Client client(OpenAiProviderAdapter adapter, ServerSocket server) {
         return client(adapter, server, Duration.ofSeconds(30));
     }
@@ -137,7 +167,7 @@ class OpenAiCancellationTest {
     private static ProviderAdapter.Client client(OpenAiProviderAdapter adapter, ServerSocket server, Duration readTimeout) {
         return adapter.create(new ProviderAdapter.Connection("http://127.0.0.1:" + server.getLocalPort() + "/v1", "fixture-key"),
                 "fixture", new ModelSettings(1024, 128, new ModelSettings.Capabilities(true, false, false, false, false),
-                        Map.of(), null, TokenizerProfiles.HOSTED), readTimeout);
+                        Map.of(), null, TokenizerProfiles.HOSTED), ProviderAdapter.Timeouts.forChat(readTimeout));
     }
 
     private static void readRequest(InputStream input) throws IOException {

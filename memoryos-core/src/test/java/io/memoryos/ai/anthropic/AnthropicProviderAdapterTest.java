@@ -131,7 +131,7 @@ class AnthropicProviderAdapterTest {
         var meters = new SimpleMeterRegistry();
         var adapter = new AnthropicProviderAdapter(ObservationRegistry.NOOP, meters);
         try (var client = adapter.create(connection(server), "claude-fixture", settings(Map.of("reasoningEffort", "medium"), true),
-                Duration.ofSeconds(5))) {
+                ProviderAdapter.Timeouts.forChat(Duration.ofSeconds(5)))) {
             var binding = client.binding();
             var reasoning = new StringBuilder();
             var model = ((ModelTurns) binding.service().getChatModel()).forTurn(new ModelTurns.Turn(new ModelTurns.Listener() {
@@ -204,10 +204,10 @@ class AnthropicProviderAdapterTest {
         server.start();
         var meters = new SimpleMeterRegistry();
         var adapter = new AnthropicProviderAdapter(ObservationRegistry.NOOP, meters);
-        try (var adaptive = adapter.create(connection(server), "claude-fixture", settings(Map.of(), true), Duration.ofSeconds(5));
+        try (var adaptive = adapter.create(connection(server), "claude-fixture", settings(Map.of(), true), ProviderAdapter.Timeouts.forChat(Duration.ofSeconds(5)));
              var budgeted = adapter.create(connection(server), "claude-fixture",
-                     settings(Map.of("reasoningEffort", "high", "thinkingBudget", true), true), Duration.ofSeconds(5));
-             var plain = adapter.create(connection(server), "claude-fixture", settings(Map.of(), false), Duration.ofSeconds(5))) {
+                     settings(Map.of("reasoningEffort", "high", "thinkingBudget", true), true), ProviderAdapter.Timeouts.forChat(Duration.ofSeconds(5)));
+             var plain = adapter.create(connection(server), "claude-fixture", settings(Map.of(), false), ProviderAdapter.Timeouts.forChat(Duration.ofSeconds(5)))) {
             // A helper call does not think, whatever the model is configured to do.
             var helper = call(budgeted, new LlmOptions().withMaxTokens(100).withoutThinking(), received);
             assertEquals("disabled", helper.path("thinking").path("type").asString());
@@ -245,6 +245,30 @@ class AnthropicProviderAdapterTest {
             assertEquals(1.0, answer.path("temperature").asDouble());
             assertFalse(answer.has("thinking"));
             assertFalse(answer.has("output_config"));
+        } finally { meters.close(); server.stop(0); }
+    }
+
+    @Test
+    void aCallThatDoesNotStreamWaitsForItsAnswerPastTheReadGap() throws Exception {
+        var received = new CopyOnWriteArrayList<Received>();
+        var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/v1/messages", exchange -> {
+            received.add(received(exchange));
+            // A reasoning model writing minutes is silent until the whole answer is ready.
+            try { Thread.sleep(2500); } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+            respond(exchange, "application/json", """
+                    {"id":"msg_4","type":"message","role":"assistant","model":"claude-fixture",
+                    "content":[{"type":"text","text":"Minutes"}],"stop_reason":"end_turn","stop_sequence":null,
+                    "usage":{"input_tokens":3,"output_tokens":1}}
+                    """);
+        });
+        server.start();
+        var meters = new SimpleMeterRegistry();
+        var adapter = new AnthropicProviderAdapter(ObservationRegistry.NOOP, meters);
+        try (var client = adapter.create(connection(server), "claude-fixture", settings(Map.of(), false),
+                ProviderAdapter.Timeouts.forChat(Duration.ofSeconds(1)))) {
+            call(client, new LlmOptions().withMaxTokens(100), received);
+            assertEquals(1, received.size());
         } finally { meters.close(); server.stop(0); }
     }
 
@@ -316,7 +340,7 @@ class AnthropicProviderAdapterTest {
         try (var server = new ServerSocket(0, 8, InetAddress.getByName("127.0.0.1"));
              var executor = Executors.newVirtualThreadPerTaskExecutor();
              var client = adapter.create(new ProviderAdapter.Connection("http://127.0.0.1:" + server.getLocalPort(), "fixture-only"),
-                     "claude-fixture", settings(Map.of(), false), Duration.ofSeconds(30))) {
+                     "claude-fixture", settings(Map.of(), false), ProviderAdapter.Timeouts.forChat(Duration.ofSeconds(30)))) {
             server.setSoTimeout(15000);
             var model = client.binding().service().getChatModel();
             var prompt = new Prompt("Question", AnthropicChatOptions.builder().model("claude-fixture").maxTokens(16).build());

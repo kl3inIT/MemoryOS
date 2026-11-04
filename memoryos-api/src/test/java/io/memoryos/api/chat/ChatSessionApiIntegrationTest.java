@@ -397,7 +397,7 @@ class ChatSessionApiIntegrationTest {
                         known.capabilities().reasoning(), false),
                 Map.of("maxCompletionTokens", known.capabilities().reasoning()), known.pricing(), "openai-o200k-v1");
         return new OpenAiProviderAdapter(ObservationRegistry.NOOP, meters).create(
-                new ProviderAdapter.Connection("https://api.openai.com/v1", key), DEFAULT_MODEL, settings, limits.providerReadTimeout());
+                new ProviderAdapter.Connection("https://api.openai.com/v1", key), DEFAULT_MODEL, settings, ProviderAdapter.Timeouts.forChat(limits.providerReadTimeout()));
     }
 
     @Test
@@ -3672,7 +3672,7 @@ class ChatSessionApiIntegrationTest {
                 @Override public void validate(String url, String name, ModelSettings settings) {
                     ModelCatalogService.validateEndpoint(url);
                 }
-                @Override public Client create(Connection connection, String name, ModelSettings settings, Duration timeout) {
+                @Override public Client create(Connection connection, String name, ModelSettings settings, Timeouts timeouts) {
                     ChatModel nativeModel = new ChatModel() {
                         @Override public ChatResponse call(Prompt prompt) { throw new UnsupportedOperationException(); }
                         @Override public Flux<ChatResponse> stream(Prompt prompt) { return Flux.just(response("Local adapter answer", "stop", 2)); }
