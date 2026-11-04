@@ -160,14 +160,54 @@ class OpenAiCancellationTest {
         } finally { meters.close(); }
     }
 
+    @Test
+    void aCallThatDoesNotStreamEndsAtItsAnswerDeadlineEvenWhileBytesArrive() throws Exception {
+        var meters = new SimpleMeterRegistry();
+        var adapter = new OpenAiProviderAdapter(ObservationRegistry.NOOP, meters);
+        try (var server = new ServerSocket(0, 8, InetAddress.getByName("127.0.0.1"));
+             var executor = Executors.newVirtualThreadPerTaskExecutor();
+             var client = client(adapter, server, new ProviderAdapter.Timeouts(Duration.ofSeconds(1), Duration.ofSeconds(2)))) {
+            server.setSoTimeout(15000);
+            executor.submit(() -> {
+                try (var socket = server.accept()) {
+                    socket.setSoTimeout(15000);
+                    readRequest(socket.getInputStream());
+                    byte[] body = ("{\"id\":\"fixture\",\"object\":\"chat.completion\",\"created\":1,\"model\":\"fixture\","
+                            + "\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"Minutes\"},"
+                            + "\"finish_reason\":\"stop\"}]}").getBytes(StandardCharsets.UTF_8);
+                    var output = socket.getOutputStream();
+                    output.write(("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: " + body.length
+                            + "\r\nConnection: close\r\n\r\n").getBytes(StandardCharsets.US_ASCII));
+                    // A byte every 400 ms never leaves a one-second gap, but the whole answer takes far beyond two seconds.
+                    for (byte value : body) {
+                        output.write(value);
+                        output.flush();
+                        Thread.sleep(400);
+                    }
+                } catch (IOException closedByTheClient) {
+                    // The client gave up at its deadline.
+                }
+                return null;
+            });
+            long start = System.nanoTime();
+            assertThrows(RuntimeException.class, () -> client.binding().service().getChatModel().call(prompt()));
+            var waited = Duration.ofNanos(System.nanoTime() - start);
+            assertTrue(waited.compareTo(Duration.ofSeconds(2)) >= 0 && waited.compareTo(Duration.ofSeconds(10)) < 0, waited.toString());
+        } finally { meters.close(); }
+    }
+
     private static ProviderAdapter.Client client(OpenAiProviderAdapter adapter, ServerSocket server) {
         return client(adapter, server, Duration.ofSeconds(30));
     }
 
     private static ProviderAdapter.Client client(OpenAiProviderAdapter adapter, ServerSocket server, Duration readTimeout) {
+        return client(adapter, server, ProviderAdapter.Timeouts.forChat(readTimeout));
+    }
+
+    private static ProviderAdapter.Client client(OpenAiProviderAdapter adapter, ServerSocket server, ProviderAdapter.Timeouts timeouts) {
         return adapter.create(new ProviderAdapter.Connection("http://127.0.0.1:" + server.getLocalPort() + "/v1", "fixture-key"),
                 "fixture", new ModelSettings(1024, 128, new ModelSettings.Capabilities(true, false, false, false, false),
-                        Map.of(), null, TokenizerProfiles.HOSTED), ProviderAdapter.Timeouts.forChat(readTimeout));
+                        Map.of(), null, TokenizerProfiles.HOSTED), timeouts);
     }
 
     private static void readRequest(InputStream input) throws IOException {

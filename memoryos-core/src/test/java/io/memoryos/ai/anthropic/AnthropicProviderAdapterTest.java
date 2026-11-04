@@ -273,6 +273,44 @@ class AnthropicProviderAdapterTest {
     }
 
     @Test
+    void aCallThatDoesNotStreamEndsAtItsAnswerDeadlineEvenWhileBytesArrive() throws Exception {
+        var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/v1/messages", exchange -> {
+            exchange.getRequestBody().readAllBytes();
+            byte[] body = """
+                    {"id":"msg_5","type":"message","role":"assistant","model":"claude-fixture",
+                    "content":[{"type":"text","text":"Minutes"}],"stop_reason":"end_turn","stop_sequence":null,
+                    "usage":{"input_tokens":3,"output_tokens":1}}
+                    """.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, body.length);
+            // A byte every 400 ms never leaves a one-second gap, but the whole answer takes far beyond two seconds.
+            try (var output = exchange.getResponseBody()) {
+                for (byte value : body) {
+                    output.write(value);
+                    output.flush();
+                    Thread.sleep(400);
+                }
+            } catch (IOException | InterruptedException closedByTheClient) {
+                // The client gave up at its deadline.
+            }
+        });
+        server.start();
+        var meters = new SimpleMeterRegistry();
+        var adapter = new AnthropicProviderAdapter(ObservationRegistry.NOOP, meters);
+        try (var client = adapter.create(connection(server), "claude-fixture", settings(Map.of(), false),
+                new ProviderAdapter.Timeouts(Duration.ofSeconds(1), Duration.ofSeconds(2)))) {
+            var binding = client.binding();
+            var prompt = binding.policy().request(
+                    new Prompt("Question", binding.service().convertOptions(new LlmOptions().withMaxTokens(100))), 4096);
+            long start = System.nanoTime();
+            assertThrows(RuntimeException.class, () -> binding.service().getChatModel().call(prompt));
+            var waited = Duration.ofNanos(System.nanoTime() - start);
+            assertTrue(waited.compareTo(Duration.ofSeconds(2)) >= 0 && waited.compareTo(Duration.ofSeconds(10)) < 0, waited.toString());
+        } finally { meters.close(); server.stop(0); }
+    }
+
+    @Test
     void optionsOutsideTheMessagesApiAreRefusedBeforeAnyRequest() {
         var meters = new SimpleMeterRegistry();
         var adapter = new AnthropicProviderAdapter(ObservationRegistry.NOOP, meters);
