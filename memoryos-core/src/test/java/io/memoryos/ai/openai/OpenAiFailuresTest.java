@@ -37,6 +37,16 @@ class OpenAiFailuresTest {
         assertEquals(Optional.of(TurnFailure.PROVIDER_RATE_LIMITED), OpenAiFailures.read(new CompletionException(inStream)));
     }
 
+    /** 9Router answers 503 with Retry-After when every account behind the model is on cooldown. */
+    @Test
+    void anUnavailableAnswerThatSaysWhenToRetryIsARateLimit() {
+        var cooldown = InternalServerException.builder().statusCode(503)
+                .headers(Headers.builder().put("Retry-After", "1209").build()).build();
+        assertEquals(Optional.of(TurnFailure.PROVIDER_RATE_LIMITED), OpenAiFailures.read(new CompletionException(cooldown)));
+        assertEquals(Optional.empty(), OpenAiFailures.read(InternalServerException.builder().statusCode(503).headers(NONE).build()),
+                "A 503 that does not say when to retry stays unnamed");
+    }
+
     @Test
     void billingAndAnyOtherFailureAreNotNamed() {
         for (var billing : new String[] {"insufficient_quota", "credit_balance_exhausted", "organization_spend_limit_exceeded"}) {
