@@ -1,6 +1,5 @@
 package io.memoryos.ai;
 
-import java.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,15 +12,15 @@ public final class ModelLeases {
     private final ProviderAdapterRegistry adapters;
     private final ProviderCredentials credentials;
     private final ModelClients clients;
-    private final Duration providerReadTimeout;
+    private final ProviderAdapter.Timeouts timeouts;
 
-    /** {@code providerReadTimeout} bounds connecting and each read gap of a provider call. */
+    /** {@code timeouts} bound every call on a leased client. */
     public ModelLeases(ProviderAdapterRegistry adapters, ProviderCredentials credentials, ModelClients clients,
-                       Duration providerReadTimeout) {
+                       ProviderAdapter.Timeouts timeouts) {
         this.adapters = adapters;
         this.credentials = credentials;
         this.clients = clients;
-        this.providerReadTimeout = providerReadTimeout;
+        this.timeouts = timeouts;
     }
 
     /** The model's client, kept while the provider and model revisions stand. */
@@ -32,7 +31,7 @@ public final class ModelLeases {
             if (adapter.credentialRequirement() == ProviderAdapter.CredentialRequirement.REQUIRED && key.isBlank())
                 throw AiException.providerUnavailable();
             try {
-                return adapter.create(new ProviderAdapter.Connection(provider.baseUrl(), key), model.modelName(), model.settings(), providerReadTimeout);
+                return adapter.create(new ProviderAdapter.Connection(provider.baseUrl(), key), model.modelName(), model.settings(), timeouts);
             } catch (AiException expected) { throw expected; }
             catch (RuntimeException failure) {
                 LOG.atWarn().addKeyValue("event", "ai.model.client_initialization_failed")

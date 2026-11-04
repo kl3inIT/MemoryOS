@@ -41,10 +41,10 @@ public class OcrWorkerComponents {
         return new ModelClients(4);
     }
 
-    /** A page is one answer of up to a few thousand tokens, so the read gap is longer than a Chat stream's. */
+    /** A page is one answer of up to a few thousand tokens, not streamed: the read timeout bounds its whole wait. */
     @Bean
     ModelLeases ocrModelLeases(ProviderAdapterRegistry adapters, ProviderCredentials credentials, ModelClients clients,
             @Value("${memoryos.extraction.model-ocr.read-timeout:2m}") Duration readTimeout) {
-        return new ModelLeases(adapters, credentials, clients, readTimeout);
+        return new ModelLeases(adapters, credentials, clients, new ProviderAdapter.Timeouts(readTimeout, readTimeout));
     }
 }

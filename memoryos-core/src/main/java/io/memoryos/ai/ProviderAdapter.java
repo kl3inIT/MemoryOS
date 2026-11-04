@@ -39,11 +39,26 @@ public interface ProviderAdapter {
     /** Local validation only. Must not contact the model or echo credentials in errors. */
     void validate(String baseUrl, String modelName, ModelSettings settings);
 
+    /** Own all clients created here and disable automatic retries; {@code timeouts} bound each call. */
+    Client create(Connection connection, String modelName, ModelSettings settings, Timeouts timeouts);
+
     /**
-     * Own all clients created here and disable automatic retries. {@code readTimeout} bounds connecting and each
-     * read/write gap, never a whole streamed call: a Chat turn has no total deadline.
+     * {@code readGap} bounds connecting and each read/write gap, never a whole streamed call: a Chat turn has no total
+     * deadline. {@code answer} bounds the whole wait of a call that does not stream. Its answer arrives in one piece, so
+     * a read gap would bound the whole call: a reasoning model writing a long meeting's minutes is silent for minutes.
      */
-    Client create(Connection connection, String modelName, ModelSettings settings, Duration readTimeout);
+    record Timeouts(Duration readGap, Duration answer) {
+        /** The longest a Chat helper or background task waits; its own per-call timeout usually ends the wait first. */
+        public static final Duration LONGEST_ANSWER = Duration.ofMinutes(10);
+
+        public Timeouts {
+            if (readGap.isNegative() || readGap.isZero() || answer.isNegative() || answer.isZero())
+                throw new IllegalArgumentException("Provider timeouts must be positive");
+        }
+
+        /** A Chat lease: a streamed answer is bounded by its read gap, a call that does not stream by the longest answer. */
+        public static Timeouts forChat(Duration readGap) { return new Timeouts(readGap, LONGEST_ANSWER); }
+    }
 
     enum CredentialRequirement { REQUIRED, OPTIONAL, NONE }
 

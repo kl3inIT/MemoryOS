@@ -69,7 +69,7 @@ class ResearchExecutorLiveTest {
         when(budget.getTokens()).thenReturn(2_000_000);
         when(budget.getCost()).thenReturn(100.0);
         var adapter = new OpenAiProviderAdapter(ObservationRegistry.NOOP, meters);
-        try (var client = adapter.create(new ProviderAdapter.Connection("https://api.openai.com/v1", key), model, settings, Duration.ofSeconds(60));
+        try (var client = adapter.create(new ProviderAdapter.Connection("https://api.openai.com/v1", key), model, settings, ProviderAdapter.Timeouts.forChat(Duration.ofSeconds(60)));
              var work = new SearchTasks.Scope(Duration.ofSeconds(5))) {
             var setup = ChatTurnSetup.builder(UUID.randomUUID(), UUID.randomUUID(), new ActorId(UUID.randomUUID()),
                     new TenantId(UUID.randomUUID()), model,
