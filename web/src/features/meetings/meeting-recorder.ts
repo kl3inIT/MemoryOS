@@ -35,6 +35,8 @@ export type RecorderSnapshot = {
   elapsedMs: number;
   tracks: TrackSnapshot[];
   previews: Partial<Record<MeetingTrack, { speaker: string; text: string }>>;
+  /** The person turned their microphone off; the tab keeps recording and the clock keeps running. */
+  micMuted: boolean;
   error?: string;
 };
 
@@ -63,12 +65,15 @@ type Pipe = {
   level: number;
   lastLoudAt: number;
   ended: boolean;
+  muted: boolean;
 };
 
 /**
  * Records a meeting's tracks. Each track has its own capture and socket; while a socket reconnects its audio is queued
  * and the new socket starts at the delivered offset, so the meeting clock continues. Pausing drops audio and closes the
- * sockets; resuming opens new ones where the recording left off.
+ * sockets; resuming opens new ones where the recording left off. Turning the microphone off closes only its socket while
+ * the clock runs on (anarlog's `set_mic_muted`): nothing it hears is sent or transcribed, and turning it back on opens a
+ * socket at the meeting's current time.
  */
 export class MeetingRecorder {
   private readonly pipes: Pipe[] = [];
@@ -79,6 +84,7 @@ export class MeetingRecorder {
     elapsedMs: 0,
     tracks: [],
     previews: {},
+    micMuted: false,
   };
   private wakeLock?: { release: () => Promise<void> };
 
@@ -115,6 +121,7 @@ export class MeetingRecorder {
         level: 0,
         lastLoudAt: this.deps.now(),
         ended: false,
+        muted: false,
       };
       this.pipes.push(pipe);
       added.push(pipe);
@@ -168,6 +175,25 @@ export class MeetingRecorder {
   }
 
   /**
+   * Turns the microphone off or back on while the tab keeps recording, for a meeting where the people beside the person
+   * also speak through the call: the microphone would record them a second time, as the person.
+   */
+  async setMicMuted(muted: boolean) {
+    const mic = this.pipes.find((pipe) => pipe.track === "MIC");
+    if (!mic || mic.muted === muted) return;
+    mic.muted = muted;
+    mic.level = 0;
+    // Audio still waiting for a reconnect is dropped, and its time is kept.
+    mic.deliveredBytes += mic.queuedBytes;
+    mic.queue = [];
+    mic.queuedBytes = 0;
+    this.update({ micMuted: muted, previews: { ...this.snapshot.previews, MIC: undefined } });
+    if (muted) await this.closeSocket(mic);
+    else await this.connect(mic);
+    this.publish();
+  }
+
+  /**
    * Turns the microphone and the tab off at once, then waits while what they already sent is stored and releases the
    * sockets. Nothing new is captured once the person pressed stop.
    */
@@ -208,6 +234,11 @@ export class MeetingRecorder {
   private chunk(pipe: Pipe, pcm: ArrayBuffer) {
     if (this.snapshot.phase !== "recording" || pipe.ended) return;
     pipe.capturedBytes += pcm.byteLength;
+    if (pipe.muted) {
+      // Never sent, but the clock advances, so the microphone resumes at the meeting's true time.
+      pipe.deliveredBytes += pcm.byteLength;
+      return;
+    }
     if (pipe.socket) {
       pipe.socket.send(pcm);
       pipe.deliveredBytes += pcm.byteLength;
@@ -225,13 +256,13 @@ export class MeetingRecorder {
   }
 
   private level(pipe: Pipe, level: number) {
-    pipe.level = level;
+    pipe.level = pipe.muted ? 0 : level;
     if (level >= QUIET_LEVEL) pipe.lastLoudAt = this.deps.now();
     this.publish();
   }
 
   private async connect(pipe: Pipe) {
-    if (pipe.socket || pipe.connecting || this.snapshot.phase !== "recording") return;
+    if (pipe.socket || pipe.connecting || pipe.muted || this.snapshot.phase !== "recording") return;
     pipe.connecting = true;
     pipe.timer = undefined;
     this.publish();
@@ -250,7 +281,7 @@ export class MeetingRecorder {
         },
         onFailure: (error) => this.socketFailed(pipe, error),
       });
-      if (this.snapshot.phase !== "recording") {
+      if (this.snapshot.phase !== "recording" || pipe.muted) {
         socket.close();
         return;
       }
@@ -275,7 +306,7 @@ export class MeetingRecorder {
 
   private socketFailed(pipe: Pipe, error: MeetingStreamError) {
     pipe.socket = undefined;
-    if (this.snapshot.phase !== "recording") return;
+    if (this.snapshot.phase !== "recording" || pipe.muted) return;
     if (TERMINAL_CODES.has(error.code) || pipe.attempt >= RECONNECT_DELAYS_MS.length) {
       this.release();
       for (const other of this.pipes) other.socket?.close();

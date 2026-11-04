@@ -308,6 +308,7 @@ export const vietnameseUi: Record<string, string> = {
   "Bạn chưa chọn tab cuộc họp nên chưa bắt đầu ghi.":
     "No meeting tab was chosen, so recording has not started.",
   "Bắt đầu ghi": "Start recording",
+  "Bật mic": "Unmute",
   "Bỏ tên": "Remove name",
   "Buổi họp hôm nay được ghi lại thành văn bản trên MemoryOS để làm biên bản. Nếu ai không đồng ý, xin báo ngay.":
     "Today's meeting is being transcribed in MemoryOS for the minutes. If you do not agree, please say so now.",
@@ -428,6 +429,7 @@ export const vietnameseUi: Record<string, string> = {
     "The meeting tab stopped sharing, so only your voice is recorded.",
   "Tab họp": "Meeting tab",
   "Tạm dừng": "Pause",
+  "Tắt mic": "Mute",
   "Tên riêng, từ viết tắt, thuật ngữ": "Names, abbreviations, domain terms",
   "Tên cuộc họp": "Meeting name",
   "Tên khác": "Another name",
