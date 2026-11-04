@@ -35,6 +35,8 @@ export type RecorderSnapshot = {
   elapsedMs: number;
   tracks: TrackSnapshot[];
   previews: Partial<Record<MeetingTrack, { speaker: string; text: string }>>;
+  /** The microphone sends silence; the tab and the meeting clock go on. */
+  micMuted: boolean;
   error?: string;
 };
 
@@ -79,6 +81,7 @@ export class MeetingRecorder {
     elapsedMs: 0,
     tracks: [],
     previews: {},
+    micMuted: false,
   };
   private wakeLock?: { release: () => Promise<void> };
 
@@ -123,6 +126,7 @@ export class MeetingRecorder {
         onChunk: (pcm) => this.chunk(pipe, pcm),
         onLevel: (level) => this.level(pipe, level),
       });
+      if (pipe.track === "MIC") pipe.capture.setMuted(this.snapshot.micMuted);
     }
     await Promise.all(added.map((pipe) => this.connect(pipe)));
     if (!this.wakeLock) void this.lockScreen();
@@ -151,6 +155,15 @@ export class MeetingRecorder {
     if (this.snapshot.phase === "recording" && !old.socket && !old.connecting)
       await this.connect(old);
     this.publish();
+  }
+
+  /**
+   * Mutes the microphone, as a meeting app does: its track is disabled, so it sends silence and the clock, which the
+   * microphone drives, keeps the true time of later speech. The shared tab is still recorded.
+   */
+  setMicMuted(muted: boolean) {
+    for (const pipe of this.pipes) if (pipe.track === "MIC") pipe.capture?.setMuted(muted);
+    this.update({ micMuted: muted });
   }
 
   async pause() {

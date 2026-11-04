@@ -1,7 +1,8 @@
-import { Bookmark, Pause, Play, Square } from "lucide-react";
+import { Bookmark, Mic, MicOff, Pause, Play, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DotMatrix } from "@/components/ui/dot-matrix";
+import { IconButton } from "@/components/ui/icon-button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
 import type { MeetingRecorder } from "./meeting-recorder";
@@ -39,6 +40,7 @@ export function RecordingBar({
   const tracks = useRecorderValue(recorder, (snapshot) =>
     snapshot.tracks.map((track) => track.track).join(","),
   );
+  const micMuted = useRecorderValue(recorder, (snapshot) => snapshot.micMuted);
   const paused = phase === "paused";
   return (
     <div className="sticky top-0 z-10 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border-subtle bg-surface-raised px-(--page-gutter) py-2.5">
@@ -76,13 +78,27 @@ export function RecordingBar({
         .split(",")
         .filter(Boolean)
         .map((track) => (
-          <Meter
-            key={track}
-            recorder={recorder}
-            track={track as MeetingTrack}
-            paused={paused}
-            label={track === "TAB" ? ui("Tab họp") : kind === "ONLINE" ? ui("Bạn") : ui("Micro")}
-          />
+          <span key={track} className="inline-flex items-center gap-1">
+            <Meter
+              recorder={recorder}
+              track={track as MeetingTrack}
+              silent={paused || (track === "MIC" && micMuted)}
+              label={track === "TAB" ? ui("Tab họp") : kind === "ONLINE" ? ui("Bạn") : ui("Micro")}
+            />
+            {/* Muting only the microphone keeps the meeting tab recorded, as in a meeting app. */}
+            {track === "MIC" && (
+              <IconButton
+                type="button"
+                size="sm"
+                aria-label={micMuted ? ui("Bật micro") : ui("Tắt micro")}
+                aria-pressed={micMuted}
+                disabled={phase === "stopping"}
+                onClick={() => recorder.setMicMuted(!micMuted)}
+              >
+                {micMuted ? <MicOff /> : <Mic />}
+              </IconButton>
+            )}
+          </span>
         ))}
       <span className="flex-1" />
       {paused ? (
@@ -132,12 +148,12 @@ const BARS = BAR_HEIGHTS.length;
 function Meter({
   recorder,
   track,
-  paused,
+  silent,
   label,
 }: {
   recorder: MeetingRecorder;
   track: MeetingTrack;
-  paused: boolean;
+  silent: boolean;
   label: string;
 }) {
   // RMS rarely exceeds 0.3 for speech; the meter is only a sign of life, so it repaints only when a bar changes.
@@ -145,7 +161,7 @@ function Meter({
     const level = snapshot.tracks.find((entry) => entry.track === track)?.level ?? 0;
     return Math.round(Math.min(1, level / 0.15) * BARS);
   });
-  const shown = paused ? 0 : lit;
+  const shown = silent ? 0 : lit;
   return (
     <span className="inline-flex items-center gap-1.5 text-xs text-content-secondary">
       {label}

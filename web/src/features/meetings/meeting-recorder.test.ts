@@ -26,6 +26,8 @@ function harness() {
   const handlers = new Map<string, AudioCaptureHandlers>();
   const opened: Opened[] = [];
   const stopped: string[] = [];
+  /** Whether each capture was last told to send silence. */
+  const muted = new Map<string, boolean>();
   const pending: {
     resolve: () => void;
     reject: (error: MeetingStreamError) => void;
@@ -40,7 +42,10 @@ function harness() {
     capture: vi.fn(async (_stream: MediaStream, handler: AudioCaptureHandlers) => {
       const track = handlers.size === 0 ? "MIC" : "TAB";
       handlers.set(track, handler);
-      return { setMuted: vi.fn(), stop: vi.fn(() => stopped.push(track)) };
+      return {
+        setMuted: vi.fn((value: boolean) => muted.set(track, value)),
+        stop: vi.fn(() => stopped.push(track)),
+      };
     }),
     openSocket: vi.fn(
       (options: MeetingSocketOptions) =>
@@ -67,6 +72,7 @@ function harness() {
     recorder,
     opened,
     stopped,
+    muted,
     pending,
     /** The socket opened in the given order. */
     socket: (index: number) => {
@@ -157,6 +163,27 @@ describe("meeting recorder", () => {
     await h.recorder.resume();
     expect(h.socket(1).options.offsetMs).toBe(2_000);
     expect(h.recorder.getSnapshot().elapsedMs).toBe(2_000);
+  });
+
+  it("muting silences only the microphone while the tab and the clock go on", async () => {
+    const h = harness();
+    await h.recorder.start([
+      { track: "MIC", stream: stream(), offsetMs: 0 },
+      { track: "TAB", stream: stream(), offsetMs: 0 },
+    ]);
+    h.recorder.setMicMuted(true);
+    expect(h.muted.get("MIC")).toBe(true);
+    expect(h.muted.has("TAB")).toBe(false);
+    expect(h.recorder.getSnapshot().micMuted).toBe(true);
+    // A disabled track still yields silent chunks, which keep the clock and the socket going.
+    h.chunk("MIC", 1_000, 0);
+    h.chunk("TAB", 1_000);
+    expect(h.recorder.getSnapshot().elapsedMs).toBe(1_000);
+    expect(h.socket(0).sent).toHaveLength(1);
+    expect(h.socket(1).sent).toHaveLength(1);
+    h.recorder.setMicMuted(false);
+    expect(h.muted.get("MIC")).toBe(false);
+    expect(h.recorder.getSnapshot().micMuted).toBe(false);
   });
 
   it("flags a shared tab that stays quiet, as Nojoin's quiet hint does", async () => {
