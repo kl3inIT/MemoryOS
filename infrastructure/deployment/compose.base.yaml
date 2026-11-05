@@ -594,7 +594,7 @@ services:
 
   docling:
     <<: *service-defaults
-    image: ${MEMORYOS_DOCLING_IMAGE:-quay.io/docling-project/docling-serve-cpu:v1.38.1@sha256:203c2ce82f19413bc3b83641962082165510352b9f93c1a840c0036be616eebf}
+    image: ${MEMORYOS_DOCLING_IMAGE:-quay.io/docling-project/docling-serve-cpu:v1.38.2@sha256:7a480a1604fa3b42efeddc7db9527690d9f9bc903226136013e2bfe6b1a4dfb0}
     environment:
       UVICORN_WORKERS: ${UVICORN_WORKERS:-1}
       DOCLING_SERVE_ENG_LOC_NUM_WORKERS: ${DOCLING_SERVE_ENG_LOC_NUM_WORKERS:-1}
@@ -624,7 +624,7 @@ services:
   # MEM-26/MEM-43: Chat replay and the worker dispatch plane. TLS only, ACL users per deployable.
   redis:
     <<: *service-defaults
-    image: ${MEMORYOS_REDIS_IMAGE:-redis:8.10.2-alpine@sha256:3811787313eba226a2ef38658c6ccb91cd5e110edc89c37767de373120a0e5a0}
+    image: ${MEMORYOS_REDIS_IMAGE:-redis:8.10.3-alpine@sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537}
     container_name: memoryos-redis
     user: "0:0"
     entrypoint:
