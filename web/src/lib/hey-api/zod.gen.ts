@@ -275,6 +275,14 @@ export const zMeetingMinutesItem = z.object({
     edited: z.boolean()
 });
 
+/**
+ * Who spoke one line: a voice of the meeting or a new name, exactly one of them
+ */
+export const zMeetingLineSpeakerRequest = z.object({
+    speaker: zMeetingSpeakerRef.optional(),
+    name: z.string().min(0).max(200).nullish()
+});
+
 export const zMeetingMinutesSummaryRequest = z.object({
     summary: z.string().min(0).max(20000)
 });
@@ -1977,6 +1985,14 @@ export const zMeetingUtterance = z.object({
     confidence: z.number(),
     spans: z.array(zMeetingUtteranceSpan),
     editSource: z.enum(['MODEL', 'HUMAN']).optional()
+});
+
+/**
+ * One line as it now reads, and the voice it now belongs to
+ */
+export const zMeetingLineSpeaker = z.object({
+    utterance: zMeetingUtterance,
+    speaker: zMeetingSpeaker
 });
 
 export const zMeetingDetail = z.object({
@@ -4641,6 +4657,18 @@ export const zUpdateMeetingPath = z.object({
  * The name and the people as stored, and the new revision
  */
 export const zUpdateMeetingResponse = zMeetingParticulars;
+
+export const zSetMeetingLineSpeakerBody = zMeetingLineSpeakerRequest;
+
+export const zSetMeetingLineSpeakerPath = z.object({
+    meetingId: z.uuid(),
+    utteranceId: z.uuid()
+});
+
+/**
+ * The line and the voice it now belongs to
+ */
+export const zSetMeetingLineSpeakerResponse = zMeetingLineSpeaker;
 
 export const zUnstarMeetingUtterancePath = z.object({
     meetingId: z.uuid(),

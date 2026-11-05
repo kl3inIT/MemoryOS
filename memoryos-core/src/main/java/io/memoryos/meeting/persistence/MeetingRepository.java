@@ -321,6 +321,44 @@ public class MeetingRepository {
                 .param("name", name).update() == 1;
     }
 
+    /** One line of the meeting, or nothing when the meeting has no such line. */
+    public Optional<Meeting.Utterance> utterance(UUID tenant, UUID meeting, UUID utterance) {
+        return jdbc.sql("""
+                SELECT %s FROM meeting_utterance
+                WHERE tenant_id = :tenant AND meeting_id = :meeting AND id = :utterance
+                """.formatted(UTTERANCE)).param("tenant", tenant).param("meeting", meeting)
+                .param("utterance", utterance).query(MeetingRepository::utterance).optional();
+    }
+
+    /**
+     * Moves one line to another voice of its track and answers it as a reader now sees it. The first move keeps the
+     * label the provider gave in {@code diarized_speaker}; later moves leave it.
+     */
+    public Meeting.Utterance moveLine(UUID tenant, UUID meeting, UUID utterance, String label) {
+        return jdbc.sql("""
+                UPDATE meeting_utterance
+                SET diarized_speaker = COALESCE(diarized_speaker, speaker), speaker = :label
+                WHERE tenant_id = :tenant AND meeting_id = :meeting AND id = :utterance
+                RETURNING %s
+                """.formatted(UTTERANCE)).param("tenant", tenant).param("meeting", meeting)
+                .param("utterance", utterance).param("label", label).query(MeetingRepository::utterance).single();
+    }
+
+    /**
+     * Adds a voice the owner named, labelled M1, M2… within its track, and answers its label. Providers label voices
+     * with numbers, so a stream never adds one of these. The caller holds the meeting's lock.
+     */
+    public String addNamedSpeaker(UUID tenant, UUID meeting, Meeting.Track track, String name) {
+        return jdbc.sql("""
+                INSERT INTO meeting_speaker(tenant_id, meeting_id, track, label, name)
+                SELECT :tenant, :meeting, :track, 'M' || (COALESCE(max(substring(label FROM 2)::int), 0) + 1), :name
+                FROM meeting_speaker
+                WHERE tenant_id = :tenant AND meeting_id = :meeting AND track = :track AND label ~ '^M[0-9]{1,6}$'
+                RETURNING label
+                """).param("tenant", tenant).param("meeting", meeting).param("track", track.name())
+                .param("name", name).query(String.class).single();
+    }
+
     /** Stores the owner's notes and returns the meeting's new revision. */
     public long updateNotes(UUID tenant, UUID meeting, String notes) {
         return jdbc.sql("""

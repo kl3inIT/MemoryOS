@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
 import type { MeetingTrack } from "./meeting-socket";
-import { nameMeetingSpeakerMutation } from "@/lib/hey-api/@tanstack/react-query.gen";
+import { nameMeetingSpeaker } from "@/lib/hey-api/sdk.gen";
 import { patchMeeting, withSpeaker, type MeetingDetail } from "./meetings-api";
 import { speakerColor, speakerInitial, speakerName } from "./speakers";
 
@@ -83,11 +83,14 @@ export function SpeakerChip({
   meeting,
   track,
   label,
+  twins = [],
   compact,
 }: {
   meeting: MeetingDetail;
   track: MeetingTrack;
   label: string;
+  /** Other voices shown under the same name, such as one person heard on both tracks: renamed together. */
+  twins?: { track: MeetingTrack; label: string }[];
   compact?: boolean;
 }) {
   const ui = useAppTranslation();
@@ -96,9 +99,19 @@ export function SpeakerChip({
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const rename = useMutation({
-    ...nameMeetingSpeakerMutation(),
+    mutationFn: async (value: string | null) => {
+      const saved = [];
+      for (const voice of [{ track, label }, ...twins]) {
+        const { data } = await nameMeetingSpeaker({
+          path: { meetingId: meeting.id, track: voice.track, label: voice.label },
+          body: { name: value },
+        });
+        saved.push(data);
+      }
+      return saved;
+    },
     onSuccess: (saved) => {
-      patchMeeting(cache, meeting.id, (current) => withSpeaker(current, saved));
+      patchMeeting(cache, meeting.id, (current) => saved.reduce(withSpeaker, current));
       setOpen(false);
       setName("");
     },
@@ -109,7 +122,7 @@ export function SpeakerChip({
   const display = speakerName(meeting, track, label, ui);
 
   function save(value: string | null) {
-    rename.mutate({ path: { meetingId: meeting.id, track, label }, body: { name: value } });
+    rename.mutate(value);
   }
 
   return (

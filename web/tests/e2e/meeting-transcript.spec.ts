@@ -189,6 +189,153 @@ for (const width of [1440, 390]) {
   });
 }
 
+test("the owner says who spoke one line, on its own track or by a name the other track carries", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await mockShell(page);
+  // An online meeting where Hiệp and Duy share one laptop: the tab hears them as one voice, and the owner's
+  // microphone hears Duy from across the table.
+  let meeting = meetingOf({
+    kind: "ONLINE",
+    speakers: [
+      { track: "MIC", label: "1", name: null },
+      { track: "TAB", label: "1", name: "Duy HCM" },
+      { track: "TAB", label: "2", name: "Hiệp" },
+    ],
+    utterances: [
+      {
+        id: "u0",
+        track: "TAB",
+        speaker: "2",
+        startMs: 0,
+        endMs: 6_000,
+        text: "Em xin chia sẻ màn hình của em luôn.",
+        confidence: 0.93,
+        spans: [],
+      },
+      {
+        id: "u1",
+        track: "TAB",
+        speaker: "2",
+        startMs: 8_000,
+        endMs: 12_000,
+        text: "Nãy giờ headphone anh bị mute, Hiệp có nói gì không ta?",
+        confidence: 0.9,
+        spans: [],
+      },
+      {
+        id: "u2",
+        track: "MIC",
+        speaker: "1",
+        startMs: 15_000,
+        endMs: 19_000,
+        text: "Gần đây em thấy một số đầu việc mình làm chưa rõ mục đích.",
+        confidence: 0.81,
+        spans: [],
+      },
+      {
+        id: "u3",
+        track: "TAB",
+        speaker: "1",
+        startMs: 25_000,
+        endMs: 31_000,
+        text: "Thứ hai là cái mô hình SVM của chỗ Hiệp, nó khá là nhẹ.",
+        confidence: 0.94,
+        spans: [],
+      },
+    ],
+  } as Partial<MeetingDetail>);
+  const moves: Record<string, unknown>[] = [];
+  await page.route("**/api/meetings", (route) => route.fulfill({ json: [] }));
+  await page.route(`**/api/meetings/${MEETING_ID}`, (route) => route.fulfill({ json: meeting }));
+  await page.route(`**/api/meetings/${MEETING_ID}/corrections`, (route) =>
+    route.fulfill({ json: [] }),
+  );
+  await page.route(`**/api/meetings/${MEETING_ID}/utterances/*/speaker`, async (route) => {
+    const utteranceId = route.request().url().split("/utterances/")[1]!.split("/")[0]!;
+    const body = route.request().postDataJSON() as {
+      speaker?: { track: "MIC" | "TAB"; label: string };
+      name?: string;
+    };
+    moves.push(body);
+    const line = meeting.utterances.find((entry) => entry.id === utteranceId)!;
+    // As the API: a line keeps its track and takes the voice of that track with the name, or a new one.
+    const wanted =
+      body.name ??
+      meeting.speakers.find(
+        (s) => s.track === body.speaker!.track && s.label === body.speaker!.label,
+      )!.name!;
+    let voice =
+      body.speaker?.track === line.track
+        ? meeting.speakers.find((s) => s.track === line.track && s.label === body.speaker!.label)
+        : meeting.speakers.find((s) => s.track === line.track && s.name === wanted);
+    if (!voice) {
+      const count = meeting.speakers.filter(
+        (s) => s.track === line.track && s.label.startsWith("M"),
+      ).length;
+      voice = { track: line.track, label: `M${count + 1}`, name: wanted };
+      meeting = { ...meeting, speakers: [...meeting.speakers, voice] };
+    }
+    const moved = { ...line, speaker: voice.label };
+    meeting = {
+      ...meeting,
+      utterances: meeting.utterances.map((entry) => (entry.id === utteranceId ? moved : entry)),
+    };
+    await route.fulfill({ json: { utterance: moved, speaker: voice } });
+  });
+
+  await page.goto(`/meetings/${MEETING_ID}`);
+  await page.getByRole("tab", { name: "Transcript" }).click({ timeout: 30_000 });
+  const transcript = page.getByRole("region", { name: "Transcript" });
+  await expect(transcript.getByText("Em xin chia sẻ màn hình")).toBeVisible();
+
+  // A line inside Hiệp's turn: its own button, a new name, for this line only.
+  await transcript.getByText("Nãy giờ headphone anh bị mute").hover();
+  await transcript.getByRole("button", { name: "Đổi người nói của câu lúc 00:08" }).click();
+  const picker = page.getByRole("dialog");
+  await expect(picker.getByRole("radio", { name: "Câu này" })).toBeChecked();
+  await expect(picker.getByRole("radio", { name: "Mọi câu của Hiệp" })).toBeVisible();
+  // The picker fades in; the picture is of it open.
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: "../output/playwright/meeting-line-speaker-picker-1440.png" });
+  await picker.getByLabel("Tên người nói").fill("Duy HN");
+  await picker.getByRole("button", { name: "Lưu" }).click();
+  await expect(
+    transcript.getByRole("button", { name: "Đổi người nói của câu lúc 00:08" }),
+  ).toHaveText("Duy HN");
+  // Hiệp's other line stays Hiệp: only this line moved.
+  await expect(
+    transcript.getByRole("button", { name: "Đổi người nói của câu lúc 00:00" }),
+  ).toHaveText("Hiệp");
+
+  // The owner's microphone heard Duy too: his name, from the tab, carries over to the microphone's line.
+  await transcript.getByRole("button", { name: "Đổi người nói của câu lúc 00:15" }).click();
+  await expect(picker.getByRole("radio", { name: "Câu này" })).toHaveCount(0);
+  await picker.getByRole("button", { name: /Duy HN/ }).click();
+  await expect(
+    transcript.getByRole("button", { name: "Đổi người nói của câu lúc 00:15" }),
+  ).toHaveText("Duy HN");
+  expect(moves).toEqual([{ name: "Duy HN" }, { speaker: { track: "TAB", label: "M1" } }]);
+  await expect(picker).toBeHidden();
+  // One person heard on both tracks is listed once; the owner's voice, with no line left, is gone.
+  const people = page
+    .getByRole("complementary")
+    .getByRole("list", { name: "Người nói" })
+    .getByRole("listitem");
+  await expect(people).toHaveText([/Duy HCM$/, /Hiệp$/, /Duy HN$/]);
+  await page.screenshot({ path: "../output/playwright/meeting-line-speaker-after-1440.png" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await transcript.getByRole("button", { name: "Đổi người nói của câu lúc 00:00" }).click();
+  await expect(picker.getByRole("radio", { name: "Câu này" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  // The picker fades in; the picture is of it open.
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: "../output/playwright/meeting-line-speaker-picker-390.png" });
+});
+
 test("a meeting being recorded keeps its newest sentence on screen", async ({ page }) => {
   test.setTimeout(60_000);
   await page.setViewportSize({ width: 1440, height: 900 });

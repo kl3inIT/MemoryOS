@@ -299,6 +299,31 @@ export type MeetingMinutesItem = {
 };
 
 /**
+ * One line as it now reads, and the voice it now belongs to
+ */
+export type MeetingLineSpeaker = {
+    utterance: MeetingUtterance;
+    /**
+     * The voice the line now belongs to; new to the meeting when the owner gave a new name
+     */
+    speaker: MeetingSpeaker;
+};
+
+/**
+ * Who spoke one line: a voice of the meeting or a new name, exactly one of them
+ */
+export type MeetingLineSpeakerRequest = {
+    /**
+     * A voice of the meeting; one of the other track lends only its name
+     */
+    speaker?: MeetingSpeakerRef;
+    /**
+     * A name; the line takes the voice of its track with that name, or a new one
+     */
+    name?: string | null;
+};
+
+/**
  * One voice of the meeting, as its speakers list names it
  */
 export type MeetingSpeakerRef = {
@@ -5149,6 +5174,46 @@ export type UpdateMeetingResponses = {
 };
 
 export type UpdateMeetingResponse = UpdateMeetingResponses[keyof UpdateMeetingResponses];
+
+export type SetMeetingLineSpeakerData = {
+    body: MeetingLineSpeakerRequest;
+    path: {
+        meetingId: string;
+        utteranceId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/utterances/{utteranceId}/speaker';
+};
+
+export type SetMeetingLineSpeakerErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting, line or voice not available
+     */
+    404: ApiProblem;
+};
+
+export type SetMeetingLineSpeakerError = SetMeetingLineSpeakerErrors[keyof SetMeetingLineSpeakerErrors];
+
+export type SetMeetingLineSpeakerResponses = {
+    /**
+     * The line and the voice it now belongs to
+     */
+    200: MeetingLineSpeaker;
+};
+
+export type SetMeetingLineSpeakerResponse = SetMeetingLineSpeakerResponses[keyof SetMeetingLineSpeakerResponses];
 
 export type UnstarMeetingUtteranceData = {
     body?: never;

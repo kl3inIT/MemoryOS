@@ -75,6 +75,25 @@ export function withSpeaker(meeting: MeetingDetail, speaker: MeetingSpeaker): Me
   };
 }
 
+/** The meeting with one line moved to a voice, which joins the speakers when the owner gave a new name. */
+export function withLineSpeaker(
+  meeting: MeetingDetail,
+  moved: { utterance: MeetingUtterance; speaker: MeetingSpeaker },
+): MeetingDetail {
+  const known = meeting.speakers.some(
+    (speaker) => speaker.track === moved.speaker.track && speaker.label === moved.speaker.label,
+  );
+  return {
+    ...meeting,
+    speakers: known
+      ? withSpeaker(meeting, moved.speaker).speakers
+      : [...meeting.speakers, moved.speaker],
+    utterances: meeting.utterances.map((line) =>
+      line.id === moved.utterance.id ? moved.utterance : line,
+    ),
+  };
+}
+
 /** The meeting with one decision or piece of work as the server now has it; a topic is never changed. */
 export function withMinutesItem(meeting: MeetingDetail, item: MeetingMinutesItem): MeetingDetail {
   const replace = (items: MeetingMinutesItem[]) =>
