@@ -1,6 +1,6 @@
-# Meeting: say who spoke one line
+# MEM-309: say who spoke one line
 
-**Status:** in progress.
+**Status:** merged in #891 and deployed to staging; awaiting the owner's use.
 
 ## Problem
 
