@@ -3,7 +3,7 @@
 Measures the meeting minutes MemoryOS writes: how many of the decisions and actions a careful note-taker would
 record they find, how much of what they write is right, and whether each action's owner is the person who will do
 it. It runs on promptfoo on staging beside the [RAG benchmark](../rag-benchmark/README.md), whose login and API
-client it uses. Design: [MEM-304](../../docs/increments/active/mem-304-minutes-benchmark/design.md); baseline:
+client it uses. Design: [MEM-304](../../docs/increments/completed/mem-304-minutes-benchmark/design.md); baseline:
 [docs/tests/meeting.md](../../docs/tests/meeting.md#minutes-benchmark-baseline-mem-304-2026-11-02).
 
 Transcripts, the answer key and results are private meeting content: they stay in

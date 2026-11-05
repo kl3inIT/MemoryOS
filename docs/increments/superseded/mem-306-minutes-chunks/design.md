@@ -1,10 +1,10 @@
 # MEM-306: minutes read in parts, then settled as a whole (not kept)
 
-**Status:** measured twice on staging and reverted; the minutes run the single reading of [MEM-305](../../active/mem-305-minutes-prompt/design.md). See [Result](#result).
+**Status:** measured twice on staging and reverted; the minutes run the single reading of [MEM-305](../../completed/mem-305-minutes-prompt/design.md). See [Result](#result).
 
 ## Problem
 
-After the prompt was written by practice ([MEM-305](../../active/mem-305-minutes-prompt/design.md)) the minutes find 0.64 of the actions and 0.57 of the decisions on the [minutes benchmark](../../../tools/minutes-benchmark/README.md), but write more that the key does not hold (0.62 and 0.69 of their items are in it) and repeat an item more often (0.09). In one writing per meeting, 54 of 189 items matched nothing and 33 repeated another: work done during the meeting written as later work ("tách lời phút 38"), information given as decisions (five test-registration rules from one call), and one commitment said five times at five lines written five times. Some extras are real work the key missed. A string check cannot merge two sentences that say the same thing in different words, and one long read still misses a third of the actions.
+After the prompt was written by practice ([MEM-305](../../completed/mem-305-minutes-prompt/design.md)) the minutes find 0.64 of the actions and 0.57 of the decisions on the [minutes benchmark](../../../tools/minutes-benchmark/README.md), but write more that the key does not hold (0.62 and 0.69 of their items are in it) and repeat an item more often (0.09). In one writing per meeting, 54 of 189 items matched nothing and 33 repeated another: work done during the meeting written as later work ("tách lời phút 38"), information given as decisions (five test-registration rules from one call), and one commitment said five times at five lines written five times. Some extras are real work the key missed. A string check cannot merge two sentences that say the same thing in different words, and one long read still misses a third of the actions.
 
 ## What the references do
 

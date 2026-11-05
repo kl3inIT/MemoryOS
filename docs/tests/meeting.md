@@ -97,7 +97,7 @@ The [minutes benchmark](../../tools/minutes-benchmark/README.md) on staging: 17 
 
 The minutes keep about a third of what the key holds, and most of what they write is in the key: they are short rather than wrong. Most wrong owners are a voice given where the key names nobody, often in meetings whose one voice carries several people.
 
-After the prompt was written by practice ([MEM-305](../increments/active/mem-305-minutes-prompt/design.md), `eval-fVF-2026-11-02T17:16:48`, same corpus, key and scoring):
+After the prompt was written by practice ([MEM-305](../increments/completed/mem-305-minutes-prompt/design.md), `eval-fVF-2026-11-02T17:16:48`, same corpus, key and scoring):
 
 | Metric | Baseline | MEM-305 |
 | --- | --- | --- |
