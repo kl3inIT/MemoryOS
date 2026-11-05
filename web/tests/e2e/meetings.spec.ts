@@ -57,7 +57,12 @@ const MINUTES_PDF = new URL("../fixtures/meeting-minutes.pdf", import.meta.url);
 
 async function mockMeetings(page: Page) {
   let meeting: MeetingDetail | undefined;
-  const audio = { bytes: 0, ended: false, offset: "" };
+  const audio = {
+    bytes: 0,
+    ended: false,
+    offset: "",
+    sockets: [] as { track: string; offset: string }[],
+  };
   const exported: {
     heading?: Record<string, unknown>;
     saved?: Record<string, unknown>;
@@ -73,13 +78,14 @@ async function mockMeetings(page: Page) {
       expect(route.request().headers()["x-memoryos-csrf"]).toBe("1");
       const body = route.request().postDataJSON() as {
         title: string;
+        kind?: "ONLINE" | "IN_PERSON";
         participants: string[];
         terms: string[];
       };
       meeting = {
         id: MEETING_ID,
         title: body.title,
-        kind: "IN_PERSON",
+        kind: body.kind ?? "IN_PERSON",
         language: "vi",
         participants: body.participants,
         terms: body.terms,
@@ -441,13 +447,16 @@ async function mockMeetings(page: Page) {
     });
   });
   await page.routeWebSocket(/\/api\/meeting-stream/, (socket) => {
-    audio.offset = new URL(socket.url()).searchParams.get("offset") ?? "";
+    const url = new URL(socket.url());
+    audio.offset = url.searchParams.get("offset") ?? "";
+    audio.sockets.push({ track: url.searchParams.get("track") ?? "", offset: audio.offset });
     socket.send(JSON.stringify({ type: "ready" }));
     let sentWords = false;
     socket.onMessage((message) => {
       if (typeof message !== "string") {
         audio.bytes += message.length;
-        if (!sentWords && audio.bytes > 48_000) {
+        // The words come from the microphone; a shared tab only adds audio.
+        if (!sentWords && url.searchParams.get("track") !== "TAB" && audio.bytes > 48_000) {
           sentWords = true;
           const utterances = [
             {
@@ -475,13 +484,20 @@ async function mockMeetings(page: Page) {
             },
           ];
           for (const utterance of utterances) {
-            const speaker = { track: "MIC" as const, label: utterance.speaker, name: null };
-            if (!meeting!.speakers.some((item) => item.label === utterance.speaker))
+            // Online, the microphone is the member and everyone else speaks through the shared tab.
+            const track: "MIC" | "TAB" =
+              meeting!.kind === "ONLINE" && utterance.speaker !== "1" ? "TAB" : "MIC";
+            const speaker = { track, label: utterance.speaker, name: null };
+            if (
+              !meeting!.speakers.some(
+                (item) => item.track === track && item.label === utterance.speaker,
+              )
+            )
               meeting = { ...meeting!, speakers: [...meeting!.speakers, speaker] };
             const stored = {
               spans: [] as { start: number; end: number; confidence: number }[],
               ...utterance,
-              track: "MIC" as const,
+              track,
               confidence: 0.92,
             };
             meeting = { ...meeting!, utterances: [...meeting!.utterances, stored] };
@@ -654,6 +670,60 @@ test("a member uploads a recording and watches it being transcribed", async ({ p
   expect(uploaded.bytes).toBeGreaterThan(0);
   // A recording is not recording: the meeting offers no stop control while the provider reads it.
   await expect(page.getByRole("button", { name: "Dừng", exact: true })).toHaveCount(0);
+});
+
+test("a member turns the microphone off while the meeting tab keeps recording", async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  // The share picker cannot be driven, so the tab is a tone made in the page, as Chromium's fake microphone is.
+  await page.addInitScript(() => {
+    navigator.mediaDevices.getDisplayMedia = async () => {
+      const context = new AudioContext();
+      const tone = context.createOscillator();
+      const destination = context.createMediaStreamDestination();
+      tone.connect(destination);
+      tone.start();
+      return destination.stream;
+    };
+  });
+  const { audio } = await mockMeetings(page);
+
+  await page.goto("/meetings");
+  await page.getByRole("button", { name: "Ghi cuộc họp mới" }).click();
+  const dialog = page.getByRole("dialog", { name: "Ghi cuộc họp mới" });
+  await dialog.getByRole("radio", { name: "Họp online" }).click();
+  await dialog.getByLabel("Tôi đã thông báo cho mọi người rằng buổi họp được ghi lại.").check();
+  await dialog.getByRole("button", { name: "Bắt đầu ghi" }).click();
+
+  const mute = page.getByRole("button", { name: "Tắt mic" });
+  await expect(mute).toBeVisible({ timeout: 15_000 });
+  await expect
+    .poll(() => audio.sockets.map((socket) => socket.track).sort())
+    .toEqual(["MIC", "TAB"]);
+  // Let the meters show the voices before the picture is taken.
+  await page.waitForTimeout(1_000);
+  await page.screenshot({ path: "../output/playwright/meeting-mic-on-1440.png" });
+
+  await mute.click();
+  const unmute = page.getByRole("button", { name: "Bật mic" });
+  await expect(unmute).toHaveAttribute("aria-pressed", "true");
+  await page.screenshot({ path: "../output/playwright/meeting-mic-off-1440.png" });
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.screenshot({ path: "../output/playwright/meeting-mic-off-390.png" });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  // The tab still records while the microphone is off; no new microphone socket opens until it is turned back on.
+  await page.waitForTimeout(1_500);
+  expect(audio.sockets.filter((socket) => socket.track === "MIC")).toHaveLength(1);
+
+  await unmute.click();
+  await expect(page.getByRole("button", { name: "Tắt mic" })).toBeVisible();
+  await expect.poll(() => audio.sockets.filter((socket) => socket.track === "MIC").length).toBe(2);
+  // The microphone resumes at the meeting's time, past the stretch it was off.
+  expect(
+    Number(audio.sockets.filter((socket) => socket.track === "MIC")[1]!.offset),
+  ).toBeGreaterThanOrEqual(1_500);
 });
 
 for (const width of [1440, 390]) {

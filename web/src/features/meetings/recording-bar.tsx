@@ -1,4 +1,4 @@
-import { Bookmark, Pause, Play, Square } from "lucide-react";
+import { Bookmark, Mic, MicOff, Pause, Play, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DotMatrix } from "@/components/ui/dot-matrix";
@@ -39,7 +39,9 @@ export function RecordingBar({
   const tracks = useRecorderValue(recorder, (snapshot) =>
     snapshot.tracks.map((track) => track.track).join(","),
   );
+  const micMuted = useRecorderValue(recorder, (snapshot) => snapshot.micMuted);
   const paused = phase === "paused";
+  const tabRecorded = tracks.split(",").includes("TAB");
   return (
     <div className="sticky top-0 z-10 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border-subtle bg-surface-raised px-(--page-gutter) py-2.5">
       <DotMatrix
@@ -80,11 +82,29 @@ export function RecordingBar({
             key={track}
             recorder={recorder}
             track={track as MeetingTrack}
-            paused={paused}
+            paused={paused || (track === "MIC" && micMuted)}
             label={track === "TAB" ? ui("Tab họp") : kind === "ONLINE" ? ui("Bạn") : ui("Micro")}
           />
         ))}
       <span className="flex-1" />
+      {tabRecorded && (
+        <Button
+          size="sm"
+          // Off reads as a call's muted microphone does: in the danger tone, so it is seen at a glance.
+          tone={micMuted ? "danger" : "default"}
+          prominence="secondary"
+          aria-pressed={micMuted}
+          disabled={phase !== "recording" && phase !== "paused"}
+          onClick={() => void recorder.setMicMuted(!micMuted)}
+        >
+          {micMuted ? (
+            <MicOff data-icon="inline-start" aria-hidden="true" />
+          ) : (
+            <Mic data-icon="inline-start" aria-hidden="true" />
+          )}
+          {micMuted ? ui("Bật mic") : ui("Tắt mic")}
+        </Button>
+      )}
       {paused ? (
         <Button size="sm" prominence="secondary" onClick={() => void recorder.resume()}>
           <Play data-icon="inline-start" aria-hidden="true" />
