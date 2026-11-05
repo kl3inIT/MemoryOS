@@ -3935,7 +3935,7 @@ export const getChatHistoryInfiniteQueryKey = (options: Options<GetChatHistoryDa
  * Read the selected chat branch after a message cursor
  */
 export const getChatHistoryInfiniteOptions = (options: Options<GetChatHistoryData>) => {
-    const opts = infiniteQueryOptions<GetChatHistoryResponse, GetChatHistoryError, InfiniteData<GetChatHistoryResponse>, QueryKey<Options<GetChatHistoryData>>, string | Pick<QueryKey<Options<GetChatHistoryData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    const opts = infiniteQueryOptions<GetChatHistoryResponse, GetChatHistoryError, InfiniteData<GetChatHistoryResponse>, QueryKey<Options<GetChatHistoryData>>, string | null | Pick<QueryKey<Options<GetChatHistoryData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
     // @ts-ignore
     {
         queryFn: async ({ pageParam, queryKey, signal }) => {
@@ -5171,7 +5171,7 @@ export const getSharePointRootsInfiniteQueryKey = (options: Options<GetSharePoin
  * Page the site, library and folder addresses in scope
  */
 export const getSharePointRootsInfiniteOptions = (options: Options<GetSharePointRootsData>) => {
-    const opts = infiniteQueryOptions<GetSharePointRootsResponse, GetSharePointRootsError, InfiniteData<GetSharePointRootsResponse>, QueryKey<Options<GetSharePointRootsData>>, string | Pick<QueryKey<Options<GetSharePointRootsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    const opts = infiniteQueryOptions<GetSharePointRootsResponse, GetSharePointRootsError, InfiniteData<GetSharePointRootsResponse>, QueryKey<Options<GetSharePointRootsData>>, string | null | Pick<QueryKey<Options<GetSharePointRootsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
     // @ts-ignore
     {
         queryFn: async ({ pageParam, queryKey, signal }) => {
@@ -5219,7 +5219,7 @@ export const listSourceRunsInfiniteQueryKey = (options: Options<ListSourceRunsDa
  * List source synchronization runs and independent activity summaries
  */
 export const listSourceRunsInfiniteOptions = (options: Options<ListSourceRunsData>) => {
-    const opts = infiniteQueryOptions<ListSourceRunsResponse, DefaultError, InfiniteData<ListSourceRunsResponse>, QueryKey<Options<ListSourceRunsData>>, string | Pick<QueryKey<Options<ListSourceRunsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    const opts = infiniteQueryOptions<ListSourceRunsResponse, DefaultError, InfiniteData<ListSourceRunsResponse>, QueryKey<Options<ListSourceRunsData>>, string | null | Pick<QueryKey<Options<ListSourceRunsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
     // @ts-ignore
     {
         queryFn: async ({ pageParam, queryKey, signal }) => {
@@ -5285,7 +5285,7 @@ export const listSourceRunErrorsInfiniteQueryKey = (options: Options<ListSourceR
  * List retained safe run and file errors
  */
 export const listSourceRunErrorsInfiniteOptions = (options: Options<ListSourceRunErrorsData>) => {
-    const opts = infiniteQueryOptions<ListSourceRunErrorsResponse, DefaultError, InfiniteData<ListSourceRunErrorsResponse>, QueryKey<Options<ListSourceRunErrorsData>>, string | Pick<QueryKey<Options<ListSourceRunErrorsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    const opts = infiniteQueryOptions<ListSourceRunErrorsResponse, DefaultError, InfiniteData<ListSourceRunErrorsResponse>, QueryKey<Options<ListSourceRunErrorsData>>, string | null | Pick<QueryKey<Options<ListSourceRunErrorsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
     // @ts-ignore
     {
         queryFn: async ({ pageParam, queryKey, signal }) => {
@@ -5333,7 +5333,7 @@ export const listSourceItemsInfiniteQueryKey = (options: Options<ListSourceItems
  * List a page of current source items
  */
 export const listSourceItemsInfiniteOptions = (options: Options<ListSourceItemsData>) => {
-    const opts = infiniteQueryOptions<ListSourceItemsResponse, DefaultError, InfiniteData<ListSourceItemsResponse>, QueryKey<Options<ListSourceItemsData>>, string | Pick<QueryKey<Options<ListSourceItemsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    const opts = infiniteQueryOptions<ListSourceItemsResponse, DefaultError, InfiniteData<ListSourceItemsResponse>, QueryKey<Options<ListSourceItemsData>>, string | null | Pick<QueryKey<Options<ListSourceItemsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
     // @ts-ignore
     {
         queryFn: async ({ pageParam, queryKey, signal }) => {
@@ -5381,7 +5381,7 @@ export const listSourceIndexAttemptsInfiniteQueryKey = (options: Options<ListSou
  * List source indexing attempts
  */
 export const listSourceIndexAttemptsInfiniteOptions = (options: Options<ListSourceIndexAttemptsData>) => {
-    const opts = infiniteQueryOptions<ListSourceIndexAttemptsResponse, DefaultError, InfiniteData<ListSourceIndexAttemptsResponse>, QueryKey<Options<ListSourceIndexAttemptsData>>, string | Pick<QueryKey<Options<ListSourceIndexAttemptsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    const opts = infiniteQueryOptions<ListSourceIndexAttemptsResponse, DefaultError, InfiniteData<ListSourceIndexAttemptsResponse>, QueryKey<Options<ListSourceIndexAttemptsData>>, string | null | Pick<QueryKey<Options<ListSourceIndexAttemptsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
     // @ts-ignore
     {
         queryFn: async ({ pageParam, queryKey, signal }) => {
@@ -5447,7 +5447,7 @@ export const getGoogleDriveSelectionInfiniteQueryKey = (options: Options<GetGoog
  * Page selected roots and verified linked documents within a pinned Source snapshot
  */
 export const getGoogleDriveSelectionInfiniteOptions = (options: Options<GetGoogleDriveSelectionData>) => {
-    const opts = infiniteQueryOptions<GetGoogleDriveSelectionResponse, DefaultError, InfiniteData<GetGoogleDriveSelectionResponse>, QueryKey<Options<GetGoogleDriveSelectionData>>, string | Pick<QueryKey<Options<GetGoogleDriveSelectionData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    const opts = infiniteQueryOptions<GetGoogleDriveSelectionResponse, DefaultError, InfiniteData<GetGoogleDriveSelectionResponse>, QueryKey<Options<GetGoogleDriveSelectionData>>, string | null | Pick<QueryKey<Options<GetGoogleDriveSelectionData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
     // @ts-ignore
     {
         queryFn: async ({ pageParam, queryKey, signal }) => {
@@ -5495,7 +5495,7 @@ export const getGoogleDriveSelectionTreeInfiniteQueryKey = (options: Options<Get
  * Expand selected Google Drive folders, files, and discovered links within the Source scope
  */
 export const getGoogleDriveSelectionTreeInfiniteOptions = (options: Options<GetGoogleDriveSelectionTreeData>) => {
-    const opts = infiniteQueryOptions<GetGoogleDriveSelectionTreeResponse, DefaultError, InfiniteData<GetGoogleDriveSelectionTreeResponse>, QueryKey<Options<GetGoogleDriveSelectionTreeData>>, string | Pick<QueryKey<Options<GetGoogleDriveSelectionTreeData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    const opts = infiniteQueryOptions<GetGoogleDriveSelectionTreeResponse, DefaultError, InfiniteData<GetGoogleDriveSelectionTreeResponse>, QueryKey<Options<GetGoogleDriveSelectionTreeData>>, string | null | Pick<QueryKey<Options<GetGoogleDriveSelectionTreeData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
     // @ts-ignore
     {
         queryFn: async ({ pageParam, queryKey, signal }) => {
@@ -5998,7 +5998,7 @@ export const listMcpEndpointActivityInfiniteQueryKey = (options?: Options<ListMc
  * Read the MCP endpoint's activity log: who called which tool through which app, kept 90 days
  */
 export const listMcpEndpointActivityInfiniteOptions = (options?: Options<ListMcpEndpointActivityData>) => {
-    const opts = infiniteQueryOptions<ListMcpEndpointActivityResponse, ListMcpEndpointActivityError, InfiniteData<ListMcpEndpointActivityResponse>, QueryKey<Options<ListMcpEndpointActivityData>>, string | Pick<QueryKey<Options<ListMcpEndpointActivityData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    const opts = infiniteQueryOptions<ListMcpEndpointActivityResponse, ListMcpEndpointActivityError, InfiniteData<ListMcpEndpointActivityResponse>, QueryKey<Options<ListMcpEndpointActivityData>>, string | null | Pick<QueryKey<Options<ListMcpEndpointActivityData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
     // @ts-ignore
     {
         queryFn: async ({ pageParam, queryKey, signal }) => {
@@ -6386,7 +6386,7 @@ export const getSharedChatHistoryInfiniteQueryKey = (options: Options<GetSharedC
  * Read saved messages on the currently shared branch
  */
 export const getSharedChatHistoryInfiniteOptions = (options: Options<GetSharedChatHistoryData>) => {
-    const opts = infiniteQueryOptions<GetSharedChatHistoryResponse, GetSharedChatHistoryError, InfiniteData<GetSharedChatHistoryResponse>, QueryKey<Options<GetSharedChatHistoryData>>, string | Pick<QueryKey<Options<GetSharedChatHistoryData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    const opts = infiniteQueryOptions<GetSharedChatHistoryResponse, GetSharedChatHistoryError, InfiniteData<GetSharedChatHistoryResponse>, QueryKey<Options<GetSharedChatHistoryData>>, string | null | Pick<QueryKey<Options<GetSharedChatHistoryData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
     // @ts-ignore
     {
         queryFn: async ({ pageParam, queryKey, signal }) => {
@@ -7126,7 +7126,7 @@ export const listChatLibraryDocumentsInfiniteQueryKey = (options?: Options<ListC
  * Browse the Source documents the caller may read under their Search authority, without a search term
  */
 export const listChatLibraryDocumentsInfiniteOptions = (options?: Options<ListChatLibraryDocumentsData>) => {
-    const opts = infiniteQueryOptions<ListChatLibraryDocumentsResponse, ListChatLibraryDocumentsError, InfiniteData<ListChatLibraryDocumentsResponse>, QueryKey<Options<ListChatLibraryDocumentsData>>, string | Pick<QueryKey<Options<ListChatLibraryDocumentsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    const opts = infiniteQueryOptions<ListChatLibraryDocumentsResponse, ListChatLibraryDocumentsError, InfiniteData<ListChatLibraryDocumentsResponse>, QueryKey<Options<ListChatLibraryDocumentsData>>, string | null | Pick<QueryKey<Options<ListChatLibraryDocumentsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
     // @ts-ignore
     {
         queryFn: async ({ pageParam, queryKey, signal }) => {
@@ -7318,7 +7318,7 @@ export const listChatHistoryInfiniteQueryKey = (options?: Options<ListChatHistor
  * The Tenant's conversations, newest first; requires conversation history access
  */
 export const listChatHistoryInfiniteOptions = (options?: Options<ListChatHistoryData>) => {
-    const opts = infiniteQueryOptions<ListChatHistoryResponse, ListChatHistoryError, InfiniteData<ListChatHistoryResponse>, QueryKey<Options<ListChatHistoryData>>, string | Pick<QueryKey<Options<ListChatHistoryData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    const opts = infiniteQueryOptions<ListChatHistoryResponse, ListChatHistoryError, InfiniteData<ListChatHistoryResponse>, QueryKey<Options<ListChatHistoryData>>, string | null | Pick<QueryKey<Options<ListChatHistoryData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
     // @ts-ignore
     {
         queryFn: async ({ pageParam, queryKey, signal }) => {
@@ -7851,7 +7851,7 @@ export const listAuditEventsInfiniteQueryKey = (options?: Options<ListAuditEvent
  * The Tenant's audit events, newest first, one page at a time; requires AUDIT_READ
  */
 export const listAuditEventsInfiniteOptions = (options?: Options<ListAuditEventsData>) => {
-    const opts = infiniteQueryOptions<ListAuditEventsResponse, ListAuditEventsError, InfiniteData<ListAuditEventsResponse>, QueryKey<Options<ListAuditEventsData>>, string | Pick<QueryKey<Options<ListAuditEventsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    const opts = infiniteQueryOptions<ListAuditEventsResponse, ListAuditEventsError, InfiniteData<ListAuditEventsResponse>, QueryKey<Options<ListAuditEventsData>>, string | null | Pick<QueryKey<Options<ListAuditEventsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
     // @ts-ignore
     {
         queryFn: async ({ pageParam, queryKey, signal }) => {

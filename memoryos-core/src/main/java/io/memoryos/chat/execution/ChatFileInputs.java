@@ -29,7 +29,7 @@ final class ChatFileInputs {
                 if (source != null) parts.add(new TextPart("Image citation [" + source.citationId() + "] identifies file " + file.id()));
                 parts.add(new ImagePart(file.mediaType(), bytes));
             }
-            messages.set(entry.getKey(), new UserMessage(parts, null, Instant.now()));
+            messages.set(entry.getKey(), new UserMessage(parts, null, List.of(), Instant.now()));
         }
         return List.copyOf(messages);
     }
