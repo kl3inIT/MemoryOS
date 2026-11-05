@@ -5462,7 +5462,9 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           format: uuid
       - name: revision
         in: query
@@ -6075,13 +6077,17 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           format: uuid
       - name: reasoningEffort
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           enum:
           - "OFF"
           - LOW
@@ -11695,7 +11701,9 @@ paths:
         description: Only the topics of this assistant
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           format: uuid
       - name: offset
         in: query
@@ -11902,7 +11910,9 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           format: uuid
       - name: limit
         in: query
@@ -13448,13 +13458,17 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           format: uuid
       - name: q
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
       - name: offset
         in: query
         required: false
@@ -15428,7 +15442,9 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
       - name: size
         in: query
         required: false
@@ -15489,7 +15505,9 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
       - name: size
         in: query
         required: false
@@ -15503,7 +15521,9 @@ paths:
         in: query
         required: false
         schema:
-          type: array
+          type:
+          - array
+          - "null"
           items:
             type: string
             enum:
@@ -15522,7 +15542,9 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           enum:
           - SCHEDULED
           - MANUAL
@@ -15532,13 +15554,17 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           format: date-time
       - name: to
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           format: date-time
       responses:
         "200":
@@ -15602,7 +15628,9 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
       - name: size
         in: query
         required: false
@@ -15639,7 +15667,9 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
       - name: size
         in: query
         required: false
@@ -15676,7 +15706,9 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
       - name: size
         in: query
         required: false
@@ -15737,12 +15769,16 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
       - name: kind
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           enum:
           - FOLDER
           - FILE
@@ -15751,7 +15787,9 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
       - name: size
         in: query
         required: false
@@ -15787,12 +15825,16 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
       - name: cursor
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
       - name: size
         in: query
         required: false
@@ -15935,7 +15977,9 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           maxLength: 200
           minLength: 0
       - name: page
@@ -16147,7 +16191,9 @@ paths:
           \ generation, as a link that carries only the document opens it"
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           format: uuid
       - name: from
         in: query
@@ -16220,7 +16266,9 @@ paths:
         description: "One byte range, for example bytes=0-1048575"
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
       responses:
         "200":
           description: "Original bytes, under the object's declared media type"
@@ -16502,7 +16550,9 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           maxLength: 200
           minLength: 0
       - name: page
@@ -16752,20 +16802,26 @@ paths:
         description: Calls at or after this instant
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           format: date-time
       - name: to
         in: query
         description: Calls before this instant
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           format: date-time
       - name: client
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           enum:
           - CLAUDE
           - CHATGPT
@@ -16774,14 +16830,18 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           maxLength: 64
           minLength: 0
       - name: outcome
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           enum:
           - SUCCESS
           - REFUSED
@@ -16792,7 +16852,9 @@ paths:
         description: Part of the person's name or e-mail address
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           maxLength: 200
           minLength: 0
       - name: cursor
@@ -16800,7 +16862,9 @@ paths:
         description: The next value of the previous page
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           maxLength: 200
           minLength: 0
       - name: size
@@ -16941,7 +17005,9 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           maxLength: 200
           minLength: 0
       - name: size
@@ -17544,7 +17610,9 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           format: uuid
       - name: limit
         in: query
@@ -17714,12 +17782,16 @@ paths:
         in: header
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
       - name: after
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
       responses:
         "400":
           description: Invalid request or cursor
@@ -17900,7 +17972,9 @@ paths:
         description: Only the topics of this assistant
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           format: uuid
       - name: offset
         in: query
@@ -17957,7 +18031,9 @@ paths:
         in: query
         required: false
         schema:
-          type: integer
+          type:
+          - integer
+          - "null"
           format: int32
           maximum: 3650
           minimum: 1
@@ -18525,7 +18601,9 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           format: uuid
       responses:
         "400":
@@ -18714,7 +18792,9 @@ paths:
         description: Empty means every source
         required: false
         schema:
-          type: array
+          type:
+          - array
+          - "null"
           items:
             type: string
       - name: categories
@@ -18722,7 +18802,9 @@ paths:
         description: Empty means every category
         required: false
         schema:
-          type: array
+          type:
+          - array
+          - "null"
           items:
             type: string
       - name: sessionId
@@ -18730,7 +18812,9 @@ paths:
         description: Only this conversation's own files; the caller must own it
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           format: uuid
       - name: favorite
         in: query
@@ -18911,7 +18995,9 @@ paths:
         description: Empty means every kind
         required: false
         schema:
-          type: array
+          type:
+          - array
+          - "null"
           items:
             type: string
       - name: offset
@@ -19030,7 +19116,9 @@ paths:
         description: MEETING or AGENT_FILE; empty means both
         required: false
         schema:
-          type: array
+          type:
+          - array
+          - "null"
           items:
             type: string
       - name: categories
@@ -19038,7 +19126,9 @@ paths:
         description: Empty means every category; a meeting has none
         required: false
         schema:
-          type: array
+          type:
+          - array
+          - "null"
           items:
             type: string
       - name: sort
@@ -19223,7 +19313,9 @@ paths:
         description: Empty means every Source the caller may search
         required: false
         schema:
-          type: array
+          type:
+          - array
+          - "null"
           items:
             type: string
             format: uuid
@@ -19232,7 +19324,9 @@ paths:
         description: Empty means every category
         required: false
         schema:
-          type: array
+          type:
+          - array
+          - "null"
           items:
             type: string
       - name: sort
@@ -19249,7 +19343,9 @@ paths:
           \ sort"
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
       - name: limit
         in: query
         required: false
@@ -19713,30 +19809,40 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           format: date-time
       - name: to
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           format: date-time
       - name: q
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
       - name: actorId
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           format: uuid
       - name: feedback
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           enum:
           - POSITIVE
           - NEGATIVE
@@ -19752,7 +19858,9 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
       - name: size
         in: query
         required: false
@@ -19848,30 +19956,40 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           format: date-time
       - name: to
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           format: date-time
       - name: q
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
       - name: actorId
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           format: uuid
       - name: feedback
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           enum:
           - POSITIVE
           - NEGATIVE
@@ -19926,7 +20044,9 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           maxLength: 200
           minLength: 0
       - name: page
@@ -20968,7 +21088,9 @@ paths:
         description: "One byte range, for example bytes=0-1048575"
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
       responses:
         "200":
           description: "Original bytes, under the object's declared media type"
@@ -21021,24 +21143,32 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           format: date-time
       - name: to
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           format: date-time
       - name: q
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
       - name: eventClass
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           enum:
           - AUTHENTICATION
           - ACCOUNT_CHANGE
@@ -21049,12 +21179,16 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
       - name: outcome
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           enum:
           - SUCCESS
           - FAILURE
@@ -21063,7 +21197,9 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           format: uuid
       responses:
         "400":
@@ -21102,24 +21238,32 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           format: date-time
       - name: to
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           format: date-time
       - name: q
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
       - name: eventClass
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           enum:
           - AUTHENTICATION
           - ACCOUNT_CHANGE
@@ -21130,12 +21274,16 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
       - name: outcome
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           enum:
           - SUCCESS
           - FAILURE
@@ -21144,23 +21292,31 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           format: uuid
       - name: resourceType
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
       - name: resourceId
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
       - name: cursor
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
       - name: size
         in: query
         required: false
@@ -21292,12 +21448,16 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
       - name: flow
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           enum:
           - CHAT
           - CHAT_NAMING
@@ -21483,7 +21643,9 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           format: uuid
       - name: system
         in: query
@@ -21549,12 +21711,16 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
       - name: flow
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           enum:
           - CHAT
           - CHAT_NAMING
@@ -21642,12 +21808,16 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
       - name: flow
         in: query
         required: false
         schema:
-          type: string
+          type:
+          - string
+          - "null"
           enum:
           - CHAT
           - CHAT_NAMING

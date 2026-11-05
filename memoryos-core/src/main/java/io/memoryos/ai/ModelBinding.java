@@ -176,6 +176,7 @@ public record ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> fin
         return new SpringAiLlmService(service.getName(), service.getProvider(), model, service.getOptionsConverter(),
                 service.getKnowledgeCutoffDate(), List.of(), service.getPricingModel(),
                 service.supportsThinking(), service.getToolResponseContentAdapter(),
-                service.getNativeStructuredOutputConfigurer(), service.getNativeSupport());
+                service.getNativeStructuredOutputConfigurer(), service.getNativeThinkingExtractor(),
+                service.getNativeSupport());
     }
 }

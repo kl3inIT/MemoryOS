@@ -8609,7 +8609,7 @@ export type SetPersonaModelData = {
         personaId: string;
     };
     query: {
-        modelConfigurationId?: string;
+        modelConfigurationId?: string | null;
         revision: number;
     };
     url: '/api/chat/personas/{personaId}/model';
@@ -9052,7 +9052,7 @@ export type SetChatModelFlowData = {
         flow: 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'AGENT_BUILDER' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     };
     query: {
-        modelConfigurationId?: string;
+        modelConfigurationId?: string | null;
         reasoningEffort?: 'OFF' | 'LOW' | 'MEDIUM' | 'HIGH';
         revision: number;
     };
@@ -12947,7 +12947,7 @@ export type ListChatSessionsData = {
         /**
          * Only the topics of this assistant
          */
-        personaId?: string;
+        personaId?: string | null;
         offset?: number;
         limit?: number;
     };
@@ -13066,7 +13066,7 @@ export type GetChatHistoryData = {
         sessionId: string;
     };
     query?: {
-        after?: string;
+        after?: string | null;
         limit?: number;
     };
     url: '/api/chat/sessions/{sessionId}/messages';
@@ -14168,8 +14168,8 @@ export type ListChatPersonasData = {
     path?: never;
     query?: {
         view?: 'ALL' | 'MINE' | 'SHARED';
-        labelId?: string;
-        q?: string;
+        labelId?: string | null;
+        q?: string | null;
         offset?: number;
         limit?: number;
     };
@@ -15619,7 +15619,7 @@ export type GetSharePointRootsData = {
         sourceId: string;
     };
     query?: {
-        cursor?: string;
+        cursor?: string | null;
         size?: number;
     };
     url: '/api/sources/{sourceId}/sharepoint/roots';
@@ -15665,12 +15665,12 @@ export type ListSourceRunsData = {
         sourceId: string;
     };
     query?: {
-        cursor?: string;
+        cursor?: string | null;
         size?: number;
-        status?: Array<'QUEUED' | 'ACQUIRING' | 'RETRY_SCHEDULED' | 'RECOVERY_PENDING' | 'INDEXING' | 'SUCCEEDED' | 'COMPLETED_WITH_ERRORS' | 'FAILED' | 'SUPERSEDED' | 'CANCELLED' | 'UNKNOWN'>;
+        status?: Array<'QUEUED' | 'ACQUIRING' | 'RETRY_SCHEDULED' | 'RECOVERY_PENDING' | 'INDEXING' | 'SUCCEEDED' | 'COMPLETED_WITH_ERRORS' | 'FAILED' | 'SUPERSEDED' | 'CANCELLED' | 'UNKNOWN'> | null;
         trigger?: 'SCHEDULED' | 'MANUAL' | 'INITIAL' | 'RESUMED';
-        from?: string;
-        to?: string;
+        from?: string | null;
+        to?: string | null;
     };
     url: '/api/sources/{sourceId}/runs';
 };
@@ -15710,7 +15710,7 @@ export type ListSourceRunErrorsData = {
         runId: string;
     };
     query?: {
-        cursor?: string;
+        cursor?: string | null;
         size?: number;
     };
     url: '/api/sources/{sourceId}/runs/{runId}/errors';
@@ -15731,7 +15731,7 @@ export type ListSourceItemsData = {
         sourceId: string;
     };
     query?: {
-        cursor?: string;
+        cursor?: string | null;
         size?: number;
     };
     url: '/api/sources/{sourceId}/items';
@@ -15752,7 +15752,7 @@ export type ListSourceIndexAttemptsData = {
         sourceId: string;
     };
     query?: {
-        cursor?: string;
+        cursor?: string | null;
         size?: number;
     };
     url: '/api/sources/{sourceId}/index-attempts';
@@ -15791,9 +15791,9 @@ export type GetGoogleDriveSelectionData = {
         sourceId: string;
     };
     query?: {
-        search?: string;
+        search?: string | null;
         kind?: 'FOLDER' | 'FILE' | 'LINKED';
-        cursor?: string;
+        cursor?: string | null;
         size?: number;
     };
     url: '/api/sources/{sourceId}/google-drive/selection';
@@ -15814,8 +15814,8 @@ export type GetGoogleDriveSelectionTreeData = {
         sourceId: string;
     };
     query?: {
-        parentId?: string;
-        cursor?: string;
+        parentId?: string | null;
+        cursor?: string | null;
         size?: number;
     };
     url: '/api/sources/{sourceId}/google-drive/selection-tree';
@@ -15936,7 +15936,7 @@ export type ListSourceGroupOptionsData = {
     body?: never;
     path?: never;
     query?: {
-        search?: string;
+        search?: string | null;
         page?: number;
         size?: number;
     };
@@ -16103,7 +16103,7 @@ export type GetSearchDocumentData = {
         /**
          * The generation a search result named; without one, the current generation, as a link that carries only the document opens it
          */
-        generation?: string;
+        generation?: string | null;
         from?: number;
     };
     url: '/api/search/documents/{documentId}';
@@ -16144,7 +16144,7 @@ export type ReadSearchDocumentOriginalData = {
         /**
          * One byte range, for example bytes=0-1048575
          */
-        Range?: string;
+        Range?: string | null;
     };
     path: {
         documentId: string;
@@ -16390,7 +16390,7 @@ export type ListMcpGroupOptionsData = {
     body?: never;
     path?: never;
     query?: {
-        search?: string;
+        search?: string | null;
         page?: number;
         size?: number;
     };
@@ -16597,22 +16597,22 @@ export type ListMcpEndpointActivityData = {
         /**
          * Calls at or after this instant
          */
-        from?: string;
+        from?: string | null;
         /**
          * Calls before this instant
          */
-        to?: string;
+        to?: string | null;
         client?: 'CLAUDE' | 'CHATGPT' | 'OTHER';
-        tool?: string;
+        tool?: string | null;
         outcome?: 'SUCCESS' | 'REFUSED' | 'FAILED' | 'RATE_LIMITED';
         /**
          * Part of the person's name or e-mail address
          */
-        person?: string;
+        person?: string | null;
         /**
          * The next value of the previous page
          */
-        cursor?: string;
+        cursor?: string | null;
         size?: number;
     };
     url: '/api/mcp/endpoint/activity';
@@ -16730,7 +16730,7 @@ export type SearchPrincipalsData = {
     body?: never;
     path?: never;
     query?: {
-        search?: string;
+        search?: string | null;
         size?: number;
     };
     url: '/api/identity/principals';
@@ -17241,7 +17241,7 @@ export type GetSharedChatHistoryData = {
         sessionId: string;
     };
     query?: {
-        after?: string;
+        after?: string | null;
         limit?: number;
     };
     url: '/api/chat/shared/{sessionId}/messages';
@@ -17366,14 +17366,14 @@ export type GetChatSessionResponse = GetChatSessionResponses[keyof GetChatSessio
 export type StreamChatMessageData = {
     body?: never;
     headers?: {
-        'Last-Event-ID'?: string;
+        'Last-Event-ID'?: string | null;
     };
     path: {
         sessionId: string;
         assistantMessageId: string;
     };
     query?: {
-        after?: string;
+        after?: string | null;
     };
     url: '/api/chat/sessions/{sessionId}/messages/{assistantMessageId}/events';
 };
@@ -17508,7 +17508,7 @@ export type SearchChatSessionsData = {
         /**
          * Only the topics of this assistant
          */
-        personaId?: string;
+        personaId?: string | null;
         offset?: number;
         limit?: number;
     };
@@ -17549,7 +17549,7 @@ export type PreviewChatRetentionData = {
     body?: never;
     path?: never;
     query?: {
-        days?: number;
+        days?: number | null;
     };
     url: '/api/chat/retention/preview';
 };
@@ -17999,7 +17999,7 @@ export type ListAvailableChatModelsData = {
     body?: never;
     path?: never;
     query?: {
-        sessionId?: string;
+        sessionId?: string | null;
     };
     url: '/api/chat/models';
 };
@@ -18146,15 +18146,15 @@ export type ListChatLibraryData = {
         /**
          * Empty means every source
          */
-        sources?: Array<string>;
+        sources?: Array<string> | null;
         /**
          * Empty means every category
          */
-        categories?: Array<string>;
+        categories?: Array<string> | null;
         /**
          * Only this conversation's own files; the caller must own it
          */
-        sessionId?: string;
+        sessionId?: string | null;
         /**
          * Only starred files
          */
@@ -18294,7 +18294,7 @@ export type ListChatLibraryStarredData = {
         /**
          * Empty means every kind
          */
-        kinds?: Array<string>;
+        kinds?: Array<string> | null;
         offset?: number;
         limit?: number;
     };
@@ -18384,11 +18384,11 @@ export type ListChatLibrarySharedData = {
         /**
          * MEETING or AGENT_FILE; empty means both
          */
-        kinds?: Array<string>;
+        kinds?: Array<string> | null;
         /**
          * Empty means every category; a meeting has none
          */
-        categories?: Array<string>;
+        categories?: Array<string> | null;
         sort?: 'NEWEST' | 'OLDEST' | 'NAME';
         offset?: number;
         limit?: number;
@@ -18527,16 +18527,16 @@ export type ListChatLibraryDocumentsData = {
         /**
          * Empty means every Source the caller may search
          */
-        sourceIds?: Array<string>;
+        sourceIds?: Array<string> | null;
         /**
          * Empty means every category
          */
-        categories?: Array<string>;
+        categories?: Array<string> | null;
         sort?: 'NEWEST' | 'NAME';
         /**
          * The nextCursor of the previous page, with the same filters and sort
          */
-        cursor?: string;
+        cursor?: string | null;
         limit?: number;
     };
     url: '/api/chat/library/documents';
@@ -18935,13 +18935,13 @@ export type ListChatHistoryData = {
     body?: never;
     path?: never;
     query?: {
-        from?: string;
-        to?: string;
-        q?: string;
-        actorId?: string;
+        from?: string | null;
+        to?: string | null;
+        q?: string | null;
+        actorId?: string | null;
         feedback?: 'POSITIVE' | 'NEGATIVE' | 'MIXED' | 'NONE';
         blocked?: boolean;
-        cursor?: string;
+        cursor?: string | null;
         size?: number;
     };
     url: '/api/chat/history';
@@ -19020,10 +19020,10 @@ export type ExportChatHistoryData = {
     body?: never;
     path?: never;
     query?: {
-        from?: string;
-        to?: string;
-        q?: string;
-        actorId?: string;
+        from?: string | null;
+        to?: string | null;
+        q?: string | null;
+        actorId?: string | null;
         feedback?: 'POSITIVE' | 'NEGATIVE' | 'MIXED' | 'NONE';
         blocked?: boolean;
     };
@@ -19064,7 +19064,7 @@ export type ListChatGroupOptionsData = {
     body?: never;
     path?: never;
     query?: {
-        search?: string;
+        search?: string | null;
         page?: number;
         size?: number;
     };
@@ -19890,7 +19890,7 @@ export type ReadChatDocumentOriginalData = {
         /**
          * One byte range, for example bytes=0-1048575
          */
-        Range?: string;
+        Range?: string | null;
     };
     path: {
         documentId: string;
@@ -19943,13 +19943,13 @@ export type ExportAuditEventsData = {
     body?: never;
     path?: never;
     query?: {
-        from?: string;
-        to?: string;
-        q?: string;
+        from?: string | null;
+        to?: string | null;
+        q?: string | null;
         eventClass?: 'AUTHENTICATION' | 'ACCOUNT_CHANGE' | 'USER_ACCESS_MANAGEMENT' | 'GROUP_MANAGEMENT' | 'API_ACTIVITY';
-        action?: string;
+        action?: string | null;
         outcome?: 'SUCCESS' | 'FAILURE' | 'DENIED';
-        actorId?: string;
+        actorId?: string | null;
     };
     url: '/api/audit/export';
 };
@@ -19984,16 +19984,16 @@ export type ListAuditEventsData = {
     body?: never;
     path?: never;
     query?: {
-        from?: string;
-        to?: string;
-        q?: string;
+        from?: string | null;
+        to?: string | null;
+        q?: string | null;
         eventClass?: 'AUTHENTICATION' | 'ACCOUNT_CHANGE' | 'USER_ACCESS_MANAGEMENT' | 'GROUP_MANAGEMENT' | 'API_ACTIVITY';
-        action?: string;
+        action?: string | null;
         outcome?: 'SUCCESS' | 'FAILURE' | 'DENIED';
-        actorId?: string;
-        resourceType?: string;
-        resourceId?: string;
-        cursor?: string;
+        actorId?: string | null;
+        resourceType?: string | null;
+        resourceId?: string | null;
+        cursor?: string | null;
         size?: number;
     };
     url: '/api/audit/events';
@@ -20103,7 +20103,7 @@ export type GetAiCostSummaryData = {
     query: {
         from: string;
         to: string;
-        model?: string;
+        model?: string | null;
         flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'CHAT_FOLLOW_UPS' | 'AGENT_BUILDER' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
     };
     url: '/api/ai-costs/summary';
@@ -20249,7 +20249,7 @@ export type GetAiCostDetailData = {
     query: {
         from: string;
         to: string;
-        actorId?: string;
+        actorId?: string | null;
         system?: boolean;
     };
     url: '/api/ai-costs/detail';
@@ -20288,7 +20288,7 @@ export type ListAiCostDaysData = {
         from: string;
         to: string;
         split?: 'BOUNDARY' | 'MODEL' | 'NONE';
-        model?: string;
+        model?: string | null;
         flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'CHAT_FOLLOW_UPS' | 'AGENT_BUILDER' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
     };
     url: '/api/ai-costs/daily';
@@ -20328,7 +20328,7 @@ export type ListAiCostBreakdownData = {
         to: string;
         by: 'ACTOR' | 'GROUP' | 'MODEL' | 'FLOW' | 'PROVIDER';
         limit?: number;
-        model?: string;
+        model?: string | null;
         flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'CHAT_FOLLOW_UPS' | 'AGENT_BUILDER' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
     };
     url: '/api/ai-costs/breakdown';
