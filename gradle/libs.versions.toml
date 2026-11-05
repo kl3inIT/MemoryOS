@@ -28,7 +28,7 @@ lark-oapi = "2.8.7"
 opensandbox = "1.2.0"
 google-api-drive = "v3-rev20260916-2.0.0"
 google-api-sheets = "v4-rev20260930-2.0.0"
-google-api-docs = "v1-rev20261006-2.0.0"
+google-api-docs = "v1-rev20261006-2.9.2"
 google-api-admin-directory = "directory_v1-rev20260914-2.0.0"
 # MEM-137: realtime dictation and streamed read-aloud for Azure; the REST client stays for recordings.
 azure-speech = "1.53.0"
