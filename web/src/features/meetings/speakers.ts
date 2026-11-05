@@ -48,9 +48,16 @@ const SPEAKER_COLORS = [
   "bg-speaker-6",
 ];
 
+/** A person the owner named on both tracks keeps one colour: the colour of the first voice with that name. */
 export function speakerColor(meeting: MeetingDetail, track: MeetingTrack, label: string) {
-  const index = meeting.speakers.findIndex(
-    (speaker) => speaker.track === track && speaker.label === label,
+  const name = meeting.speakers
+    .find((speaker) => speaker.track === track && speaker.label === label)
+    ?.name?.trim()
+    .toLowerCase();
+  const index = meeting.speakers.findIndex((speaker) =>
+    name
+      ? speaker.name?.trim().toLowerCase() === name
+      : speaker.track === track && speaker.label === label,
   );
   return SPEAKER_COLORS[Math.max(0, index) % SPEAKER_COLORS.length];
 }

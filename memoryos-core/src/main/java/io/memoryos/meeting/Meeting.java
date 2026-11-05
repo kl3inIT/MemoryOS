@@ -130,6 +130,9 @@ public final class Meeting {
      */
     public record SpeakerSuggestion(String name, UUID utteranceId, double confidence) {}
 
+    /** One line as it now reads, and the voice it now belongs to. */
+    public record LineSpeaker(Utterance utterance, Speaker speaker) {}
+
     public record Utterance(UUID id, Track track, String speaker, long startMs, long endMs, String text,
                             double confidence, List<Span> spans, @Nullable EditSource editSource) {
         public Utterance {

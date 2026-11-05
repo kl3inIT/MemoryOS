@@ -14,6 +14,7 @@ import {
   withAddedMinutesItem,
   withMinutesItem,
   withoutMinutesItem,
+  withLineSpeaker,
   withSpeaker,
   type MeetingCorrection,
   type MeetingDetail,
@@ -135,6 +136,28 @@ describe("patching the cached meeting", () => {
       { track: "MIC", label: "1", name: "Anh Minh" },
       { track: "MIC", label: "2", name: "Chị Lan" },
     ]);
+  });
+
+  it("moves one line and adds the voice a new name made", () => {
+    const line = meeting().utterances[0]!;
+    const moved = withLineSpeaker(meeting(), {
+      utterance: { ...line, speaker: "M1" },
+      speaker: { track: "MIC", label: "M1", name: "Duy HN" },
+    });
+
+    expect(moved.utterances[0]?.speaker).toBe("M1");
+    expect(moved.speakers).toEqual([
+      { track: "MIC", label: "1", name: null },
+      { track: "MIC", label: "2", name: "Chị Lan" },
+      { track: "MIC", label: "M1", name: "Duy HN" },
+    ]);
+    // Moving to a voice the meeting already has adds nothing.
+    const back = withLineSpeaker(moved, {
+      utterance: line,
+      speaker: { track: "MIC", label: "1", name: null },
+    });
+    expect(back.speakers).toHaveLength(3);
+    expect(back.utterances[0]?.speaker).toBe("1");
   });
 
   it("replaces a ticked item without calling the minutes the owner's", () => {

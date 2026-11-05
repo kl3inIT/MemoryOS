@@ -142,14 +142,15 @@ function MeetingVoices({
   onReveal: (utteranceId: string) => void;
 }) {
   const ui = useAppTranslation();
-  if (meeting.speakers.length === 0) return null;
+  const voices = speakingVoices(meeting);
+  if (voices.length === 0) return null;
   return (
     <section className="flex flex-col gap-2">
       <h3 className="text-xs font-medium text-content-muted">{ui("Người nói")}</h3>
-      <ul className="grid gap-2">
-        {meeting.speakers.map((speaker) => (
-          <li key={`${speaker.track}/${speaker.label}`} className="flex">
-            <SpeakerChip meeting={meeting} track={speaker.track} label={speaker.label} />
+      <ul className="grid gap-2" aria-label={ui("Người nói")}>
+        {voices.map(([voice, ...twins]) => (
+          <li key={`${voice.track}/${voice.label}`} className="flex">
+            <SpeakerChip meeting={meeting} track={voice.track} label={voice.label} twins={twins} />
           </li>
         ))}
       </ul>
@@ -168,4 +169,24 @@ function Fact({ icon, label, children }: { icon: ReactNode; label: string; child
       <dd className="min-w-0 flex-1 text-content-primary">{children}</dd>
     </div>
   );
+}
+
+/**
+ * The voices that still say something, one entry for each person: a voice whose every line moved elsewhere is gone,
+ * and the voices a name gathers, such as one person heard on both tracks, are one person.
+ */
+function speakingVoices(meeting: MeetingDetail) {
+  const speaking = new Set(meeting.utterances.map((line) => `${line.track}/${line.speaker}`));
+  const people = new Map<string, MeetingDetail["speakers"]>();
+  for (const speaker of meeting.speakers) {
+    if (!speaking.has(`${speaker.track}/${speaker.label}`)) continue;
+    const key = speaker.name
+      ? `name:${speaker.name.normalize("NFC").toLowerCase().replace(/\s+/g, " ").trim()}`
+      : `voice:${speaker.track}/${speaker.label}`;
+    people.set(key, [...(people.get(key) ?? []), speaker]);
+  }
+  return [...people.values()] as [
+    MeetingDetail["speakers"][number],
+    ...MeetingDetail["speakers"],
+  ][];
 }

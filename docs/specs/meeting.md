@@ -33,6 +33,7 @@ A reader opens the meeting while it records and after it ends: the transcript as
 | --- | --- |
 | `PUT /api/meetings/{id}/notes` | `{notes, revision}`: the notes as stored and the revision the next save names |
 | `PUT /api/meetings/{id}` | `{title, participants, revision}`: the name and the people as stored, and the new revision |
+| `PUT /api/meetings/{id}/utterances/{utteranceId}/speaker` | Who spoke one line: `{speaker: {track, label}}` or `{name}`, exactly one, answered with `{utterance, speaker}`; see [Who spoke a line](#who-spoke-a-line) |
 | `PUT /api/meetings/{id}/speakers/{track}/{label}`, `DELETE …/speakers/{track}/{label}/suggestion` | That one speaker: `{track, label, name, suggestion}`. A voice left without a name is offered the name it gave itself again, read from its own lines only |
 | `PUT`, `DELETE /api/meetings/{id}/utterances/{utteranceId}/star` | Every line the caller starred in this meeting |
 | `POST /api/meetings/{id}/bookmarks`, `DELETE …/bookmarks/{bookmarkId}` | Every mark the caller has in this meeting, in time order |
@@ -114,6 +115,12 @@ The page shows a change where it was made: the words that replaced what was hear
 `meeting_utterance.text` is always what the reader sees. Every change to it is a row in `meeting_utterance_event` with its `before`, its `after`, who made it and which run it belonged to, so the words the provider first wrote stay recoverable. `edit_source` says who last changed a line (`MODEL`, `HUMAN`, or nothing at all) and is what locks a line the owner rewrote. Accepting shifts the line's remaining marks: one covering the replaced words is dropped, the rest move by the difference in length.
 
 Utterances are stored as they are committed, with their speaker row created on first use. Naming a speaker (`PUT /api/meetings/{id}/speakers/{track}/{label}`) applies to every utterance of that speaker; a blank name restores the automatic label.
+
+### Who spoke a line
+
+Live diarization can hear two people at one device as one voice, and online the microphone is taken to be the owner, so the owner says who spoke one line, as Nojoin's speaker picker does. A line's speaker on the page (and, inside a turn, the line's own button) opens a picker of the meeting's voices and expected participants, with **Câu này** (default) or **Mọi câu của …**, which is the rename above; online the microphone's voice is never renamed as a whole, so its lines offer only this line.
+
+`PUT /api/meetings/{id}/utterances/{utteranceId}/speaker` moves one line to a voice of its own track: the voice chosen when it is on that track; for a named voice of the other track, or a typed name, the voice of the line's track carrying that name (compared without case or spacing), or a new one labelled `M1`, `M2`… within its track, which no provider's numbered labels meet. An unnamed voice of the other track is refused (400), as are both or neither of a voice and a name; an unknown line or voice is 404, and only the owner may move a line. The first move keeps the provider's label in `meeting_utterance.diarized_speaker` (Flyway V200). The page lists each person once: a voice with no line left is not listed, voices with the same name are one entry, and renaming that entry renames each of them. The minutes, the exports and the corrections follow the line's voice once they are written again.
 
 ### The name a voice gave itself
 
