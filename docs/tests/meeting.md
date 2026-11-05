@@ -111,3 +111,17 @@ After the prompt was written by practice ([MEM-305](../increments/active/mem-305
 The minutes now find about two thirds of the actions and more than half of the decisions, and wrong owners fall to a third; they write somewhat more that the key does not hold, and repeat an item more often.
 
 Reading the transcript in parts and then merging the candidates ([MEM-306](../increments/superseded/mem-306-minutes-chunks/design.md#result)) was measured twice against MEM-305 and reverted: it found more actions (up to 0.73) but wrote more outside the key (decisions in the key down to 0.45), found fewer decisions (0.37 or 0.50) and barely reduced repeats.
+
+The same prompt with a stronger model shows that the model, not the prompt, limits recall. On 2026-11-04 staging wrote the minutes with `cx/gpt-6.1-sol` (reasoning MEDIUM, through 9Router), one writing a meeting. On the 15 meetings it wrote that MEM-305 also scored, against MEM-305's `cx/gpt-6-luna` mean of three:
+
+| Metric | sol | Luna |
+| --- | --- | --- |
+| Actions found | 0.96 | 0.63 |
+| Written actions in the key | 0.59 | 0.62 |
+| Decisions found | 0.77 | 0.59 |
+| Written decisions in the key | 0.49 | 0.65 |
+| Owner right, where it can be told | 0.76 | 0.79 |
+| Repeated items | 0.10 | 0.08 |
+| Quotes found in their line | 1.00 | 0.96 |
+
+Evals `eval-O1b-2026-11-04T12:28:18` and `eval-OAo-2026-11-04T16:09:04`. A long meeting takes sol about two minutes. That is past the old 60-second read gap, which [MEM-307](https://linear.app/memory-os/issue/MEM-307) fixed, and past promptfoo's default 300-second Python worker. The second eval reran the meetings the first one lost, with the provider's `config.timeout` at 15 minutes. Two meetings stayed unscored: 9Router answered a 5xx after the model had finished. Sol finds a third more actions and more decisions at about the same action precision, and writes more decisions the key does not hold.
