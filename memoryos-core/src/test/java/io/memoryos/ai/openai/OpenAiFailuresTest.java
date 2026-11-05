@@ -45,6 +45,9 @@ class OpenAiFailuresTest {
         assertEquals(Optional.of(TurnFailure.PROVIDER_RATE_LIMITED), OpenAiFailures.read(new CompletionException(cooldown)));
         assertEquals(Optional.empty(), OpenAiFailures.read(InternalServerException.builder().statusCode(503).headers(NONE).build()),
                 "A 503 that does not say when to retry stays unnamed");
+        assertEquals(Optional.empty(), OpenAiFailures.read(InternalServerException.builder().statusCode(500)
+                .headers(Headers.builder().put("Retry-After", "1209").build()).build()),
+                "Only a 503 that says when to retry is a rate limit");
     }
 
     @Test
