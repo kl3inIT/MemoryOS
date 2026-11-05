@@ -194,6 +194,7 @@ it("ends a transcript being recorded with the sentences still being said", () =>
     elapsedMs: 12_000,
     tracks: [],
     previews: { MIC: { speaker: "1", text: "Chúng ta bắt đầu" } },
+    micMuted: false,
   };
   const recorder = {
     subscribe: () => () => undefined,

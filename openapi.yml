@@ -635,6 +635,69 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/meetings/{meetingId}/utterances/{utteranceId}/speaker:
+    put:
+      tags:
+      - Meetings
+      summary: Say who spoke one line
+      operationId: setMeetingLineSpeaker
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: utteranceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingLineSpeakerRequest"
+        required: true
+      responses:
+        "200":
+          description: The line and the voice it now belongs to
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingLineSpeaker"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: "Meeting, line or voice not available"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/meetings/{meetingId}/utterances/{utteranceId}/star:
     put:
       tags:
@@ -24931,6 +24994,37 @@ components:
       - quote
       - sourceUtteranceId
       - text
+    MeetingLineSpeaker:
+      type: object
+      description: "One line as it now reads, and the voice it now belongs to"
+      properties:
+        utterance:
+          $ref: "#/components/schemas/MeetingUtterance"
+        speaker:
+          $ref: "#/components/schemas/MeetingSpeaker"
+          description: The voice the line now belongs to; new to the meeting when
+            the owner gave a new name
+      required:
+      - speaker
+      - utterance
+    MeetingLineSpeakerRequest:
+      type: object
+      description: "Who spoke one line: a voice of the meeting or a new name, exactly\
+        \ one of them"
+      properties:
+        speaker:
+          type: "null"
+          $ref: "#/components/schemas/MeetingSpeakerRef"
+          description: A voice of the meeting; one of the other track lends only its
+            name
+        name:
+          type:
+          - string
+          - "null"
+          description: "A name; the line takes the voice of its track with that name,\
+            \ or a new one"
+          maxLength: 200
+          minLength: 0
     MeetingSpeakerRef:
       type: object
       description: "One voice of the meeting, as its speakers list names it"

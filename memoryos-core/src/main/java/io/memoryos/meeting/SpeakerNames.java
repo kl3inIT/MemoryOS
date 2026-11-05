@@ -75,6 +75,11 @@ final class SpeakerNames {
         return found;
     }
 
+    /** Whether two names are the same name, as {@link #voice} compares them: without case or spacing. */
+    static boolean sameName(String left, String right) {
+        return fold(left).equals(fold(right));
+    }
+
     private static String fold(String text) {
         return SPACE.matcher(Normalizer.normalize(text, Normalizer.Form.NFC).toLowerCase(Locale.ROOT)).replaceAll(" ")
                 .strip();

@@ -6,6 +6,8 @@ import io.memoryos.api.meeting.contract.MeetingBookmarkRequest;
 import io.memoryos.api.meeting.contract.MeetingCorrectionRunRequest;
 import io.memoryos.api.meeting.contract.MeetingCorrectionRunResponse;
 import io.memoryos.api.meeting.contract.MeetingCreateRequest;
+import io.memoryos.api.meeting.contract.MeetingLineSpeakerRequest;
+import io.memoryos.api.meeting.contract.MeetingLineSpeakerResponse;
 import io.memoryos.api.meeting.contract.MeetingDetailResponse;
 import io.memoryos.api.meeting.contract.MeetingHeadingRequest;
 import io.memoryos.api.meeting.contract.MeetingHeadingResponse;
@@ -191,6 +193,19 @@ class MeetingController {
     MeetingDetailResponse end(@CurrentActor IdentityContext identity,
                        @PathVariable UUID meetingId) {
         return MeetingDetailResponse.from(meetings.end(identity.actorId(), meetingId));
+    }
+
+    @PutMapping(value = "/{meetingId}/utterances/{utteranceId}/speaker", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(operationId = "setMeetingLineSpeaker", summary = "Say who spoke one line")
+    @ApiResponse(responseCode = "200", description = "The line and the voice it now belongs to", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "400", description = "Neither or both of a voice and a name, or an unnamed voice of the other track")
+    @ApiResponse(responseCode = "404", description = "Meeting, line or voice not available")
+    MeetingLineSpeakerResponse lineSpeaker(@CurrentActor IdentityContext identity, @PathVariable UUID meetingId,
+                                           @PathVariable UUID utteranceId,
+                                           @Valid @RequestBody MeetingLineSpeakerRequest body) {
+        var speaker = body.speaker();
+        return MeetingLineSpeakerResponse.from(meetings.setLineSpeaker(identity.actorId(), meetingId, utteranceId,
+                speaker == null ? null : speaker.toSpeaker(), body.name()));
     }
 
     @PutMapping("/{meetingId}/utterances/{utteranceId}/star")

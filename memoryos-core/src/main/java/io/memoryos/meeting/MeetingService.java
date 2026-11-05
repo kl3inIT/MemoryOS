@@ -122,6 +122,45 @@ public class MeetingService {
         return offered == null ? voice : new Meeting.Speaker(track, label, null, offered);
     }
 
+    /**
+     * Says who spoke one line, as Nojoin's "This utterance": a voice of the meeting or a new name. A line stays on its
+     * track, so a voice of the other track lends only its name: the line takes the voice of its own track that carries
+     * that name, or a new one. Renaming a voice is still how every line of it changes.
+     */
+    @Transactional
+    public Meeting.LineSpeaker setLineSpeaker(ActorId actor, UUID id, UUID utteranceId,
+            Meeting.@Nullable SpeakerRef speaker, @Nullable String name) {
+        UUID tenant = tenant(actor);
+        meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
+        String clean = name == null || name.isBlank() ? null : name.strip();
+        if ((speaker == null) == (clean == null))
+            throw MeetingException.invalid("Choose a voice of the meeting or give a name.");
+        if (clean != null && (clean.length() > MAX_NAME || clean.chars().anyMatch(Character::isISOControl)))
+            throw MeetingException.invalid("A speaker name has 1 to 200 characters.");
+        var line = meetings.utterance(tenant, id, utteranceId).orElseThrow(MeetingException::notFound);
+        var voices = meetings.speakers(tenant, id);
+        String wanted = clean;
+        if (speaker != null) {
+            var chosen = voices.stream().filter(voice -> voice.track() == speaker.track()
+                    && voice.label().equals(speaker.label())).findFirst().orElseThrow(MeetingException::notFound);
+            if (chosen.track() == line.track()) return move(tenant, id, line, chosen);
+            if (chosen.name() == null)
+                throw MeetingException.invalid("A voice of the other track needs a name before a line can take it.");
+            wanted = chosen.name();
+        }
+        String named = Objects.requireNonNull(wanted);
+        var own = voices.stream().filter(voice -> voice.track() == line.track() && voice.name() != null
+                && SpeakerNames.sameName(voice.name(), named)).findFirst();
+        if (own.isPresent()) return move(tenant, id, line, own.get());
+        var added = new Meeting.Speaker(line.track(), meetings.addNamedSpeaker(tenant, id, line.track(), named), named);
+        return move(tenant, id, line, added);
+    }
+
+    private Meeting.LineSpeaker move(UUID tenant, UUID id, Meeting.Utterance line, Meeting.Speaker voice) {
+        if (voice.label().equals(line.speaker())) return new Meeting.LineSpeaker(line, voice);
+        return new Meeting.LineSpeaker(meetings.moveLine(tenant, id, line.id(), voice.label()), voice);
+    }
+
     /** Keeps the automatic label and stops offering the name this voice gave itself. */
     @Transactional
     public Meeting.Speaker dismissSpeakerSuggestion(ActorId actor, UUID id, Meeting.Track track, String label) {

@@ -397,7 +397,7 @@ class ChatSessionApiIntegrationTest {
                         known.capabilities().reasoning(), false),
                 Map.of("maxCompletionTokens", known.capabilities().reasoning()), known.pricing(), "openai-o200k-v1");
         return new OpenAiProviderAdapter(ObservationRegistry.NOOP, meters).create(
-                new ProviderAdapter.Connection("https://api.openai.com/v1", key), DEFAULT_MODEL, settings, limits.providerReadTimeout());
+                new ProviderAdapter.Connection("https://api.openai.com/v1", key), DEFAULT_MODEL, settings, ProviderAdapter.Timeouts.forChat(limits.providerReadTimeout()));
     }
 
     @Test
@@ -3672,7 +3672,7 @@ class ChatSessionApiIntegrationTest {
                 @Override public void validate(String url, String name, ModelSettings settings) {
                     ModelCatalogService.validateEndpoint(url);
                 }
-                @Override public Client create(Connection connection, String name, ModelSettings settings, Duration timeout) {
+                @Override public Client create(Connection connection, String name, ModelSettings settings, Timeouts timeouts) {
                     ChatModel nativeModel = new ChatModel() {
                         @Override public ChatResponse call(Prompt prompt) { throw new UnsupportedOperationException(); }
                         @Override public Flux<ChatResponse> stream(Prompt prompt) { return Flux.just(response("Local adapter answer", "stop", 2)); }
@@ -5257,6 +5257,90 @@ class ChatSessionApiIntegrationTest {
             mockMvc.perform(put("/api/meetings/" + meeting + "/speakers/MIC/9").with(authentication(actor))
                     .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
                     .content("{\"name\":\"Ai đó\"}")).andExpect(status().isNotFound());
+        } finally {
+            jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        }
+    }
+
+    @Test
+    void theOwnerSaysWhoSpokeOneLineAndALineKeepsItsTrack() throws Exception {
+        UUID meeting = UUID.randomUUID();
+        UUID mine = UUID.randomUUID();
+        UUID first = UUID.randomUUID();
+        UUID second = UUID.randomUUID();
+        try {
+            jdbc.sql("""
+                    INSERT INTO meeting(tenant_id, id, owner_actor_id, title, kind, language, participants, status)
+                    VALUES (:tenant, :id, :owner, 'Giao ban tuần', 'ONLINE', 'vi', '[]'::jsonb, 'RECORDING')
+                    """).param("tenant", TENANT).param("id", meeting)
+                    .param("owner", actor.getPrincipal().actorId().value()).update();
+            jdbc.sql("""
+                    INSERT INTO meeting_speaker(tenant_id, meeting_id, track, label, name)
+                    VALUES (:tenant, :meeting, 'MIC', '1', NULL), (:tenant, :meeting, 'TAB', '2', 'Hiệp')
+                    """).param("tenant", TENANT).param("meeting", meeting).update();
+            jdbc.sql("""
+                    INSERT INTO meeting_utterance(tenant_id, id, meeting_id, track, speaker, start_ms, end_ms, text, confidence)
+                    VALUES (:tenant, :mine, :meeting, 'MIC', '1', 0, 3000, 'Quy trình là gì?', 0.9),
+                           (:tenant, :first, :meeting, 'TAB', '2', 4000, 7000, 'Em xin chia sẻ màn hình.', 0.9),
+                           (:tenant, :second, :meeting, 'TAB', '2', 8000, 9000, 'Nãy giờ Hiệp có nói gì không?', 0.9)
+                    """).param("tenant", TENANT).param("meeting", meeting).param("mine", mine)
+                    .param("first", first).param("second", second).update();
+            String base = "/api/meetings/" + meeting + "/utterances/";
+
+            // A new name becomes a voice of the line's own track, labelled apart from the provider's numbers.
+            mockMvc.perform(put(base + second + "/speaker").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"name\":\"Duy HN\"}"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.utterance.speaker").value("M1"))
+                    .andExpect(jsonPath("$.speaker.track").value("TAB")).andExpect(jsonPath("$.speaker.label").value("M1"))
+                    .andExpect(jsonPath("$.speaker.name").value("Duy HN"));
+            // The microphone heard him too: his name carries over to a voice of the microphone's own track.
+            mockMvc.perform(put(base + mine + "/speaker").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"speaker\":{\"track\":\"TAB\",\"label\":\"M1\"}}"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.utterance.track").value("MIC"))
+                    .andExpect(jsonPath("$.utterance.speaker").value("M1"))
+                    .andExpect(jsonPath("$.speaker.track").value("MIC")).andExpect(jsonPath("$.speaker.name").value("Duy HN"));
+            // The same name, written differently, is the same voice; a line moved back keeps what was first heard.
+            mockMvc.perform(put(base + first + "/speaker").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"name\":\"  duy  hn \"}"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.utterance.speaker").value("M1"));
+            mockMvc.perform(put(base + first + "/speaker").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"speaker\":{\"track\":\"TAB\",\"label\":\"2\"}}"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.utterance.speaker").value("2"))
+                    .andExpect(jsonPath("$.speaker.name").value("Hiệp"));
+            assertEquals(List.of("MIC|M1|1", "TAB|2|2", "TAB|M1|2"), jdbc.sql("""
+                    SELECT track || '|' || speaker || '|' || diarized_speaker FROM meeting_utterance
+                    WHERE tenant_id = :tenant AND meeting_id = :meeting AND diarized_speaker IS NOT NULL
+                    ORDER BY track, speaker
+                    """).param("tenant", TENANT).param("meeting", meeting).query(String.class).list(),
+                    "a move keeps the provider's label, and moving back does not overwrite it");
+            assertEquals(4, jdbc.sql("SELECT count(*) FROM meeting_speaker WHERE tenant_id = :tenant AND meeting_id = :meeting")
+                    .param("tenant", TENANT).param("meeting", meeting).query(Integer.class).single(),
+                    "one new voice on each track, none for a name given twice");
+
+            for (String refused : List.of("{}", "{\"name\":\" \"}",
+                    "{\"name\":\"Lan\",\"speaker\":{\"track\":\"TAB\",\"label\":\"2\"}}",
+                    // The owner's unnamed microphone has no name a tab line could carry over.
+                    "{\"speaker\":{\"track\":\"MIC\",\"label\":\"1\"}}"))
+                mockMvc.perform(put(base + first + "/speaker").with(authentication(actor)).with(csrf())
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(refused))
+                        .andExpect(status().isBadRequest());
+            mockMvc.perform(put(base + first + "/speaker").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"speaker\":{\"track\":\"TAB\",\"label\":\"9\"}}"))
+                    .andExpect(status().isNotFound());
+            mockMvc.perform(put(base + UUID.randomUUID() + "/speaker").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"name\":\"Lan\"}"))
+                    .andExpect(status().isNotFound());
+            // Only the owner says who spoke.
+            mockMvc.perform(put(base + first + "/speaker").with(authentication(other)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"name\":\"Lan\"}"))
+                    .andExpect(status().isNotFound());
         } finally {
             jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
         }

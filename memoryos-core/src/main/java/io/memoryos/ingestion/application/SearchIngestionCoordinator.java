@@ -91,7 +91,7 @@ public final class SearchIngestionCoordinator implements IngestionCoordinator {
         } catch (RuntimeException failure) {
             // Content rejections never heal on retry: finish FAILED at once with the specific code.
             boolean permanent = failure instanceof DocumentContentException;
-            String errorCode = permanent ? ((DocumentContentException) failure).code() : "SEARCH_INDEX_FAILED";
+            String errorCode = permanent ? ((DocumentContentException) failure).code() : JdbcSearchWorkRepository.RETRYABLE_FAILURE;
             boolean finished = Boolean.TRUE.equals(transactions.execute(_ -> {
                 if (!work.finish(claim, !permanent && claim.attempts() < 3 ? "NOT_STARTED" : "FAILED", errorCode)) return false;
                 if (claim.index()) documents.markSearchFailed(claim.tenantId(), claim.documentId(), claim.generation(), errorCode, identity);
