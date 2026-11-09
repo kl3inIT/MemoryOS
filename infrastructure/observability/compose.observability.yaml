@@ -11,7 +11,7 @@ x-defaults: &defaults
 services:
   collector:
     <<: *defaults
-    image: otel/opentelemetry-collector-contrib:0.163.2@sha256:7f22d2a6748110ffb6a59bc0df448bccbf501cdb667d610ede4c61d3863d5849
+    image: otel/opentelemetry-collector-contrib:0.164.0-386@sha256:40392928d2b988b77e7525dbac33e5e3d9bedb40b9ff8c1f9119d92ca3a8a1c3
     command: [--config=/etc/otelcol/config.yaml]
     volumes:
       - ./collector.yaml:/etc/otelcol/config.yaml:ro
@@ -42,7 +42,7 @@ services:
     networks: [backend]
   prometheus:
     <<: *defaults
-    image: prom/prometheus:v3.15.1@sha256:fa3302279710be2f21a8301ec17a8b4f2301fd829bd113839b3b6b02b6f191a2
+    image: prom/prometheus:v3.16.0@sha256:e04987641b57704f408e31f6373ba4138ecf27cb4a165d24aabb6c38fddd0f06
     command:
       - --config.file=/etc/prometheus/prometheus.yaml
       - --storage.tsdb.path=/prometheus
@@ -60,7 +60,7 @@ services:
   grafana:
     <<: *defaults
     user: "472:472"
-    image: grafana/grafana:13.2.4@sha256:dbbc38ea21103cefb50396340cd88afec779c7e070b0a7bf5a75b4ce46651d3f
+    image: grafana/grafana:13.3.0@sha256:488984b716c0862639f91a698adbe2862677a5a07bad42da5f03f3030883b205
     environment:
       GF_SERVER_ROOT_URL: ${MEMORYOS_GRAFANA_PUBLIC_URL:?Set MEMORYOS_GRAFANA_PUBLIC_URL}
       GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
