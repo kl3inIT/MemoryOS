@@ -9,11 +9,11 @@ archunit = "1.5.1"
 springdoc = "3.2.0"
 keycloak-admin-client = "26.0.12"
 tika = "4.2.0"
-jsoup = "1.23.2"
+jsoup = "1.24.1"
 pdfbox = "3.0.8"
 imageio = "3.15.3"
 db-scheduler = "16.12.0"
-aws-sdk = "2.57.7"
+aws-sdk = "2.57.10"
 docling-java = "0.7.1"
 poi = "6.0.0"
 commons-csv = "1.14.1"
@@ -38,11 +38,11 @@ typesafe = "0.4.0"
 mcp-sdk = "2.1.0"
 # MEM-227: MCP OAuth messages. Kept equal to the version spring-security-oauth2-client brings to the API; Spring Boot
 # does not manage it.
-nimbus-oauth2-oidc-sdk = "11.38.2"
+nimbus-oauth2-oidc-sdk = "11.39"
 # MEM-114 rate limit of the MCP endpoint.
-bucket4j = "8.21.0"
+bucket4j = "8.22.0"
 # MEM-283: an answer's markdown made WhatsApp's own formatting.
-commonmark = "0.31.0"
+commonmark = "0.32.0"
 
 [libraries]
 azure-speech = { module = "com.microsoft.cognitiveservices.speech:client-sdk", version.ref = "azure-speech" }
