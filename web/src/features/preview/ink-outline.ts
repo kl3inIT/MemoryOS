@@ -20,14 +20,14 @@ const MAX_INK_SHARE = 0.5;
 const MIN_CONTRAST = 40;
 /** A joined part with less ink than this is a speck, not a line. */
 const MIN_LINE_INK = 20;
-/** The centre is smoothed over this many letter heights on each side. */
+/** The centre is smoothed over this many line heights on each side. */
 const SMOOTHING_LETTERS = 2;
 /** A line is straight when its smoothed centre stays within this share of its height of one straight line. */
 const STRAIGHT_SHARE = 0.4;
 /** The band reaches the top that this share of columns rise above, and the foot this share stay above. */
 const TOP_PERCENTILE = 0.2;
 const FOOT_PERCENTILE = 0.8;
-/** Room around the letters, in letter heights. */
+/** Room around the letters, in line heights. */
 const PAD_LETTERS = 0.12;
 /** Lines of one block within this share of their usual thickness take it. */
 const SHARED_THICKNESS = 0.35;
@@ -98,7 +98,7 @@ export function inkLines(
 
   const bands: Band[] = [];
   for (const columns of columnInk(ink, width, height, parts)) {
-    const band = lineBand(columns, letter);
+    const band = lineBand(columns);
     if (band) bands.push(band);
   }
   if (!bands.length || bands.length > MAX_LINES) return undefined;
@@ -365,7 +365,7 @@ function columnInk(ink: Uint8Array, width: number, height: number, parts: Parts)
  * the whole line, that line is the centre. The thickness runs from the line's usual top (tall letters and
  * accents included) to its usual foot, measured across the line, so a lone accent does not widen it.
  */
-function lineBand(line: ColumnInk, letter: number): Band | undefined {
+function lineBand(line: ColumnInk): Band | undefined {
   const span = line.last - line.first + 1;
   let inked = 0;
   for (let at = 0; at < span; at += 1) inked += line.count[at] ?? 0;
@@ -388,18 +388,20 @@ function lineBand(line: ColumnInk, letter: number): Band | undefined {
   }
   if (previous >= 0) centre.fill(centre[previous] ?? 0, previous + 1);
 
-  const radius = Math.max(6, Math.round(letter * SMOOTHING_LETTERS));
-  const fitted = fitLine(centre, weight);
-  const smooth = new Float64Array(span);
-  for (let at = 0; at < span; at += 1) smooth[at] = smoothAt(centre, weight, at, radius);
+  // The line's own height sets every length below, so a line is drawn the same alone or in a paragraph.
   const extents: number[] = [];
   for (let at = 0; at < span; at += 1)
     if (weight[at]) extents.push((line.bottom[at] ?? 0) - (line.top[at] ?? 0));
+  const height = Math.max(4, median(extents));
+  const radius = Math.max(6, Math.round(height * SMOOTHING_LETTERS));
+  const fitted = fitLine(centre, weight);
+  const smooth = new Float64Array(span);
+  for (let at = 0; at < span; at += 1) smooth[at] = smoothAt(centre, weight, at, radius);
   // Straight when the smoothed centre stays near one line away from the ends, where smoothing sees one side.
   let worst = 0;
   for (let at = radius; at < span - radius; at += 1)
     worst = Math.max(worst, Math.abs((smooth[at] ?? 0) - fitted(at)));
-  const straight = worst < median(extents) * STRAIGHT_SHARE;
+  const straight = worst < height * STRAIGHT_SHARE;
   const centreAt = (at: number) => (straight ? fitted(at) : (smooth[at] ?? 0));
 
   const tops: number[] = [];
@@ -411,11 +413,11 @@ function lineBand(line: ColumnInk, letter: number): Band | undefined {
     tops.push(((line.top[at] ?? 0) - centreAt(at)) * across);
     feet.push(((line.bottom[at] ?? 0) - centreAt(at)) * across);
   }
-  const pad = Math.max(2, letter * PAD_LETTERS);
+  const pad = Math.max(2, height * PAD_LETTERS);
   const upper = percentile(tops, TOP_PERCENTILE) - pad;
   const lower = percentile(feet, FOOT_PERCENTILE) + pad;
 
-  const step = Math.max(2, Math.round(letter / 3));
+  const step = Math.max(2, Math.round(height / 3));
   const along: Point[] = [];
   for (let at = 0; at < span; at += step) along.push([line.first + at, centreAt(at)]);
   along.push([line.last + 1, centreAt(span - 1)]);

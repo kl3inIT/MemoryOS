@@ -170,28 +170,44 @@ describe("inkLines", () => {
   });
 
   it("gives the lines of one paragraph one thickness", () => {
-    // The middle line wears accents on many letters; the others on none.
+    // The middle line wears low accents on many letters; the others on none.
     const letters = (x: number, y: number) => {
       if (x < 20 || x > 380 || x % 16 >= 12) return false;
       const body = [40, 80, 120].some((top) => y >= top && y <= top + 12);
-      const accent = y >= 72 && y <= 77 && x % 32 < 8;
+      const accent = y >= 76 && y <= 78 && x % 32 < 8;
       return body || accent;
     };
-    const outline: Point[] = [
+    const picture = image(400, 170, letters);
+    const block: Point[] = [
       [10, 25],
       [395, 25],
       [395, 150],
       [10, 150],
     ];
+    const thickness = (band: readonly Point[]) => {
+      const [top, foot] = edgesAt(band, 200);
+      return foot - top;
+    };
 
-    const lines = inkLines(image(400, 170, letters), outline);
+    const lines = inkLines(picture, block);
+    // The middle line read alone, outside its block, takes its own thickness.
+    const [alone] =
+      inkLines(picture, [
+        [10, 70],
+        [395, 70],
+        [395, 100],
+        [10, 100],
+      ]) ?? [];
 
     expect(lines).toHaveLength(3);
-    const thicknesses = lines!.map((band) => {
-      const ys = band.filter(([x]) => x > 60 && x < 340).map(([, y]) => y);
-      return Math.max(...ys) - Math.min(...ys);
-    });
-    for (const thickness of thicknesses) expect(thickness).toBeCloseTo(thicknesses[0]!, 5);
+    const thicknesses = lines!.map(thickness);
+    for (const value of thicknesses) {
+      expect(Number.isFinite(value)).toBe(true);
+      // edgesAt samples every quarter pixel, so two edges are measured to within half a pixel.
+      expect(value).toBeCloseTo(thicknesses[0]!, 0);
+    }
+    // Its accents make it thicker on its own: in the block it takes the paragraph's thickness instead.
+    expect(thickness(alone!)).toBeGreaterThan(thicknesses[1]! + 1);
   });
 
   it("gives nothing for a region without lines of text, so the outline is drawn", () => {
