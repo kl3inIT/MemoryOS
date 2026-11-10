@@ -65,4 +65,17 @@ repository in `C:\Users\Admin\Desktop\plan\search-highlight-screens\`:
 The review found that a Markdown original's text was invisible in the dark theme: the sheet is always white and
 the text used the theme's ink. `MarkdownView` now uses the document ink, as the Word reader does.
 
-Open: the product owner's review of the screenshots, then staging.
+A related match first led with a coloured dot, and its dot, page chip and text were not on one line; they are
+centred on one line now (measured: the three centres coincide).
+
+## Pull request #911
+
+- The first CI run failed at `oxfmt --check` on `search-result-card.tsx`, formatted in a follow-up commit.
+- CodeRabbit (one requested review, on `12b5493`) raised four findings, all valid and fixed: the related-match dot
+  showed its kind by colour alone in a text token, so it is now the badge's icon in the `-strong` token;
+  `sentenceAround` spread every block start into `Math.max`, which throws past the engine's argument limit, so it
+  loops; `queryTerms` split a question pasted with combining marks, so it composes first; `sectionPlace` took the
+  first chunk's heading for a joined section, so it reads the matching chunk's and names none when the chunks
+  cannot be told apart. Its docstring-coverage pre-merge note was not adopted: the repository has no such rule.
+
+Open: staging.
