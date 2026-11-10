@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { locatePassage, matchTerms, normalizeForMatch } from "./preview-highlight";
+import {
+  locatePassage,
+  markQuery,
+  matchKind,
+  normalizeForMatch,
+  sentenceAround,
+} from "./preview-highlight";
 
 /** What the reader would see highlighted, so the assertions read as the reader's experience. */
 function highlighted(raw: string, passage: string, section?: string) {
@@ -158,51 +164,122 @@ describe("locatePassage", () => {
   });
 });
 
-/** The words a reader would see marked, in reading order. */
-function marked(raw: string, terms: string[], within?: { start: number; end: number }) {
-  return matchTerms(normalizeForMatch(raw), terms, within).map((term) =>
-    raw.slice(term.start, term.end),
+/** What a reader would see marked, in reading order, with `*` before a mark of the whole question. */
+function marked(
+  raw: string,
+  query: string,
+  words?: string[],
+  within?: { start: number; end: number },
+) {
+  const terms = { phrase: query, words: words ?? query.split(" ") };
+  return markQuery(normalizeForMatch(raw), terms, within).map(
+    (mark) => `${mark.whole ? "*" : ""}${raw.slice(mark.start, mark.end)}`,
   );
 }
 
-describe("matchTerms", () => {
-  it("finds every occurrence of every term, whatever its capitals", () => {
-    expect(marked("Nghỉ phép năm: mỗi năm 12 ngày NGHỈ.", ["nghỉ", "năm"])).toEqual([
-      "Nghỉ",
-      "năm",
-      "năm",
-      "NGHỈ",
+describe("markQuery", () => {
+  it("marks only the whole question where it occurs, whatever its capitals", () => {
+    expect(marked("Nghỉ phép năm: mỗi năm 12 ngày NGHỈ PHÉP, ngày nghỉ lễ.", "nghỉ phép")).toEqual([
+      "*Nghỉ phép",
+      "*NGHỈ PHÉP",
     ]);
+  });
+
+  it("marks the question's words, the longer first, only when the whole question occurs nowhere", () => {
+    expect(
+      marked("Ngày nghỉ lễ và ngày phép năm.", "nghỉ phép năm", ["phép năm", "nghỉ", "phép"]),
+    ).toEqual(["nghỉ", "phép năm"]);
+  });
+
+  it("counts a one-word question as the whole question", () => {
+    expect(marked("Số ngày phép còn lại.", "phép")).toEqual(["*phép"]);
   });
 
   it("finds a word stored with combining marks, a soft hyphen or a line break inside the phrase", () => {
     const decomposed = "nghỉ phép".normalize("NFD");
-    expect(marked(`Quy định ${decomposed} năm.`, ["nghỉ phép"])).toEqual([decomposed]);
-    expect(marked("Quy định nghỉ\u00adphép", ["nghỉphép"])).toEqual(["nghỉ\u00adphép"]);
-    expect(marked("Quy định nghỉ\n   phép năm.", ["nghỉ phép"])).toEqual(["nghỉ\n   phép"]);
+    expect(marked(`Quy định ${decomposed} năm.`, "nghỉ phép")).toEqual([`*${decomposed}`]);
+    expect(marked("Quy định nghỉ­phép", "nghỉphép")).toEqual(["*nghỉ­phép"]);
+    expect(marked("Quy định nghỉ\n   phép năm.", "nghỉ phép")).toEqual(["*nghỉ\n   phép"]);
   });
 
-  it("takes the longer term where two start at the same character, and never overlaps", () => {
-    expect(marked("nghỉ phép năm và nghỉ lễ", ["nghỉ", "nghỉ phép", "phép"])).toEqual([
-      "nghỉ phép",
-      "nghỉ",
-    ]);
+  it("marks whole words only", () => {
+    expect(marked("Ban hành quy chế an toàn.", "an", ["an"])).toEqual(["*an"]);
+    expect(marked("Ban hành quy chế.", "an", ["an"])).toEqual([]);
   });
 
-  it("does not strip accents: a word typed without them marks nothing", () => {
-    expect(marked("Quy định nghỉ phép năm.", ["nghi phep"])).toEqual([]);
+  it("compares without diacritics only when the question was typed without any", () => {
+    expect(marked("Quy định nghỉ phép năm, đơn xin.", "nghi phep")).toEqual(["*nghỉ phép"]);
+    expect(marked("Đơn xin nghỉ.", "don", ["don"])).toEqual(["*Đơn"]);
+    // One accent typed is a reader who means the accents: "phẹp" does not mark "phép".
+    expect(marked("Quy định nghỉ phép năm.", "nghỉ phẹp", ["phẹp"])).toEqual([]);
   });
 
   it("stays inside the span it is given", () => {
     const raw = "năm trước. Trong năm nay có 12 ngày. năm sau";
     const start = raw.indexOf("Trong");
     const end = raw.indexOf(" năm sau");
-    expect(marked(raw, ["năm", "ngày. năm"], { start, end })).toEqual(["năm"]);
+    expect(marked(raw, "năm", ["năm"], { start, end })).toEqual(["*năm"]);
   });
 
-  it("marks nothing for no terms or blank ones", () => {
-    expect(marked("Quy định nghỉ phép.", [])).toEqual([]);
-    expect(marked("Quy định nghỉ phép.", ["  ", ""])).toEqual([]);
+  it("marks nothing for a blank question", () => {
+    expect(marked("Quy định nghỉ phép.", "  ", [])).toEqual([]);
+  });
+});
+
+describe("matchKind", () => {
+  const kind = (raw: string, query: string) =>
+    matchKind(normalizeForMatch(raw), { phrase: query, words: query.split(" ") });
+
+  it("tells the whole question from some of its words from none", () => {
+    expect(kind("Được nghỉ phép năm.", "nghỉ phép")).toBe("exact");
+    expect(kind("Số ngày phép còn lại.", "nghỉ phép")).toBe("partial");
+    expect(kind("Vắng mặt có lý do.", "nghỉ phép")).toBe("none");
+  });
+});
+
+describe("sentenceAround", () => {
+  const sentence = (
+    raw: string,
+    word: string,
+    within?: { start: number; end: number },
+    breaks?: number[],
+  ) => {
+    const start = raw.indexOf(word);
+    const span = sentenceAround(raw, { start, end: start + word.length }, within, breaks);
+    return raw.slice(span.start, span.end);
+  };
+
+  it("widens a mark to its sentence", () => {
+    const raw = "Điều 4. Người lao động được nghỉ phép năm. Thời gian thử việc không tính.";
+    expect(sentence(raw, "nghỉ phép")).toBe("Người lao động được nghỉ phép năm.");
+  });
+
+  it("does not end a sentence at a decimal point", () => {
+    expect(sentence("Mức 12.500 đồng cho nghỉ phép.", "nghỉ phép")).toBe(
+      "Mức 12.500 đồng cho nghỉ phép.",
+    );
+  });
+
+  it("stops at a line break, a block start and the edges of the span", () => {
+    expect(sentence("Nghỉ phép năm\nNgười lao động được nghỉ.", "được")).toBe(
+      "Người lao động được nghỉ.",
+    );
+    const raw = "Nghỉ phép năm Người lao động được nghỉ.";
+    expect(sentence(raw, "được", undefined, [raw.indexOf("Người")])).toBe(
+      "Người lao động được nghỉ.",
+    );
+    expect(sentence(raw, "được", { start: raw.indexOf("lao"), end: raw.indexOf(" nghỉ.") })).toBe(
+      "lao động được",
+    );
+  });
+
+  it("cuts a run-on sentence around the mark at word boundaries", () => {
+    const raw = `${"chữ ".repeat(120)}nghỉ phép ${"chữ ".repeat(120)}hết.`;
+    const found = sentence(raw, "nghỉ phép");
+    expect(found.length).toBeLessThanOrEqual(320);
+    expect(found).toContain("nghỉ phép");
+    expect(found.startsWith("chữ")).toBe(true);
+    expect(found.endsWith("chữ")).toBe(true);
   });
 });
 

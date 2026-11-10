@@ -52,10 +52,12 @@ it("reports each citation where the locator placed it, and a passage not in the 
   const onPlaced = vi.fn();
   const text = "Doanh thu quý 3 đạt 412 tỷ đồng.\nChi phí quản lý tăng 12%.";
   const texts = ["Chi phí quản lý tăng 12%.", "Lợi nhuận sau thuế đạt 87 tỷ đồng."];
+  // Markdown renders once: plain text is swapped for the highlighter's markup whenever the highlighter has
+  // loaded, and its passages are placed again then, which would make the count below depend on timing.
   const preview = () => (
     <FilePreview
-      content={{ kind: "text", text, truncated: false, bytes: text.length }}
-      filename="bao-cao.txt"
+      content={{ kind: "markdown", text, truncated: false, bytes: text.length }}
+      filename="bao-cao.md"
       download="/api/files/1/content"
       citations={{ texts, onPlaced }}
     />
@@ -88,15 +90,23 @@ it("paints the reader's words over the located passage, above both passage highl
       content={{ kind: "text", text, truncated: false, bytes: text.length }}
       filename="bao-cao.txt"
       download="/api/files/1/content"
-      citations={{ texts: ["Chi phí quản lý tăng 12%."], terms: ["quản lý", "doanh thu"] }}
+      citations={{
+        texts: ["Chi phí quản lý tăng 12%."],
+        terms: { phrase: "doanh thu quản lý", words: ["doanh", "thu", "quản", "lý"] },
+      }}
     />,
   );
 
-  await waitFor(() => expect(registry.has("memoryos-citation-term")).toBe(true));
-  const terms = registry.get("memoryos-citation-term");
+  await waitFor(() => expect(registry.has("memoryos-citation-word")).toBe(true));
+  const words = registry.get("memoryos-citation-word");
   // "Doanh thu" is in the file but outside the cited passage, so it is left alone.
-  expect(terms?.ranges.map((range) => range.toString())).toEqual(["quản lý"]);
-  expect(terms?.priority).toBeGreaterThan(registry.get("memoryos-citation-active")?.priority ?? 0);
+  expect(words?.ranges.map((range) => range.toString())).toEqual(["quản", "lý"]);
+  // The passage is pointed at by the sentence holding the words, and the words sit over it.
+  expect(registry.get("memoryos-citation-focus")?.ranges.map((range) => range.toString())).toEqual([
+    "Chi phí quản lý tăng 12%.",
+  ]);
+  expect(registry.has("memoryos-citation-active")).toBe(false);
+  expect(words?.priority).toBeGreaterThan(registry.get("memoryos-citation-focus")?.priority ?? 0);
   vi.unstubAllGlobals();
 });
 

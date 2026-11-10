@@ -145,29 +145,90 @@ function anchored(document: NormalizedText, needle: string): CitationLocation {
   return span(document, from, to, "approximate");
 }
 
+/** What a reader searched for: the whole question and its words, each compared on its own. */
+export type QueryTerms = { phrase: string; words: readonly string[] };
+
+/** One marked occurrence, as offsets into the source; `whole` when it is the whole question. */
+export type QueryMark = { start: number; end: number; whole: boolean };
+
+/** How a passage answers a question: it holds the whole question, some of its words, or none of them. */
+export type MatchKind = "exact" | "partial" | "none";
+
+type Span = { start: number; end: number };
+
+const WORD_CHARACTER = /[\p{L}\p{M}\p{N}]/u;
+const folded = new WeakMap<NormalizedText, string>();
+
 /**
- * Every occurrence of a term in `document`, in reading order and without overlap, as offsets into the source
- * it was normalized from. Terms are compared as passages are, so capitals, combining marks, soft hyphens and
- * a line break inside a phrase do not hide a word; accents are not stripped. Where two terms start at the
- * same character the longer wins. `within` limits the search to a span of the source, such as a located
- * passage.
+ * Normalized text without its Vietnamese diacritics (`đ` read as `d`). Every character keeps its place, so an
+ * offset in the folded text names the same character as in the text it was folded from.
  */
-export function matchTerms(
-  document: NormalizedText,
-  terms: readonly string[],
-  within?: { start: number; end: number },
-): { start: number; end: number }[] {
-  const needles = [...new Set(terms.map((term) => normalizeForMatch(term).text))]
+function fold(text: string): string {
+  let out = "";
+  for (const character of text) {
+    const base =
+      character === "đ" ? "d" : character.normalize("NFD").replace(/\p{M}/gu, "") || character;
+    out += base.length === character.length ? base : character;
+  }
+  return out;
+}
+
+/**
+ * Where the reader's question occurs in `document`, in reading order and without overlap, as offsets into the
+ * source it was normalized from. The whole question is marked wherever it occurs; only when it occurs nowhere
+ * in the span are its words marked, each on its own, the longer first where two start together. An occurrence
+ * starts and ends at a word boundary. The comparison is the passage locator's (capitals, combining marks, soft
+ * hyphens and line breaks do not hide a word), and a question typed without any diacritic is compared with the
+ * text's diacritics removed, as the index's folded analyzer matched it. `within` limits the search to a span of
+ * the source, such as a located passage.
+ */
+export function markQuery(document: NormalizedText, terms: QueryTerms, within?: Span): QueryMark[] {
+  const phrase = normalizeForMatch(terms.phrase).text;
+  if (!phrase || !document.text) return [];
+  const loose = fold(phrase) === phrase;
+  const prepare = (value: string) => {
+    const normalized = normalizeForMatch(value).text;
+    return loose ? fold(normalized) : normalized;
+  };
+  let text = document.text;
+  if (loose) {
+    text = folded.get(document) ?? fold(document.text);
+    folded.set(document, text);
+  }
+  const whole = occurrences(document, text, [prepare(terms.phrase)], within);
+  if (whole.length) return whole.map((span) => ({ ...span, whole: true }));
+  const words = [...new Set(terms.words.map(prepare))]
     .filter(Boolean)
     .sort((left, right) => right.length - left.length);
-  const found: { start: number; end: number }[] = [];
+  return occurrences(document, text, words, within).map((span) => ({ ...span, whole: false }));
+}
+
+/** How `document` (or its span `within`) answers the question. */
+export function matchKind(document: NormalizedText, terms: QueryTerms, within?: Span): MatchKind {
+  const [first] = markQuery(document, terms, within);
+  if (!first) return "none";
+  return first.whole ? "exact" : "partial";
+}
+
+function occurrences(
+  document: NormalizedText,
+  text: string,
+  needles: readonly string[],
+  within?: Span,
+): Span[] {
+  const found: Span[] = [];
   if (!needles.length) return found;
-  const stop = within ? firstFrom(document.sources, within.end) : document.text.length;
+  const stop = within ? firstFrom(document.sources, within.end) : text.length;
   let at = within ? firstFrom(document.sources, within.start) : 0;
+  const bounded = (from: number, to: number) =>
+    !WORD_CHARACTER.test(text.charAt(from - 1)) && !WORD_CHARACTER.test(text.charAt(to));
   while (at < stop) {
     const from = at;
     const needle = needles.find(
-      (candidate) => from + candidate.length <= stop && document.text.startsWith(candidate, from),
+      (candidate) =>
+        from + candidate.length <= stop &&
+        text.startsWith(candidate, from) &&
+        bounded(from, from + candidate.length),
     );
     const start = document.sources[from];
     const end = needle ? document.ends[from + needle.length - 1] : undefined;
@@ -179,6 +240,59 @@ export function matchTerms(
     at += needle.length;
   }
   return found;
+}
+
+const TERMINATOR = /[.!?…;]/;
+const LINE_BREAK = /[\n\r]/;
+const SPACE = /\s/;
+
+/** The longest focus a mark is widened to, in characters of the source. */
+const MAX_SENTENCE = 320;
+
+/**
+ * The sentence a mark stands in, as offsets into `raw`: back to the previous terminator followed by a space, a
+ * line break, a block start in `breaks` or the start of `within`, and forward to the next terminator, line break,
+ * block start or the end of `within`. A sentence longer than `MAX_SENTENCE` is cut around the mark at word
+ * boundaries, so a run-on paragraph does not turn the focus back into the whole passage.
+ */
+export function sentenceAround(
+  raw: string,
+  mark: Span,
+  within: Span = { start: 0, end: raw.length },
+  breaks: readonly number[] = [],
+): Span {
+  const lower = Math.max(within.start, ...breaks.filter((at) => at <= mark.start));
+  const upper = Math.min(within.end, ...breaks.filter((at) => at >= mark.end));
+  let start = mark.start;
+  while (start > lower) {
+    const before = raw.charAt(start - 1);
+    if (LINE_BREAK.test(before)) break;
+    if (SPACE.test(before) && TERMINATOR.test(raw.charAt(start - 2))) break;
+    start -= 1;
+  }
+  let end = mark.end;
+  while (end < upper) {
+    const character = raw.charAt(end);
+    if (LINE_BREAK.test(character)) break;
+    end += 1;
+    if (TERMINATOR.test(character) && (end >= upper || SPACE.test(raw.charAt(end)))) break;
+  }
+  if (end - start > MAX_SENTENCE) {
+    // Share the room around the mark evenly, giving one side what the other cannot use.
+    const room = Math.max(0, MAX_SENTENCE - (mark.end - mark.start));
+    let before = Math.min(mark.start - start, Math.floor(room / 2));
+    const after = Math.min(end - mark.end, room - before);
+    before = Math.min(mark.start - start, room - after);
+    let from = mark.start - before;
+    let to = mark.end + after;
+    if (from > start) while (from < mark.start && !SPACE.test(raw.charAt(from - 1))) from += 1;
+    if (to < end) while (to > mark.end && !SPACE.test(raw.charAt(to))) to -= 1;
+    start = from;
+    end = to;
+  }
+  while (start < mark.start && SPACE.test(raw.charAt(start))) start += 1;
+  while (end > mark.end && SPACE.test(raw.charAt(end - 1))) end -= 1;
+  return { start, end };
 }
 
 /** The first normalized character that starts at or after `offset` of the source. */

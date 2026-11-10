@@ -6,13 +6,12 @@ import {
   type DocumentSelection,
 } from "@/features/documents/document-preview-dialog";
 import type { DocumentSourceType } from "@/features/documents/document-source-presentation";
-import { matchingProvenance } from "@/features/documents/source-provenance";
 import { useGlobalCapability } from "@/features/identity/application-session-context";
 import type { Result as SearchResult, Section } from "@/lib/hey-api/types.gen";
 import { cn } from "@/lib/utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useLinkedDocument } from "./linked-document";
-import { highlightTerms } from "./search-presentation";
+import { matchingChunkProvenance, queryTerms, sectionMatchKind } from "./search-presentation";
 import { SearchBox } from "./search-box";
 import { SearchLanding } from "./search-landing";
 import { searchSourceOptions, searchStatus } from "./search-options";
@@ -98,11 +97,12 @@ function AuthorizedSearchPage() {
       mediaType: item.mediaType,
       sourceTypes: item.sourceTypes,
       providerUrl: item.providerUrl,
-      terms: highlightTerms(request?.query ?? ""),
+      terms: queryTerms(request?.query ?? ""),
       matches: item.sections.map((candidate) => ({
         matchingOrdinal: candidate.matchingOrdinal,
         from: Math.max(0, candidate.matchingOrdinal - 1),
-        provenance: matchingProvenance(candidate.provenance, candidate.matchingOrdinal),
+        provenance: matchingChunkProvenance(candidate),
+        kind: sectionMatchKind(candidate.content, item.title, request?.query ?? ""),
       })),
       activeMatchIndex: Math.max(
         0,

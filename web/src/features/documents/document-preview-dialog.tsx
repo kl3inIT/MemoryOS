@@ -11,6 +11,7 @@ import {
 import { IconButton } from "@/components/ui/icon-button";
 import type { CitationConfidence } from "@/features/preview/file-preview";
 import { LazyOriginalView } from "@/features/preview/lazy-original-view";
+import type { MatchKind, QueryTerms } from "@/features/preview/preview-highlight";
 import { previewKind, previewSize } from "@/features/preview/preview-kind";
 import { warmOriginal } from "@/features/preview/warm-original";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -37,10 +38,12 @@ export type DocumentSelection = {
     matchingEndOrdinal?: number;
     /** Provenance of this citation, carrying its page, region or sheet when one was recorded. */
     provenance?: readonly string[];
+    /** How this passage answers the search: the whole question, some of its words, or its meaning only. */
+    kind?: MatchKind;
   }>;
   activeMatchIndex: number;
-  /** The words a search was asked with, marked inside the located passage of a text original. */
-  terms?: readonly string[];
+  /** The question a search was asked with, marked inside the located passage or cited region of the original. */
+  terms?: QueryTerms;
 };
 
 /** Kinds whose rendered text a citation can be searched in; elsewhere provenance is the only anchor. */
@@ -187,6 +190,7 @@ export function DocumentPreviewDialog({
                 text: reading.citations[index] ?? "",
                 section: reading.sections[index],
                 provenance: match.provenance,
+                kind: match.kind,
               }))}
               confidence={confidence}
               active={reading.activeMatchIndex}

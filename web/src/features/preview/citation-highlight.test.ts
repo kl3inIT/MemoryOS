@@ -55,27 +55,64 @@ describe("placeCitations", () => {
     expect(placed?.range?.toString()).toBe("Doanh thu quý 3 đạt 412 tỷ đồng.");
   });
 
-  it("ranges the reader's words inside a placed passage only", () => {
+  const question = (phrase: string) => ({ phrase, words: phrase.split(" ") });
+  const marks = (placement: ReturnType<typeof placeCitations>[number] | undefined) =>
+    placement?.marks?.map((mark) => `${mark.whole ? "*" : ""}${mark.range.toString()}`);
+
+  it("marks the whole question inside a placed passage only, with the sentence that holds it", () => {
     const container = render(
-      "<p>Chi phí bán hàng giảm.</p><p>Chi phí <strong>quản lý</strong> tăng 12%.</p>",
+      "<p>Chi phí quản lý tăng.</p><p>Năm nay chi phí <strong>quản lý</strong> tăng 12%. Doanh thu giảm.</p>",
     );
     const placed = placeCitations(
       container,
-      ["Chi phí quản lý tăng 12%.", "Không có trong tài liệu."],
+      ["Năm nay chi phí quản lý tăng 12%. Doanh thu giảm.", "Không có trong tài liệu."],
       [],
-      ["chi phí quản lý", "chi phí", "tăng"],
+      question("chi phí quản lý"),
     );
-    // "Chi phí" also stands in the first paragraph, which is not a cited passage.
-    expect(placed[0]?.terms?.map((term) => term.toString())).toEqual(["Chi phí quản lý", "tăng"]);
+    // The first paragraph also holds the question, but it is not a cited passage.
+    expect(marks(placed[0])).toEqual(["*chi phí quản lý"]);
+    expect(placed[0]?.focus?.map((range) => range.toString())).toEqual([
+      "Năm nay chi phí quản lý tăng 12%.",
+    ]);
     expect(placed[1]).toEqual({ confidence: "none" });
   });
 
-  it("ranges no words when none were asked for or none occur", () => {
+  it("marks the question's words alone where the passage does not hold it", () => {
+    const container = render("<p>Chi phí bán hàng tăng 12%.</p>");
+    const [placed] = placeCitations(
+      container,
+      ["Chi phí bán hàng tăng 12%."],
+      [],
+      question("chi phí quản lý"),
+    );
+    expect(marks(placed)).toEqual(["Chi", "phí"]);
+  });
+
+  it("never runs a sentence from one block into the next", () => {
+    // Nothing ends the heading's text but its element.
+    const container = render("<h2>Nghỉ phép năm</h2><p> Người lao động được nghỉ 12 ngày.</p>");
+    const [placed] = placeCitations(
+      container,
+      ["Nghỉ phép năm Người lao động được nghỉ 12 ngày."],
+      [],
+      question("được nghỉ"),
+    );
+    expect(placed?.focus?.map((range) => range.toString())).toEqual([
+      "Người lao động được nghỉ 12 ngày.",
+    ]);
+  });
+
+  it("marks nothing when no question was asked, and nothing when none of it occurs", () => {
     const container = render("<p>Chi phí quản lý tăng 12%.</p>");
-    expect(placeCitations(container, ["Chi phí quản lý tăng 12%."])[0]?.terms).toBeUndefined();
-    expect(
-      placeCitations(container, ["Chi phí quản lý tăng 12%."], [], ["doanh thu"])[0]?.terms,
-    ).toEqual([]);
+    expect(placeCitations(container, ["Chi phí quản lý tăng 12%."])[0]?.marks).toBeUndefined();
+    const [placed] = placeCitations(
+      container,
+      ["Chi phí quản lý tăng 12%."],
+      [],
+      question("doanh thu"),
+    );
+    expect(placed?.marks).toEqual([]);
+    expect(placed?.focus).toEqual([]);
   });
 
   it("places nothing in an empty container", () => {
