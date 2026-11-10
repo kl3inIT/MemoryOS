@@ -38,6 +38,13 @@ function area(polygon: readonly Point[]) {
   return Math.abs(sum) / 2;
 }
 
+/** Where a band's upper and lower edges cross the column `x`, to a quarter pixel. */
+function edgesAt(band: readonly Point[], x: number): [number, number] {
+  const inside: number[] = [];
+  for (let y = 0; y <= 200; y += 0.25) if (contains(band, [x, y])) inside.push(y);
+  return [Math.min(...inside), Math.max(...inside)];
+}
+
 describe("inkLines", () => {
   it("draws a tilted line with gaps between its letters as one band along it, far tighter than its outline", () => {
     // Letters 13 px long with 5 px gaps along a line tilted 20 degrees, 16 px thick.
@@ -124,6 +131,83 @@ describe("inkLines", () => {
     middles
       .sort((a, b) => a - b)
       .forEach((middle, index) => expect(middle).toBeCloseTo(47 + index * 40, -1));
+  });
+
+  it("draws a straight line of accented letters as a stroke with straight, parallel edges", () => {
+    // Letters 12 px tall on one line; every third letter wears an accent above it and every fifth a
+    // descender below it, as Vietnamese text does.
+    const letters = (x: number, y: number) => {
+      const letter = Math.floor((x - 20) / 16);
+      if (x < 20 || x > 380 || (x - 20) % 16 >= 11) return false;
+      const body = y >= 60 && y <= 72;
+      const accent =
+        letter % 3 === 0 && y >= 51 && y <= 55 && (x - 20) % 16 >= 3 && (x - 20) % 16 < 8;
+      const descender = letter % 5 === 0 && y > 72 && y <= 78 && (x - 20) % 16 < 3;
+      return body || accent || descender;
+    };
+    const outline: Point[] = [
+      [10, 40],
+      [395, 40],
+      [395, 95],
+      [10, 95],
+    ];
+
+    const [band] = inkLines(image(400, 110, letters), outline) ?? [];
+
+    expect(band).toBeDefined();
+    // Away from the rounded ends the stroke's edges stay at one height each: no bump at an accent.
+    const edges = [44, 76, 100, 148, 196, 228, 260, 308, 340].map((x) => edgesAt(band!, x));
+    for (const [top, foot] of edges) {
+      expect(top).toBeCloseTo(edges[0]![0], 0);
+      expect(foot).toBeCloseTo(edges[0]![1], 0);
+    }
+    const [top, foot] = edges[0]!;
+    // The letters' bodies are covered; a lone accent's tip and a descender's foot are not what sizes it.
+    expect(top).toBeLessThan(60);
+    expect(top).toBeGreaterThan(51);
+    expect(foot).toBeGreaterThan(72);
+    expect(foot).toBeLessThan(78);
+  });
+
+  it("gives the lines of one paragraph one thickness", () => {
+    // The middle line wears low accents on many letters; the others on none.
+    const letters = (x: number, y: number) => {
+      if (x < 20 || x > 380 || x % 16 >= 12) return false;
+      const body = [40, 80, 120].some((top) => y >= top && y <= top + 12);
+      const accent = y >= 76 && y <= 78 && x % 32 < 8;
+      return body || accent;
+    };
+    const picture = image(400, 170, letters);
+    const block: Point[] = [
+      [10, 25],
+      [395, 25],
+      [395, 150],
+      [10, 150],
+    ];
+    const thickness = (band: readonly Point[]) => {
+      const [top, foot] = edgesAt(band, 200);
+      return foot - top;
+    };
+
+    const lines = inkLines(picture, block);
+    // The middle line read alone, outside its block, takes its own thickness.
+    const [alone] =
+      inkLines(picture, [
+        [10, 70],
+        [395, 70],
+        [395, 100],
+        [10, 100],
+      ]) ?? [];
+
+    expect(lines).toHaveLength(3);
+    const thicknesses = lines!.map(thickness);
+    for (const value of thicknesses) {
+      expect(Number.isFinite(value)).toBe(true);
+      // edgesAt samples every quarter pixel, so two edges are measured to within half a pixel.
+      expect(value).toBeCloseTo(thicknesses[0]!, 0);
+    }
+    // Its accents make it thicker on its own: in the block it takes the paragraph's thickness instead.
+    expect(thickness(alone!)).toBeGreaterThan(thicknesses[1]! + 1);
   });
 
   it("gives nothing for a region without lines of text, so the outline is drawn", () => {

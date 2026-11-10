@@ -38,6 +38,8 @@ These are behavior-evidence pointers, not a live Google E2E or IDE-clean claim. 
 | An outline is placed as fractions of its box on a picture, on an upright PDF page in either origin and on a turned page, and refused with its box; a box with an outline is drawn as an SVG polygon and one without as the rounded box | `pdf-pages.test.ts` (`outlines`), `image-view.test.tsx` |
 | A picture's tilted line and curved heading are drawn in their outlines in a browser: vertices on the picture, the box's corners and the arch's hollow unmarked, through zoom | `search.spec.ts` ("draws a tilted line and a curved heading …") |
 | Inside an outline, a tilted line, an arc with gaps between its letters and each line of a paragraph get one band around their ink; blank, dark, low-contrast regions and too few points get none | `ink-outline.test.ts` |
+| A line of accented letters is one stroke with straight, parallel edges sized by the line's usual top and foot, not by a lone accent or descender; the lines of one block share one thickness | `ink-outline.test.ts` |
+| Line strokes are filled without an edge and clipped to the OCR's outline | `citation-region.test.tsx` |
 | A region draws its outline until its lines are read, then one polygon per line | `citation-region.test.tsx` |
 | A picture's tilted line and arched heading are drawn as bands around their letters in a browser: letters marked, the arch's hollow and the outline's margin not, through zoom | `search.spec.ts` ("draws a tilted line and an arched heading … around their letters") |
 | Provenance with a frame reads as a framed box; half a frame, a frame without a size or a framed box from the bottom left reads as no box while the page is kept | `source-provenance.test.ts` |

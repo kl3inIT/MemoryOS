@@ -959,7 +959,7 @@ test("draws a tilted line and an arched heading of a picture around their letter
       .nth(index)
       .evaluate(
         (region, [fx, fy]) =>
-          Array.from(region.querySelectorAll("polygon")).some((band) =>
+          Array.from(region.querySelectorAll("polygon[data-band]")).some((band) =>
             band.isPointInFill(new DOMPoint(fx, fy)),
           ),
         [

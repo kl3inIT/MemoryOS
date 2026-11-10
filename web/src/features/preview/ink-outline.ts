@@ -18,10 +18,29 @@ const MIN_INK = 30;
 const MAX_INK_SHARE = 0.5;
 /** Grey levels between ink and paper below which the split is noise. */
 const MIN_CONTRAST = 40;
+/** A joined part with less ink than this is a speck, not a line. */
+const MIN_LINE_INK = 20;
+/** The centre is smoothed over this many line heights on each side. */
+const SMOOTHING_LETTERS = 2;
+/** A line is straight when its smoothed centre stays within this share of its height of one straight line. */
+const STRAIGHT_SHARE = 0.4;
+/** The band reaches the top that this share of columns rise above, and the foot this share stay above. */
+const TOP_PERCENTILE = 0.2;
+const FOOT_PERCENTILE = 0.8;
+/** Room around the letters, in line heights. */
+const PAD_LETTERS = 0.12;
+/** Lines of one block within this share of their usual thickness take it. */
+const SHARED_THICKNESS = 0.35;
+/** The weight of a column between letters, so the centre crosses gaps without bending towards them. */
+const GAP_WEIGHT = 0.2;
+/** Segments of each rounded end. */
+const CAP_STEPS = 8;
 
 /**
- * One band per text line inside `outline`, in the image's pixels: each the line's upper edge left to right,
- * then its lower edge right to left. `undefined` when the region does not look like lines of text.
+ * One band per text line inside `outline`, in the image's pixels, drawn as a highlighter stroke: the line's
+ * centre, straight when a straight line fits it and smoothed along it otherwise, widened to one thickness on
+ * both sides and rounded at the ends. Each is a polygon: one edge left to right, the rounded end, the other edge
+ * back, the other end. `undefined` when the region does not look like lines of text.
  */
 export function inkLines(
   image: InkImage,
@@ -77,33 +96,19 @@ export function inkLines(
   const parts = halfResolutionParts(joined, width, height);
   if (!parts || parts.count > MAX_LINES) return undefined;
 
-  const lines: Point[][] = [];
-  const window = Math.max(4, Math.round(letter * 0.8));
-  const pad = Math.max(3, Math.round(letter / 8));
-  for (const edges of columnEdges(ink, width, height, parts)) {
-    if (edges.count < 20) continue;
-    const span = edges.last - edges.first + 1;
-    const top = new Float64Array(span);
-    const bottom = new Float64Array(span);
-    bridge(edges.top, edges.first, span, top);
-    bridge(edges.bottom, edges.first, span, bottom);
-    const upper = mean(slide(top, window, Math.min), window);
-    const lower = mean(slide(bottom, window, Math.max), window);
-    const upperEdge: Point[] = [];
-    const lowerEdge: Point[] = [];
-    for (let column = 0; column < span; column += 1) {
-      upperEdge.push([edges.first + column, (upper[column] ?? 0) - pad]);
-      lowerEdge.push([edges.first + column, (lower[column] ?? 0) + 1 + pad]);
-    }
-    if (upperEdge.length) {
-      upperEdge[0] = [edges.first - pad, upperEdge[0]![1]];
-      upperEdge[upperEdge.length - 1] = [edges.last + 1 + pad, upperEdge.at(-1)![1]];
-      lowerEdge[0] = [edges.first - pad, lowerEdge[0]![1]];
-      lowerEdge[lowerEdge.length - 1] = [edges.last + 1 + pad, lowerEdge.at(-1)![1]];
-    }
-    lines.push([...simplify(upperEdge, 2), ...simplify(lowerEdge, 2).reverse()]);
+  const bands: Band[] = [];
+  for (const columns of columnInk(ink, width, height, parts)) {
+    const band = lineBand(columns);
+    if (band) bands.push(band);
   }
-  return lines.length && lines.length <= MAX_LINES ? lines : undefined;
+  if (!bands.length || bands.length > MAX_LINES) return undefined;
+  // Lines of one block read as one paragraph: they share its usual thickness.
+  if (bands.length > 1) {
+    const usual = median(bands.map((band) => band.thickness));
+    for (const band of bands)
+      if (Math.abs(band.thickness - usual) < usual * SHARED_THICKNESS) band.thickness = usual;
+  }
+  return bands.map((band) => strokeOutline(band.centre, band.thickness));
 }
 
 /**
@@ -302,77 +307,231 @@ function halfResolutionParts(joined: Uint8Array, width: number, height: number):
   return { labels, width: halfWidth, count };
 }
 
-type Edges = {
-  top: Map<number, number>;
-  bottom: Map<number, number>;
+/** The ink of one joined part (one line), column by column. */
+type ColumnInk = {
   first: number;
   last: number;
-  count: number;
+  /** Per column from `first`: how many ink pixels, their summed rows, the highest and the lowest. */
+  count: Float64Array;
+  rowSum: Float64Array;
+  top: Float64Array;
+  bottom: Float64Array;
 };
 
-/** For each joined part, the highest and lowest ink pixel of every column it holds ink in. */
-function columnEdges(ink: Uint8Array, width: number, height: number, parts: Parts): Edges[] {
-  const edges: Edges[] = Array.from({ length: parts.count }, () => ({
-    top: new Map<number, number>(),
-    bottom: new Map<number, number>(),
-    first: Infinity,
-    last: -Infinity,
-    count: 0,
-  }));
-  for (let row = 0; row < height; row += 1) {
+type Band = { centre: Point[]; thickness: number };
+
+/** For each joined part, its ink in every column it holds ink in. */
+function columnInk(ink: Uint8Array, width: number, height: number, parts: Parts): ColumnInk[] {
+  const spans = Array.from({ length: parts.count }, () => ({ first: Infinity, last: -Infinity }));
+  const labelAt = (row: number, column: number) =>
+    parts.labels[(row >> 1) * parts.width + (column >> 1)] ?? 0;
+  for (let row = 0; row < height; row += 1)
     for (let column = 0; column < width; column += 1) {
       if (!ink[row * width + column]) continue;
-      const label = parts.labels[(row >> 1) * parts.width + (column >> 1)] ?? 0;
-      const part = edges[label - 1];
-      if (!part) continue;
-      part.count += 1;
-      if (!part.top.has(column)) part.top.set(column, row);
-      part.bottom.set(column, row);
-      part.first = Math.min(part.first, column);
-      part.last = Math.max(part.last, column);
+      const span = spans[labelAt(row, column) - 1];
+      if (!span) continue;
+      span.first = Math.min(span.first, column);
+      span.last = Math.max(span.last, column);
     }
-  }
-  return edges.filter((part) => part.count > 0);
+  const lines = spans.map(({ first, last }): ColumnInk | undefined => {
+    if (!Number.isFinite(first)) return undefined;
+    const span = last - first + 1;
+    return {
+      first,
+      last,
+      count: new Float64Array(span),
+      rowSum: new Float64Array(span),
+      top: new Float64Array(span).fill(Infinity),
+      bottom: new Float64Array(span).fill(-Infinity),
+    };
+  });
+  for (let row = 0; row < height; row += 1)
+    for (let column = 0; column < width; column += 1) {
+      if (!ink[row * width + column]) continue;
+      const line = lines[labelAt(row, column) - 1];
+      if (!line) continue;
+      const at = column - line.first;
+      line.count[at] = (line.count[at] ?? 0) + 1;
+      line.rowSum[at] = (line.rowSum[at] ?? 0) + row;
+      line.top[at] = Math.min(line.top[at] ?? Infinity, row);
+      line.bottom[at] = Math.max(line.bottom[at] ?? -Infinity, row + 1);
+    }
+  return lines.filter((line): line is ColumnInk => line !== undefined);
 }
 
-/** A column's value, or the straight line between its nearest columns with ink. */
-function bridge(known: Map<number, number>, first: number, span: number, into: Float64Array) {
-  let previous = first;
-  let previousValue = known.get(first) ?? 0;
-  for (let column = 0; column < span; column += 1) {
-    const at = first + column;
-    const value = known.get(at);
-    if (value !== undefined) {
+/**
+ * A line's highlighter stroke. The centre goes through the mass of each column's ink, so an accent or a
+ * descender barely moves it, smoothed by a straight line fitted around each column; when one straight line fits
+ * the whole line, that line is the centre. The thickness runs from the line's usual top (tall letters and
+ * accents included) to its usual foot, measured across the line, so a lone accent does not widen it.
+ */
+function lineBand(line: ColumnInk): Band | undefined {
+  const span = line.last - line.first + 1;
+  let inked = 0;
+  for (let at = 0; at < span; at += 1) inked += line.count[at] ?? 0;
+  if (inked < MIN_LINE_INK) return undefined;
+  const weight = line.count;
+  const centre = new Float64Array(span).fill(Number.NaN);
+  for (let at = 0; at < span; at += 1)
+    if (weight[at]) centre[at] = (line.rowSum[at] ?? 0) / (weight[at] ?? 1);
+  // Columns between letters take the straight line between their inked neighbours.
+  let previous = -1;
+  for (let at = 0; at < span; at += 1) {
+    if (Number.isNaN(centre[at])) continue;
+    if (previous < 0) centre.fill(centre[at] ?? 0, 0, at);
+    else
       for (let gap = previous + 1; gap < at; gap += 1)
-        into[gap - first] =
-          previousValue + ((value - previousValue) * (gap - previous)) / (at - previous);
-      into[column] = value;
-      previous = at;
-      previousValue = value;
+        centre[gap] =
+          (centre[previous] ?? 0) +
+          (((centre[at] ?? 0) - (centre[previous] ?? 0)) * (gap - previous)) / (at - previous);
+    previous = at;
+  }
+  if (previous >= 0) centre.fill(centre[previous] ?? 0, previous + 1);
+
+  // The line's own height sets every length below, so a line is drawn the same alone or in a paragraph.
+  const extents: number[] = [];
+  for (let at = 0; at < span; at += 1)
+    if (weight[at]) extents.push((line.bottom[at] ?? 0) - (line.top[at] ?? 0));
+  const height = Math.max(4, median(extents));
+  const radius = Math.max(6, Math.round(height * SMOOTHING_LETTERS));
+  const fitted = fitLine(centre, weight);
+  const smooth = new Float64Array(span);
+  for (let at = 0; at < span; at += 1) smooth[at] = smoothAt(centre, weight, at, radius);
+  // Straight when the smoothed centre stays near one line away from the ends, where smoothing sees one side.
+  let worst = 0;
+  for (let at = radius; at < span - radius; at += 1)
+    worst = Math.max(worst, Math.abs((smooth[at] ?? 0) - fitted(at)));
+  const straight = worst < height * STRAIGHT_SHARE;
+  const centreAt = (at: number) => (straight ? fitted(at) : (smooth[at] ?? 0));
+
+  const tops: number[] = [];
+  const feet: number[] = [];
+  for (let at = 0; at < span; at += 1) {
+    if (!weight[at]) continue;
+    const slope = (centreAt(Math.min(span - 1, at + 2)) - centreAt(Math.max(0, at - 2))) / 4;
+    const across = Math.cos(Math.atan(slope));
+    tops.push(((line.top[at] ?? 0) - centreAt(at)) * across);
+    feet.push(((line.bottom[at] ?? 0) - centreAt(at)) * across);
+  }
+  const pad = Math.max(2, height * PAD_LETTERS);
+  const upper = percentile(tops, TOP_PERCENTILE) - pad;
+  const lower = percentile(feet, FOOT_PERCENTILE) + pad;
+
+  const step = Math.max(2, Math.round(height / 3));
+  const along: Point[] = [];
+  for (let at = 0; at < span; at += step) along.push([line.first + at, centreAt(at)]);
+  along.push([line.last + 1, centreAt(span - 1)]);
+  // Move the centre across the line, along its normal, to the middle of the band.
+  const shift = (upper + lower) / 2;
+  const normals = along.map((_, index) => normalAt(along, index));
+  const moved = along.map(([x, y], index): Point => {
+    const [nx, ny] = normals[index] ?? [0, 1];
+    return [x + nx * shift, y + ny * shift];
+  });
+  return { centre: simplify(moved, 0.5), thickness: lower - upper };
+}
+
+/** Weighted sums for a least-squares line through `(x, value)` pairs. */
+class LineFit {
+  private w0 = 0;
+  private w1 = 0;
+  private w2 = 0;
+  private v0 = 0;
+  private v1 = 0;
+
+  add(x: number, value: number, w: number) {
+    this.w0 += w;
+    this.w1 += w * x;
+    this.w2 += w * x * x;
+    this.v0 += w * value;
+    this.v1 += w * x * value;
+  }
+
+  /** The line's value at `x`; a flat line at the mean where the points cannot fix a slope. */
+  at(x: number) {
+    const determinant = this.w0 * this.w2 - this.w1 * this.w1;
+    const slope = determinant > 1e-9 ? (this.w0 * this.v1 - this.w1 * this.v0) / determinant : 0;
+    const intercept = this.w0 > 0 ? (this.v0 - slope * this.w1) / this.w0 : 0;
+    return intercept + slope * x;
+  }
+}
+
+/** One straight line through every column's centre, weighted by its ink, as a function of the column. */
+function fitLine(centre: Float64Array, weight: Float64Array): (column: number) => number {
+  const fit = new LineFit();
+  for (let at = 0; at < centre.length; at += 1)
+    fit.add(at, centre[at] ?? 0, (weight[at] ?? 0) + GAP_WEIGHT);
+  return (column) => fit.at(column);
+}
+
+/**
+ * The centre at `at`, from a straight line fitted to the columns within `radius`, weighted by their ink and by a
+ * tricube of their distance (local linear regression): it follows any curve and, unlike a moving average, does
+ * not sag at the ends of the line, where only one side is seen.
+ */
+function smoothAt(centre: Float64Array, weight: Float64Array, at: number, radius: number) {
+  const fit = new LineFit();
+  const from = Math.max(0, at - radius);
+  const to = Math.min(centre.length - 1, at + radius);
+  for (let index = from; index <= to; index += 1) {
+    const kernel = (1 - (Math.abs(index - at) / (radius + 1)) ** 3) ** 3;
+    fit.add(index - at, centre[index] ?? 0, ((weight[index] ?? 0) + GAP_WEIGHT) * kernel);
+  }
+  return fit.at(0);
+}
+
+/** The unit normal of a polyline at a point, pointing down for a line drawn left to right. */
+function normalAt(points: readonly Point[], index: number): Point {
+  const [ax, ay] = points[Math.max(0, index - 1)] ?? [0, 0];
+  const [bx, by] = points[Math.min(points.length - 1, index + 1)] ?? [1, 0];
+  const length = Math.hypot(bx - ax, by - ay) || 1;
+  return [-(by - ay) / length, (bx - ax) / length];
+}
+
+/**
+ * A stroke of `thickness` along `centre`, as a polygon: one edge, a rounded end, the other edge back and the
+ * other rounded end.
+ */
+function strokeOutline(centre: readonly Point[], thickness: number): Point[] {
+  const half = thickness / 2;
+  const first = centre[0] ?? [0, 0];
+  const last = centre.at(-1) ?? first;
+  const normals = centre.map((_, index) => normalAt(centre, index));
+  const upper = centre.map(([x, y], index): Point => {
+    const [nx, ny] = normals[index] ?? [0, 1];
+    return [x - nx * half, y - ny * half];
+  });
+  const lower = centre.map(([x, y], index): Point => {
+    const [nx, ny] = normals[index] ?? [0, 1];
+    return [x + nx * half, y + ny * half];
+  });
+  const cap = ([x, y]: Point, [nx, ny]: Point, forward: number): Point[] => {
+    // Directions along the line: the normal turned a quarter back.
+    const [dx, dy] = [ny * forward, -nx * forward];
+    const points: Point[] = [];
+    for (let step = 1; step < CAP_STEPS; step += 1) {
+      const angle = -Math.PI / 2 + (Math.PI * step) / CAP_STEPS;
+      const along = Math.cos(angle) * half;
+      const across = Math.sin(angle) * half * forward;
+      points.push([x + dx * along + nx * across, y + dy * along + ny * across]);
     }
-  }
+    return points;
+  };
+  return [
+    ...upper,
+    ...cap(last, normals.at(-1) ?? [0, 1], 1),
+    ...lower.reverse(),
+    ...cap(first, normals[0] ?? [0, 1], -1),
+  ];
 }
 
-function slide(values: Float64Array, radius: number, pick: (...values: number[]) => number) {
-  const out = new Float64Array(values.length);
-  for (let index = 0; index < values.length; index += 1) {
-    const from = Math.max(0, index - radius);
-    const to = Math.min(values.length, index + radius + 1);
-    out[index] = pick(...values.subarray(from, to));
-  }
-  return out;
+function median(values: readonly number[]) {
+  return percentile(values, 0.5);
 }
 
-function mean(values: Float64Array, radius: number) {
-  const out = new Float64Array(values.length);
-  for (let index = 0; index < values.length; index += 1) {
-    const from = Math.max(0, index - radius);
-    const to = Math.min(values.length, index + radius + 1);
-    let sum = 0;
-    for (let at = from; at < to; at += 1) sum += values[at] ?? 0;
-    out[index] = sum / (to - from);
-  }
-  return out;
+function percentile(values: readonly number[], share: number) {
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.floor((sorted.length - 1) * share)] ?? 0;
 }
 
 /** Douglas–Peucker: the fewest points within `tolerance` pixels of the edge. */
