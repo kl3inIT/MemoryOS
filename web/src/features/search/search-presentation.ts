@@ -27,7 +27,8 @@ const DEFAULT_SNIPPET_LENGTH = 320;
  * that does not hold the whole question. The card's excerpt and the opened original mark by the same rule.
  */
 export function queryTerms(query: string): QueryTerms {
-  const phrase = query.trim();
+  // Composed first: a word pasted with combining marks would otherwise be cut before each mark.
+  const phrase = query.normalize("NFC").trim();
   const tokens = phrase.match(/[\p{L}\p{N}]+(?:[-_.][\p{L}\p{N}]+)*/gu) ?? [];
   const words = new Map<string, string>();
   for (const token of tokens) {
@@ -105,13 +106,24 @@ export type SectionPlace = { page?: number; sheet?: string; heading?: string };
  */
 export function sectionPlace(section: Section): SectionPlace {
   const location = readSourceLocation(matchingChunkProvenance(section));
-  const trail = passageSection(section.content);
-  const heading = trail?.split(" > ").at(-1)?.trim();
+  const trail = matchingChunkContent(section);
+  const heading = (trail && passageSection(trail))?.split(" > ").at(-1)?.trim();
   return {
     page: location.pages[0],
     sheet: location.sheet,
     heading: heading && heading !== location.sheet ? heading : undefined,
   };
+}
+
+/**
+ * The text of the chunk that matched. A section joins its chunks in order, each led by the chunker's `Title:`
+ * line; when that does not split it into one part a chunk, which part matched is unknown and nothing is
+ * returned, rather than another chunk's heading.
+ */
+function matchingChunkContent(section: Section): string | undefined {
+  const chunks = section.content.split(/\n(?=Title: )/);
+  if (chunks.length !== section.endOrdinal - section.startOrdinal + 1) return undefined;
+  return chunks[section.matchingOrdinal - section.startOrdinal];
 }
 
 /**

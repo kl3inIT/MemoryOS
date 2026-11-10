@@ -5,7 +5,7 @@ import type { Result as SearchResult, Section as SearchSection } from "@/lib/hey
 import { cn } from "@/lib/utils";
 import { DocumentSourceIcon } from "@/features/documents/document-source-icon";
 import { documentSourceLabels } from "@/features/documents/document-source-presentation";
-import { MatchKindBadge, MatchKindDot } from "@/features/documents/match-kind-badge";
+import { MatchKindBadge, MatchKindIcon } from "@/features/documents/match-kind-badge";
 import { ProviderLink } from "@/features/documents/provider-link";
 import { friendlyMediaType } from "@/features/documents/document-source-presentation";
 import { warmOriginal } from "@/features/preview/warm-original";
@@ -162,7 +162,7 @@ export function SearchResultCard({ item, query, onOpen }: SearchResultCardProps)
                   onFocus={warm}
                   onClick={(event) => open(section, event)}
                 >
-                  <MatchKindDot kind={sectionMatchKind(section.content, title, query)} />
+                  <MatchKindIcon kind={sectionMatchKind(section.content, title, query)} />
                   <PlaceLabel place={sectionPlace(section)} compact />
                   <Snippet
                     content={section.content}

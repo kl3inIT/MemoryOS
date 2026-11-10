@@ -261,8 +261,13 @@ export function sentenceAround(
   within: Span = { start: 0, end: raw.length },
   breaks: readonly number[] = [],
 ): Span {
-  const lower = Math.max(within.start, ...breaks.filter((at) => at <= mark.start));
-  const upper = Math.min(within.end, ...breaks.filter((at) => at >= mark.end));
+  // A long document has a block start for every paragraph or row: too many to spread into Math.max.
+  let lower = within.start;
+  let upper = within.end;
+  for (const at of breaks) {
+    if (at <= mark.start && at > lower) lower = at;
+    if (at >= mark.end && at < upper) upper = at;
+  }
   let start = mark.start;
   while (start > lower) {
     const before = raw.charAt(start - 1);

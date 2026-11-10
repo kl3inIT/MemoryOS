@@ -273,6 +273,15 @@ describe("sentenceAround", () => {
     );
   });
 
+  it("takes the nearest block starts from more of them than a call can spread", () => {
+    const raw = `${"a ".repeat(150_000)}nghỉ phép ${"b ".repeat(150_000)}`;
+    const start = raw.indexOf("nghỉ phép");
+    // A block start before every word: far beyond the engine's limit on spread arguments.
+    const breaks = Array.from({ length: raw.length / 2 }, (_, index) => index * 2);
+    const span = sentenceAround(raw, { start, end: start + "nghỉ phép".length }, undefined, breaks);
+    expect(raw.slice(span.start, span.end)).toBe("nghỉ phép");
+  });
+
   it("cuts a run-on sentence around the mark at word boundaries", () => {
     const raw = `${"chữ ".repeat(120)}nghỉ phép ${"chữ ".repeat(120)}hết.`;
     const found = sentence(raw, "nghỉ phép");

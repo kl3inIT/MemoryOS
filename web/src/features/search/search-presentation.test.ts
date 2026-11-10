@@ -85,6 +85,13 @@ describe("queryTerms", () => {
       words: ["Nghỉ", "phép", "SP-ORION-042"],
     });
   });
+
+  it("keeps a word pasted with combining marks whole", () => {
+    expect(queryTerms("nghỉ phép".normalize("NFD"))).toEqual({
+      phrase: "nghỉ phép",
+      words: ["nghỉ", "phép"],
+    });
+  });
 });
 
 describe("sectionMatchKind", () => {
@@ -117,10 +124,21 @@ describe("sectionPlace", () => {
           { ordinal: 1, provenanceJson: '[{"page_no":1}]' },
           { ordinal: 2, provenanceJson: '[{"page_no":3}]' },
         ],
-        "Title: a.pdf\nSection: Chương 2 > Điều 4. Nghỉ phép năm\nĐược nghỉ phép.",
+        "Title: a.pdf\nSection: Chương 2 > Điều 3\nPhạm vi.\nTitle: a.pdf\nSection: Chương 2 > Điều 4. Nghỉ phép năm\nĐược nghỉ phép.",
       ),
     );
+    // The second chunk matched: its heading, not the first chunk's.
     expect(place).toEqual({ page: 3, sheet: undefined, heading: "Điều 4. Nghỉ phép năm" });
+  });
+
+  it("names no heading when the section does not split into one part a chunk", () => {
+    const place = sectionPlace(
+      section(
+        [{ ordinal: 2, provenanceJson: '[{"page_no":3}]' }],
+        "Title: a.pdf\nSection: Điều 3\nPhạm vi và được nghỉ phép.",
+      ),
+    );
+    expect(place).toEqual({ page: 3, sheet: undefined, heading: undefined });
   });
 
   it("keeps the section's provenance when it records nothing for the matching chunk", () => {
