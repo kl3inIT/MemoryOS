@@ -23,6 +23,15 @@ run on this machine, and was stopped.
 | marks the cited region on an image original, through zoom and a turn, and only on the picture it was measured in | passed |
 | opens a scanned report at its cited page without reading the rest of it | passed |
 
+## Pull request #912
+
+CodeRabbit (one requested review, on `ce2c85c`) found that the block-thickness test measured nothing: it read
+polygon vertices in a range where a straight stroke has none, so every thickness was `-Infinity` and equal. The
+test now measures the edges with `edgesAt`, requires finite values, and checks that the middle line, thicker on
+its own, takes the paragraph's thickness in the block. Measuring it showed that the room and smoothing radius
+came from the region's letter height, which grows with the number of lines; they now come from the line's own
+height.
+
 ## Gates
 
 `oxfmt --check`, `oxlint --deny-warnings`, `tsc -b`, the i18n audit and `knip` pass.

@@ -23,16 +23,19 @@ PDF reader, the image viewer and the e2e checks keep calling it as before. What 
 
 - **Centre.** For each joined part (a line), the centre of each column is the mean row of its ink, so an
   accent or a descender barely moves it; columns between letters are interpolated. The centre is smoothed by a
-  straight line fitted around each column over two letter heights, weighted by ink and by a tricube of the
+  straight line fitted around each column over two line heights, weighted by ink and by a tricube of the
   distance (local linear regression): it follows any curve and does not sag at the ends, where only one side is
   seen. When the smoothed centre stays within 0.4 of the line's median height of one straight line through the
   whole line (away from the ends), that straight line is the centre. A straight or tilted line is the curve's
   special case, not a second path.
 - **Thickness.** Measured across the line at each column (the local slope's cosine), from the 20th percentile
-  of the columns' tops to the 80th percentile of their feet, with 0.12 letter heights of room: accents and tall
+  of the columns' tops to the 80th percentile of their feet, with 0.12 of the line's height as room: accents and tall
   letters that most columns reach are covered, a lone accent or descender does not size the stroke. The centre
   is moved along its normal to the middle of that span. Lines of one block within 35 % of their usual thickness
   take it, so a paragraph reads as one hand.
+- **Scale.** Every length (smoothing radius, room, sampling step) comes from the line's own median height, not
+  from the region's letter height, which counts every line of a column and so grows with the number of lines:
+  a line is drawn the same alone or inside a paragraph.
 - **Stroke.** The centre is simplified (Douglas–Peucker, 0.5 px) and widened by half the thickness on both
   sides along its normals, with round ends, as one polygon.
 - **Drawing.** `CitationRegion` fills the line strokes without an edge and clips them to the OCR's outline,
