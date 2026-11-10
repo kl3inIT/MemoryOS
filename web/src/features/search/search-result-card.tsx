@@ -162,9 +162,7 @@ export function SearchResultCard({ item, query, onOpen }: SearchResultCardProps)
                   onFocus={warm}
                   onClick={(event) => open(section, event)}
                 >
-                  <MatchKindDot
-                    kind={sectionMatchKind(section.content, title, query)}
-                  />
+                  <MatchKindDot kind={sectionMatchKind(section.content, title, query)} />
                   <PlaceLabel place={sectionPlace(section)} compact />
                   <Snippet
                     content={section.content}
