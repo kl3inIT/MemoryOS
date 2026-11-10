@@ -24,6 +24,7 @@ import { LazyPdfView } from "./lazy-pdf-view";
 import { MarkdownView } from "./markdown-view";
 import type { PdfHighlight } from "./pdf-pages";
 import type { PreviewContent } from "./preview-content";
+import type { QueryTerms } from "./preview-highlight";
 import type { Sheets } from "./preview-kind";
 import { PreviewCanvas } from "./preview-surface";
 import { PreviewToolbar, ToolbarGroup } from "./preview-toolbar";
@@ -38,8 +39,8 @@ export type PreviewCitations = {
   texts: readonly string[];
   /** The heading each citation was read under, which tells two identical passages apart. */
   sections?: readonly (string | undefined)[];
-  /** The words the reader searched for, marked inside a located passage of a text original. */
-  terms?: readonly string[];
+  /** The reader's question, marked inside a located passage of a text original or a PDF's cited region. */
+  terms?: QueryTerms;
   /** Pages and regions the extraction recorded; a PDF or a picture, empty when none were recorded. */
   pages?: readonly number[];
   boxes?: readonly PdfHighlight[];
@@ -101,7 +102,7 @@ export function FilePreview({
   const {
     texts,
     sections = NONE,
-    terms = NONE,
+    terms,
     pages = NONE,
     boxes = NONE,
     rows = NONE,
@@ -128,12 +129,13 @@ export function FilePreview({
 
   switch (content.kind) {
     case "pdf":
-      // PDF citations are drawn from the regions provenance recorded, never searched for.
+      // PDF citations are drawn from the regions provenance recorded; the question is marked in their text.
       return (
         <LazyPdfView
           url={content.file}
           pages={pages}
           boxes={boxes}
+          terms={terms}
           thumbnails={thumbnails}
           steps={
             <CitationStepControls
@@ -298,7 +300,7 @@ function HighlightedText({
 }: {
   citations: readonly string[];
   sections: readonly (string | undefined)[];
-  terms: readonly string[];
+  terms?: QueryTerms;
   active: number;
   /** A view that renders synchronously is ready as soon as it is in the tree. */
   rendered?: boolean;

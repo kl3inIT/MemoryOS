@@ -1,15 +1,20 @@
 import { formatUiDay } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { CornerDownRight } from "lucide-react";
 import type { MouseEvent, ReactNode } from "react";
 import type { Result as SearchResult, Section as SearchSection } from "@/lib/hey-api/types.gen";
 import { cn } from "@/lib/utils";
 import { DocumentSourceIcon } from "@/features/documents/document-source-icon";
 import { documentSourceLabels } from "@/features/documents/document-source-presentation";
+import { MatchKindBadge, MatchKindIcon } from "@/features/documents/match-kind-badge";
 import { ProviderLink } from "@/features/documents/provider-link";
 import { friendlyMediaType } from "@/features/documents/document-source-presentation";
 import { warmOriginal } from "@/features/preview/warm-original";
-import { createSearchSnippet } from "./search-presentation";
+import {
+  createSearchSnippet,
+  sectionMatchKind,
+  sectionPlace,
+  type SectionPlace,
+} from "./search-presentation";
 
 type SearchResultCardProps = {
   item: SearchResult;
@@ -27,7 +32,8 @@ const matchButton =
 /**
  * One document result as enterprise search lists it (Confluence, Databricks, Glean): icon, title and a
  * single metadata line, then the best match as the clickable context and related matches as compact
- * lines. Every match still opens its own anchor.
+ * lines. Every match still opens its own anchor. Each match says whether it holds the whole question, some
+ * of its words or only its meaning, and where it sits, so a reader picks the right one before opening it.
  */
 export function SearchResultCard({ item, query, onOpen }: SearchResultCardProps) {
   const ui = useAppTranslation();
@@ -126,35 +132,38 @@ export function SearchResultCard({ item, query, onOpen }: SearchResultCardProps)
           <button
             type="button"
             aria-label={matchName(0)}
-            className={cn(matchButton, "mt-1.5 block py-1.5")}
+            data-slot="search-best-match"
+            className={cn(matchButton, "mt-2 block bg-surface-subtle py-2 hover:bg-surface-sunken")}
             onPointerEnter={warm}
             onFocus={warm}
             onClick={(event) => open(best, event)}
           >
+            <span className="flex flex-wrap items-center gap-1.5">
+              <MatchKindBadge kind={sectionMatchKind(best.content, title, query)} />
+              <PlaceLabel place={sectionPlace(best)} />
+            </span>
             <Snippet
               content={best.content}
               title={title}
               query={query}
-              className="line-clamp-3 font-main-ui-body text-content-secondary"
+              className="mt-1.5 line-clamp-3 font-main-ui-body text-content-secondary"
             />
           </button>
         ) : null}
         {related.length ? (
-          <ul className="flex flex-col gap-0.5">
+          <ul className="mt-1 flex flex-col gap-0.5">
             {related.map((section, index) => (
               <li key={`${section.startOrdinal}:${section.endOrdinal}`}>
                 <button
                   type="button"
                   aria-label={matchName(index + 1)}
-                  className={cn(matchButton, "flex items-start gap-1.5 py-1")}
+                  className={cn(matchButton, "flex items-center gap-2 py-1")}
                   onPointerEnter={warm}
                   onFocus={warm}
                   onClick={(event) => open(section, event)}
                 >
-                  <CornerDownRight
-                    className="mt-1 size-3.5 shrink-0 text-content-muted"
-                    aria-hidden="true"
-                  />
+                  <MatchKindIcon kind={sectionMatchKind(section.content, title, query)} />
+                  <PlaceLabel place={sectionPlace(section)} compact />
                   <Snippet
                     content={section.content}
                     title={title}
@@ -191,10 +200,19 @@ function Snippet({
     <span className={cn("block min-w-0 break-words whitespace-pre-wrap", className)}>
       {snippet.parts.length === 0 ? ui("No preview text available.") : null}
       {snippet.parts.map((part, partIndex) =>
-        part.highlighted ? (
+        part.mark === "phrase" ? (
           <mark
             key={`${partIndex}:${part.text}`}
-            className="rounded-sm bg-evidence-highlight-surface box-decoration-clone font-medium text-content-primary"
+            data-mark="phrase"
+            className="rounded-sm bg-pdf-highlight box-decoration-clone px-0.5 font-semibold text-content-document"
+          >
+            {part.text}
+          </mark>
+        ) : part.mark === "word" ? (
+          <mark
+            key={`${partIndex}:${part.text}`}
+            data-mark="word"
+            className="bg-transparent font-medium text-content-primary underline decoration-evidence-highlight-border decoration-2 underline-offset-3"
           >
             {part.text}
           </mark>
@@ -202,6 +220,29 @@ function Snippet({
           <span key={`${partIndex}:${part.text}`}>{part.text}</span>
         ),
       )}
+    </span>
+  );
+}
+
+/**
+ * Where the match sits: its page or sheet, then the heading it was read under. `compact` keeps only the page
+ * or sheet, for a related match's single line.
+ */
+function PlaceLabel({ place, compact = false }: { place: SectionPlace; compact?: boolean }) {
+  const ui = useAppTranslation();
+  const where = place.page
+    ? ui("Trang {{pages}}", { pages: place.page })
+    : (place.sheet ?? undefined);
+  const parts = compact ? [where] : [where, place.heading];
+  const text = parts.filter(Boolean).join(" · ");
+  if (!text) return null;
+  return compact ? (
+    <span className="shrink-0 rounded-sm bg-surface-sunken px-1.5 text-xs leading-5 font-medium text-content-secondary">
+      {text}
+    </span>
+  ) : (
+    <span className="min-w-0 truncate font-secondary-body text-content-muted" title={text}>
+      {text}
     </span>
   );
 }

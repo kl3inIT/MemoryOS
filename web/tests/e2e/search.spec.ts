@@ -1186,13 +1186,102 @@ test("marks the words of the question inside the located passages of a text orig
       (highlight) => [...(CSS.highlights.get(highlight) ?? [])].map((range) => range.toString()),
       name,
     );
-  // The heading holds both words and is no cited passage, so it carries no mark.
-  await expect.poll(() => painted("memoryos-citation-term")).toEqual(["nghỉ phép", "nghỉ"]);
-  expect(await painted("memoryos-citation-active")).toEqual([lines[1]]);
-  expect(await painted("memoryos-citation")).toEqual([lines[2]]);
+  // The rail says which passage holds the whole question and which only one of its words.
+  const rail = dialog.getByRole("complementary");
+  await expect(rail.getByText("Exact match")).toBeVisible();
+  await expect(rail.getByText("Partial match")).toBeVisible();
+  // The passage being read points at its sentence with the question marked over it, not at the whole
+  // passage. The heading holds the question too, but it is no cited passage, so it carries no mark.
+  await expect.poll(() => painted("memoryos-citation-term")).toEqual(["nghỉ phép"]);
+  expect(await painted("memoryos-citation-focus")).toEqual([lines[1]]);
+  expect(await painted("memoryos-citation-word")).toEqual([]);
+  expect(await painted("memoryos-citation-active")).toEqual([]);
+  // The other passage holds only "nghỉ": a faint hint under that word, and no fill.
+  expect(await painted("memoryos-citation")).toEqual([]);
+  expect(await painted("memoryos-citation-hint")).toEqual(["nghỉ"]);
 
-  // The words stay marked when the other passage becomes the one being read.
+  // Stepping to it underlines its lone word, and the first passage keeps only its hint.
   await dialog.getByRole("button", { name: "Next passage" }).click();
-  await expect.poll(() => painted("memoryos-citation-active")).toEqual([lines[2]]);
-  expect(await painted("memoryos-citation-term")).toEqual(["nghỉ phép", "nghỉ"]);
+  await expect.poll(() => painted("memoryos-citation-focus")).toEqual([lines[2]]);
+  expect(await painted("memoryos-citation-word")).toEqual(["nghỉ"]);
+  expect(await painted("memoryos-citation-term")).toEqual([]);
+  expect(await painted("memoryos-citation-hint")).toEqual(["nghỉ phép"]);
+});
+
+test("marks the question and its sentence inside a PDF's cited region, and outlines a match by meaning", async ({
+  page,
+}) => {
+  const title = "Leave handbook.pdf";
+  // The fixture draws "Employee handbook: leave policy" and "Requests need manager approval." on every page.
+  const region = (pageNumber: number, top: number) =>
+    `[{"page_no":${pageNumber},"bbox":{"l":72,"t":${top},"r":341,"b":${top - 20},"coord_origin":"BOTTOMLEFT"}}]`;
+  const matches = [
+    { content: `Title: ${title}\nEmployee handbook: leave policy`, provenanceJson: region(3, 696) },
+    { content: `Title: ${title}\nRequests need manager approval.`, provenanceJson: region(5, 636) },
+  ];
+  await page.route("**/api/search", (route) =>
+    route.fulfill({ json: matchedPassages(title, "application/pdf", matches) }),
+  );
+  await page.route("**/api/search/documents/*?*", (route) => {
+    const from = Number(new URL(route.request().url()).searchParams.get("from"));
+    const ordinal = from === 0 ? 0 : from + 1;
+    return route.fulfill({
+      json: {
+        documentId,
+        generation,
+        title,
+        mediaType: "application/pdf",
+        passages: [
+          { ordinal, content: matches[ordinal / 10]?.content ?? "", provenanceJson: "[]" },
+        ],
+        firstOrdinal: from,
+        totalChunks: 20,
+        hasMore: true,
+      },
+    });
+  });
+  const originalPdf = rangedHandbookPdf();
+  await page.route("**/api/search/documents/*/original?*", (route) =>
+    fulfillPdfRange(route, originalPdf),
+  );
+  await page.goto("/search");
+  await page.getByRole("textbox", { name: "Search documents" }).fill("leave policy");
+  await page.getByRole("main").getByRole("button", { name: "Search", exact: true }).click();
+
+  // The card says how each match answers the question and where it is, before the document opens.
+  const best = page.getByRole("button", { name: `Open best match in ${title}` });
+  await expect(best.getByText("Exact match")).toBeVisible();
+  await expect(best.getByText("Page 3")).toBeVisible();
+  await expect(best.locator('mark[data-mark="phrase"]')).toHaveText("leave policy");
+  const related = page.getByRole("button", { name: `Open related match 2 in ${title}` });
+  await expect(related.getByRole("img", { name: "Related in meaning" })).toBeVisible();
+  await expect(related.locator("mark")).toHaveCount(0);
+
+  await best.click();
+  const dialog = page.getByRole("dialog");
+  const box = dialog.locator('[data-slot="pdf-citation-box"]');
+  const mark = dialog.locator('[data-slot="pdf-citation-mark"]');
+  // The region is a bar in its margin; the phrase is marked inside it, over the sentence that holds it.
+  await expect(box).toHaveAttribute("data-variant", "bar");
+  await expect(mark).toHaveCount(1);
+  await expect(mark).toHaveAttribute("data-whole", "true");
+  await expect(mark).toBeInViewport();
+  await expect(dialog.locator('[data-slot="pdf-citation-focus"]')).toHaveCount(1);
+  const regionBox = await box.boundingBox();
+  const markBox = await mark.boundingBox();
+  if (!regionBox || !markBox) throw new Error("The cited region or its mark has no box.");
+  // "leave policy" ends the line: the mark covers the end of the region, not the whole of it.
+  expect(markBox.x).toBeGreaterThan(regionBox.x + regionBox.width * 0.4);
+  expect(markBox.width).toBeLessThan(regionBox.width * 0.5);
+  expect(markBox.height).toBeLessThan(regionBox.height + 8);
+
+  // A match found by meaning holds none of the words: its region is outlined, and nothing is marked.
+  await dialog.getByRole("button", { name: "Next passage" }).click();
+  await expect(dialog.getByRole("spinbutton", { name: "Page number" })).toHaveValue("5");
+  await expect(box).toHaveAttribute("data-variant", "outline");
+  await expect(box).toBeInViewport();
+  await expect(mark).toHaveCount(0);
+  const rail = dialog.getByRole("complementary");
+  await expect(rail.getByText("Exact match")).toBeVisible();
+  await expect(rail.getByText("Related in meaning")).toBeVisible();
 });

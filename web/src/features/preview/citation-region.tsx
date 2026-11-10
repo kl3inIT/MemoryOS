@@ -1,4 +1,5 @@
 import type { CSSProperties, RefObject } from "react";
+import { cn } from "@/lib/utils";
 import type { PlacedOutline } from "./pdf-pages";
 
 /**
@@ -15,6 +16,7 @@ export function CitationRegion({
   outline,
   lines,
   regionRef,
+  variant = "fill",
 }: {
   slot: string;
   label: string;
@@ -25,12 +27,40 @@ export function CitationRegion({
   /** One band per text line, as fractions of the placed rectangle; drawn instead of the outline. */
   lines?: readonly PlacedOutline[];
   regionRef?: RefObject<Element | null>;
+  /**
+   * How the region is drawn. `fill` marks the whole region, as recorded. A searched region whose own text holds
+   * the question is a `bar` in its left margin, the marks inside it doing the pointing; one whose text holds
+   * none of it (a match by meaning) is a dashed `outline`; `pending` takes the region's place unseen while its
+   * text is read, so the reader is still scrolled to it.
+   */
+  variant?: "fill" | "bar" | "outline" | "pending";
 }) {
   const ref = regionRef
     ? (node: Element | null) => {
         regionRef.current = node;
       }
     : undefined;
+  if (variant !== "fill") {
+    return (
+      <span
+        ref={ref}
+        role={variant === "pending" ? undefined : "img"}
+        aria-label={variant === "pending" ? undefined : label}
+        data-slot={slot}
+        data-variant={variant}
+        className={cn(
+          "absolute scroll-m-12",
+          variant === "outline" &&
+            "rounded-sm border-2 border-dashed border-pdf-highlight-border/90",
+        )}
+        style={style}
+      >
+        {variant === "bar" ? (
+          <span className="absolute inset-y-0.5 -left-2 w-0.75 rounded-full bg-pdf-highlight-border" />
+        ) : null}
+      </span>
+    );
+  }
   const shapes = lines?.length ? lines : outline?.length ? [outline] : [];
   if (!shapes.length) {
     return (

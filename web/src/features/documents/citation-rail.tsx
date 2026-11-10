@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
 import type { CitationConfidence } from "@/features/preview/file-preview";
 import { formatPages } from "@/features/preview/pdf-pages";
+import type { MatchKind } from "@/features/preview/preview-highlight";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
+import { MatchKindBadge } from "./match-kind-badge";
 import { readSourceLocation } from "./source-provenance";
 
 export type CitationEntry = {
@@ -12,6 +14,8 @@ export type CitationEntry = {
   section?: string;
   /** Provenance of this citation, which carries its page or sheet when the extraction recorded one. */
   provenance?: readonly string[];
+  /** How a Search passage answers the question; a Chat citation has none. */
+  kind?: MatchKind;
 };
 
 /**
@@ -94,6 +98,11 @@ export function CitationRail({
                     current ? "bg-pdf-highlight" : "bg-transparent",
                   )}
                 />
+                {entry.kind ? (
+                  <div className="mb-1.5">
+                    <MatchKindBadge kind={entry.kind} />
+                  </div>
+                ) : null}
                 <div className="flex items-center gap-2 font-secondary-body text-content-muted">
                   <span className="tabular-nums">{index + 1}</span>
                   {pages ? <span>·</span> : null}

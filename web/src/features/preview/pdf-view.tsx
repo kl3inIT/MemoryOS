@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Document, Page, pdfjs } from "react-pdf";
 import { Button } from "@/components/ui/button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
+import { cn } from "@/lib/utils";
 import { PreviewCanvas, PreviewSkeleton } from "./preview-surface";
 import { PageField, PreviewToolbar, ToolbarGroup, ZoomControl } from "./preview-toolbar";
 import {
@@ -17,6 +18,14 @@ import {
 } from "./pdf-pages";
 import { CitationRegion } from "./citation-region";
 import { placedInkLines } from "./ink-outline";
+import {
+  markPdfRegions,
+  placeTextItems,
+  type PageText,
+  type PdfMarks,
+  type Rect,
+} from "./pdf-text-marks";
+import type { QueryTerms } from "./preview-highlight";
 import { BLOCK } from "./pdf-range-plan";
 import { openPdfOriginal, PdfReading } from "./pdf-range-source";
 import { useReaderWorker } from "./pdf-reader-worker";
@@ -39,6 +48,27 @@ const RANGE_OPTIONS = {
 const WHOLE_OPTIONS = { disableRange: true, wasmUrl };
 // Multiples of the fit-to-width size: a Letter page in a 400px panel needs 2–3× for body text.
 const ZOOM_STEPS = [1, 1.5, 2, 3] as const;
+
+/** What the reader needs of a pdf.js page to place its text; react-pdf hands it over once the page loads. */
+type TextPage = {
+  getTextContent: () => Promise<{ items: unknown[]; styles: Record<string, object> }>;
+  getViewport: (parameters: { scale: number }) => { transform: number[]; width: number };
+};
+
+let measuring: CanvasRenderingContext2D | null | undefined;
+/** A run's characters measured in its font family, so a mark covers its letters rather than a share of them. */
+function measureText(text: string, fontFamily: string): number {
+  measuring ??= document.createElement("canvas").getContext("2d");
+  if (!measuring) return text.length;
+  measuring.font = `100px ${fontFamily}`;
+  return measuring.measureText(text).width;
+}
+
+/**
+ * How a page's cited regions are drawn for a search: filled as recorded when the question was not given or
+ * the page has no text in them (a scan), not yet while the page's text is read, and otherwise by its marks.
+ */
+type PageMarking = { kind: "fill" } | { kind: "pending" } | { kind: "marked"; marks: PdfMarks };
 
 /** Hands pdf.js the bytes a `PdfReading` fetched, in the blocks pdf.js asked for. */
 class OriginalTransport extends pdfjs.PDFDataRangeTransport {
@@ -100,6 +130,7 @@ export function PdfView({
   url,
   pages,
   boxes,
+  terms,
   thumbnails = false,
   steps,
   onReady,
@@ -108,6 +139,11 @@ export function PdfView({
   url: string | Blob;
   pages: readonly number[];
   boxes: readonly PdfHighlight[];
+  /**
+   * The reader's question. Given one, a cited region whose own text holds it is drawn as the sentences holding
+   * it with the question marked, rather than as the whole region.
+   */
+  terms?: QueryTerms;
   /** A page rail beside the document, for a reader wide enough to hold one. */
   thumbnails?: boolean;
   /** A group for the toolbar that steps between cited passages; the caller moves `pages` and `boxes`. */
@@ -175,6 +211,55 @@ export function PdfView({
       if (Object.keys(found).length) setInked((current) => ({ ...current, ...found }));
     }, 0);
   };
+  // The text of each cited page, read once its page has loaded: `null` when it could not be read.
+  const searching = Boolean(terms?.phrase.trim());
+  const [pageTexts, setPageTexts] = useState<Record<number, PageText | null>>({});
+  const loadedPages = useRef(new Map<number, TextPage>());
+  const readingText = useRef(new Set<number>());
+  const readText = useCallback((pageNumber: number) => {
+    const page = loadedPages.current.get(pageNumber);
+    if (!page || readingText.current.has(pageNumber)) return;
+    readingText.current.add(pageNumber);
+    const viewport = page.getViewport({ scale: 1 });
+    page.getTextContent().then(
+      (content) =>
+        setPageTexts((known) => ({
+          ...known,
+          [pageNumber]: {
+            items: placeTextItems(content.items, content.styles, viewport.transform),
+            width: viewport.width,
+          },
+        })),
+      () => setPageTexts((known) => ({ ...known, [pageNumber]: null })),
+    );
+  }, []);
+  // Another cited passage may be on a page already loaded, whose text has not been read yet.
+  useEffect(() => {
+    if (!searching) return;
+    for (const box of boxes) readText(box.page);
+  }, [searching, boxes, readText]);
+  const markings = useMemo(() => {
+    const found: Record<number, PageMarking> = {};
+    if (!searching || !terms) return found;
+    for (const pageNumber of new Set(boxes.map((box) => box.page))) {
+      const view = pageViews[pageNumber];
+      const text = pageTexts[pageNumber];
+      if (text === undefined || !view) {
+        found[pageNumber] = { kind: "pending" };
+        continue;
+      }
+      const regions = boxes
+        .filter((box) => box.page === pageNumber)
+        .flatMap((box): Rect[] => {
+          const rect = pdfBoxRect(box, view, renderedWidth);
+          return rect ? [rect] : [];
+        });
+      const marks =
+        text && markPdfRegions(text, regions, renderedWidth / text.width, terms, measureText);
+      found[pageNumber] = marks ? { kind: "marked", marks } : { kind: "fill" };
+    }
+    return found;
+  }, [searching, terms, boxes, pageViews, pageTexts, renderedWidth]);
   const firstBox = useRef<Element | null>(null);
   const currentPageRef = useRef(currentPage);
   const lastWidth = useRef(renderedWidth);
@@ -336,7 +421,10 @@ export function PdfView({
                         }}
                         onRenderError={() => settle(pageNumber)}
                         onLoadError={() => settle(pageNumber)}
-                        onLoadSuccess={(page) =>
+                        onLoadSuccess={(page) => {
+                          loadedPages.current.set(pageNumber, page);
+                          if (searching && boxes.some((box) => box.page === pageNumber))
+                            readText(pageNumber);
                           setPageViews((current) =>
                             current[pageNumber]
                               ? current
@@ -344,8 +432,8 @@ export function PdfView({
                                   ...current,
                                   [pageNumber]: { view: [...page.view], rotate: page.rotate },
                                 },
-                          )
-                        }
+                          );
+                        }}
                       />
                     ) : null}
                     {/*
@@ -355,30 +443,24 @@ export function PdfView({
                       multiplied once, an overlap is the same yellow as a single region.
                     */}
                     {show && view ? (
-                      <div className="pointer-events-none absolute inset-0 opacity-55 mix-blend-multiply">
-                        {boxes
+                      <PageCitations
+                        regions={boxes
                           .filter((box) => box.page === pageNumber)
                           .map((box, boxIndex) => {
                             const rect = pdfBoxRect(box, view, renderedWidth);
-                            if (!rect) return null;
-                            const { outline, ...placed } = rect;
                             return (
-                              <CitationRegion
-                                key={`${box.left}:${box.top}:${boxIndex}`}
-                                regionRef={
-                                  pageNumber === anchor && boxIndex === 0 ? firstBox : undefined
-                                }
-                                slot="pdf-citation-box"
-                                label={ui("Vùng được trích dẫn trên trang {{page}}", {
-                                  page: pageNumber,
-                                })}
-                                outline={outline}
-                                lines={inked[boxKey(box)]}
-                                style={placed}
-                              />
+                              rect && {
+                                key: `${box.left}:${box.top}:${boxIndex}`,
+                                rect,
+                                lines: inked[boxKey(box)],
+                                anchor: pageNumber === anchor && boxIndex === 0,
+                              }
                             );
                           })}
-                      </div>
+                        marking={markings[pageNumber] ?? { kind: "fill" }}
+                        anchorRef={firstBox}
+                        label={ui("Vùng được trích dẫn trên trang {{page}}", { page: pageNumber })}
+                      />
                     ) : null}
                   </div>
                 </figure>
@@ -426,6 +508,88 @@ const THUMBNAIL_WIDTH = 96;
  * so the rail draws one at a time, only for buttons in view, nearest the current page first, and only while
  * the document canvas is `idle`. One that left the rail's surroundings is released.
  */
+type PlacedRegion = {
+  key: string;
+  rect: Rect & { outline?: PlacedOutline };
+  lines?: PlacedOutline[];
+  /** The first region of the page the reader opens at, which the opening scroll centres. */
+  anchor: boolean;
+};
+
+/**
+ * One page's cited regions. Filled as recorded, unless the question was marked in their text: then the
+ * sentences holding it are a light focus, its marks sit over them at full strength, and each region is a bar in
+ * its margin, or a dashed outline when its text holds none of the question.
+ */
+function PageCitations({
+  regions,
+  marking,
+  anchorRef,
+  label,
+}: {
+  regions: readonly (PlacedRegion | undefined)[];
+  marking: PageMarking;
+  anchorRef: React.RefObject<Element | null>;
+  label: string;
+}) {
+  const marked = marking.kind === "marked" ? marking.marks : undefined;
+  const variant =
+    marking.kind === "pending"
+      ? "pending"
+      : !marked
+        ? "fill"
+        : marked.marks.length
+          ? "bar"
+          : "outline";
+  const drawn = regions.map((region) => {
+    if (!region) return null;
+    const { outline, ...placed } = region.rect;
+    return (
+      <CitationRegion
+        key={region.key}
+        regionRef={region.anchor ? anchorRef : undefined}
+        slot="pdf-citation-box"
+        label={label}
+        outline={outline}
+        lines={region.lines}
+        style={placed}
+        variant={variant}
+      />
+    );
+  });
+  return (
+    <>
+      <div className="pointer-events-none absolute inset-0 opacity-55 mix-blend-multiply">
+        {variant === "fill" ? drawn : null}
+        {marked?.focus.map((rect, index) => (
+          <span
+            key={`focus:${index}`}
+            data-slot="pdf-citation-focus"
+            className="absolute rounded-sm bg-pdf-highlight opacity-60"
+            style={rect}
+          />
+        ))}
+      </div>
+      {/* The marks and the region's own sign sit at full strength over the focus. */}
+      <div className="pointer-events-none absolute inset-0 mix-blend-multiply">
+        {variant === "fill" ? null : drawn}
+        {marked?.marks.map(({ whole, ...rect }, index) => (
+          <span
+            key={`mark:${index}`}
+            data-slot="pdf-citation-mark"
+            data-whole={whole}
+            className={cn(
+              "absolute border-b-2 border-pdf-highlight-border",
+              whole && "rounded-sm bg-pdf-highlight",
+            )}
+            style={rect}
+          />
+        ))}
+      </div>
+    </>
+  );
+}
+
 function PdfThumbnails({
   total,
   current,
