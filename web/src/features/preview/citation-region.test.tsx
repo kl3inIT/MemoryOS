@@ -45,8 +45,13 @@ it("draws the OCR's outline until the lines are read, then one polygon per line 
   expect(lines).toHaveAttribute("data-shape", "lines");
   expect(lines).toHaveAttribute("data-slot", "image-citation-box");
   expect(
-    Array.from(lines.querySelectorAll("polygon"), (band) => band.getAttribute("points")),
+    Array.from(lines.querySelectorAll("polygon[data-band]"), (band) => band.getAttribute("points")),
   ).toEqual(["0,0.1 1,0.1 1,0.3 0,0.3", "0,0.6 0.7,0.6 0.7,0.8 0,0.8"]);
+  // The strokes are cut to the OCR's outline, which stays the boundary, and have no edge of their own.
+  const clip = lines.querySelector("clipPath");
+  expect(clip?.querySelector("polygon")?.getAttribute("points")).toBe("0,0.8 0.9,0 1,0.2 0.1,1");
+  expect(lines.querySelector("g")?.getAttribute("clip-path")).toBe(`url(#${clip?.id})`);
+  expect(lines.querySelector("polygon[data-band]")?.getAttribute("class")).not.toContain("stroke");
 });
 
 it("keeps the rounded box for a region with neither outline nor lines", () => {

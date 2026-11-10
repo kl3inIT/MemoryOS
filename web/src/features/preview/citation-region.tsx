@@ -1,4 +1,4 @@
-import type { CSSProperties, RefObject } from "react";
+import { useId, type CSSProperties, type RefObject } from "react";
 import { cn } from "@/lib/utils";
 import type { PlacedOutline } from "./pdf-pages";
 
@@ -7,7 +7,8 @@ import type { PlacedOutline } from "./pdf-pages";
  * outline is drawn in the block's own shape, so a tilted line or a curved heading is marked where its text is
  * rather than by the upright box around it; one without stays the rounded box. Both keep the slot, the label
  * and the scroll target, so the rail and the tests find the same element either way. Once the viewer has read
- * the ink inside the outline, `lines` replaces it with one band per text line.
+ * the ink inside the outline, `lines` replaces it with one highlighter stroke per text line: filled without an
+ * edge, so it reads as a marker rather than a traced shape, and cut to the outline, which stays the boundary.
  */
 export function CitationRegion({
   slot,
@@ -35,6 +36,8 @@ export function CitationRegion({
    */
   variant?: "fill" | "bar" | "outline" | "pending";
 }) {
+  // An id the clip path can be named by: useId's own may hold characters a url() reference does not.
+  const clip = `citation-clip-${useId().replace(/[^\w-]/g, "")}`;
   const ref = regionRef
     ? (node: Element | null) => {
         regionRef.current = node;
@@ -61,6 +64,7 @@ export function CitationRegion({
       </span>
     );
   }
+  const stroked = Boolean(lines?.length);
   const shapes = lines?.length ? lines : outline?.length ? [outline] : [];
   if (!shapes.length) {
     return (
@@ -86,16 +90,36 @@ export function CitationRegion({
       viewBox="0 0 1 1"
       preserveAspectRatio="none"
     >
-      {shapes.map((shape, index) => (
-        <polygon
-          key={index}
-          points={shape.map(([x, y]) => `${x},${y}`).join(" ")}
-          className="fill-pdf-highlight stroke-pdf-highlight-border/80"
-          strokeWidth={1}
-          strokeLinejoin="round"
-          vectorEffect="non-scaling-stroke"
-        />
-      ))}
+      {stroked && outline ? (
+        <defs>
+          <clipPath id={clip}>
+            <polygon points={points(outline)} />
+          </clipPath>
+        </defs>
+      ) : null}
+      <g clipPath={stroked && outline ? `url(#${clip})` : undefined}>
+        {shapes.map((shape, index) =>
+          stroked ? (
+            <polygon
+              key={index}
+              data-band=""
+              points={points(shape)}
+              className="fill-pdf-highlight"
+            />
+          ) : (
+            <polygon
+              key={index}
+              points={points(shape)}
+              className="fill-pdf-highlight stroke-pdf-highlight-border/80"
+              strokeWidth={1}
+              strokeLinejoin="round"
+              vectorEffect="non-scaling-stroke"
+            />
+          ),
+        )}
+      </g>
     </svg>
   );
 }
+
+const points = (shape: PlacedOutline) => shape.map(([x, y]) => `${x},${y}`).join(" ");
