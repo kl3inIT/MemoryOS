@@ -56,9 +56,10 @@ const SCAN_HEIGHT = 480;
  * and page dictionary one after another, with all pages listed flat under the root and the catalog at the end.
  * pdf.js has to find every page dictionary before it can load such a file, and they sit a whole picture apart,
  * so a reader that fetches in large chunks reads the entire file to draw one page. Each page also draws the two
- * lines of the handbook, where the fixture boxes are.
+ * lines of the handbook, where the fixture boxes are; with `text: false` it draws none, so the pages have no text
+ * layer, as a scan read by OCR has none.
  */
-export function scannedReportPdf(pageCount = 24) {
+export function scannedReportPdf(pageCount = 24, { text = true }: { text?: boolean } = {}) {
   const picture = String.fromCharCode(
     ...Array.from({ length: SCAN_WIDTH }, (_, column) => 215 + (column % 32)),
   ).repeat(SCAN_HEIGHT);
@@ -70,7 +71,7 @@ export function scannedReportPdf(pageCount = 24) {
   const numbered: Array<[number, string]> = [];
   for (let page = 1; page <= pageCount; page += 1) {
     const image = pageObject(page) - 2;
-    const content = `q 612 0 0 792 0 0 cm /Im0 Do Q BT /F1 18 Tf 72 680 Td (Employee handbook: leave policy) Tj 0 -60 Td (Requests need manager approval.) Tj 0 -60 Td (Scanned page ${page}) Tj ET`;
+    const content = `q 612 0 0 792 0 0 cm /Im0 Do Q${text ? ` BT /F1 18 Tf 72 680 Td (Employee handbook: leave policy) Tj 0 -60 Td (Requests need manager approval.) Tj 0 -60 Td (Scanned page ${page}) Tj ET` : ""}`;
     numbered.push(
       [
         image,

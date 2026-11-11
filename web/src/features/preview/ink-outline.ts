@@ -35,6 +35,8 @@ const SHARED_THICKNESS = 0.35;
 const GAP_WEIGHT = 0.2;
 /** Segments of each rounded end. */
 const CAP_STEPS = 8;
+/** A space between words is at least this share of the line's height, and two pixels. */
+const MIN_SPACE = 0.12;
 
 /**
  * One band per text line inside `outline`, in the image's pixels, drawn as a highlighter stroke: the line's
@@ -121,9 +123,27 @@ function inkLinesFrom(
   sourceHeight: number,
   outline: readonly (readonly [number, number])[],
 ): Point[][] | undefined {
-  if (outline.length < 3 || typeof document === "undefined") return undefined;
-  const xs = outline.map(([x]) => x);
-  const ys = outline.map(([, y]) => y);
+  const read = readPixels(source, sourceWidth, sourceHeight, outline);
+  if (!read) return undefined;
+  const local = outline.map(([x, y]): Point => [x - read.left, y - read.top]);
+  return inkLines(read.image, local)?.map((line) =>
+    line.map(([x, y]): Point => [x + read.left, y + read.top]),
+  );
+}
+
+/**
+ * The pixels of a drawn source under a polygon's bounds, on white, with where they start. `undefined` where they
+ * cannot be read: no document, a tainted or unavailable canvas, or a region too small or too large.
+ */
+function readPixels(
+  source: CanvasImageSource,
+  sourceWidth: number,
+  sourceHeight: number,
+  polygon: readonly (readonly [number, number])[],
+): { image: InkImage; left: number; top: number } | undefined {
+  if (polygon.length < 3 || typeof document === "undefined") return undefined;
+  const xs = polygon.map(([x]) => x);
+  const ys = polygon.map(([, y]) => y);
   const left = Math.max(0, Math.floor(Math.min(...xs)));
   const top = Math.max(0, Math.floor(Math.min(...ys)));
   const right = Math.min(sourceWidth, Math.ceil(Math.max(...xs)));
@@ -140,15 +160,129 @@ function inkLinesFrom(
     context.fillStyle = "#fff";
     context.fillRect(0, 0, width, height);
     context.drawImage(source, left, top, width, height, 0, 0, width, height);
-    const pixels = context.getImageData(0, 0, width, height);
-    const local = outline.map(([x, y]): Point => [x - left, y - top]);
-    return inkLines({ data: pixels.data, width, height }, local)?.map((line) =>
-      line.map(([x, y]): Point => [x + left, y + top]),
-    );
+    return {
+      image: { data: context.getImageData(0, 0, width, height).data, width, height },
+      left,
+      top,
+    };
   } catch {
-    // A tainted or unavailable canvas: the outline is drawn instead.
+    // A tainted or unavailable canvas: nothing is read.
     return undefined;
   }
+}
+
+/**
+ * Where each word of a text line lies along it, read from its ink. `quad` is the line's quadrilateral as the OCR
+ * answers it, corner by corner from its top left (top left, top right, bottom right, bottom left), in the image's
+ * pixels. The line is walked from its left side to its right side a pixel at a time, and each step asks whether
+ * any ink lies across the line there; the widest `words - 1` runs without ink between the first ink and the last
+ * are the spaces between its words. Each word is `[start, end]` as shares of the walk. `undefined` when the line
+ * does not show that many spaces at least `MIN_SPACE` of its height wide, or its ink cannot be told from paper.
+ */
+export function wordSpans(
+  image: InkImage,
+  quad: readonly (readonly [number, number])[],
+  words: number,
+): [number, number][] | undefined {
+  const { data, width, height } = image;
+  if (quad.length !== 4 || words < 1 || width < 2 || height < 2) return undefined;
+  const [topLeft, topRight, bottomRight, bottomLeft] = quad as [Point, Point, Point, Point];
+  const lerp = (a: readonly [number, number], b: readonly [number, number], t: number): Point => [
+    a[0] + (b[0] - a[0]) * t,
+    a[1] + (b[1] - a[1]) * t,
+  ];
+  const along = Math.max(
+    Math.hypot(topRight[0] - topLeft[0], topRight[1] - topLeft[1]),
+    Math.hypot(bottomRight[0] - bottomLeft[0], bottomRight[1] - bottomLeft[1]),
+  );
+  const across = Math.max(
+    Math.hypot(bottomLeft[0] - topLeft[0], bottomLeft[1] - topLeft[1]),
+    Math.hypot(bottomRight[0] - topRight[0], bottomRight[1] - topRight[1]),
+  );
+  const steps = Math.ceil(along);
+  const depth = Math.max(2, Math.ceil(across));
+  if (steps < 4 || steps * depth > MAX_PIXELS) return undefined;
+  const gray = (x: number, y: number) => {
+    const column = Math.floor(x);
+    const row = Math.floor(y);
+    if (column < 0 || row < 0 || column >= width || row >= height) return 255;
+    const offset = (row * width + column) * 4;
+    return (
+      0.299 * (data[offset] ?? 255) +
+      0.587 * (data[offset + 1] ?? 255) +
+      0.114 * (data[offset + 2] ?? 255)
+    );
+  };
+  // Every sample across the line at every step, then ink and paper split as the bands split them.
+  const samples = new Float64Array(steps * depth);
+  const histogram = new Float64Array(256);
+  for (let step = 0; step < steps; step += 1) {
+    const t = (step + 0.5) / steps;
+    const from = lerp(topLeft, topRight, t);
+    const to = lerp(bottomLeft, bottomRight, t);
+    for (let level = 0; level < depth; level += 1) {
+      const [x, y] = lerp(from, to, (level + 0.5) / depth);
+      const value = Math.round(gray(x, y));
+      samples[step * depth + level] = value;
+      histogram[value] = (histogram[value] ?? 0) + 1;
+    }
+  }
+  const threshold = otsu(histogram, samples.length);
+  let inkSum = 0;
+  let inkCount = 0;
+  let paperSum = 0;
+  const inked = new Uint8Array(steps);
+  for (let index = 0; index < samples.length; index += 1) {
+    const value = samples[index]!;
+    if (value <= threshold) {
+      inked[Math.floor(index / depth)] = 1;
+      inkSum += value;
+      inkCount += 1;
+    } else paperSum += value;
+  }
+  if (!inkCount || inkCount === samples.length) return undefined;
+  if (paperSum / (samples.length - inkCount) - inkSum / inkCount < MIN_CONTRAST) return undefined;
+  const first = inked.indexOf(1);
+  const last = inked.lastIndexOf(1);
+  const gaps: { start: number; end: number }[] = [];
+  for (let step = first; step <= last; step += 1) {
+    if (inked[step]) continue;
+    const start = step;
+    while (step <= last && !inked[step]) step += 1;
+    gaps.push({ start, end: step });
+  }
+  const spaces = gaps
+    .sort((a, b) => b.end - b.start - (a.end - a.start) || a.start - b.start)
+    .slice(0, words - 1)
+    .sort((a, b) => a.start - b.start);
+  const narrowest = Math.min(...spaces.map((gap) => gap.end - gap.start));
+  if (spaces.length < words - 1 || (words > 1 && narrowest < Math.max(2, across * MIN_SPACE)))
+    return undefined;
+  const spans: [number, number][] = [];
+  let start = first;
+  for (const space of spaces) {
+    spans.push([start / steps, space.start / steps]);
+    start = space.end;
+  }
+  spans.push([start / steps, (last + 1) / steps]);
+  return spans;
+}
+
+/** {@link wordSpans} of a line on a drawn source, `quad` in the source's pixels. */
+export function placedWordSpans(
+  source: CanvasImageSource,
+  sourceWidth: number,
+  sourceHeight: number,
+  quad: readonly (readonly [number, number])[],
+  words: number,
+): [number, number][] | undefined {
+  const read = readPixels(source, sourceWidth, sourceHeight, quad);
+  if (!read) return undefined;
+  return wordSpans(
+    read.image,
+    quad.map(([x, y]): Point => [x - read.left, y - read.top]),
+    words,
+  );
 }
 
 /**

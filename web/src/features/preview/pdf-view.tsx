@@ -17,7 +17,7 @@ import {
   type PlacedOutline,
 } from "./pdf-pages";
 import { CitationRegion } from "./citation-region";
-import { placedInkLines } from "./ink-outline";
+import { placedInkLines, placedWordSpans } from "./ink-outline";
 import {
   markPdfRegions,
   placeTextItems,
@@ -26,6 +26,15 @@ import {
   type Rect,
 } from "./pdf-text-marks";
 import type { QueryTerms } from "./preview-highlight";
+import {
+  lineMarks,
+  markedLinesOf,
+  narrowRegion,
+  wordCount,
+  type LineTone,
+  type QuestionMark,
+  type ScanLine,
+} from "./scan-line-marks";
 import { BLOCK } from "./pdf-range-plan";
 import { openPdfOriginal, PdfReading } from "./pdf-range-source";
 import { useReaderWorker } from "./pdf-reader-worker";
@@ -48,6 +57,8 @@ const RANGE_OPTIONS = {
 const WHOLE_OPTIONS = { disableRange: true, wasmUrl };
 // Multiples of the fit-to-width size: a Letter page in a 400px panel needs 2–3× for body text.
 const ZOOM_STEPS = [1, 1.5, 2, 3] as const;
+/** Shared so a document without located lines does not mark its regions again on every render. */
+const NO_LINES: readonly ScanLine[] = [];
 
 /** What the reader needs of a pdf.js page to place its text; react-pdf hands it over once the page loads. */
 type TextPage = {
@@ -131,6 +142,7 @@ export function PdfView({
   pages,
   boxes,
   terms,
+  lines = NO_LINES,
   thumbnails = false,
   steps,
   onReady,
@@ -144,6 +156,11 @@ export function PdfView({
    * it with the question marked, rather than as the whole region.
    */
   terms?: QueryTerms;
+  /**
+   * The text lines the OCR located in the cited blocks of a scanned page. With a question, a region of a page
+   * without a text layer is narrowed to the lines that hold it, the citation's other lines drawn faint.
+   */
+  lines?: readonly ScanLine[];
   /** A page rail beside the document, for a reader wide enough to hold one. */
   thumbnails?: boolean;
   /** A group for the toolbar that steps between cited passages; the caller moves `pages` and `boxes`. */
@@ -260,6 +277,53 @@ export function PdfView({
     }
     return found;
   }, [searching, terms, boxes, pageViews, pageTexts, renderedWidth]);
+  const questionLines = useMemo(() => lineMarks(lines, terms), [lines, terms]);
+  // Where each marked line's words lie along it, read from its page's canvas once the page is drawn.
+  const [words, setWords] = useState<{
+    lines: readonly ScanLine[];
+    spans: ReadonlyMap<number, [number, number][] | undefined>;
+  }>();
+  useEffect(() => {
+    if (!questionLines.size) return undefined;
+    const timer = setTimeout(() => {
+      const spans = new Map<number, [number, number][] | undefined>();
+      for (const index of questionLines.keys()) {
+        const line = lines[index]!;
+        const view = viewsNow.current[line.page];
+        const canvas = figures.current.get(line.page)?.querySelector("canvas");
+        if (!view || !drawn.has(line.page) || !canvas?.width || !canvas.height) continue;
+        const xs = line.points.map(([x]) => x);
+        const ys = line.points.map(([, y]) => y);
+        const placed = pdfBoxRect(
+          {
+            page: line.page,
+            left: Math.min(...xs),
+            top: Math.min(...ys),
+            right: Math.max(...xs),
+            bottom: Math.max(...ys),
+            origin: line.origin,
+            ...(line.frame ? { frame: line.frame } : {}),
+            outline: line.points,
+          },
+          view,
+          renderedWidth,
+        );
+        if (!placed?.outline) continue;
+        const scale = canvas.width / renderedWidth;
+        const quad = placed.outline.map(([x, y]): [number, number] => [
+          (placed.left + x * placed.width) * scale,
+          (placed.top + y * placed.height) * scale,
+        ]);
+        spans.set(
+          index,
+          placedWordSpans(canvas, canvas.width, canvas.height, quad, wordCount(line.text)),
+        );
+      }
+      setWords({ lines, spans });
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [questionLines, lines, drawn, pageViews, renderedWidth]);
+  const spans = words?.lines === lines ? words.spans : undefined;
   const firstBox = useRef<Element | null>(null);
   const currentPageRef = useRef(currentPage);
   const lastWidth = useRef(renderedWidth);
@@ -448,11 +512,33 @@ export function PdfView({
                           .filter((box) => box.page === pageNumber)
                           .map((box, boxIndex) => {
                             const rect = pdfBoxRect(box, view, renderedWidth);
+                            const bands = inked[boxKey(box)];
+                            // A page whose text layer held the question marks its sentences instead.
+                            const narrowed =
+                              rect &&
+                              questionLines.size &&
+                              (markings[pageNumber]?.kind ?? "fill") === "fill"
+                                ? narrowRegion(
+                                    bands,
+                                    markedLinesOf(
+                                      box,
+                                      lines,
+                                      questionLines,
+                                      spans,
+                                      (outlined) =>
+                                        pdfBoxRect(outlined, view, renderedWidth)?.outline,
+                                    ),
+                                    rect.width / rect.height,
+                                  )
+                                : undefined;
                             return (
                               rect && {
                                 key: `${box.left}:${box.top}:${boxIndex}`,
                                 rect,
-                                lines: inked[boxKey(box)],
+                                lines: narrowed ? narrowed.lines : bands,
+                                tones: narrowed?.tones,
+                                marks: narrowed?.marks,
+                                tone: narrowed?.tone,
                                 anchor: pageNumber === anchor && boxIndex === 0,
                               }
                             );
@@ -512,6 +598,9 @@ type PlacedRegion = {
   key: string;
   rect: Rect & { outline?: PlacedOutline };
   lines?: PlacedOutline[];
+  tones?: LineTone[];
+  marks?: QuestionMark[];
+  tone?: LineTone;
   /** The first region of the page the reader opens at, which the opening scroll centres. */
   anchor: boolean;
 };
@@ -552,6 +641,9 @@ function PageCitations({
         label={label}
         outline={outline}
         lines={region.lines}
+        tones={region.tones}
+        marks={region.marks}
+        tone={region.tone}
         style={placed}
         variant={variant}
       />
