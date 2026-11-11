@@ -20,6 +20,15 @@ it("reads the lines a viewer can place and leaves out the rest", () => {
         points: quad,
       },
       { pageNo: 2, text: "Trên trang PDF", coordOrigin: "BOTTOMLEFT", points: quad },
+      // As the API answers a line on an upright PDF page: its frame is null.
+      {
+        pageNo: 3,
+        text: "Khung null",
+        coordOrigin: "BOTTOMLEFT",
+        frameWidth: null as unknown as undefined,
+        frameHeight: null as unknown as undefined,
+        points: quad,
+      },
       // A frame without a size, a frame in user space, a corner that is not a number, no text, no page.
       { pageNo: 1, text: "khung", coordOrigin: "TOPLEFT", frameWidth: 400, points: quad },
       {
@@ -50,5 +59,6 @@ it("reads the lines a viewer can place and leaves out the rest", () => {
       points: quad,
     },
     { page: 2, text: "Trên trang PDF", origin: "BOTTOMLEFT", points: quad },
+    { page: 3, text: "Khung null", origin: "BOTTOMLEFT", points: quad },
   ]);
 });

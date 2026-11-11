@@ -46,7 +46,8 @@ export function scanLines(data: SearchPassageLines): ScanLine[] {
     );
     if (!Number.isInteger(line.pageNo) || line.pageNo < 1 || !line.text.trim()) continue;
     if (points.length !== line.points.length || points.length < 3) continue;
-    const framed = line.frameWidth !== undefined || line.frameHeight !== undefined;
+    // The API writes an absent frame as null; a line on an upright PDF page has none.
+    const framed = line.frameWidth != null || line.frameHeight != null;
     if (
       framed &&
       (line.coordOrigin !== "TOPLEFT" ||

@@ -1180,6 +1180,9 @@ test("marks the question in its line on a scanned PDF page, the line lighter and
     pageNo: 1,
     text,
     coordOrigin: "BOTTOMLEFT",
+    // As the API answers a line on an upright PDF page: no frame, written as null.
+    frameWidth: null,
+    frameHeight: null,
     points: [
       [80, top],
       [right, top],
