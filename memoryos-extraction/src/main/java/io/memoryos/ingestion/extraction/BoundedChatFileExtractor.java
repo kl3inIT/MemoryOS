@@ -70,7 +70,7 @@ public final class BoundedChatFileExtractor implements ChatFileExtractor {
             if (reader != null && reader.readsImage(mediaType)) {
                 // The OCR reader reads the text of a scanned page or a screenshot; a photograph without
                 // text keeps the image description below. A service failure fails the attachment.
-                var read = reader.read(PaddleOcrVlClient.Input.of(file), null, filename, mediaType, 262_144_000);
+                var read = reader.read(PaddleOcrVlClient.Input.of(file), null, filename, mediaType, 262_144_000, false);
                 if (read != null) return read;
             }
             if (Set.of("text/html", "application/xhtml+xml", "message/rfc822", "application/epub+zip",

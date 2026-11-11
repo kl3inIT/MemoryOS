@@ -46,7 +46,7 @@ class AiHayOcrAdapterTest {
     void aPictureIsPostedWithTheKeyAndItsTextIsThePagesText() throws Exception {
         var connection = serve();
         try (var reader = reader(connection)) {
-            var result = reader.read(PaddleOcrVlClient.Input.of(PNG), null, "bill.png", "image/png", 1_000_000);
+            var result = reader.read(PaddleOcrVlClient.Input.of(PNG), null, "bill.png", "image/png", 1_000_000, false);
 
             assertEquals("Hoá đơn số 42", result.normalizedText().strip());
             assertEquals("aihay-ocr", result.metadata().get("parser"));
@@ -61,7 +61,7 @@ class AiHayOcrAdapterTest {
         var connection = serve();
         status.set(413);
         try (var reader = reader(connection)) {
-            assertNull(reader.read(PaddleOcrVlClient.Input.of(PNG), null, "bill.png", "image/png", 1_000_000));
+            assertNull(reader.read(PaddleOcrVlClient.Input.of(PNG), null, "bill.png", "image/png", 1_000_000, false));
         }
     }
 
@@ -101,7 +101,7 @@ class AiHayOcrAdapterTest {
 
     private static ExtractionFailure failure(OcrReader reader) {
         return assertThrows(ExtractionException.class,
-                () -> reader.read(PaddleOcrVlClient.Input.of(PNG), null, "bill.png", "image/png", 1_000_000)).failure();
+                () -> reader.read(PaddleOcrVlClient.Input.of(PNG), null, "bill.png", "image/png", 1_000_000, false)).failure();
     }
 
     /** The connection's address ends in {@code /v1}, as an administrator may paste it; the adapter posts to {@code /v1/ocr}. */

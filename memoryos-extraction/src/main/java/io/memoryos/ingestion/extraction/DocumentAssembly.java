@@ -4,6 +4,7 @@ import io.memoryos.document.DocumentContent;
 import io.memoryos.document.ExtractedDocument.Block;
 import io.memoryos.document.ExtractedDocument.Cell;
 import io.memoryos.document.ExtractedDocument.Kind;
+import io.memoryos.document.ExtractedDocument.Line;
 import io.memoryos.document.ExtractedDocument.Page;
 import io.memoryos.document.ExtractedDocument;
 import io.memoryos.document.ExtractionException;
@@ -38,6 +39,16 @@ final class DocumentAssembly {
     static DocumentContent publish(ObjectMapper mapper, List<Block> blocks, List<Page> pages,
             @Nullable JsonNode orientation, String mediaType, String title, Map<String, String> metadata,
             String provider) throws ExtractionException {
+        return publish(mapper, blocks, pages, List.of(), orientation, mediaType, title, metadata, provider);
+    }
+
+    /**
+     * @param lines the text lines the reader located; an artifact they would carry past its bound is published
+     *        without them, since they only narrow what a viewer marks
+     */
+    static DocumentContent publish(ObjectMapper mapper, List<Block> blocks, List<Page> pages, List<Line> lines,
+            @Nullable JsonNode orientation, String mediaType, String title, Map<String, String> metadata,
+            String provider) throws ExtractionException {
         String text = semanticText(blocks);
         if (text.isBlank()) throw failure(ExtractionFailure.MALFORMED);
         var financialChecks = FinancialTableDiagnostics.assess(blocks, mapper);
@@ -51,7 +62,14 @@ final class DocumentAssembly {
                     .log("Scoped financial checks completed; source values unchanged");
         }
         String json = mapper.writeValueAsString(new ExtractedDocument(ExtractedDocument.SCHEMA, null, blocks,
-                pages, orientation, financialChecks));
+                pages, orientation, financialChecks, lines));
+        if (!lines.isEmpty() && json.getBytes(StandardCharsets.UTF_8).length > MAX_ARTIFACT_BYTES) {
+            LOG.atWarn().addKeyValue("event", provider + ".lines.dropped").addKeyValue("line_count", lines.size())
+                    .addKeyValue("error_code", ExtractionFailure.WRITE_LIMIT.name())
+                    .log("Located lines would pass the artifact bound; the document is kept without them");
+            json = mapper.writeValueAsString(new ExtractedDocument(ExtractedDocument.SCHEMA, null, blocks,
+                    pages, orientation, financialChecks));
+        }
         if (json.getBytes(StandardCharsets.UTF_8).length > MAX_ARTIFACT_BYTES) {
             throw failure(ExtractionFailure.WRITE_LIMIT);
         }

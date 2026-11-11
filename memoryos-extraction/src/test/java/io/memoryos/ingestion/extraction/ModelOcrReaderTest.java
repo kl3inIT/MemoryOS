@@ -50,7 +50,7 @@ class ModelOcrReaderTest {
             return "Trang";
         });
 
-        var result = reader.read(PaddleOcrVlClient.Input.of(pdf), layout(pdf), "scan.pdf", "application/pdf", 1_000_000);
+        var result = reader.read(PaddleOcrVlClient.Input.of(pdf), layout(pdf), "scan.pdf", "application/pdf", 1_000_000, false);
 
         assertEquals(3, sent.size());
         for (byte[] picture : sent) assertTrue((picture[0] & 0xff) == 0xff && (picture[1] & 0xff) == 0xd8, "a JPEG");
@@ -70,9 +70,9 @@ class ModelOcrReaderTest {
         byte[] pdf = scan(2);
         when(pages.read(eq(connection), any(), eq("image/jpeg"))).thenReturn("");
 
-        assertNull(reader.read(PaddleOcrVlClient.Input.of(pdf), layout(pdf), "scan.pdf", "application/pdf", 1_000_000));
+        assertNull(reader.read(PaddleOcrVlClient.Input.of(pdf), layout(pdf), "scan.pdf", "application/pdf", 1_000_000, false));
         var error = assertThrows(ExtractionException.class, () -> reader.extract(PaddleOcrVlClient.Input.of(pdf),
-                layout(pdf), "scan.pdf", "application/pdf", 1_000_000));
+                layout(pdf), "scan.pdf", "application/pdf", 1_000_000, false));
         assertEquals(ExtractionFailure.MALFORMED, error.failure());
     }
 
@@ -82,7 +82,7 @@ class ModelOcrReaderTest {
         when(pages.read(eq(connection), any(), eq("image/jpeg"))).thenThrow(new IllegalStateException("upstream 503"));
 
         var error = assertThrows(ExtractionException.class, () -> reader.read(PaddleOcrVlClient.Input.of(pdf), layout(pdf),
-                "scan.pdf", "application/pdf", 1_000_000));
+                "scan.pdf", "application/pdf", 1_000_000, false));
         assertEquals(ExtractionFailure.CONNECTION_FAILED, error.failure());
         assertTrue(error.failure().retryable());
     }
@@ -93,7 +93,7 @@ class ModelOcrReaderTest {
         when(pages.read(eq(connection), any(), eq("image/jpeg"))).thenThrow(AiException.invalid("The model does not read images."));
 
         var error = assertThrows(ExtractionException.class, () -> reader.read(PaddleOcrVlClient.Input.of(pdf), layout(pdf),
-                "scan.pdf", "application/pdf", 1_000_000));
+                "scan.pdf", "application/pdf", 1_000_000, false));
         assertEquals(ExtractionFailure.INTERNAL, error.failure());
     }
 
@@ -102,7 +102,7 @@ class ModelOcrReaderTest {
         byte[] png = {(byte) 0x89, 'P', 'N', 'G', 1, 2, 3};
         when(pages.read(eq(connection), any(), eq("image/png"))).thenReturn("Hoá đơn 42");
 
-        var result = reader.read(PaddleOcrVlClient.Input.of(png), null, "bill.png", "image/png", 1_000_000);
+        var result = reader.read(PaddleOcrVlClient.Input.of(png), null, "bill.png", "image/png", 1_000_000, false);
 
         var sent = ArgumentCaptor.forClass(byte[].class);
         verify(pages, times(1)).read(eq(connection), sent.capture(), eq("image/png"));
@@ -112,7 +112,7 @@ class ModelOcrReaderTest {
 
         byte[] long_ = scan(201);
         var error = assertThrows(ExtractionException.class, () -> reader.read(PaddleOcrVlClient.Input.of(long_),
-                layout(long_), "long.pdf", "application/pdf", 1_000_000));
+                layout(long_), "long.pdf", "application/pdf", 1_000_000, false));
         assertEquals(ExtractionFailure.WRITE_LIMIT, error.failure());
         verify(pages, times(1)).read(any(), any(), any());
     }

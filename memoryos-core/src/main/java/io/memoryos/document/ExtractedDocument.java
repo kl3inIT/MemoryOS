@@ -21,13 +21,21 @@ public record ExtractedDocument(
         List<Block> blocks,
         @JsonInclude(JsonInclude.Include.NON_EMPTY) List<Page> pages,
         @JsonProperty("page_orientation") @Nullable JsonNode pageOrientation,
-        @JsonProperty("financial_checks") @Nullable JsonNode financialChecks) {
+        @JsonProperty("financial_checks") @Nullable JsonNode financialChecks,
+        @JsonInclude(JsonInclude.Include.NON_EMPTY) List<Line> lines) {
     public static final String SCHEMA = "memoryos-extraction-v2";
 
     public ExtractedDocument {
         Objects.requireNonNull(schema, "schema");
         blocks = List.copyOf(Objects.requireNonNull(blocks, "blocks"));
         pages = pages == null ? List.of() : List.copyOf(pages);
+        lines = lines == null ? List.of() : List.copyOf(lines);
+    }
+
+    /** A document whose reader located no text line. */
+    public ExtractedDocument(String schema, @Nullable JsonNode source, List<Block> blocks, List<Page> pages,
+            @Nullable JsonNode pageOrientation, @Nullable JsonNode financialChecks) {
+        this(schema, source, blocks, pages, pageOrientation, financialChecks, List.of());
     }
 
     public enum Kind { HEADING, PARAGRAPH, LIST_ITEM, TABLE, IMAGE }
@@ -194,6 +202,25 @@ public record ExtractedDocument(
     }
 
     public record Page(@JsonProperty("page_no") int pageNo, double width, double height) {}
+
+    /**
+     * One text line the OCR located inside a block: {@code block} is the block's {@code index}, {@code bbox} is in
+     * the block's own space and origin, and its {@code polygon} is the line's quadrilateral as the OCR answered it,
+     * corner by corner. A reader that locates no line writes none; a viewer that finds none marks the block whole.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record Line(int block, @JsonProperty("page_no") int pageNo, String text, BoundingBox bbox) {
+        /** The most characters a line keeps; the OCR's longest line on an A4 page is far shorter. */
+        public static final int MAX_TEXT = 1_000;
+
+        public Line {
+            Objects.requireNonNull(bbox, "bbox");
+            if (block < 0 || pageNo < 1 || text == null || text.isBlank() || text.length() > MAX_TEXT
+                    || bbox.polygon() == null) {
+                throw new IllegalArgumentException("a line has a block, a page, its text and its quadrilateral");
+            }
+        }
+    }
 
     /** Omits the default span, which a workbook of 200,000 cells would otherwise repeat. */
     static final class SingleSpan {

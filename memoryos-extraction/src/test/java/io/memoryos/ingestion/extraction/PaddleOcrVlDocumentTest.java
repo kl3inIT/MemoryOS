@@ -7,6 +7,7 @@ import io.memoryos.document.ExtractedDocument.BoundingBox;
 import io.memoryos.document.ExtractedDocument.Cell;
 import io.memoryos.document.ExtractedDocument.CoordOrigin;
 import io.memoryos.document.ExtractedDocument.Kind;
+import io.memoryos.document.ExtractedDocument.Line;
 import io.memoryos.document.ExtractedDocument;
 import io.memoryos.document.ExtractionException;
 import io.memoryos.document.ExtractionFailure;
@@ -320,6 +321,101 @@ class PaddleOcrVlDocumentTest {
         assertBox(50, 200, 250, 100, box);
         assertEquals(List.of(List.of(50.0, 120.0), List.of(230.0, 200.0), List.of(250.0, 180.0),
                 List.of(70.0, 100.0)), box.polygon());
+    }
+
+    @Test
+    void eachSpottedLineOfAPictureGoesToTheTextBlockThatHoldsItInThePicturesPixels() throws Exception {
+        var layout = mapper.readTree("""
+                [{"prunedResult":{"width":1000,"height":800,"model_settings":{"use_doc_preprocessor":false},
+                  "parsing_res_list":[
+                  {"block_label":"header","block_content":"Đầu trang","block_bbox":[0,0,1000,60]},
+                  {"block_label":"text","block_content":"Dòng một của đoạn Dòng hai","block_bbox":[100,100,900,400]},
+                  {"block_label":"paragraph_title","block_content":"Tiêu đề","block_bbox":[100,450,900,520]},
+                  {"block_label":"table","block_content":"<table><tr><td>Ô bảng</td><td>1.234.567</td></tr></table>",
+                   "block_bbox":[100,550,900,780]}]}}]
+                """);
+        var spotting = mapper.readTree("""
+                [{"prunedResult":{"width":1000,"height":800,"model_settings":{"use_doc_preprocessor":false},
+                  "spotting_res":{"rec_texts":["Đầu trang","Dòng một của đoạn","  Dòng hai ","Tiêu đề","Ô bảng","",
+                    "ba góc","ngoài trang","không có diện tích"],
+                  "rec_polys":[
+                   [[10,10],[400,10],[400,50],[10,50]],
+                   [[110,110],[890,110],[890,150],[110,150]],
+                   [[110,160],[600,160],[600,200],[110,200]],
+                   [[110,460],[500,460],[500,510],[110,510]],
+                   [[120,560],[300,560],[300,600],[120,600]],
+                   [[110,210],[600,210],[600,250],[110,250]],
+                   [[110,260],[600,260],[600,300]],
+                   [[110,310],[1200,310],[1200,350],[110,350]],
+                   [[110,360],[600,360],[600,360],[110,360]]]}}}]
+                """);
+        var blocks = PaddleOcrVlDocument.blocks(layout, List.of());
+
+        var lines = PaddleOcrVlDocument.lines(spotting, List.of(), blocks);
+
+        // The running header has no block, a table's cell is not a text line, and an empty, three-cornered,
+        // off-page or flat line is no line.
+        assertEquals(List.of("Dòng một của đoạn", "Dòng hai", "Tiêu đề"), lines.stream().map(Line::text).toList());
+        assertEquals(List.of(0, 0, 1), lines.stream().map(Line::block).toList());
+        assertTrue(lines.stream().allMatch(line -> line.pageNo() == 1));
+        var first = lines.getFirst().bbox();
+        assertFramed(110, 110, 890, 150, 1000, 800, first);
+        assertEquals(List.of(List.of(110.0, 110.0), List.of(890.0, 110.0), List.of(890.0, 150.0),
+                List.of(110.0, 150.0)), first.polygon());
+    }
+
+    @Test
+    void aLineOnAnUprightPdfPageIsInUserSpaceAndGoesToTheSmallestBlockHoldingItsCentre() throws Exception {
+        // A 1000 x 500 rendering of a 500 x 250 pt page; the spotting answer read the page at twice that size.
+        var layout = mapper.readTree("""
+                [{"prunedResult":{"width":1000,"height":500,"parsing_res_list":[
+                  {"block_label":"text","block_content":"đoạn lớn","block_bbox":[100,100,900,300]},
+                  {"block_label":"text","block_content":"đoạn nhỏ","block_bbox":[100,200,500,300]},
+                  {"block_label":"text","block_content":"dòng chéo","block_bbox":[600,320,900,480],
+                   "block_polygon_points":[[600,480],[880,320],[900,340],[620,480]]}]}}]
+                """);
+        var spotting = mapper.readTree("""
+                [{"prunedResult":{"width":2000,"height":1000,"spotting_res":{
+                  "rec_texts":["dòng của đoạn lớn","dòng của đoạn nhỏ","ngoài nét chéo"],
+                  "rec_polys":[
+                   [[240,240],[1760,240],[1760,320],[240,320]],
+                   [[240,440],[960,440],[960,560],[240,560]],
+                   [[1220,660],[1400,660],[1400,700],[1220,700]]]}}}]
+                """);
+        var pages = List.of(upright(500, 250));
+
+        var lines = PaddleOcrVlDocument.lines(spotting, pages, PaddleOcrVlDocument.blocks(layout, pages));
+
+        // The tilted block's box holds the third line's centre, its outline does not.
+        assertEquals(List.of(0, 1), lines.stream().map(Line::block).toList());
+        var line = lines.getFirst().bbox();
+        assertBox(60, 190, 440, 170, line);
+        assertEquals(List.of(List.of(60.0, 190.0), List.of(440.0, 190.0), List.of(440.0, 170.0),
+                List.of(60.0, 170.0)), line.polygon());
+    }
+
+    @Test
+    void anAnswerWithoutUsableLinesLocatesNone() throws Exception {
+        var layout = mapper.readTree("""
+                [{"prunedResult":{"width":1000,"height":800,"model_settings":{"use_doc_preprocessor":false},
+                  "parsing_res_list":[{"block_label":"text","block_content":"đoạn","block_bbox":[100,100,900,400]}]}}]
+                """);
+        var blocks = PaddleOcrVlDocument.blocks(layout, List.of());
+        String line = "\"rec_texts\":[\"đoạn\"],\"rec_polys\":[[[110,110],[890,110],[890,150],[110,150]]]";
+
+        for (String answer : List.of(
+                "[{\"prunedResult\":{\"width\":1000,\"height\":800,\"model_settings\":{\"use_doc_preprocessor\":false}}}]",
+                // the picture was turned or unwarped before it was read
+                "[{\"prunedResult\":{\"width\":1000,\"height\":800,\"model_settings\":{\"use_doc_preprocessor\":true},"
+                        + "\"spotting_res\":{" + line + "}}}]",
+                // no size to place the page by
+                "[{\"prunedResult\":{\"model_settings\":{\"use_doc_preprocessor\":false},\"spotting_res\":{" + line + "}}}]",
+                "{\"result\":[]}")) {
+            assertEquals(List.of(), PaddleOcrVlDocument.lines(mapper.readTree(answer), List.of(), blocks), answer);
+        }
+        // An answer for another number of pages than the PDF has is not this document's.
+        assertEquals(List.of(), PaddleOcrVlDocument.lines(mapper.readTree("[{},{}]"), List.of(upright(500, 250)),
+                blocks));
     }
 
     @Test

@@ -36,11 +36,13 @@ public record PaddleOcrVlProperties(Duration timeout, int maxPages, String revis
         }
     }
 
-    String parserConfiguration(long maxInput) {
+    /** @param lines whether the document's text lines were asked for (a Source document) */
+    String parserConfiguration(long maxInput, boolean lines) {
         return "memoryos-extraction-v2;paddleocr-vl=" + revision
                 + ";visualize=false;mergeTables=false;docOrientation=false;docUnwarping=false"
                 + ";maxPages=" + maxPages + ";timeoutSeconds=" + timeout.toSeconds() + ";maxInput=" + maxInput
                 + ";maxOutput=33554432;tableHeaders=none"
-                + ";tableText=sparse-offsets-v1;financialChecks=cash-flow-income-v2;boxes=displayed-frame-v1;outlines=block-polygon-v1";
+                + ";tableText=sparse-offsets-v1;financialChecks=cash-flow-income-v2;boxes=displayed-frame-v1;outlines=block-polygon-v1"
+                + (lines ? ";lines=spotting-v1" : "");
     }
 }

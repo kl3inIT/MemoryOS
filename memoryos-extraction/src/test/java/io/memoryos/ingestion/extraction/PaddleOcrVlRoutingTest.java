@@ -23,12 +23,15 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageWriteParam;
@@ -61,6 +64,8 @@ class PaddleOcrVlRoutingTest {
     private final BoundedDoclingClient docling = mock(BoundedDoclingClient.class);
     private static final TenantId TENANT = new TenantId(UUID.randomUUID());
     private final AtomicInteger paddleCalls = new AtomicInteger();
+    /** Each request's {@code promptLabel}, empty for the layout request. */
+    private final List<String> prompts = Collections.synchronizedList(new ArrayList<>());
     private HttpServer server;
     /** The Tenant's reader the extraction is given; null reads with Docling's own OCR. */
     private @Nullable OcrReader ocr;
@@ -88,7 +93,9 @@ class PaddleOcrVlRoutingTest {
             assertEquals(842.04, document.path("pages").get(0).path("width").asDouble(), 0.01);
             assertEquals("BOTTOMLEFT", document.path("blocks").get(1).path("locations").get(0).path("bbox").path("coord_origin").asString());
             assertTrue(document.path("financial_checks").isArray());
-            assertEquals(1, paddleCalls.get());
+            // A Source scan is read twice: its layout, then its text lines for Search's reader.
+            assertEquals(List.of("", "spotting"), prompts);
+            assertTrue(result.metadata().get("parser_configuration").endsWith(";lines=spotting-v1"));
             verifyNoInteractions(docling);
         }
     }
@@ -102,8 +109,38 @@ class PaddleOcrVlRoutingTest {
             var result = extract(extractor, textThenScan(), "report.pdf");
 
             assertEquals("paddleocr-vl", result.metadata().get("parser"));
-            assertEquals(1, paddleCalls.get());
+            assertEquals(List.of("", "spotting"), prompts);
             verifyNoInteractions(docling);
+        }
+    }
+
+    @Test
+    void aSourceScanWhoseLinesCannotBeReadIsKeptWithoutThem() throws Exception {
+        String layout = fixture("financial-statement-page.json");
+        serve(request -> request.path("promptLabel").isMissingNode()
+                ? new Answer(200, layout)
+                : new Answer(503, "{\"errorCode\":503,\"errorMsg\":\"busy\"}"));
+        try (var extractor = withPaddle()) {
+            var result = extract(extractor, scan(1), "report.pdf");
+
+            assertEquals("paddleocr-vl", result.metadata().get("parser"));
+            assertTrue(result.normalizedText().contains("11.030.333.521.790"));
+            assertTrue(mapper.readTree(result.structuredJson()).path("lines").isMissingNode());
+            assertEquals(List.of("", "spotting"), prompts, "each sent once, not retried");
+        }
+    }
+
+    @Test
+    void aChatScanIsReadOnceWithoutLines() throws Exception {
+        serve(200, fixture("financial-statement-page.json"));
+        Path file = temporary.resolve("scan.pdf");
+        Files.write(file, scan(1));
+        try (var extractor = withPaddle(); var pdf = Loader.loadPDF(file.toFile())) {
+            var result = ocr.extract(PaddleOcrVlClient.Input.of(file), PdfLayout.of(pdf, true),
+                    "scan.pdf", "application/pdf", 262_144_000, false);
+
+            assertFalse(result.metadata().get("parser_configuration").contains(";lines="));
+            assertEquals(List.of(""), prompts);
         }
     }
 
@@ -257,7 +294,7 @@ class PaddleOcrVlRoutingTest {
         Files.write(file, png());
         try (var extractor = withPaddle()) {
             assertTrue(ocr.readsImage("image/png"));
-            assertNull(ocr.read(PaddleOcrVlClient.Input.of(file), null, "photo.png", "image/png", 262_144_000),
+            assertNull(ocr.read(PaddleOcrVlClient.Input.of(file), null, "photo.png", "image/png", 262_144_000, false),
                     "no text is not a failure for an attachment; the ordinary image description follows");
             assertEquals(1, paddleCalls.get());
         }
@@ -269,7 +306,7 @@ class PaddleOcrVlRoutingTest {
         Path file = temporary.resolve("scan.png");
         Files.write(file, png());
         try (var extractor = withPaddle()) {
-            var error = assertThrows(ExtractionException.class, () -> ocr.read(PaddleOcrVlClient.Input.of(file), null, "scan.png", "image/png", 262_144_000));
+            var error = assertThrows(ExtractionException.class, () -> ocr.read(PaddleOcrVlClient.Input.of(file), null, "scan.png", "image/png", 262_144_000, false));
             assertEquals(ExtractionFailure.INTERNAL, error.failure());
         }
     }
@@ -325,7 +362,7 @@ class PaddleOcrVlRoutingTest {
                 byte[] tiff = tiff(images);
                 var result = extractor.extract(tiff, "scan.tiff", "image/tiff", SourceInputDescriptor.binary(), ocr);
                 assertEquals("paddleocr-vl", result.metadata().get("parser"));
-                assertEquals(frames, paddleCalls.get());
+                assertEquals(2 * frames, paddleCalls.get());
             }
         }
     }
@@ -394,15 +431,24 @@ class PaddleOcrVlRoutingTest {
         return mapper.<JsonNode>valueToTree(request.getValue()).path("options");
     }
 
+    private record Answer(int status, String body) {}
+
     private void serve(int status, String answer) throws Exception {
+        serve(request -> new Answer(status, answer));
+    }
+
+    /** A layout service that answers each request by its body. */
+    private void serve(Function<JsonNode, Answer> answers) throws Exception {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/layout-parsing", exchange -> {
             try (exchange) {
-                exchange.getRequestBody().readAllBytes();
+                JsonNode request = mapper.readTree(exchange.getRequestBody().readAllBytes());
                 paddleCalls.incrementAndGet();
-                byte[] bytes = answer.getBytes(StandardCharsets.UTF_8);
+                prompts.add(request.path("promptLabel").asString(""));
+                var answer = answers.apply(request);
+                byte[] bytes = answer.body().getBytes(StandardCharsets.UTF_8);
                 exchange.getResponseHeaders().add("Content-Type", "application/json");
-                exchange.sendResponseHeaders(status, bytes.length);
+                exchange.sendResponseHeaders(answer.status(), bytes.length);
                 exchange.getResponseBody().write(bytes);
             }
         });
