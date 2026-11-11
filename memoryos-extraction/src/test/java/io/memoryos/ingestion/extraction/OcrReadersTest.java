@@ -25,7 +25,7 @@ class OcrReadersTest {
     private final TenantId tenant = new TenantId(UUID.randomUUID());
     private final UUID id = UUID.randomUUID();
     private final OcrReaders readers = new OcrReaders(connections, OcrAdapterRegistry.installed(
-            new PaddleOcrVlProperties(Duration.ofSeconds(10), 200, null, null), mock(OcrPageReader.class), mock(OcrServiceUsage.class), new ObjectMapper()));
+            new PaddleOcrVlProperties(Duration.ofSeconds(10), 200, null, null, null), mock(OcrPageReader.class), mock(OcrServiceUsage.class), new ObjectMapper()));
 
     @Test
     void withoutAChosenReaderDoclingReadsScans() {

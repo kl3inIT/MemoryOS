@@ -58,6 +58,7 @@ final class PaddleOcrVlClient implements AutoCloseable {
     private static final Pattern LOG_ID = Pattern.compile("[A-Za-z0-9_-]{1,128}");
     private final URI endpoint;
     private final Duration timeout;
+    private final Duration linesTimeout;
     private final ObjectMapper mapper;
     private final Semaphore permits;
     private final HttpClient transport = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1)
@@ -121,6 +122,7 @@ final class PaddleOcrVlClient implements AutoCloseable {
     PaddleOcrVlClient(PaddleOcrVlProperties properties, URI service, ObjectMapper mapper) {
         this.endpoint = URI.create(service.toString().replaceAll("/+$", "") + "/layout-parsing");
         this.timeout = properties.timeout();
+        this.linesTimeout = Objects.requireNonNull(properties.linesTimeout());
         this.mapper = mapper;
         this.permits = new Semaphore(Objects.requireNonNull(properties.maxConcurrentRequests()), true);
     }
@@ -134,10 +136,24 @@ final class PaddleOcrVlClient implements AutoCloseable {
         boolean permitted = false;
         try {
             if (Thread.currentThread().isInterrupted()) throw new InterruptedException();
-            permits.acquire();
+            // A document's layout waits its turn untimed. Its lines only narrow a mark, so their deadline counts
+            // from when they are asked for, the wait for a permit included: a busy service leaves the document
+            // without lines rather than holding it and the GPU.
+            Duration deadline = timeout;
+            if (task == Task.LINES) {
+                if (!permits.tryAcquire(linesTimeout.toNanos(), TimeUnit.NANOSECONDS)) {
+                    throw failed(task, ExtractionFailure.TIMEOUT, status, "permit_wait", System.nanoTime() - queued);
+                }
+            } else {
+                permits.acquire();
+            }
             permitted = true;
             started = System.nanoTime();
             waited = started - queued;
+            if (task == Task.LINES) deadline = linesTimeout.minusNanos(waited);
+            if (deadline.isNegative() || deadline.isZero()) {
+                throw failed(task, ExtractionFailure.TIMEOUT, status, "permit_wait", waited);
+            }
             // The page is read as sent, never turned or unwarped, so every position is on the page as stored.
             byte[] prefix = ("{\"fileType\":" + type.code + ",\"visualize\":false,"
                     + "\"useDocOrientationClassify\":false,\"useDocUnwarping\":false," + task.fields
@@ -153,7 +169,7 @@ final class PaddleOcrVlClient implements AutoCloseable {
                     throw new UncheckedIOException(unreadable);
                 }
             }), length);
-            var request = HttpRequest.newBuilder(endpoint).timeout(timeout)
+            var request = HttpRequest.newBuilder(endpoint).timeout(deadline)
                     .header("Content-Type", "application/json").header("Accept", "application/json")
                     .POST(body).build();
             var response = transport.send(request, HttpResponse.BodyHandlers.ofInputStream());
@@ -165,7 +181,7 @@ final class PaddleOcrVlClient implements AutoCloseable {
             var expired = new AtomicBoolean();
             try (var stream = response.body()) {
                 if (status >= 300) throw new StatusFailure(status);
-                long remaining = timeout.toNanos() - (System.nanoTime() - started);
+                long remaining = deadline.toNanos() - (System.nanoTime() - started);
                 CompletableFuture.delayedExecutor(Math.max(0, remaining), TimeUnit.NANOSECONDS)
                         .execute(() -> {
                             expired.set(true);

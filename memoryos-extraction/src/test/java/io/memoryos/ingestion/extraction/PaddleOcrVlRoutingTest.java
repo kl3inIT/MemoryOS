@@ -95,7 +95,7 @@ class PaddleOcrVlRoutingTest {
             assertTrue(document.path("financial_checks").isArray());
             // A Source scan is read twice: its layout, then its text lines for Search's reader.
             assertEquals(List.of("", "spotting"), prompts);
-            assertTrue(result.metadata().get("parser_configuration").endsWith(";lines=spotting-v1"));
+            assertTrue(result.metadata().get("parser_configuration").endsWith(";lines=spotting-v1;linesTimeoutSeconds=600"));
             verifyNoInteractions(docling);
         }
     }
@@ -210,7 +210,7 @@ class PaddleOcrVlRoutingTest {
         var closed = URI.create("http://127.0.0.1:" + server.getAddress().getPort());
         server.stop(0);
         server = null;
-        ocr = new PaddleOcrVlExtractor(new PaddleOcrVlProperties(Duration.ofSeconds(10), 200, null, null), closed, mapper);
+        ocr = new PaddleOcrVlExtractor(new PaddleOcrVlProperties(Duration.ofSeconds(10), 200, null, null, null), closed, mapper);
         try (var extractor = new DoclingSourceContentExtractor(properties(), mapper, docling, new SimpleMeterRegistry())) {
             var error = assertThrows(ExtractionException.class, () -> extract(extractor, scan(1), "scan.pdf"));
             assertEquals(ExtractionFailure.CONNECTION_FAILED, error.failure());
@@ -377,21 +377,27 @@ class PaddleOcrVlRoutingTest {
         assertEquals(PaddleOcrVlProperties.DEFAULT_REVISION, bound.revision());
         assertEquals(Duration.ofMinutes(30), bound.timeout());
         assertEquals(2, bound.maxConcurrentRequests());
+        assertEquals(Duration.ofMinutes(10), bound.linesTimeout());
 
         var configured = new Binder(
                 new MapConfigurationPropertySource(Map.of(
                         "memoryos.extraction.paddleocr-vl.timeout", "15m",
-                        "memoryos.extraction.paddleocr-vl.max-concurrent-requests", "3")))
+                        "memoryos.extraction.paddleocr-vl.max-concurrent-requests", "3",
+                        "memoryos.extraction.paddleocr-vl.lines-timeout", "4m")))
                 .bind("memoryos.extraction.paddleocr-vl",
                         Bindable.of(PaddleOcrVlProperties.class)).get();
         assertEquals(Duration.ofMinutes(15), configured.timeout());
         assertEquals(3, configured.maxConcurrentRequests());
-        assertThrows(IllegalArgumentException.class, () -> new PaddleOcrVlProperties(null, 201, null, null));
-        assertThrows(IllegalArgumentException.class, () -> new PaddleOcrVlProperties(Duration.ZERO, 0, null, null));
-        assertThrows(IllegalArgumentException.class, () -> new PaddleOcrVlProperties(null, 0, "a;b", null));
-        assertThrows(IllegalArgumentException.class, () -> new PaddleOcrVlProperties(null, 0, null, 0));
-        assertThrows(IllegalArgumentException.class, () -> new PaddleOcrVlProperties(null, 0, null, 17));
-        assertEquals(16, new PaddleOcrVlProperties(null, 0, null, 16).maxConcurrentRequests());
+        assertEquals(Duration.ofMinutes(4), configured.linesTimeout());
+        assertThrows(IllegalArgumentException.class, () -> new PaddleOcrVlProperties(null, 0, null, null, Duration.ZERO));
+        assertThrows(IllegalArgumentException.class,
+                () -> new PaddleOcrVlProperties(null, 0, null, null, Duration.ofMinutes(61)));
+        assertThrows(IllegalArgumentException.class, () -> new PaddleOcrVlProperties(null, 201, null, null, null));
+        assertThrows(IllegalArgumentException.class, () -> new PaddleOcrVlProperties(Duration.ZERO, 0, null, null, null));
+        assertThrows(IllegalArgumentException.class, () -> new PaddleOcrVlProperties(null, 0, "a;b", null, null));
+        assertThrows(IllegalArgumentException.class, () -> new PaddleOcrVlProperties(null, 0, null, 0, null));
+        assertThrows(IllegalArgumentException.class, () -> new PaddleOcrVlProperties(null, 0, null, 17, null));
+        assertEquals(16, new PaddleOcrVlProperties(null, 0, null, 16, null).maxConcurrentRequests());
     }
 
     private DoclingSourceContentExtractor withPaddle() {
@@ -399,7 +405,7 @@ class PaddleOcrVlRoutingTest {
     }
 
     private DoclingSourceContentExtractor withPaddle(int maxPages) {
-        ocr = new PaddleOcrVlExtractor(new PaddleOcrVlProperties(Duration.ofSeconds(10), maxPages, null, null),
+        ocr = new PaddleOcrVlExtractor(new PaddleOcrVlProperties(Duration.ofSeconds(10), maxPages, null, null, null),
                 URI.create("http://127.0.0.1:" + server.getAddress().getPort()), mapper);
         return new DoclingSourceContentExtractor(properties(), mapper, docling, new SimpleMeterRegistry());
     }

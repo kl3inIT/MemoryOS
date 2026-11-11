@@ -172,7 +172,7 @@ class PaddleOcrVlClientTest {
         var closed = endpoint();
         server.stop(0);
         server = null;
-        try (var client = new PaddleOcrVlClient(new PaddleOcrVlProperties(Duration.ofSeconds(10), 200, null, null), closed, mapper)) {
+        try (var client = new PaddleOcrVlClient(new PaddleOcrVlProperties(Duration.ofSeconds(10), 200, null, null, null), closed, mapper)) {
             assertFailure(ExtractionFailure.CONNECTION_FAILED, client);
         }
     }
@@ -247,7 +247,7 @@ class PaddleOcrVlClientTest {
         var inFlight = new AtomicInteger();
         var peak = new AtomicInteger();
         serveSlowly(Duration.ofMillis(1_500), inFlight, peak);
-        var properties = new PaddleOcrVlProperties(Duration.ofMillis(2_500), 200, null, 1);
+        var properties = new PaddleOcrVlProperties(Duration.ofMillis(2_500), 200, null, 1, null);
         try (var client = new PaddleOcrVlClient(properties, endpoint(), mapper);
                 var callers = Executors.newVirtualThreadPerTaskExecutor()) {
             long started = System.nanoTime();
@@ -263,11 +263,34 @@ class PaddleOcrVlClientTest {
     }
 
     @Test
+    void linesWaitingPastTheirOwnTimeoutAreNotSentAndALayoutStillIs() throws Exception {
+        var inFlight = new AtomicInteger();
+        var peak = new AtomicInteger();
+        serveSlowly(Duration.ofMillis(1_500), inFlight, peak);
+        var properties = new PaddleOcrVlProperties(Duration.ofSeconds(10), 200, null, 1, Duration.ofMillis(500));
+        try (var client = new PaddleOcrVlClient(properties, endpoint(), mapper);
+                var callers = Executors.newVirtualThreadPerTaskExecutor()) {
+            var layout = callers.submit(() -> client.parse(PaddleOcrVlClient.Input.of(new byte[] {1}),
+                    PaddleOcrVlClient.FileType.PDF, PaddleOcrVlClient.Task.LAYOUT));
+            while (inFlight.get() == 0) Thread.sleep(10);
+            long asked = System.nanoTime();
+            var error = assertThrows(ExtractionException.class, () -> client.parse(PaddleOcrVlClient.Input.of(new byte[] {2}),
+                    PaddleOcrVlClient.FileType.PDF, PaddleOcrVlClient.Task.LINES));
+
+            assertEquals(ExtractionFailure.TIMEOUT, error.failure());
+            assertTrue(Duration.ofNanos(System.nanoTime() - asked).compareTo(Duration.ofMillis(1_200)) < 0,
+                    "the lines gave up while the layout still held the only permit");
+            assertEquals(1, layout.get(10, TimeUnit.SECONDS).size());
+        }
+        assertEquals(1, peak.get(), "the service never had two requests at once");
+    }
+
+    @Test
     void theServiceNeverHasMoreRequestsThanTheBound() throws Exception {
         var inFlight = new AtomicInteger();
         var peak = new AtomicInteger();
         serveSlowly(Duration.ofMillis(300), inFlight, peak);
-        var properties = new PaddleOcrVlProperties(Duration.ofSeconds(10), 200, null, 2);
+        var properties = new PaddleOcrVlProperties(Duration.ofSeconds(10), 200, null, 2, null);
         try (var client = new PaddleOcrVlClient(properties, endpoint(), mapper);
                 var callers = Executors.newVirtualThreadPerTaskExecutor()) {
             var calls = new ArrayList<Future<?>>();
@@ -282,7 +305,7 @@ class PaddleOcrVlClientTest {
     @Test
     void anEndpointWithATrailingSlashStillNamesTheOperation() throws Exception {
         serve(200, ANSWER);
-        var properties = new PaddleOcrVlProperties(Duration.ofSeconds(10), 200, null, null);
+        var properties = new PaddleOcrVlProperties(Duration.ofSeconds(10), 200, null, null, null);
         try (var client = new PaddleOcrVlClient(properties, URI.create(endpoint() + "/"), mapper)) {
             client.parse(PaddleOcrVlClient.Input.of(new byte[] {1}), PaddleOcrVlClient.FileType.PDF, PaddleOcrVlClient.Task.LAYOUT);
         }
@@ -299,7 +322,7 @@ class PaddleOcrVlClientTest {
     }
 
     private PaddleOcrVlClient client(Duration timeout) {
-        return new PaddleOcrVlClient(new PaddleOcrVlProperties(timeout, 200, null, null), endpoint(), mapper);
+        return new PaddleOcrVlClient(new PaddleOcrVlProperties(timeout, 200, null, null, null), endpoint(), mapper);
     }
 
     private URI endpoint() {
