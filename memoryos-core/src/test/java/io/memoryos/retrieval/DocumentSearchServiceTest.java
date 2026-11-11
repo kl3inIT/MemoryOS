@@ -23,6 +23,8 @@ import io.memoryos.connector.SourceType;
 import io.memoryos.connector.DocumentSourceMetadata;
 import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.document.DocumentId;
+import io.memoryos.document.ExtractedDocument;
+import io.memoryos.document.PassageLine;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.Authority;
 import io.memoryos.iam.IamAccess;
@@ -390,6 +392,39 @@ class DocumentSearchServiceTest {
         assertThrows(SearchRequestException.class, () -> service.window(result, result.sections().getFirst(), 6));
         assertThrows(SearchRequestException.class, () -> service.authorizedSections(result, List.of(new SearchSection(foreign, List.of(foreign)))));
         verify(documents, never()).read(any(), any(), any());
+    }
+
+    @Test
+    void passageLinesNeedTheSearchGrantAReadableDocumentAndItsServedGeneration() {
+        var tenant = new TenantId(UUID.randomUUID());
+        var id = UUID.randomUUID();
+        var line = new PassageLine(1, "Dòng có từ khóa", new ExtractedDocument.BoundingBox(10, 20, 110, 40,
+                ExtractedDocument.CoordOrigin.TOPLEFT, 400.0, 300.0,
+                List.of(List.of(10.0, 20.0), List.of(110.0, 20.0), List.of(110.0, 40.0), List.of(10.0, 40.0))));
+        givenSearchAccess(tenant);
+        when(index.identity()).thenReturn("space");
+        when(access.canRead(actor, new DocumentId(id))).thenReturn(true);
+        when(documents.isCurrent(tenant, new DocumentId(id), generation, "space")).thenReturn(true);
+        when(documents.passageLines(tenant, new DocumentId(id), generation, 3)).thenReturn(List.of(line));
+
+        assertEquals(List.of(line), service.passageLines(actor, id, generation, 3));
+
+        when(documents.isCurrent(tenant, new DocumentId(id), generation, "space")).thenReturn(false);
+        assertThrows(SearchDocumentUnavailableException.class, () -> service.passageLines(actor, id, generation, 3));
+        when(access.canRead(actor, new DocumentId(id))).thenReturn(false);
+        assertThrows(SearchDocumentUnavailableException.class, () -> service.passageLines(actor, id, generation, 3));
+        assertThrows(SearchRequestException.class, () -> service.passageLines(actor, id, generation, -1));
+        verify(documents).passageLines(tenant, new DocumentId(id), generation, 3);
+    }
+
+    @Test
+    void passageLinesAreNotReadWithoutTheSearchGrant() {
+        when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(new TenantId(UUID.randomUUID())));
+        when(authorization.require(actor, IamCapability.SEARCH_READ, false))
+                .thenThrow(new IamException(IamFailureReason.ACCESS_DENIED, "Search grant required"));
+
+        assertThrows(IamException.class, () -> service.passageLines(actor, UUID.randomUUID(), generation, 0));
+        verifyNoInteractions(documents, access);
     }
 
     @Test

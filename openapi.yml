@@ -16241,6 +16241,42 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/search/documents/{documentId}/passages/{ordinal}/lines:
+    get:
+      tags:
+      - Search
+      summary: "Read the text lines the OCR located in one passage of a search result,\
+        \ to mark the line that holds the question"
+      operationId: readSearchPassageLines
+      parameters:
+      - name: documentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: ordinal
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int32
+      - name: generation
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SearchPassageLines"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/search/documents/{documentId}/original:
     get:
       tags:
@@ -24442,6 +24478,48 @@ components:
       - expectedCredentialRevision
       - requestId
       - scope
+    SearchPassageLine:
+      type: object
+      properties:
+        pageNo:
+          type: integer
+          format: int32
+        text:
+          type: string
+        coordOrigin:
+          type: string
+          enum:
+          - TOPLEFT
+          - BOTTOMLEFT
+        frameWidth:
+          type: number
+          format: double
+        frameHeight:
+          type: number
+          format: double
+        points:
+          type: array
+          description: "The line's quadrilateral as [x, y] corners, in the order the\
+            \ OCR answered them"
+          items:
+            type: array
+            items:
+              type: number
+              format: double
+      required:
+      - coordOrigin
+      - pageNo
+      - points
+      - text
+    SearchPassageLines:
+      type: object
+      properties:
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchPassageLine"
+      required:
+      - lines
     SharePointScopeRequest:
       type: object
       additionalProperties: false

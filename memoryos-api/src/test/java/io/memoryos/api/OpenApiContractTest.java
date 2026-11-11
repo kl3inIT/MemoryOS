@@ -262,6 +262,7 @@ class OpenApiContractTest {
             "/api/search/documents/{documentId}",
             "/api/search/documents/{documentId}/original",
             "/api/search/documents/{documentId}/spreadsheet",
+            "/api/search/documents/{documentId}/passages/{ordinal}/lines",
             "/api/search/settings",
             "/api/search/settings/future",
             "/api/search/settings/future/switch",

@@ -34,6 +34,53 @@ class StructuredDocumentChunkerTest {
     }
 
     @Test
+    void aPassageCarriesTheLocatedLinesOfTheBlocksItCitesBesideAnUnchangedProvenance() {
+        String box = "\"coord_origin\":\"TOPLEFT\",\"frame_width\":1000.0,\"frame_height\":800.0";
+        var chunks = chunker.chunk("Ảnh scan", """
+                {"schema":"memoryos-extraction-v2","blocks":[
+                  {"index":0,"kind":"HEADING","headingLevel":1,"text":"Quy định",
+                   "locations":[{"page_no":1,"bbox":{"l":100,"t":40,"r":900,"b":80,%1$s}}]},
+                  {"index":1,"kind":"PARAGRAPH","text":"Nghỉ phép năm được tính theo tháng.",
+                   "locations":[{"page_no":1,"bbox":{"l":100,"t":100,"r":900,"b":200,%1$s}}]},
+                  {"index":2,"kind":"PARAGRAPH","text":"Nghỉ ốm cần giấy của bác sĩ.",
+                   "locations":[{"page_no":1,"bbox":{"l":100,"t":220,"r":900,"b":300,%1$s}}]},
+                  {"index":3,"kind":"TABLE","text":"","locations":[{"page_no":1}],"table":{"cells":[
+                    {"row":0,"column":0,"text":"Loại"},{"row":1,"column":0,"text":"Phép năm"}]}}],
+                 "lines":[
+                  {"block":0,"page_no":1,"text":"Quy định","bbox":{"l":110,"t":45,"r":400,"b":75,%1$s,
+                   "polygon":[[110,45],[400,45],[400,75],[110,75]]}},
+                  {"block":1,"page_no":1,"text":"Nghỉ phép năm được tính","bbox":{"l":110,"t":110,"r":800,"b":150,%1$s,
+                   "polygon":[[110,110],[800,110],[800,150],[110,150]]}},
+                  {"block":1,"page_no":1,"text":"theo tháng.","bbox":{"l":110,"t":155,"r":400,"b":195,%1$s,
+                   "polygon":[[110,155],[400,155],[400,195],[110,195]]}},
+                  {"block":2,"page_no":1,"text":"Nghỉ ốm cần giấy của bác sĩ.","bbox":{"l":110,"t":230,"r":800,"b":290,%1$s,
+                   "polygon":[[110,230],[800,230],[800,290],[110,290]]}}]}
+                """.formatted(box));
+
+        var heading = chunks.getFirst();
+        assertEquals(List.of("Quy định"), texts(heading.linesJson()));
+        // The two paragraphs share one passage, so it carries both blocks' lines in block order.
+        var passage = chunks.get(1);
+        assertEquals(List.of("Nghỉ phép năm được tính", "theo tháng.", "Nghỉ ốm cần giấy của bác sĩ."),
+                texts(passage.linesJson()));
+        var first = mapper.readTree(passage.linesJson()).get(0);
+        assertEquals(1, first.path("page_no").asInt());
+        assertEquals("TOPLEFT", first.path("bbox").path("coord_origin").asString());
+        assertEquals(4, first.path("bbox").path("polygon").size());
+        assertTrue(first.path("block").isMissingNode());
+        // The provenance a citation carries is what it was without lines.
+        assertTrue(mapper.readTree(passage.provenanceJson()).get(0).path("lines").isMissingNode());
+        assertTrue(chunks.stream().filter(chunk -> chunk.content().contains("Phép năm"))
+                .allMatch(chunk -> chunk.linesJson() == null), "a table's rows carry no lines");
+    }
+
+    private List<String> texts(String linesJson) {
+        var texts = new ArrayList<String>();
+        mapper.readTree(linesJson).forEach(line -> texts.add(line.path("text").asString()));
+        return texts;
+    }
+
+    @Test
     void nativeDocumentTableReadsNestedCellBlocks() {
         var chunks = chunker.chunk("Tài liệu", """
                 {"schema":"memoryos-extraction-v2","blocks":[{"index":0,"kind":"TABLE","text":"","table":{"cells":[

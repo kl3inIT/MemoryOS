@@ -19,6 +19,11 @@ public interface DocumentChunkPort {
     Map<UUID, Set<UUID>> retainedGenerations(TenantId tenant, List<UUID> documents);
     Optional<DocumentChunkSet> read(TenantId tenant, DocumentId document, UUID generation);
     boolean isCurrent(TenantId tenantId, DocumentId documentId, UUID generation, String indexIdentity);
+    /**
+     * The text lines the OCR located in the blocks one passage cites, as the JSON array stored beside its provenance
+     * ({@link DocumentChunk#linesJson()}); empty when it has none. Authority is the caller's.
+     */
+    List<PassageLine> passageLines(TenantId tenantId, DocumentId documentId, UUID generation, int ordinal);
     /** Withdraws readiness of the generation in that index before it is rewritten there. */
     void markSearchPending(TenantId tenantId, DocumentId documentId, UUID generation, String indexIdentity);
     void markSearchFailed(TenantId tenantId, DocumentId documentId, UUID generation, String errorCode, String indexIdentity);
