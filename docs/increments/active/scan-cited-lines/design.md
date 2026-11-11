@@ -41,6 +41,9 @@ PaddleX v3.6.1 source, the version the serving node runs (read 2026-11-10):
   `paddleocr_vl.lines.failed`, and `paddleocr_vl.lines.located` counts the lines kept.
 - Only a Source document asks for lines (`OcrReader.read(..., lines)`): Search is the reader that marks a question.
   A Chat attachment and the connection probe keep one request.
+- The lines request has its own deadline, `lines-timeout` (ten minutes by default), counted from when the lines are
+  asked for with the wait for a permit included, where a layout request waits for its permit untimed: lines held up
+  behind a busy service, or slow to come, give way rather than hold the document and the GPU (PR #913 review).
 - Lines are an addition. An answer that fails or is malformed leaves the document read without lines; a Worker that
   is stopping still stops. An artifact the lines would carry past its 32 MiB bound is published without them
   (`paddleocr_vl.lines.dropped`).

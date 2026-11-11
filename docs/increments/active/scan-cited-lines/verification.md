@@ -81,6 +81,25 @@ included as the OCR's text holds it. The first build underlined every mark along
 the arched heading ran straight under the hollow, away from the letters; a mark that follows a stroke is now not
 underlined. The four picture and PDF cases above passed again after the change.
 
+## Pull request #913
+
+CI passed on `1a6980548`. CodeRabbit (one requested review) raised four findings:
+
+- *A PDF line's frame arrives as null.* Right, and a real defect: the API writes an absent frame as `null`, and
+  `scanLines` took any value other than `undefined` for a frame, so every line of an upright PDF page was dropped and
+  a scanned PDF's question was never marked. The browser case had answered without the keys, so it passed. Fixed in
+  `passage-lines.ts`; `passage-lines.test.ts` and the scanned PDF case now answer `null` as the API does, and the
+  PDF and picture cases passed again.
+- *The lines request has no bound of its own.* Right: a lines request took the layout's 30 minutes and held a permit,
+  delaying the document and other scans for a mark that is only an addition. `lines-timeout` (ten minutes by
+  default, at most an hour) now bounds it from when it is asked for, the wait for a permit included;
+  `PaddleOcrVlClientTest` shows a lines request giving up unsent while a layout request holds the only permit, and
+  `PaddleOcrVlRoutingTest` the default, the binding and the bounds. All PaddleOCR-VL, probe and reader tests pass.
+- *Stored lines that are not JSON give a 500.* Right: `readTree` was outside the guard; such a value now reads as no
+  lines, and `SearchIndexWorkIntegrationTest` stores one (left to CI here, Docker being stopped).
+- *Log when a passage's lines are cut at 64 KiB.* Not taken: a 768-token passage holds some 40 lines, about 6 KiB,
+  so the bound is a guard that real passages do not reach; answered in its thread.
+
 ## Gates
 
 `oxfmt --check`, `oxlint --deny-warnings`, `tsc -b`, the i18n audit and `knip` pass. `ModulithArchitectureTest`,
