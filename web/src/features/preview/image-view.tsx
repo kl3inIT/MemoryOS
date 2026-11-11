@@ -1,16 +1,25 @@
 import { Crop, RotateCcw, RotateCw, ZoomIn, ZoomOut } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { IconButton } from "@/components/ui/icon-button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
 import { CitationRegion } from "./citation-region";
-import { placedInkLines } from "./ink-outline";
+import { placedInkLines, placedWordSpans } from "./ink-outline";
 import { frameBoxRect, type PdfHighlight, type PlacedOutline } from "./pdf-pages";
+import type { QueryTerms } from "./preview-highlight";
+import {
+  lineMarks,
+  markedLinesOf,
+  narrowRegion,
+  wordCount,
+  type ScanLine,
+} from "./scan-line-marks";
 import { useObjectUrl } from "./use-object-url";
 
 type Layout = { left: number; top: number; width: number; height: number };
 
 const NO_BOXES: readonly PdfHighlight[] = [];
+const NO_LINES: readonly ScanLine[] = [];
 
 /** A region's place on the picture, which names it among the regions of one picture. */
 const regionKey = (rect: { left: number; top: number; width: number; height: number }) =>
@@ -23,6 +32,10 @@ const regionKey = (rect: { left: number; top: number; width: number; height: num
  * picture's own place and transform, so it follows zoom, pan and the reader's turn. The box is in pixels of
  * the picture the OCR read; it is drawn only on a picture of exactly that size, because a picture decoded
  * to another size or orientation is not known to be the one the box was measured in.
+ *
+ * Given the text lines the OCR located in the cited blocks and the reader's question, the question is marked
+ * where it lies in its line, its line is the focus and the citation's other lines are faint. Where the question's
+ * words lie along the line is read from the picture's ink once it has loaded.
  */
 export function ImageView({
   blob,
@@ -31,6 +44,8 @@ export function ImageView({
   rotation,
   onZoom,
   boxes = NO_BOXES,
+  lines = NO_LINES,
+  terms,
   onMarked,
 }: {
   blob: Blob;
@@ -40,6 +55,10 @@ export function ImageView({
   onZoom?: (deltaY: number) => void;
   /** The recorded regions of the citation being read; only those on the picture's one page are drawn. */
   boxes?: readonly PdfHighlight[];
+  /** The text lines the OCR located in the cited blocks, in the space of their boxes. */
+  lines?: readonly ScanLine[];
+  /** The reader's question, which narrows a region to the lines that hold it. */
+  terms?: QueryTerms;
   /** Whether the regions were drawn, once the picture has loaded; not called when there are none. */
   onMarked?: (marked: boolean) => void;
 }) {
@@ -59,12 +78,16 @@ export function ImageView({
   const transform = `translate(${offset.x}px, ${offset.y}px) scale(${zoom / 100}) rotate(${rotation}deg)`;
   const natural = loaded && loaded.src === src ? loaded : undefined;
   const cited = boxes.filter((box) => box.page === 1 && box.frame);
-  const regions = natural
+  const placed = natural
     ? cited
         .filter((box) => box.frame?.width === natural.width && box.frame.height === natural.height)
-        .map(frameBoxRect)
-        .filter((rect) => rect !== undefined)
+        .flatMap((box) => {
+          const rect = frameBoxRect(box);
+          return rect ? [{ box, rect }] : [];
+        })
     : [];
+  const regions = placed.map(({ rect }) => rect);
+  const questionLines = useMemo(() => lineMarks(lines, terms), [lines, terms]);
   const marked = natural && cited.length ? regions.length > 0 : undefined;
   // A region with an outline is drawn around the ink of its lines once the picture's pixels have been read.
   const [inked, setInked] = useState<{ src: string; lines: Record<string, PlacedOutline[]> }>();
@@ -98,6 +121,30 @@ export function ImageView({
     }, 0);
     return () => clearTimeout(timer);
   }, [natural, outlinedKey]);
+  // Where each marked line's words lie along it, read from the picture once it has loaded.
+  const [words, setWords] = useState<{
+    src: string;
+    lines: readonly ScanLine[];
+    spans: ReadonlyMap<number, [number, number][] | undefined>;
+  }>();
+  useEffect(() => {
+    const image = picture.current;
+    if (!image || !natural || !questionLines.size) return undefined;
+    const timer = setTimeout(() => {
+      const spans = new Map<number, [number, number][] | undefined>();
+      for (const index of questionLines.keys()) {
+        const line = lines[index]!;
+        if (line.frame?.width !== natural.width || line.frame.height !== natural.height) continue;
+        spans.set(
+          index,
+          placedWordSpans(image, natural.width, natural.height, line.points, wordCount(line.text)),
+        );
+      }
+      setWords({ src: natural.src, lines, spans });
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [natural, questionLines, lines]);
+  const spans = words && words.src === src && words.lines === lines ? words.spans : undefined;
   const report = useRef(onMarked);
   useEffect(() => {
     report.current = onMarked;
@@ -191,21 +238,41 @@ export function ImageView({
           className="pointer-events-none absolute opacity-55 mix-blend-multiply transition-transform duration-300 ease-in-out"
           style={{ ...layout, transform }}
         >
-          {regions.map((rect, index) => (
-            <CitationRegion
-              key={`${rect.left}:${rect.top}:${index}`}
-              slot="image-citation-box"
-              label={ui("Vùng được trích dẫn trên ảnh")}
-              outline={rect.outline}
-              lines={inked && inked.src === src ? inked.lines[regionKey(rect)] : undefined}
-              style={{
-                left: `${rect.left * 100}%`,
-                top: `${rect.top * 100}%`,
-                width: `${rect.width * 100}%`,
-                height: `${rect.height * 100}%`,
-              }}
-            />
-          ))}
+          {placed.map(({ box, rect }, index) => {
+            const bands = inked && inked.src === src ? inked.lines[regionKey(rect)] : undefined;
+            const narrowed =
+              questionLines.size && natural
+                ? narrowRegion(
+                    bands,
+                    markedLinesOf(
+                      box,
+                      lines,
+                      questionLines,
+                      spans,
+                      (outlined) => frameBoxRect(outlined)?.outline,
+                    ),
+                    (rect.width * natural.width) / (rect.height * natural.height),
+                  )
+                : undefined;
+            return (
+              <CitationRegion
+                key={`${rect.left}:${rect.top}:${index}`}
+                slot="image-citation-box"
+                label={ui("Vùng được trích dẫn trên ảnh")}
+                outline={rect.outline}
+                lines={narrowed ? narrowed.lines : bands}
+                tones={narrowed?.tones}
+                marks={narrowed?.marks}
+                tone={narrowed?.tone}
+                style={{
+                  left: `${rect.left * 100}%`,
+                  top: `${rect.top * 100}%`,
+                  width: `${rect.width * 100}%`,
+                  height: `${rect.height * 100}%`,
+                }}
+              />
+            );
+          })}
         </div>
       ) : null}
     </div>

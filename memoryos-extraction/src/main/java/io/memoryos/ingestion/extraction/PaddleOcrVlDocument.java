@@ -5,6 +5,7 @@ import io.memoryos.document.ExtractedDocument.BoundingBox;
 import io.memoryos.document.ExtractedDocument.Cell;
 import io.memoryos.document.ExtractedDocument.CoordOrigin;
 import io.memoryos.document.ExtractedDocument.Kind;
+import io.memoryos.document.ExtractedDocument.Line;
 import io.memoryos.document.ExtractedDocument.Location;
 import io.memoryos.document.ExtractedDocument.Table;
 import io.memoryos.document.ExtractionException;
@@ -13,6 +14,7 @@ import io.memoryos.document.StructuredContent;
 import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -75,6 +77,10 @@ final class PaddleOcrVlDocument {
      * up to a pixel, a fraction of a percent at twice the page's points.
      */
     private static final double SAME_PROPORTIONS = 0.01;
+    /** The blocks a located line can belong to: text a viewer marks, not a table's cells or a picture. */
+    private static final Set<Kind> LINED = Set.of(Kind.PARAGRAPH, Kind.HEADING, Kind.LIST_ITEM);
+    /** The most lines kept on one page; a dense A4 statement has about a hundred. */
+    static final int MAX_PAGE_LINES = 500;
 
     private PaddleOcrVlDocument() {}
 
@@ -94,45 +100,10 @@ final class PaddleOcrVlDocument {
             JsonNode page = results.get(index).path("prunedResult");
             JsonNode items = page.path("parsing_res_list");
             if (!items.isArray()) throw failure(ExtractionFailure.MALFORMED);
-            JsonNode width = page.path("width");
-            JsonNode height = page.path("height");
-            boolean sized = width.isNumber() && height.isNumber() && width.asDouble() > 0 && height.asDouble() > 0;
             // A PDF page is not read without the size of its rendering. A picture's text needs none: an
             // answer without it keeps the picture's page alone.
-            if (!sized && !pages.isEmpty()) throw failure(ExtractionFailure.MALFORMED);
-            JsonNode preprocessor = page.path("model_settings").path("use_doc_preprocessor");
-            boolean asSent = preprocessor.isBoolean() && !preprocessor.asBoolean();
-            boolean corrected = preprocessor.isBoolean() && preprocessor.asBoolean();
-            PdfLayout.Frame frame = null;
-            double scaleX = 0;
-            double scaleY = 0;
-            // The frame a box is kept in when it is not user space: the picture, or a turned page as displayed.
-            double shownWidth = 0;
-            double shownHeight = 0;
-            if (pages.isEmpty()) {
-                if (asSent && sized) {
-                    scaleX = scaleY = 1;
-                    shownWidth = width.asDouble();
-                    shownHeight = height.asDouble();
-                }
-            } else if (pages.get(index).rotation() == 0) {
-                frame = pages.get(index);
-                scaleX = frame.width() / width.asDouble();
-                scaleY = frame.height() / height.asDouble();
-            } else if (!corrected) {
-                var stored = pages.get(index);
-                boolean quarter = stored.rotation() != 180;
-                double displayedWidth = quarter ? stored.height() : stored.width();
-                double displayedHeight = quarter ? stored.width() : stored.height();
-                double x = displayedWidth / width.asDouble();
-                double y = displayedHeight / height.asDouble();
-                if ((quarter || asSent) && Math.abs(x / y - 1) <= SAME_PROPORTIONS) {
-                    scaleX = x;
-                    scaleY = y;
-                    shownWidth = displayedWidth;
-                    shownHeight = displayedHeight;
-                }
-            }
+            if (!sized(page) && !pages.isEmpty()) throw failure(ExtractionFailure.MALFORMED);
+            var placement = placement(page, pages, index);
             for (int at = 0; at < items.size(); at++) {
                 JsonNode item = items.get(at);
                 String label = item.path("block_label").asString("");
@@ -142,11 +113,14 @@ final class PaddleOcrVlDocument {
                 if (blocks.size() >= StructuredContent.MAX_BLOCKS) throw failure(ExtractionFailure.WRITE_LIMIT);
                 String content = item.path("block_content").asString("").strip();
                 double[] pixels = pixels(item.path("block_bbox"));
-                BoundingBox box = pixels == null ? null
-                        : frame != null ? box(pixels, frame, scaleX, scaleY)
-                        : shownWidth > 0 ? framed(pixels, scaleX, scaleY, shownWidth, shownHeight)
-                        : null;
-                if (box != null) box = outlined(box, item.path("block_polygon_points"), frame, scaleX, scaleY);
+                BoundingBox box = pixels == null || placement == null ? null
+                        : placement.frame() != null ? box(pixels, placement.frame(), placement.scaleX(), placement.scaleY())
+                        : framed(pixels, placement.scaleX(), placement.scaleY(), placement.shownWidth(),
+                                placement.shownHeight());
+                if (box != null) {
+                    box = outlined(box, item.path("block_polygon_points"), placement.frame(), placement.scaleX(),
+                            placement.scaleY());
+                }
                 var locations = List.of(Location.page(index + 1, box));
                 int position = blocks.size();
                 if (PICTURES.contains(label)) {
@@ -173,6 +147,156 @@ final class PaddleOcrVlDocument {
             }
         }
         return blocks;
+    }
+
+    /**
+     * The text lines of a spotting answer ({@code prunedResult.spotting_res}: {@code rec_polys}, a quadrilateral of
+     * four {@code [x, y]} pixels for each line, and {@code rec_texts}), each kept in the space of the boxes of its
+     * page and given to the smallest text block of that page whose outline, or box, holds the line's centre. A page
+     * whose boxes are not kept keeps no line, and a line in no text block (a running header, a page number, a
+     * table's cell, a picture) is left out. So is a line without text, longer than {@link Line#MAX_TEXT}, with a
+     * corner that is not a number or lies more than a pixel outside the page, or without area; a page keeps at
+     * most {@link #MAX_PAGE_LINES}. Nothing here fails the document: the lines only narrow what a viewer marks
+     * inside the blocks already read.
+     *
+     * @param results the spotting answer, one result per page as for {@link #blocks}
+     * @param blocks the document's blocks, read from the layout answer of the same input
+     */
+    static List<Line> lines(JsonNode results, List<PdfLayout.Frame> pages, List<Block> blocks) {
+        if (!results.isArray() || !pages.isEmpty() && results.size() != pages.size()) return List.of();
+        var lines = new ArrayList<Line>();
+        for (int index = 0; index < results.size(); index++) {
+            JsonNode page = results.get(index).path("prunedResult");
+            var placement = placement(page, pages, index);
+            JsonNode spotted = page.path("spotting_res");
+            JsonNode quadrilaterals = spotted.path("rec_polys");
+            JsonNode texts = spotted.path("rec_texts");
+            if (placement == null || !quadrilaterals.isArray() || !texts.isArray()) continue;
+            int pageNo = index + 1;
+            var owners = blocks.stream()
+                    .filter(block -> LINED.contains(block.kind()) && block.locations().size() == 1
+                            && Integer.valueOf(pageNo).equals(block.locations().getFirst().pageNo())
+                            && block.locations().getFirst().bbox() != null)
+                    .sorted(Comparator.comparingDouble(block -> area(block.locations().getFirst().bbox())))
+                    .toList();
+            int kept = 0;
+            for (int at = 0; at < Math.min(quadrilaterals.size(), texts.size()) && kept < MAX_PAGE_LINES; at++) {
+                if (!texts.get(at).isString()) continue;
+                String text = texts.get(at).asString().strip();
+                if (text.isEmpty() || text.length() > Line.MAX_TEXT) continue;
+                List<List<Double>> corners = placement.quadrilateral(quadrilaterals.get(at));
+                if (corners == null) continue;
+                double x = corners.stream().mapToDouble(List::getFirst).average().orElseThrow();
+                double y = corners.stream().mapToDouble(List::getLast).average().orElseThrow();
+                Block owner = owners.stream().filter(block -> holds(block.locations().getFirst().bbox(), x, y))
+                        .findFirst().orElse(null);
+                if (owner == null) continue;
+                lines.add(new Line(owner.index(), pageNo, text, placement.bounds(corners)));
+                kept++;
+            }
+        }
+        return List.copyOf(lines);
+    }
+
+    private static boolean sized(JsonNode page) {
+        JsonNode width = page.path("width");
+        JsonNode height = page.path("height");
+        return width.isNumber() && height.isNumber() && width.asDouble() > 0 && height.asDouble() > 0;
+    }
+
+    /**
+     * Where the boxes of one answered page are kept, or null when they are not: the CropBox's user space for an
+     * upright PDF page; the page as displayed for a turned one when the answer's proportions or its preprocessor
+     * flag show it was read as displayed; the picture as decoded for an image read as sent.
+     */
+    private static @Nullable Placement placement(JsonNode page, List<PdfLayout.Frame> pages, int index) {
+        if (!sized(page)) return null;
+        double width = page.path("width").asDouble();
+        double height = page.path("height").asDouble();
+        JsonNode preprocessor = page.path("model_settings").path("use_doc_preprocessor");
+        boolean asSent = preprocessor.isBoolean() && !preprocessor.asBoolean();
+        boolean corrected = preprocessor.isBoolean() && preprocessor.asBoolean();
+        if (pages.isEmpty()) return asSent ? new Placement(null, 1, 1, width, height, width, height) : null;
+        var stored = pages.get(index);
+        if (stored.rotation() == 0) {
+            return new Placement(stored, stored.width() / width, stored.height() / height, 0, 0, width, height);
+        }
+        if (corrected) return null;
+        boolean quarter = stored.rotation() != 180;
+        double displayedWidth = quarter ? stored.height() : stored.width();
+        double displayedHeight = quarter ? stored.width() : stored.height();
+        double x = displayedWidth / width;
+        double y = displayedHeight / height;
+        if ((quarter || asSent) && Math.abs(x / y - 1) <= SAME_PROPORTIONS) {
+            return new Placement(null, x, y, displayedWidth, displayedHeight, width, height);
+        }
+        return null;
+    }
+
+    /**
+     * One page's mapping from the pixels the service read ({@code width} by {@code height}) to the space its boxes
+     * are kept in: user space from {@code frame}'s corner, or, without a frame, a frame of the shown size from its
+     * top left.
+     */
+    private record Placement(PdfLayout.@Nullable Frame frame, double scaleX, double scaleY, double shownWidth,
+            double shownHeight, double width, double height) {
+        /** Four {@code [x, y]} pixels in this page's space, or null when they are not a quadrilateral on the page. */
+        @Nullable List<List<Double>> quadrilateral(JsonNode points) {
+            if (!points.isArray() || points.size() != 4) return null;
+            var corners = new ArrayList<List<Double>>(4);
+            for (JsonNode point : points) {
+                if (!point.isArray() || point.size() != 2 || !point.get(0).isNumber() || !point.get(1).isNumber()) {
+                    return null;
+                }
+                double px = point.get(0).asDouble();
+                double py = point.get(1).asDouble();
+                if (!Double.isFinite(px) || !Double.isFinite(py) || px < -1 || py < -1 || px > width + 1
+                        || py > height + 1) {
+                    return null;
+                }
+                px = Math.clamp(px, 0, width);
+                py = Math.clamp(py, 0, height);
+                double x = frame != null ? frame.x0() + px * scaleX : px * scaleX;
+                double y = frame != null ? frame.y0() + frame.height() - py * scaleY : py * scaleY;
+                corners.add(List.of(round(x), round(y)));
+            }
+            return Math.abs(area(corners)) > scaleX * scaleY ? List.copyOf(corners) : null;
+        }
+
+        /** The box around a quadrilateral of this page, in this page's space, with the quadrilateral as outline. */
+        BoundingBox bounds(List<List<Double>> corners) {
+            double minX = corners.stream().mapToDouble(List::getFirst).min().orElseThrow();
+            double maxX = corners.stream().mapToDouble(List::getFirst).max().orElseThrow();
+            double minY = corners.stream().mapToDouble(List::getLast).min().orElseThrow();
+            double maxY = corners.stream().mapToDouble(List::getLast).max().orElseThrow();
+            if (frame != null) {
+                return new BoundingBox(minX, maxY, maxX, minY, CoordOrigin.BOTTOMLEFT, null, null, corners);
+            }
+            return new BoundingBox(minX, minY, maxX, maxY, CoordOrigin.TOPLEFT, shownWidth, shownHeight, corners);
+        }
+    }
+
+    /** Whether a block's outline, or its box when it has none, holds the point, in the box's own space. */
+    private static boolean holds(BoundingBox box, double x, double y) {
+        var outline = box.polygon();
+        if (outline == null) {
+            return x >= Math.min(box.l(), box.r()) && x <= Math.max(box.l(), box.r())
+                    && y >= Math.min(box.t(), box.b()) && y <= Math.max(box.t(), box.b());
+        }
+        boolean inside = false;
+        for (int i = 0, previous = outline.size() - 1; i < outline.size(); previous = i++) {
+            double x1 = outline.get(i).get(0);
+            double y1 = outline.get(i).get(1);
+            double x2 = outline.get(previous).get(0);
+            double y2 = outline.get(previous).get(1);
+            if ((y1 > y) != (y2 > y) && x < (x2 - x1) * (y - y1) / (y2 - y1) + x1) inside = !inside;
+        }
+        return inside;
+    }
+
+    /** The area of a box, in its own unit squared. */
+    private static double area(BoundingBox box) {
+        return Math.abs(box.r() - box.l()) * Math.abs(box.b() - box.t());
     }
 
     /**

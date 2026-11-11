@@ -58,6 +58,7 @@ final class PaddleOcrVlClient implements AutoCloseable {
     private static final Pattern LOG_ID = Pattern.compile("[A-Za-z0-9_-]{1,128}");
     private final URI endpoint;
     private final Duration timeout;
+    private final Duration linesTimeout;
     private final ObjectMapper mapper;
     private final Semaphore permits;
     private final HttpClient transport = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1)
@@ -67,6 +68,34 @@ final class PaddleOcrVlClient implements AutoCloseable {
         PDF(0), IMAGE(1);
         final int code;
         FileType(int code) { this.code = code; }
+    }
+
+    /** What one request asks the service for. */
+    enum Task {
+        /**
+         * The layout blocks of each page, read block by block. Chart recognition stays off whatever the server's
+         * default: on HUT's charts it dropped a series and returned an invented table with wrong numbers (MEM-192
+         * design). The layout shape is named rather than left to the service's default: "auto" answers each
+         * block's outline (a quadrilateral for a tilted block, a polygon for a curved one) beside its box.
+         */
+        LAYOUT("\"mergeTables\":false,\"useChartRecognition\":false,\"layoutShapeMode\":\"auto\",",
+                "paddleocr_vl.request.completed", "paddleocr_vl.extraction.failed"),
+        /**
+         * The text lines of each page, each with its quadrilateral: PaddleOCR-VL's spotting task, which PaddleX
+         * serves only with layout detection off, as one generation over the whole page.
+         */
+        LINES("\"useLayoutDetection\":false,\"promptLabel\":\"spotting\",",
+                "paddleocr_vl.lines.completed", "paddleocr_vl.lines.failed");
+
+        private final String fields;
+        private final String completed;
+        private final String failed;
+
+        Task(String fields, String completed, String failed) {
+            this.fields = fields;
+            this.completed = completed;
+            this.failed = failed;
+        }
     }
 
     /** The bytes of the document, opened once for the one request. */
@@ -93,12 +122,13 @@ final class PaddleOcrVlClient implements AutoCloseable {
     PaddleOcrVlClient(PaddleOcrVlProperties properties, URI service, ObjectMapper mapper) {
         this.endpoint = URI.create(service.toString().replaceAll("/+$", "") + "/layout-parsing");
         this.timeout = properties.timeout();
+        this.linesTimeout = Objects.requireNonNull(properties.linesTimeout());
         this.mapper = mapper;
         this.permits = new Semaphore(Objects.requireNonNull(properties.maxConcurrentRequests()), true);
     }
 
-    /** @return the envelope's {@code result.layoutParsingResults}, one element per page */
-    JsonNode parse(Input input, FileType type) throws ExtractionException {
+    /** @return the envelope's {@code result.layoutParsingResults} for {@code task}, one element per page */
+    JsonNode parse(Input input, FileType type, Task task) throws ExtractionException {
         long queued = System.nanoTime();
         long started;
         int status = -1;
@@ -106,17 +136,27 @@ final class PaddleOcrVlClient implements AutoCloseable {
         boolean permitted = false;
         try {
             if (Thread.currentThread().isInterrupted()) throw new InterruptedException();
-            permits.acquire();
+            // A document's layout waits its turn untimed. Its lines only narrow a mark, so their deadline counts
+            // from when they are asked for, the wait for a permit included: a busy service leaves the document
+            // without lines rather than holding it and the GPU.
+            Duration deadline = timeout;
+            if (task == Task.LINES) {
+                if (!permits.tryAcquire(linesTimeout.toNanos(), TimeUnit.NANOSECONDS)) {
+                    throw failed(task, ExtractionFailure.TIMEOUT, status, "permit_wait", System.nanoTime() - queued);
+                }
+            } else {
+                permits.acquire();
+            }
             permitted = true;
             started = System.nanoTime();
             waited = started - queued;
-            // Chart recognition stays off whatever the server's default: on HUT's charts it dropped a
-            // series and returned an invented table with wrong numbers (MEM-192 design).
-            byte[] prefix = ("{\"fileType\":" + type.code + ",\"visualize\":false,\"mergeTables\":false,"
-                    + "\"useDocOrientationClassify\":false,\"useDocUnwarping\":false,\"useChartRecognition\":false,"
-                    // Named rather than left to the service's default: "auto" answers each block's outline
-                    // (a quadrilateral for a tilted block, a polygon for a curved one) beside its box.
-                    + "\"layoutShapeMode\":\"auto\","
+            if (task == Task.LINES) deadline = linesTimeout.minusNanos(waited);
+            if (deadline.isNegative() || deadline.isZero()) {
+                throw failed(task, ExtractionFailure.TIMEOUT, status, "permit_wait", waited);
+            }
+            // The page is read as sent, never turned or unwarped, so every position is on the page as stored.
+            byte[] prefix = ("{\"fileType\":" + type.code + ",\"visualize\":false,"
+                    + "\"useDocOrientationClassify\":false,\"useDocUnwarping\":false," + task.fields
                     + "\"file\":\"")
                     .getBytes(StandardCharsets.US_ASCII);
             byte[] suffix = "\"}".getBytes(StandardCharsets.US_ASCII);
@@ -129,7 +169,7 @@ final class PaddleOcrVlClient implements AutoCloseable {
                     throw new UncheckedIOException(unreadable);
                 }
             }), length);
-            var request = HttpRequest.newBuilder(endpoint).timeout(timeout)
+            var request = HttpRequest.newBuilder(endpoint).timeout(deadline)
                     .header("Content-Type", "application/json").header("Accept", "application/json")
                     .POST(body).build();
             var response = transport.send(request, HttpResponse.BodyHandlers.ofInputStream());
@@ -141,7 +181,7 @@ final class PaddleOcrVlClient implements AutoCloseable {
             var expired = new AtomicBoolean();
             try (var stream = response.body()) {
                 if (status >= 300) throw new StatusFailure(status);
-                long remaining = timeout.toNanos() - (System.nanoTime() - started);
+                long remaining = deadline.toNanos() - (System.nanoTime() - started);
                 CompletableFuture.delayedExecutor(Math.max(0, remaining), TimeUnit.NANOSECONDS)
                         .execute(() -> {
                             expired.set(true);
@@ -154,25 +194,25 @@ final class PaddleOcrVlClient implements AutoCloseable {
                 try {
                     answer = stream.readNBytes(MAX_RESPONSE_BYTES + 1);
                 } catch (IOException read) {
-                    if (expired.get()) throw failed(ExtractionFailure.TIMEOUT, status, "response_deadline", waited);
+                    if (expired.get()) throw failed(task, ExtractionFailure.TIMEOUT, status, "response_deadline", waited);
                     throw read;
                 }
-                if (expired.get()) throw failed(ExtractionFailure.TIMEOUT, status, "response_deadline", waited);
+                if (expired.get()) throw failed(task, ExtractionFailure.TIMEOUT, status, "response_deadline", waited);
             }
-            if (answer.length > MAX_RESPONSE_BYTES) throw failed(ExtractionFailure.WRITE_LIMIT, status, "response_limit", waited);
+            if (answer.length > MAX_RESPONSE_BYTES) throw failed(task, ExtractionFailure.WRITE_LIMIT, status, "response_limit", waited);
             JsonNode envelope;
             try {
                 envelope = mapper.readTree(answer);
             } catch (RuntimeException unparseable) {
-                throw failed(ExtractionFailure.MALFORMED, status, unparseable.getClass().getName(), waited);
+                throw failed(task, ExtractionFailure.MALFORMED, status, unparseable.getClass().getName(), waited);
             }
             JsonNode results = envelope == null ? null : envelope.path("result").path("layoutParsingResults");
             if (results == null || !envelope.path("errorCode").isIntegralNumber() || envelope.path("errorCode").asInt() != 0
                     || !results.isArray() || results.isEmpty()) {
-                throw failed(ExtractionFailure.MALFORMED, status, "envelope", waited);
+                throw failed(task, ExtractionFailure.MALFORMED, status, "envelope", waited);
             }
             String logId = envelope.path("logId").asString("");
-            LOG.atInfo().addKeyValue("event", "paddleocr_vl.request.completed")
+            LOG.atInfo().addKeyValue("event", task.completed)
                     .addKeyValue("log_id", LOG_ID.matcher(logId).matches() ? logId : "invalid")
                     .addKeyValue("page_count", results.size())
                     .addKeyValue("queued_ms", TimeUnit.NANOSECONDS.toMillis(waited))
@@ -190,7 +230,7 @@ final class PaddleOcrVlClient implements AutoCloseable {
                     .log("PaddleOCR-VL extraction interrupted");
             throw DocumentAssembly.failure(ExtractionFailure.TIMEOUT);
         } catch (StatusFailure e) {
-            throw failed(switch (e.status) {
+            throw failed(task, switch (e.status) {
                 case 413 -> ExtractionFailure.WRITE_LIMIT;
                 case 408, 504 -> ExtractionFailure.TIMEOUT;
                 // The service, or the proxy in front of it, says it cannot take the request: unreachable, not broken.
@@ -198,7 +238,7 @@ final class PaddleOcrVlClient implements AutoCloseable {
                 default -> ExtractionFailure.INTERNAL;
             }, e.status, e.getClass().getName(), waited);
         } catch (IOException | RuntimeException e) {
-            throw failed(transportFailure(e), status, e.getClass().getName(), waited);
+            throw failed(task, transportFailure(e), status, e.getClass().getName(), waited);
         } finally {
             if (permitted) permits.release();
         }
@@ -226,8 +266,9 @@ final class PaddleOcrVlClient implements AutoCloseable {
         return broken ? ExtractionFailure.CONNECTION_FAILED : ExtractionFailure.INTERNAL;
     }
 
-    private ExtractionException failed(ExtractionFailure failure, int status, String errorType, long waitedNanos) {
-        LOG.atWarn().addKeyValue("event", "paddleocr_vl.extraction.failed")
+    private ExtractionException failed(Task task, ExtractionFailure failure, int status, String errorType,
+            long waitedNanos) {
+        LOG.atWarn().addKeyValue("event", task.failed)
                 .addKeyValue("error_code", failure.name()).addKeyValue("http_status", status)
                 .addKeyValue("error_type", errorType)
                 .addKeyValue("queued_ms", TimeUnit.NANOSECONDS.toMillis(waitedNanos))

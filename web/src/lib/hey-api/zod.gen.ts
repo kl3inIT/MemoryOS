@@ -6,6 +6,19 @@ export const zAllowChannelGroupRequest = z.object({
     allowed: z.boolean()
 });
 
+export const zSearchPassageLine = z.object({
+    pageNo: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    text: z.string(),
+    coordOrigin: z.enum(['TOPLEFT', 'BOTTOMLEFT']),
+    frameWidth: z.number().optional(),
+    frameHeight: z.number().optional(),
+    points: z.array(z.array(z.number()))
+});
+
+export const zSearchPassageLines = z.object({
+    lines: z.array(zSearchPassageLine)
+});
+
 export const zSharePointScopeRequest = z.object({
     scopeMode: z.enum(['ALL_SITES', 'SPECIFIC']),
     siteUrls: z.array(z.string().min(0).max(2048)).min(0).max(1000).optional(),
@@ -7576,6 +7589,20 @@ export const zReadSearchDocumentSpreadsheetQuery = z.object({
  * Sheets in workbook order
  */
 export const zReadSearchDocumentSpreadsheetResponse = zDocumentSpreadsheet;
+
+export const zReadSearchPassageLinesPath = z.object({
+    documentId: z.uuid(),
+    ordinal: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
+});
+
+export const zReadSearchPassageLinesQuery = z.object({
+    generation: z.uuid()
+});
+
+/**
+ * OK
+ */
+export const zReadSearchPassageLinesResponse = zSearchPassageLines;
 
 export const zReadSearchDocumentOriginalHeaders = z.object({
     Range: z.string().nullish()

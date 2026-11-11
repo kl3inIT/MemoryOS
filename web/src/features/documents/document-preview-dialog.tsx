@@ -22,6 +22,7 @@ import { useDocumentReading } from "./document-reading";
 import { DocumentSourceIcon } from "./document-source-icon";
 import type { DocumentSourceType } from "./document-source-presentation";
 import type { EvidenceView } from "./evidence-order";
+import { usePassageLines } from "./passage-lines";
 import { DocumentMeta } from "./provider-link";
 import { readSourceLocation, type SourceLocation } from "./source-provenance";
 
@@ -114,6 +115,18 @@ export function DocumentPreviewDialog({
             !framed(place) ? "none" : framed(cited) ? placed[index] : "exact",
           )
         : placed;
+  // A scan's regions are narrowed to the lines that hold the question, which only the Search reader asks.
+  const lines = usePassageLines({
+    documentId: selection.documentId,
+    generation: selection.generation,
+    ordinal: reading.activeMatch?.matchingOrdinal,
+    enabled:
+      variant === "search" &&
+      Boolean(reader) &&
+      (kind === "pdf" || kind === "image") &&
+      cited.boxes.length > 0 &&
+      Boolean(selection.terms?.phrase.trim()),
+  });
   const located =
     kind === "pdf"
       ? cited.boxes.length > 0
@@ -163,6 +176,7 @@ export function DocumentPreviewDialog({
                 mediaType={selection.mediaType}
                 pages={cited.pages}
                 boxes={cited.boxes}
+                lines={lines}
                 rows={places.map((place) =>
                   place.row === undefined ? undefined : { sheet: place.sheet, row: place.row },
                 )}

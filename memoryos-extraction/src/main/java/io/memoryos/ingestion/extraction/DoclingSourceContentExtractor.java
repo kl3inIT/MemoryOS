@@ -116,7 +116,7 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
         // A scan or an image is the OCR reader's, and its failure stands: no Docling OCR, no native read.
         if (ocr != null && (layout != null && layout.scanned() || ocr.readsImage(mediaType))) {
             return ocr.extract(PaddleOcrVlClient.Input.of(bytes), layout, filename, mediaType,
-                    ObjectUploadSpecification.MAX_SIZE_BYTES);
+                    ObjectUploadSpecification.MAX_SIZE_BYTES, true);
         }
         int pages = layout == null ? 0 : layout.pages();
         if (!usesDocling(mediaType)) {
@@ -172,7 +172,7 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
         } catch (InvalidPasswordException encrypted) { throw failure(ExtractionFailure.ENCRYPTED); }
         catch (IOException invalid) { throw failure(ExtractionFailure.MALFORMED); }
         if (ocr != null && layout != null && layout.scanned()) {
-            return ocr.extract(PaddleOcrVlClient.Input.of(file), layout, filename, mediaType, 262_144_000);
+            return ocr.extract(PaddleOcrVlClient.Input.of(file), layout, filename, mediaType, 262_144_000, false);
         }
         int pages = layout == null ? 0 : layout.pages();
         ExtractionException serviceFailure;

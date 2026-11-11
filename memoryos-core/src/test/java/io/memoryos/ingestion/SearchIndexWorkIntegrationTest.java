@@ -50,6 +50,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -222,6 +223,38 @@ class SearchIndexWorkIntegrationTest {
         assertNotEquals(first.token(), second.token());
         assertFalse(work.finish(first, "SUCCESS", null));
         assertTrue(work.finish(second, "SUCCESS", null));
+    }
+
+    @Test
+    void aPassagesLocatedLinesAreStoredBesideItsProvenanceAndReadBackByOrdinal() {
+        var document = publish(null);
+        var generation = generation(document);
+        var reader = tx.execute(_ -> chunkRepository.openReader(tenant, document, generation).orElseThrow());
+        String lines = "[{\"page_no\":2,\"text\":\"Nghỉ phép năm\",\"bbox\":{\"l\":10.0,\"t\":20.0,\"r\":110.0,"
+                + "\"b\":40.0,\"coord_origin\":\"TOPLEFT\",\"frame_width\":400.0,\"frame_height\":300.0,"
+                + "\"polygon\":[[10.0,20.0],[110.0,20.0],[110.0,40.0],[10.0,40.0]]}},{\"text\":\"không có khung\"}]";
+        var chunks = List.of(
+                new DocumentChunk(0, "Nghỉ phép năm", List.of(), 0, 0, "{\"page_no\":2}", Sha256.hex("Nghỉ phép năm"), 5,
+                        lines),
+                new DocumentChunk(1, "Phụ lục", List.of(), 1, 0, "{\"page_no\":3}", Sha256.hex("Phụ lục"), 3),
+                new DocumentChunk(2, "Hỏng", List.of(), 2, 0, "{\"page_no\":4}", Sha256.hex("Hỏng"), 2, "[{\"text\":"));
+        try {
+            assertEquals(Boolean.TRUE, tx.execute(_ -> chunkRepository.publish(reader, chunks)));
+            assertEquals(chunks, chunkRepository.load(tenant, document, generation).orElseThrow().chunks());
+
+            var read = chunkRepository.passageLines(tenant, document, generation, 0);
+            assertEquals(1, read.size(), "an entry without a box marks nothing");
+            assertEquals(2, read.getFirst().pageNo());
+            assertEquals("Nghỉ phép năm", read.getFirst().text());
+            assertEquals(4, Objects.requireNonNull(read.getFirst().bbox().polygon()).size());
+            assertEquals(400.0, read.getFirst().bbox().frameWidth());
+            assertEquals(List.of(), chunkRepository.passageLines(tenant, document, generation, 1));
+            assertEquals(List.of(), chunkRepository.passageLines(tenant, document, generation, 2), "unreadable lines mark nothing");
+            assertEquals(List.of(), chunkRepository.passageLines(tenant, document, generation, 3));
+            assertEquals(List.of(), chunkRepository.passageLines(tenant, document, UUID.randomUUID(), 0));
+        } finally {
+            chunkRepository.closeReader(reader.readerId());
+        }
     }
 
     @Test

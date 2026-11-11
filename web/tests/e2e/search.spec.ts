@@ -997,6 +997,301 @@ test("draws a tilted line and an arched heading of a picture around their letter
   await expectMarks();
 });
 
+test("marks the question in its line on a picture, the line lighter and the citation's other line faint", async ({
+  page,
+}) => {
+  // The picture and the OCR's outlines of the case above; the lines the OCR located in each block, as Search's
+  // passage lines answer them: a quadrilateral along the tilted line and one around the arched heading.
+  const picture = readFileSync(new URL("../fixtures/citation-outlines.png", import.meta.url));
+  const frame = { coord_origin: "TOPLEFT", frame_width: 854, frame_height: 534 };
+  const arch = {
+    box: [221, 40, 633, 175],
+    outline: [
+      [221, 175],
+      [221, 120],
+      [330, 45],
+      [520, 45],
+      [633, 120],
+      [633, 175],
+    ],
+  };
+  const tilted = {
+    box: [163, 252, 690, 481],
+    outline: [
+      [163, 481],
+      [163, 420],
+      [650, 252],
+      [690, 252],
+      [690, 320],
+      [200, 481],
+    ],
+  };
+  const located = ({ box, outline }: { box: number[]; outline: number[][] }) =>
+    JSON.stringify({
+      page_no: 1,
+      bbox: { l: box[0], t: box[1], r: box[2], b: box[3], ...frame, polygon: outline },
+    });
+  const provenanceJson = `[${located(arch)},${located(tilted)}]`;
+  const lines = [
+    {
+      pageNo: 1,
+      text: "BÁO CÁO NĂM 2026",
+      coordOrigin: "TOPLEFT",
+      frameWidth: 854,
+      frameHeight: 534,
+      points: [
+        [241, 58],
+        [613, 58],
+        [613, 155],
+        [241, 155],
+      ],
+    },
+    {
+      pageNo: 1,
+      text: "Doanh thu tăng mạnh trong quý",
+      coordOrigin: "TOPLEFT",
+      frameWidth: 854,
+      frameHeight: 534,
+      points: [
+        [172.6, 441.4],
+        [670.8, 260],
+        [680.4, 286.3],
+        [182.2, 467.8],
+      ],
+    },
+  ];
+  await page.route("**/api/search", (route) =>
+    route.fulfill({
+      json: {
+        page: 0,
+        hasMore: false,
+        totalResults: 1,
+        candidateLimit: 500,
+        sourceFacets: { total: 1, types: [{ type: "FILE", count: 1 }] },
+        results: [
+          {
+            documentId,
+            generation,
+            title: "Ảnh chụp báo cáo.png",
+            mediaType: "image/png",
+            updatedAt: "2026-09-08T00:00:00Z",
+            score: 0.8,
+            sections: [
+              { ...sections[0], matchingOrdinal: 2, provenance: [{ ordinal: 2, provenanceJson }] },
+            ],
+            sourceTypes: ["FILE"],
+            authors: [],
+            providerUrl: null,
+          },
+        ],
+      },
+    }),
+  );
+  await page.route("**/api/search/documents/*?*", (route) =>
+    route.fulfill({
+      json: {
+        documentId,
+        generation,
+        title: "Ảnh chụp báo cáo.png",
+        mediaType: "image/png",
+        passages: [passage, nextPassage],
+        firstOrdinal: 2,
+        totalChunks: 41,
+        hasMore: false,
+      },
+    }),
+  );
+  await page.route("**/api/search/documents/*/original?*", (route) =>
+    route.fulfill({ contentType: "image/png", body: picture }),
+  );
+  const asked: string[] = [];
+  await page.route("**/api/search/documents/*/passages/*/lines?*", (route) => {
+    asked.push(route.request().url());
+    return route.fulfill({ json: { lines } });
+  });
+
+  await page.goto("/search");
+  await page.getByRole("textbox", { name: "Search documents" }).fill("doanh thu");
+  await page.getByRole("main").getByRole("button", { name: "Search", exact: true }).click();
+  await page.getByRole("button", { name: "Ảnh chụp báo cáo.png", exact: true }).click();
+
+  const dialog = page.getByRole("dialog");
+  const regions = dialog.locator('[data-slot="image-citation-box"]');
+  await expect(regions).toHaveCount(2);
+  await expect(
+    dialog.locator('svg[data-slot="image-citation-box"][data-shape="lines"]'),
+  ).toHaveCount(2);
+  expect(asked).toHaveLength(1);
+  expect(asked[0]).toContain(
+    `/api/search/documents/${documentId}/passages/2/lines?generation=${generation}`,
+  );
+
+  // The tilted line holds the question: its stroke is the focus and the question is laid over its start, cut to
+  // the slab "Doanh thu" takes. The heading's stroke stays, faint, so the reader still sees the whole citation.
+  const tones = (index: number) =>
+    regions
+      .nth(index)
+      .evaluate((region) =>
+        Array.from(region.querySelectorAll("polygon[data-band]"), (band) =>
+          band.getAttribute("data-tone"),
+        ),
+      );
+  await expect.poll(() => tones(1)).toContain("focus");
+  expect(await tones(0)).not.toContain("focus");
+  expect((await tones(0)).length).toBeGreaterThan(0);
+  await expect(regions.nth(0).locator("[data-mark]")).toHaveCount(0);
+  const slab = await regions
+    .nth(1)
+    .locator('[data-mark="whole"] polygon')
+    .evaluate((mark) => {
+      const clip = mark.getAttribute("clip-path");
+      const shape = clip
+        ? mark.ownerSVGElement!.querySelector(`clipPath[id="${clip.slice(5, -1)}"] polygon`)!
+        : mark;
+      return shape
+        .getAttribute("points")!
+        .split(" ")
+        .map((point) => point.split(",").map(Number) as [number, number]);
+    });
+  /** Whether a point of the picture, in its pixels, lies in the question's slab of the tilted line. */
+  const inSlab = ([x = 0, y = 0]: number[]) => {
+    const [px, py] = [(x - 163) / (690 - 163), (y - 252) / (481 - 252)];
+    let inside = false;
+    for (let index = 0, previous = slab.length - 1; index < slab.length; previous = index++) {
+      const [x1, y1] = slab[index]!;
+      const [x2, y2] = slab[previous]!;
+      if (y1 > py !== y2 > py && px < ((x2 - x1) * (py - y1)) / (y2 - y1) + x1) inside = !inside;
+    }
+    return inside;
+  };
+  expect(inSlab([198, 447]), "the line's first letters").toBe(true);
+  expect(inSlab([654, 281]), "the line's last letters").toBe(false);
+});
+
+test("marks the question in its line on a scanned PDF page, the line lighter and the other block faint", async ({
+  page,
+}) => {
+  // Two cited blocks on a page without a text layer, in user space; the OCR located two lines in the first and
+  // one in the second, each a quadrilateral in the same space.
+  const block = (top: number, bottom: number) =>
+    `{"page_no":1,"bbox":{"l":72,"t":${top},"r":540,"b":${bottom},"coord_origin":"BOTTOMLEFT"}}`;
+  const provenanceJson = `[${block(700, 620)},${block(500, 440)}]`;
+  const line = (text: string, top: number, right = 500) => ({
+    pageNo: 1,
+    text,
+    coordOrigin: "BOTTOMLEFT",
+    // As the API answers a line on an upright PDF page: no frame, written as null.
+    frameWidth: null,
+    frameHeight: null,
+    points: [
+      [80, top],
+      [right, top],
+      [right, top - 20],
+      [80, top - 20],
+    ],
+  });
+  await page.route("**/api/search", (route) =>
+    route.fulfill({
+      json: {
+        page: 0,
+        hasMore: false,
+        totalResults: 1,
+        candidateLimit: 500,
+        sourceFacets: { total: 1, types: [{ type: "FILE", count: 1 }] },
+        results: [
+          {
+            documentId,
+            generation,
+            title: "Quy chế nghỉ phép (bản scan).pdf",
+            mediaType: "application/pdf",
+            updatedAt: "2026-09-08T00:00:00Z",
+            score: 0.8,
+            sections: [
+              { ...sections[0], matchingOrdinal: 2, provenance: [{ ordinal: 2, provenanceJson }] },
+            ],
+            sourceTypes: ["FILE"],
+            authors: [],
+            providerUrl: null,
+          },
+        ],
+      },
+    }),
+  );
+  await page.route("**/api/search/documents/*?*", (route) =>
+    route.fulfill({
+      json: {
+        documentId,
+        generation,
+        title: "Quy chế nghỉ phép (bản scan).pdf",
+        mediaType: "application/pdf",
+        passages: [passage, nextPassage],
+        firstOrdinal: 2,
+        totalChunks: 41,
+        hasMore: false,
+      },
+    }),
+  );
+  const originalPdf = scannedReportPdf(2, { text: false });
+  await page.route("**/api/search/documents/*/original?*", (route) =>
+    fulfillPdfRange(route, originalPdf),
+  );
+  await page.route("**/api/search/documents/*/passages/*/lines?*", (route) =>
+    route.fulfill({
+      json: {
+        lines: [
+          line("Điều 5. Nghỉ phép năm", 690),
+          line("Người lao động đăng ký trước ba ngày.", 655, 460),
+          line("Điều 6. Nghỉ ốm", 490, 300),
+        ],
+      },
+    }),
+  );
+
+  await page.goto("/search");
+  await page.getByRole("textbox", { name: "Search documents" }).fill("nghỉ phép năm");
+  await page.getByRole("main").getByRole("button", { name: "Search", exact: true }).click();
+  await page.getByRole("button", { name: "Quy chế nghỉ phép (bản scan).pdf", exact: true }).click();
+
+  const regions = page.getByRole("dialog").locator('[data-slot="pdf-citation-box"]');
+  await expect(regions).toHaveCount(2);
+  // The page has no text to mark, so the marked line is drawn in the first block and the second block is faint.
+  await expect(regions.nth(0)).toHaveAttribute("data-shape", "lines");
+  await expect(regions.nth(0).locator("polygon[data-band]")).toHaveCount(1);
+  await expect(regions.nth(0).locator("polygon[data-band]")).toHaveAttribute("data-tone", "focus");
+  const [top, bottom] = await regions
+    .nth(0)
+    .locator("polygon[data-band]")
+    .evaluate((band) => {
+      const ys = band
+        .getAttribute("points")!
+        .split(" ")
+        .map((point) => Number(point.split(",")[1]));
+      return [Math.min(...ys), Math.max(...ys)];
+    });
+  // The first line spans 690 to 670 of a block from 700 to 620: its top quarter, give or take the region's room.
+  expect(top).toBeGreaterThan(0);
+  expect(bottom).toBeLessThan(0.4);
+  // "Nghỉ phép năm" ends "Điều 5. Nghỉ phép năm": the question is laid over the line's end, not its start, and
+  // underlined, as no stroke was read in a block without an outline.
+  const extent = (selector: string) =>
+    regions
+      .nth(0)
+      .locator(selector)
+      .evaluate((shape) => {
+        const xs = shape
+          .getAttribute("points")!
+          .split(" ")
+          .map((point) => Number(point.split(",")[0]));
+        return [Math.min(...xs), Math.max(...xs)];
+      });
+  const [lineStart, lineEnd] = await extent("polygon[data-band]");
+  const [markStart, markEnd] = await extent('[data-mark="whole"] polygon');
+  expect(markStart).toBeGreaterThan(lineStart + 0.3 * (lineEnd - lineStart));
+  expect(markEnd).toBeCloseTo(lineEnd, 2);
+  await expect(regions.nth(0).locator('[data-mark="whole"] polyline')).toHaveCount(1);
+  await expect(regions.nth(1)).toHaveAttribute("data-tone", "faint");
+});
+
 /** One result with a match on every tenth passage, best first. */
 function matchedPassages(
   title: string,

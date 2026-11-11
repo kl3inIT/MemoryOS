@@ -4,6 +4,8 @@ import io.memoryos.document.DocumentChunk;
 import io.memoryos.document.DocumentChunkSet;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.DocumentIndexState;
+import io.memoryos.document.ExtractedDocument.BoundingBox;
+import io.memoryos.document.PassageLine;
 import io.memoryos.shared.TenantId;
 import java.sql.Types;
 import java.time.Instant;
@@ -16,10 +18,13 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
+import org.springframework.jdbc.core.SqlParameterValue;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 @Repository
@@ -81,16 +86,17 @@ public class JdbcDocumentChunkRepository {
 
     private void insertChunks(ArtifactReader reader, List<DocumentChunk> chunks) {
         // Only fixed placeholders enter SQL; all document text and metadata are bound parameters.
-        String values = String.join(",", Collections.nCopies(chunks.size(), "(?,?,?,?,?,?,?,?,?,?,?)"));
-        List<Object> parameters = new ArrayList<>(chunks.size() * 11);
+        String values = String.join(",", Collections.nCopies(chunks.size(), "(?,?,?,?,?,?,?,?,?,?,?,?)"));
+        List<Object> parameters = new ArrayList<>(chunks.size() * 12);
         for (DocumentChunk chunk : chunks) {
             Collections.addAll(parameters, reader.tenantId().value(), reader.documentId().value(),
                     reader.generation(), chunk.ordinal(), chunk.content(), mapper.writeValueAsString(chunk.headings()),
                     chunk.blockIndex(), chunk.part(), chunk.provenanceJson(), chunk.contentSha256(), chunk.tokenCount());
+            parameters.add(new SqlParameterValue(Types.VARCHAR, chunk.linesJson()));
         }
         int inserted = jdbc.sql("""
                 INSERT INTO document_chunks(tenant_id,document_id,generation,ordinal,content,headings_json,
-                    block_index,part,provenance_json,content_sha256,token_count) VALUES
+                    block_index,part,provenance_json,content_sha256,token_count,lines_json) VALUES
                 """ + values).params(parameters).update();
         if (inserted != chunks.size()) throw new IllegalStateException("incomplete chunk publication");
     }
@@ -113,7 +119,7 @@ public class JdbcDocumentChunkRepository {
                 .query((rs, _) -> new DocumentChunk(rs.getInt("ordinal"), rs.getString("content"),
                         mapper.readValue(rs.getString("headings_json"), mapper.getTypeFactory().constructCollectionType(List.class, String.class)),
                         rs.getInt("block_index"), rs.getInt("part"), rs.getString("provenance_json"),
-                        rs.getString("content_sha256"), rs.getInt("token_count"))).list();
+                        rs.getString("content_sha256"), rs.getInt("token_count"), rs.getString("lines_json"))).list();
         var h = header.orElseThrow();
         if (h.count() != chunks.size()) throw new IllegalStateException("incomplete current chunks");
         return Optional.of(new DocumentChunkSet(tenant, document, generation, h.title(), h.mediaType(), h.updatedAt(), chunks,
@@ -197,6 +203,38 @@ public class JdbcDocumentChunkRepository {
                     AND d.tenant_id=p.tenant_id AND d.id=p.document_id AND d.content_generation=:generation
                 """).param("tenant", tenant.value()).param("document", document.value()).param("generation", generation)
                 .param("identity", identity).update();
+    }
+
+    /**
+     * The located lines stored with one passage of a generation; empty when the passage has none or is not stored.
+     * A stored entry that does not read as a line is left out. Authority is the caller's.
+     */
+    public List<PassageLine> passageLines(TenantId tenant, DocumentId document, UUID generation, int ordinal) {
+        var json = jdbc.sql("""
+                SELECT lines_json FROM document_chunks
+                WHERE tenant_id=:tenant AND document_id=:document AND generation=:generation AND ordinal=:ordinal
+                    AND lines_json IS NOT NULL
+                """).param("tenant", tenant.value()).param("document", document.value()).param("generation", generation)
+                .param("ordinal", ordinal).query(String.class).optional();
+        if (json.isEmpty()) return List.of();
+        JsonNode stored;
+        try {
+            stored = mapper.readTree(json.orElseThrow());
+        } catch (JacksonException unreadable) {
+            return List.of();
+        }
+        var lines = new ArrayList<PassageLine>();
+        for (JsonNode line : stored) {
+            // Written by the chunker in this shape; an entry that is not one marks nothing.
+            if (!line.path("bbox").isObject() || !line.path("text").isString()) continue;
+            try {
+                lines.add(new PassageLine(line.path("page_no").asInt(0), line.path("text").asString(),
+                        mapper.treeToValue(line.path("bbox"), BoundingBox.class)));
+            } catch (JacksonException | IllegalArgumentException unreadable) {
+                // As above: left out.
+            }
+        }
+        return List.copyOf(lines);
     }
 
     /** Whether the generation is the one currently served under the index identity. */

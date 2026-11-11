@@ -58,9 +58,9 @@ class PaddleOcrVlClientTest {
         Files.write(file, document);
         serve(200, ANSWER);
         try (var client = client(Duration.ofSeconds(10))) {
-            var results = client.parse(PaddleOcrVlClient.Input.of(file), PaddleOcrVlClient.FileType.PDF);
+            var results = client.parse(PaddleOcrVlClient.Input.of(file), PaddleOcrVlClient.FileType.PDF, PaddleOcrVlClient.Task.LAYOUT);
             assertEquals(1, results.size());
-            client.parse(PaddleOcrVlClient.Input.of(new byte[] {1, 2, 3, 4}), PaddleOcrVlClient.FileType.IMAGE);
+            client.parse(PaddleOcrVlClient.Input.of(new byte[] {1, 2, 3, 4}), PaddleOcrVlClient.FileType.IMAGE, PaddleOcrVlClient.Task.LAYOUT);
         }
 
         var pdf = requests.poll(5, TimeUnit.SECONDS);
@@ -85,11 +85,30 @@ class PaddleOcrVlClientTest {
     }
 
     @Test
+    void theLinesOfAPageAreAskedForWithLayoutDetectionOff() throws Exception {
+        serve(200, ANSWER);
+        try (var client = client(Duration.ofSeconds(10))) {
+            client.parse(PaddleOcrVlClient.Input.of(new byte[] {1, 2, 3}), PaddleOcrVlClient.FileType.PDF,
+                    PaddleOcrVlClient.Task.LINES);
+        }
+
+        var body = mapper.readTree(requests.poll(5, TimeUnit.SECONDS).body());
+        assertEquals(0, body.path("fileType").asInt());
+        assertFalse(body.path("useLayoutDetection").asBoolean(true));
+        assertEquals("spotting", body.path("promptLabel").asString());
+        assertFalse(body.path("visualize").asBoolean(true));
+        assertFalse(body.path("useDocOrientationClassify").asBoolean(true));
+        assertFalse(body.path("useDocUnwarping").asBoolean(true));
+        assertEquals(7, body.size(), "no layout option, no key");
+        assertArrayEquals(new byte[] {1, 2, 3}, Base64.getDecoder().decode(body.path("file").asString()));
+    }
+
+    @Test
     void chartRecognitionIsNeverRequested() throws Exception {
         serve(200, ANSWER);
         try (var client = client(Duration.ofSeconds(10))) {
-            client.parse(PaddleOcrVlClient.Input.of(new byte[] {1}), PaddleOcrVlClient.FileType.PDF);
-            client.parse(PaddleOcrVlClient.Input.of(new byte[] {2}), PaddleOcrVlClient.FileType.IMAGE);
+            client.parse(PaddleOcrVlClient.Input.of(new byte[] {1}), PaddleOcrVlClient.FileType.PDF, PaddleOcrVlClient.Task.LAYOUT);
+            client.parse(PaddleOcrVlClient.Input.of(new byte[] {2}), PaddleOcrVlClient.FileType.IMAGE, PaddleOcrVlClient.Task.LAYOUT);
         }
 
         // Explicitly false, so a server configured to recognise charts still does not for MemoryOS.
@@ -143,7 +162,7 @@ class PaddleOcrVlClientTest {
 
         servePadded(PaddleOcrVlClient.MAX_RESPONSE_BYTES);
         try (var exact = client(Duration.ofSeconds(10))) {
-            assertEquals(1, exact.parse(PaddleOcrVlClient.Input.of(new byte[] {1}), PaddleOcrVlClient.FileType.PDF).size());
+            assertEquals(1, exact.parse(PaddleOcrVlClient.Input.of(new byte[] {1}), PaddleOcrVlClient.FileType.PDF, PaddleOcrVlClient.Task.LAYOUT).size());
         }
     }
 
@@ -153,7 +172,7 @@ class PaddleOcrVlClientTest {
         var closed = endpoint();
         server.stop(0);
         server = null;
-        try (var client = new PaddleOcrVlClient(new PaddleOcrVlProperties(Duration.ofSeconds(10), 200, null, null), closed, mapper)) {
+        try (var client = new PaddleOcrVlClient(new PaddleOcrVlProperties(Duration.ofSeconds(10), 200, null, null, null), closed, mapper)) {
             assertFailure(ExtractionFailure.CONNECTION_FAILED, client);
         }
     }
@@ -228,12 +247,12 @@ class PaddleOcrVlClientTest {
         var inFlight = new AtomicInteger();
         var peak = new AtomicInteger();
         serveSlowly(Duration.ofMillis(1_500), inFlight, peak);
-        var properties = new PaddleOcrVlProperties(Duration.ofMillis(2_500), 200, null, 1);
+        var properties = new PaddleOcrVlProperties(Duration.ofMillis(2_500), 200, null, 1, null);
         try (var client = new PaddleOcrVlClient(properties, endpoint(), mapper);
                 var callers = Executors.newVirtualThreadPerTaskExecutor()) {
             long started = System.nanoTime();
-            var first = callers.submit(() -> client.parse(PaddleOcrVlClient.Input.of(new byte[] {1}), PaddleOcrVlClient.FileType.PDF));
-            var second = callers.submit(() -> client.parse(PaddleOcrVlClient.Input.of(new byte[] {2}), PaddleOcrVlClient.FileType.PDF));
+            var first = callers.submit(() -> client.parse(PaddleOcrVlClient.Input.of(new byte[] {1}), PaddleOcrVlClient.FileType.PDF, PaddleOcrVlClient.Task.LAYOUT));
+            var second = callers.submit(() -> client.parse(PaddleOcrVlClient.Input.of(new byte[] {2}), PaddleOcrVlClient.FileType.PDF, PaddleOcrVlClient.Task.LAYOUT));
 
             assertEquals(1, first.get(10, TimeUnit.SECONDS).size());
             assertEquals(1, second.get(10, TimeUnit.SECONDS).size(), "the second waited 1.5 s and still had 2.5 s once sent");
@@ -244,16 +263,39 @@ class PaddleOcrVlClientTest {
     }
 
     @Test
+    void linesWaitingPastTheirOwnTimeoutAreNotSentAndALayoutStillIs() throws Exception {
+        var inFlight = new AtomicInteger();
+        var peak = new AtomicInteger();
+        serveSlowly(Duration.ofMillis(1_500), inFlight, peak);
+        var properties = new PaddleOcrVlProperties(Duration.ofSeconds(10), 200, null, 1, Duration.ofMillis(500));
+        try (var client = new PaddleOcrVlClient(properties, endpoint(), mapper);
+                var callers = Executors.newVirtualThreadPerTaskExecutor()) {
+            var layout = callers.submit(() -> client.parse(PaddleOcrVlClient.Input.of(new byte[] {1}),
+                    PaddleOcrVlClient.FileType.PDF, PaddleOcrVlClient.Task.LAYOUT));
+            while (inFlight.get() == 0) Thread.sleep(10);
+            long asked = System.nanoTime();
+            var error = assertThrows(ExtractionException.class, () -> client.parse(PaddleOcrVlClient.Input.of(new byte[] {2}),
+                    PaddleOcrVlClient.FileType.PDF, PaddleOcrVlClient.Task.LINES));
+
+            assertEquals(ExtractionFailure.TIMEOUT, error.failure());
+            assertTrue(Duration.ofNanos(System.nanoTime() - asked).compareTo(Duration.ofMillis(1_200)) < 0,
+                    "the lines gave up while the layout still held the only permit");
+            assertEquals(1, layout.get(10, TimeUnit.SECONDS).size());
+        }
+        assertEquals(1, peak.get(), "the service never had two requests at once");
+    }
+
+    @Test
     void theServiceNeverHasMoreRequestsThanTheBound() throws Exception {
         var inFlight = new AtomicInteger();
         var peak = new AtomicInteger();
         serveSlowly(Duration.ofMillis(300), inFlight, peak);
-        var properties = new PaddleOcrVlProperties(Duration.ofSeconds(10), 200, null, 2);
+        var properties = new PaddleOcrVlProperties(Duration.ofSeconds(10), 200, null, 2, null);
         try (var client = new PaddleOcrVlClient(properties, endpoint(), mapper);
                 var callers = Executors.newVirtualThreadPerTaskExecutor()) {
             var calls = new ArrayList<Future<?>>();
             for (int call = 0; call < 6; call++) {
-                calls.add(callers.submit(() -> client.parse(PaddleOcrVlClient.Input.of(new byte[] {1}), PaddleOcrVlClient.FileType.PDF)));
+                calls.add(callers.submit(() -> client.parse(PaddleOcrVlClient.Input.of(new byte[] {1}), PaddleOcrVlClient.FileType.PDF, PaddleOcrVlClient.Task.LAYOUT)));
             }
             for (var call : calls) call.get(10, TimeUnit.SECONDS);
         }
@@ -263,9 +305,9 @@ class PaddleOcrVlClientTest {
     @Test
     void anEndpointWithATrailingSlashStillNamesTheOperation() throws Exception {
         serve(200, ANSWER);
-        var properties = new PaddleOcrVlProperties(Duration.ofSeconds(10), 200, null, null);
+        var properties = new PaddleOcrVlProperties(Duration.ofSeconds(10), 200, null, null, null);
         try (var client = new PaddleOcrVlClient(properties, URI.create(endpoint() + "/"), mapper)) {
-            client.parse(PaddleOcrVlClient.Input.of(new byte[] {1}), PaddleOcrVlClient.FileType.PDF);
+            client.parse(PaddleOcrVlClient.Input.of(new byte[] {1}), PaddleOcrVlClient.FileType.PDF, PaddleOcrVlClient.Task.LAYOUT);
         }
         assertEquals("/layout-parsing", requests.poll(5, TimeUnit.SECONDS).path());
     }
@@ -273,14 +315,14 @@ class PaddleOcrVlClientTest {
     private void assertFailure(ExtractionFailure expected, PaddleOcrVlClient client) {
         try (client) {
             var error = assertThrows(ExtractionException.class,
-                    () -> client.parse(PaddleOcrVlClient.Input.of(new byte[] {1, 2, 3}), PaddleOcrVlClient.FileType.PDF));
+                    () -> client.parse(PaddleOcrVlClient.Input.of(new byte[] {1, 2, 3}), PaddleOcrVlClient.FileType.PDF, PaddleOcrVlClient.Task.LAYOUT));
             assertEquals(expected, error.failure());
             assertFalse(error.getMessage().contains("document text"));
         }
     }
 
     private PaddleOcrVlClient client(Duration timeout) {
-        return new PaddleOcrVlClient(new PaddleOcrVlProperties(timeout, 200, null, null), endpoint(), mapper);
+        return new PaddleOcrVlClient(new PaddleOcrVlProperties(timeout, 200, null, null, null), endpoint(), mapper);
     }
 
     private URI endpoint() {

@@ -20,6 +20,22 @@ export type ReplaceSharePointScopeRequest = {
     scope: SharePointScopeRequest;
 };
 
+export type SearchPassageLine = {
+    pageNo: number;
+    text: string;
+    coordOrigin: 'TOPLEFT' | 'BOTTOMLEFT';
+    frameWidth?: number;
+    frameHeight?: number;
+    /**
+     * The line's quadrilateral as [x, y] corners, in the order the OCR answered them
+     */
+    points: Array<Array<number>>;
+};
+
+export type SearchPassageLines = {
+    lines: Array<SearchPassageLine>;
+};
+
 export type SharePointScopeRequest = {
     scopeMode: 'ALL_SITES' | 'SPECIFIC';
     /**
@@ -16137,6 +16153,27 @@ export type ReadSearchDocumentSpreadsheetResponses = {
 };
 
 export type ReadSearchDocumentSpreadsheetResponse = ReadSearchDocumentSpreadsheetResponses[keyof ReadSearchDocumentSpreadsheetResponses];
+
+export type ReadSearchPassageLinesData = {
+    body?: never;
+    path: {
+        documentId: string;
+        ordinal: number;
+    };
+    query: {
+        generation: string;
+    };
+    url: '/api/search/documents/{documentId}/passages/{ordinal}/lines';
+};
+
+export type ReadSearchPassageLinesResponses = {
+    /**
+     * OK
+     */
+    200: SearchPassageLines;
+};
+
+export type ReadSearchPassageLinesResponse = ReadSearchPassageLinesResponses[keyof ReadSearchPassageLinesResponses];
 
 export type ReadSearchDocumentOriginalData = {
     body?: never;

@@ -21,6 +21,6 @@ public class OcrProbeAutoConfiguration {
     @Bean
     OcrProbe ocrProbe(PaddleOcrVlProperties paddle, OcrPageReader pages, OcrServiceUsage usage, ObjectMapper mapper) {
         return new OcrConnectionProbe(OcrAdapterRegistry.installed(new PaddleOcrVlProperties(TEST_TIMEOUT,
-                paddle.maxPages(), paddle.revision(), paddle.maxConcurrentRequests()), pages, usage, mapper));
+                paddle.maxPages(), paddle.revision(), paddle.maxConcurrentRequests(), null), pages, usage, mapper));
     }
 }

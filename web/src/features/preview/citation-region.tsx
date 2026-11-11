@@ -1,6 +1,7 @@
 import { useId, type CSSProperties, type RefObject } from "react";
 import { cn } from "@/lib/utils";
 import type { PlacedOutline } from "./pdf-pages";
+import type { LineTone, QuestionMark } from "./scan-line-marks";
 
 /**
  * One cited region on a page or a picture, inside the viewer's multiplying highlight layer. A region with an
@@ -9,6 +10,9 @@ import type { PlacedOutline } from "./pdf-pages";
  * and the scroll target, so the rail and the tests find the same element either way. Once the viewer has read
  * the ink inside the outline, `lines` replaces it with one highlighter stroke per text line: filled without an
  * edge, so it reads as a marker rather than a traced shape, and cut to the outline, which stays the boundary.
+ * When the question was found in the scan's lines, `tones` draws the stroke of a line holding it lighter (its
+ * focus) and the others faint, `marks` draws the question itself over its line, and `tone` makes a region that
+ * holds none of the question faint.
  */
 export function CitationRegion({
   slot,
@@ -16,6 +20,9 @@ export function CitationRegion({
   style,
   outline,
   lines,
+  tones,
+  marks,
+  tone,
   regionRef,
   variant = "fill",
 }: {
@@ -27,6 +34,12 @@ export function CitationRegion({
   outline?: PlacedOutline;
   /** One band per text line, as fractions of the placed rectangle; drawn instead of the outline. */
   lines?: readonly PlacedOutline[];
+  /** The tone of each of `lines`; without it every line is drawn whole. */
+  tones?: readonly LineTone[];
+  /** The question inside the lines, as fractions of the placed rectangle; drawn over them. */
+  marks?: readonly QuestionMark[];
+  /** The tone of the whole region, when it draws no line. */
+  tone?: LineTone;
   regionRef?: RefObject<Element | null>;
   /**
    * How the region is drawn. `fill` marks the whole region, as recorded. A searched region whose own text holds
@@ -73,7 +86,11 @@ export function CitationRegion({
         role="img"
         aria-label={label}
         data-slot={slot}
-        className="absolute scroll-m-12 rounded-sm bg-pdf-highlight ring-1 ring-pdf-highlight-border/80"
+        data-tone={tone}
+        className={cn(
+          "absolute scroll-m-12 rounded-sm bg-pdf-highlight ring-1 ring-pdf-highlight-border/80",
+          tone === "faint" && "opacity-30",
+        )}
         style={style}
       />
     );
@@ -85,26 +102,39 @@ export function CitationRegion({
       aria-label={label}
       data-slot={slot}
       data-shape={lines?.length ? "lines" : "outline"}
-      className="absolute scroll-m-12 overflow-visible"
+      data-tone={tone}
+      className={cn("absolute scroll-m-12 overflow-visible", tone === "faint" && "opacity-30")}
       style={style}
       viewBox="0 0 1 1"
       preserveAspectRatio="none"
     >
-      {stroked && outline ? (
-        <defs>
+      <defs>
+        {stroked && outline ? (
           <clipPath id={clip}>
             <polygon points={points(outline)} />
           </clipPath>
-        </defs>
-      ) : null}
+        ) : null}
+        {marks?.map((mark, index) =>
+          mark.band ? (
+            <clipPath key={index} id={`${clip}-mark-${index}`}>
+              <polygon points={points(mark.slab)} />
+            </clipPath>
+          ) : null,
+        )}
+      </defs>
       <g clipPath={stroked && outline ? `url(#${clip})` : undefined}>
         {shapes.map((shape, index) =>
           stroked ? (
             <polygon
               key={index}
               data-band=""
+              data-tone={tones?.[index]}
               points={points(shape)}
-              className="fill-pdf-highlight"
+              className={cn(
+                "fill-pdf-highlight",
+                tones?.[index] === "focus" && "opacity-50",
+                tones?.[index] === "faint" && "opacity-30",
+              )}
             />
           ) : (
             <polygon
@@ -117,6 +147,28 @@ export function CitationRegion({
             />
           ),
         )}
+        {marks?.map((mark, index) => (
+          <g key={index} data-mark={mark.whole ? "whole" : "word"}>
+            {/*
+              The whole question takes the highlighter's darker step, as a text original's term does; a lone word
+              the highlighter at full strength, over its lighter line. Along a stroke the mark follows it, which
+              an arched line needs; a quadrilateral drawn without one is underlined, as its own edge is straight.
+            */}
+            <polygon
+              points={points(mark.band ?? mark.slab)}
+              clipPath={mark.band ? `url(#${clip}-mark-${index})` : undefined}
+              className={mark.whole ? "fill-pdf-highlight-border" : "fill-pdf-highlight"}
+            />
+            {mark.band ? null : (
+              <polyline
+                points={points([mark.slab[3] ?? mark.slab[0]!, mark.slab[2] ?? mark.slab[1]!])}
+                className="fill-none stroke-pdf-highlight-border"
+                strokeWidth={2}
+                vectorEffect="non-scaling-stroke"
+              />
+            )}
+          </g>
+        ))}
       </g>
     </svg>
   );

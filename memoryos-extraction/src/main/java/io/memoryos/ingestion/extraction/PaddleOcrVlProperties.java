@@ -12,10 +12,12 @@ import org.springframework.boot.context.properties.bind.ConstructorBinding;
  *
  * @param maxConcurrentRequests requests one process has at one connection's service at once; the others wait in line,
  *        and their timeout starts only when they are sent
+ * @param linesTimeout how long a Source scan's text lines may take, counted from when they are asked for, the wait
+ *        for a permit included; past it the document is kept without them
  */
 @ConfigurationProperties("memoryos.extraction.paddleocr-vl")
 public record PaddleOcrVlProperties(Duration timeout, int maxPages, String revision,
-        @Nullable Integer maxConcurrentRequests) {
+        @Nullable Integer maxConcurrentRequests, @Nullable Duration linesTimeout) {
     /** PaddleOCR-VL-1.6 at its model revision, served by PaddleX 3.6.1 with the PP-DocLayoutV3 layout model. */
     static final String DEFAULT_REVISION =
             "PaddleOCR-VL-1.6@c5630abae1d940eafe0697512a0325494b02ab42,PaddleX-3.6.1,PP-DocLayoutV3";
@@ -28,19 +30,25 @@ public record PaddleOcrVlProperties(Duration timeout, int maxPages, String revis
         timeout = timeout == null ? Duration.ofMinutes(30) : timeout;
         maxPages = maxPages == 0 ? 200 : maxPages;
         maxConcurrentRequests = maxConcurrentRequests == null ? 2 : maxConcurrentRequests;
+        // Not measured on the serving node yet: a quarter of the layout's default, which staging's
+        // paddleocr_vl.lines.completed then confirms or moves.
+        linesTimeout = linesTimeout == null ? Duration.ofMinutes(10) : linesTimeout;
         revision = revision == null || revision.isBlank() ? DEFAULT_REVISION : revision.strip();
         if (timeout.isNegative() || timeout.isZero() || timeout.compareTo(Duration.ofHours(1)) > 0
                 || maxPages < 1 || maxPages > 200 || revision.length() > 200 || revision.contains(";")
-                || maxConcurrentRequests < 1 || maxConcurrentRequests > 16) {
+                || maxConcurrentRequests < 1 || maxConcurrentRequests > 16
+                || linesTimeout.isNegative() || linesTimeout.isZero() || linesTimeout.compareTo(Duration.ofHours(1)) > 0) {
             throw new IllegalArgumentException("invalid PaddleOCR-VL extraction configuration");
         }
     }
 
-    String parserConfiguration(long maxInput) {
+    /** @param lines whether the document's text lines were asked for (a Source document) */
+    String parserConfiguration(long maxInput, boolean lines) {
         return "memoryos-extraction-v2;paddleocr-vl=" + revision
                 + ";visualize=false;mergeTables=false;docOrientation=false;docUnwarping=false"
                 + ";maxPages=" + maxPages + ";timeoutSeconds=" + timeout.toSeconds() + ";maxInput=" + maxInput
                 + ";maxOutput=33554432;tableHeaders=none"
-                + ";tableText=sparse-offsets-v1;financialChecks=cash-flow-income-v2;boxes=displayed-frame-v1;outlines=block-polygon-v1";
+                + ";tableText=sparse-offsets-v1;financialChecks=cash-flow-income-v2;boxes=displayed-frame-v1;outlines=block-polygon-v1"
+                + (lines ? ";lines=spotting-v1;linesTimeoutSeconds=" + linesTimeout.toSeconds() : "");
     }
 }

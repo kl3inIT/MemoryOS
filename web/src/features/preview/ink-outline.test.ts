@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { inkLines, type InkImage, type Point } from "./ink-outline";
+import { inkLines, wordSpans, type InkImage, type Point } from "./ink-outline";
 
 /** A white RGBA image with `ink(x, y)` pixels painted in `shade`. */
 function image(
@@ -246,5 +246,70 @@ describe("inkLines", () => {
         ],
       ),
     ).toBeUndefined();
+  });
+});
+
+describe("wordSpans", () => {
+  // Four words of letters 10 px wide with 2 px between letters; the words start and end at these offsets along
+  // the line, which runs from 0 to 420.
+  const words: [number, number][] = [
+    [0, 94],
+    [118, 202],
+    [226, 298],
+    [322, 418],
+  ];
+  const lettered = (s: number) =>
+    words.some(([start, end]) => s >= start && s < end && (s - start) % 12 < 10);
+  /** Where a word's last letter ends. */
+  const inkEnd = ([start, end]: [number, number]) =>
+    start + Math.floor((end - start - 1) / 12) * 12 + 10;
+
+  it("finds each word of a straight line between the widest spaces of its ink", () => {
+    const picture = image(460, 80, (x, y) => y >= 30 && y <= 50 && lettered(x - 20));
+    const quad: Point[] = [
+      [15, 22],
+      [445, 22],
+      [445, 58],
+      [15, 58],
+    ];
+
+    const spans = wordSpans(picture, quad, 4);
+
+    expect(spans).toHaveLength(4);
+    spans!.forEach(([from, to], index) => {
+      expect(from * 430 - 5).toBeCloseTo(words[index]![0], -0.5);
+      expect(to * 430 - 5).toBeCloseTo(inkEnd(words[index]!), -0.5);
+    });
+    // Six words need five spaces, and the gaps between letters are too narrow to be any.
+    expect(wordSpans(picture, quad, 6)).toBeUndefined();
+    // A blank line has no ink to read.
+    expect(
+      wordSpans(
+        image(460, 80, () => false),
+        quad,
+        4,
+      ),
+    ).toBeUndefined();
+  });
+
+  it("walks a tilted line along its own quadrilateral", () => {
+    const angle = (-20 * Math.PI) / 180;
+    const [cos, sin] = [Math.cos(angle), Math.sin(angle)];
+    const along = (x: number, y: number) => (x - 20) * cos + (y - 200) * sin;
+    const across = (x: number, y: number) => -(x - 20) * sin + (y - 200) * cos;
+    const picture = image(440, 260, (x, y) => Math.abs(across(x, y)) <= 8 && lettered(along(x, y)));
+    const corner = (s: number, a: number): Point => [
+      20 + s * cos - a * sin,
+      200 + s * sin + a * cos,
+    ];
+    const quad = [corner(-5, -12), corner(425, -12), corner(425, 12), corner(-5, 12)];
+
+    const spans = wordSpans(picture, quad, 4);
+
+    expect(spans).toHaveLength(4);
+    spans!.forEach(([from, to], index) => {
+      expect(from * 430 - 5).toBeCloseTo(words[index]![0], -0.5);
+      expect(to * 430 - 5).toBeCloseTo(inkEnd(words[index]!), -0.5);
+    });
   });
 });

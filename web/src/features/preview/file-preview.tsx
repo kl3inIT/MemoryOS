@@ -25,6 +25,7 @@ import { MarkdownView } from "./markdown-view";
 import type { PdfHighlight } from "./pdf-pages";
 import type { PreviewContent } from "./preview-content";
 import type { QueryTerms } from "./preview-highlight";
+import type { ScanLine } from "./scan-line-marks";
 import type { Sheets } from "./preview-kind";
 import { PreviewCanvas } from "./preview-surface";
 import { PreviewToolbar, ToolbarGroup } from "./preview-toolbar";
@@ -44,6 +45,11 @@ export type PreviewCitations = {
   /** Pages and regions the extraction recorded; a PDF or a picture, empty when none were recorded. */
   pages?: readonly number[];
   boxes?: readonly PdfHighlight[];
+  /**
+   * The text lines the OCR located in the active citation's blocks of a scan or a picture; with `terms`, its
+   * regions are narrowed to the lines that hold the question.
+   */
+  lines?: readonly ScanLine[];
   /** The sheet and row recorded for each citation; workbooks only. */
   rows?: readonly (SheetCitation | undefined)[];
   active?: number;
@@ -105,6 +111,7 @@ export function FilePreview({
     terms,
     pages = NONE,
     boxes = NONE,
+    lines = NONE,
     rows = NONE,
     active = 0,
   } = citations;
@@ -136,6 +143,7 @@ export function FilePreview({
           pages={pages}
           boxes={boxes}
           terms={terms}
+          lines={lines}
           thumbnails={thumbnails}
           steps={
             <CitationStepControls
@@ -159,10 +167,19 @@ export function FilePreview({
           rotation={image.rotation}
           onZoom={image.onZoom}
           boxes={boxes}
+          lines={lines}
+          terms={terms}
           onMarked={onMarked}
         />
       ) : (
-        <ControlledImage blob={content.blob} alt={filename} boxes={boxes} onMarked={onMarked} />
+        <ControlledImage
+          blob={content.blob}
+          alt={filename}
+          boxes={boxes}
+          lines={lines}
+          terms={terms}
+          onMarked={onMarked}
+        />
       );
     }
     case "docx":
@@ -251,11 +268,15 @@ function ControlledImage({
   blob,
   alt,
   boxes,
+  lines,
+  terms,
   onMarked,
 }: {
   blob: Blob;
   alt: string;
   boxes: readonly PdfHighlight[];
+  lines: readonly ScanLine[];
+  terms?: QueryTerms;
   onMarked: (marked: boolean) => void;
 }) {
   const [zoom, setZoom] = useState(100);
@@ -268,6 +289,8 @@ function ControlledImage({
         zoom={zoom}
         rotation={rotation}
         boxes={boxes}
+        lines={lines}
+        terms={terms}
         onMarked={onMarked}
       />
       <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center">
