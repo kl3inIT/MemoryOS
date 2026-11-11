@@ -236,7 +236,8 @@ class SearchIndexWorkIntegrationTest {
         var chunks = List.of(
                 new DocumentChunk(0, "Nghỉ phép năm", List.of(), 0, 0, "{\"page_no\":2}", Sha256.hex("Nghỉ phép năm"), 5,
                         lines),
-                new DocumentChunk(1, "Phụ lục", List.of(), 1, 0, "{\"page_no\":3}", Sha256.hex("Phụ lục"), 3));
+                new DocumentChunk(1, "Phụ lục", List.of(), 1, 0, "{\"page_no\":3}", Sha256.hex("Phụ lục"), 3),
+                new DocumentChunk(2, "Hỏng", List.of(), 2, 0, "{\"page_no\":4}", Sha256.hex("Hỏng"), 2, "[{\"text\":"));
         try {
             assertEquals(Boolean.TRUE, tx.execute(_ -> chunkRepository.publish(reader, chunks)));
             assertEquals(chunks, chunkRepository.load(tenant, document, generation).orElseThrow().chunks());
@@ -248,7 +249,8 @@ class SearchIndexWorkIntegrationTest {
             assertEquals(4, Objects.requireNonNull(read.getFirst().bbox().polygon()).size());
             assertEquals(400.0, read.getFirst().bbox().frameWidth());
             assertEquals(List.of(), chunkRepository.passageLines(tenant, document, generation, 1));
-            assertEquals(List.of(), chunkRepository.passageLines(tenant, document, generation, 2));
+            assertEquals(List.of(), chunkRepository.passageLines(tenant, document, generation, 2), "unreadable lines mark nothing");
+            assertEquals(List.of(), chunkRepository.passageLines(tenant, document, generation, 3));
             assertEquals(List.of(), chunkRepository.passageLines(tenant, document, UUID.randomUUID(), 0));
         } finally {
             chunkRepository.closeReader(reader.readerId());

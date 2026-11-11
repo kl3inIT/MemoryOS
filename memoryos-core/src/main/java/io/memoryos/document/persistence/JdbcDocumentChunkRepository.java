@@ -210,15 +210,21 @@ public class JdbcDocumentChunkRepository {
      * A stored entry that does not read as a line is left out. Authority is the caller's.
      */
     public List<PassageLine> passageLines(TenantId tenant, DocumentId document, UUID generation, int ordinal) {
-        var stored = jdbc.sql("""
+        var json = jdbc.sql("""
                 SELECT lines_json FROM document_chunks
                 WHERE tenant_id=:tenant AND document_id=:document AND generation=:generation AND ordinal=:ordinal
                     AND lines_json IS NOT NULL
                 """).param("tenant", tenant.value()).param("document", document.value()).param("generation", generation)
                 .param("ordinal", ordinal).query(String.class).optional();
-        if (stored.isEmpty()) return List.of();
+        if (json.isEmpty()) return List.of();
+        JsonNode stored;
+        try {
+            stored = mapper.readTree(json.orElseThrow());
+        } catch (JacksonException unreadable) {
+            return List.of();
+        }
         var lines = new ArrayList<PassageLine>();
-        for (JsonNode line : mapper.readTree(stored.orElseThrow())) {
+        for (JsonNode line : stored) {
             // Written by the chunker in this shape; an entry that is not one marks nothing.
             if (!line.path("bbox").isObject() || !line.path("text").isString()) continue;
             try {
