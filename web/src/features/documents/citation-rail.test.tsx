@@ -110,6 +110,16 @@ describe("CitationRail table rows", () => {
     expect(table).not.toHaveTextContent("11.045.201.439");
     expect(prose).toHaveTextContent("Lợi nhuận sau thuế đạt 87 tỷ đồng.");
   });
+
+  it("keeps the text of a table row that could not be marked in the original", async () => {
+    await i18n.changeLanguage("vi");
+    const row = JSON.stringify({ source: { page_no: 22 }, tableRow: 3 });
+    rail(["none"], true, "search", [
+      { text: "Column 1: Tiền mặt", provenance: [row] } as (typeof entries)[number],
+    ]);
+
+    expect(screen.getByRole("button")).toHaveTextContent("Column 1: Tiền mặt");
+  });
 });
 
 describe("CitationRail table rows in Chat", () => {

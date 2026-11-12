@@ -114,11 +114,16 @@ export function sectionPlace(section: Section): SectionPlace {
   const location = readSourceLocation(matchingChunkProvenance(section));
   const trail = matchingChunkContent(section);
   const heading = (trail && passageSection(trail))?.split(" > ").at(-1)?.trim();
+  // Only the matching chunk's own provenance says it is a table row: the fallback to the whole section's places
+  // a prose passage, never hides it.
+  const own = section.provenance.filter((chunk) => chunk.ordinal === section.matchingOrdinal);
+  const table =
+    own.length > 0 && readSourceLocation(own.map((chunk) => chunk.provenanceJson)).table;
   return {
     page: location.pages[0],
     sheet: location.sheet,
     heading: heading && heading !== location.sheet ? heading : undefined,
-    ...(location.table ? { table: true } : {}),
+    ...(table ? { table: true } : {}),
   };
 }
 
