@@ -98,7 +98,13 @@ export function sectionMatchKind(content: string, title: string, query: string):
 }
 
 /** Where a section's matching chunk sits in its document, as far as the extraction recorded it. */
-export type SectionPlace = { page?: number; sheet?: string; heading?: string };
+export type SectionPlace = {
+  page?: number;
+  sheet?: string;
+  heading?: string;
+  /** The matching chunk is a row of a table on a page, whose labelled cells read worse than the page itself. */
+  table?: boolean;
+};
 
 /**
  * The page or sheet of the section's matching chunk, and the last heading of the trail the chunker recorded
@@ -112,6 +118,7 @@ export function sectionPlace(section: Section): SectionPlace {
     page: location.pages[0],
     sheet: location.sheet,
     heading: heading && heading !== location.sheet ? heading : undefined,
+    ...(location.table ? { table: true } : {}),
   };
 }
 

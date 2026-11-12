@@ -115,9 +115,12 @@ export function CitationRail({
                     {entry.section}
                   </p>
                 ) : null}
-                <p className="mt-1.5 line-clamp-4 font-main-ui-body leading-6 break-words whitespace-pre-wrap text-content-primary">
-                  {entry.text || "…"}
-                </p>
+                {/* In Search a table row reads as labelled cells; its page and heading above say where it is. */}
+                {place.table && variant === "search" ? null : (
+                  <p className="mt-1.5 line-clamp-4 font-main-ui-body leading-6 break-words whitespace-pre-wrap text-content-primary">
+                    {entry.text || "…"}
+                  </p>
+                )}
                 <Placement found={confidence[index]} located={located} />
               </button>
             </li>

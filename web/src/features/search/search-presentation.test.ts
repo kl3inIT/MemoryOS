@@ -146,6 +146,17 @@ describe("sectionPlace", () => {
     expect(place.page).toBe(4);
   });
 
+  it("tells a table row on a page, which the card shows by its page and heading alone", () => {
+    const row = JSON.stringify({ source: { page_no: 22 }, tableRow: 3 });
+    const place = sectionPlace(
+      section(
+        [{ ordinal: 2, provenanceJson: row }],
+        "Title: a.pdf\nSection: PHẦN II > Tiền và các khoản tương đương tiền\nColumn 1: Tiền mặt",
+      ),
+    );
+    expect(place).toEqual({ page: 22, sheet: undefined, heading: undefined, table: true });
+  });
+
   it("reads a sheet and leaves out a heading that only repeats it", () => {
     const place = sectionPlace(
       section(
