@@ -142,12 +142,15 @@ export function SearchResultCard({ item, query, onOpen }: SearchResultCardProps)
               <MatchKindBadge kind={sectionMatchKind(best.content, title, query)} />
               <PlaceLabel place={sectionPlace(best)} />
             </span>
-            <Snippet
-              content={best.content}
-              title={title}
-              query={query}
-              className="mt-1.5 line-clamp-3 font-main-ui-body text-content-secondary"
-            />
+            {/* A table row reads as "Column 1: … / Số cuối năm: …"; its page and heading say where it is. */}
+            {sectionPlace(best).table ? null : (
+              <Snippet
+                content={best.content}
+                title={title}
+                query={query}
+                className="mt-1.5 line-clamp-3 font-main-ui-body text-content-secondary"
+              />
+            )}
           </button>
         ) : null}
         {related.length ? (
@@ -164,13 +167,19 @@ export function SearchResultCard({ item, query, onOpen }: SearchResultCardProps)
                 >
                   <MatchKindIcon kind={sectionMatchKind(section.content, title, query)} />
                   <PlaceLabel place={sectionPlace(section)} compact />
-                  <Snippet
-                    content={section.content}
-                    title={title}
-                    query={query}
-                    length={160}
-                    className="line-clamp-1 font-secondary-body text-content-muted"
-                  />
+                  {sectionPlace(section).table ? (
+                    <span className="line-clamp-1 min-w-0 font-secondary-body text-content-muted">
+                      {sectionPlace(section).heading}
+                    </span>
+                  ) : (
+                    <Snippet
+                      content={section.content}
+                      title={title}
+                      query={query}
+                      length={160}
+                      className="line-clamp-1 font-secondary-body text-content-muted"
+                    />
+                  )}
                 </button>
               </li>
             ))}

@@ -98,7 +98,13 @@ export function sectionMatchKind(content: string, title: string, query: string):
 }
 
 /** Where a section's matching chunk sits in its document, as far as the extraction recorded it. */
-export type SectionPlace = { page?: number; sheet?: string; heading?: string };
+export type SectionPlace = {
+  page?: number;
+  sheet?: string;
+  heading?: string;
+  /** The matching chunk is a row of a table on a page, whose labelled cells read worse than the page itself. */
+  table?: boolean;
+};
 
 /**
  * The page or sheet of the section's matching chunk, and the last heading of the trail the chunker recorded
@@ -108,10 +114,16 @@ export function sectionPlace(section: Section): SectionPlace {
   const location = readSourceLocation(matchingChunkProvenance(section));
   const trail = matchingChunkContent(section);
   const heading = (trail && passageSection(trail))?.split(" > ").at(-1)?.trim();
+  // Only the matching chunk's own provenance says it is a table row: the fallback to the whole section's places
+  // a prose passage, never hides it.
+  const own = section.provenance.filter((chunk) => chunk.ordinal === section.matchingOrdinal);
+  const table =
+    own.length > 0 && readSourceLocation(own.map((chunk) => chunk.provenanceJson)).table;
   return {
     page: location.pages[0],
     sheet: location.sheet,
     heading: heading && heading !== location.sheet ? heading : undefined,
+    ...(table ? { table: true } : {}),
   };
 }
 

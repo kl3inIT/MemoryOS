@@ -115,9 +115,18 @@ export function CitationRail({
                     {entry.section}
                   </p>
                 ) : null}
-                <p className="mt-1.5 line-clamp-4 font-main-ui-body leading-6 break-words whitespace-pre-wrap text-content-primary">
-                  {entry.text || "…"}
-                </p>
+                {/*
+                  In Search a table row reads as labelled cells; once it is marked in the original, its page and
+                  heading above say where it is. A row that could not be marked keeps its text, the only way to
+                  tell it from the page's other rows.
+                */}
+                {place.table &&
+                variant === "search" &&
+                (confidence[index] === "exact" || confidence[index] === "approximate") ? null : (
+                  <p className="mt-1.5 line-clamp-4 font-main-ui-body leading-6 break-words whitespace-pre-wrap text-content-primary">
+                    {entry.text || "…"}
+                  </p>
+                )}
                 <Placement found={confidence[index]} located={located} />
               </button>
             </li>
