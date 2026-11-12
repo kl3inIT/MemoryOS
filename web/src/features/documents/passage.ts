@@ -22,6 +22,16 @@ export function passageBody(content: string): string {
 }
 
 /**
+ * A passage as a person reads it: a table row's cells without the `Column N` label the chunker gives a
+ * column that has no header cell. The label is not in the original, and the cell value alone reads as the
+ * row's name. Labels taken from real header cells are kept. Only for display: the stored passage, and the
+ * text a citation is located by, keep the label.
+ */
+export function withoutColumnLabels(text: string): string {
+  return text.replace(/^Column \d+: /gm, "");
+}
+
+/**
  * The heading trail the chunker recorded for this passage, which is the context a search result is read in.
  * The original document does not contain the line, so it is shown beside a citation rather than searched for.
  */

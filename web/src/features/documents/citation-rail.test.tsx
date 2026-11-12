@@ -111,14 +111,20 @@ describe("CitationRail table rows", () => {
     expect(prose).toHaveTextContent("Lợi nhuận sau thuế đạt 87 tỷ đồng.");
   });
 
-  it("keeps the text of a table row that could not be marked in the original", async () => {
+  it("keeps the text of a table row that could not be marked, without the chunker's column label", async () => {
     await i18n.changeLanguage("vi");
     const row = JSON.stringify({ source: { page_no: 22 }, tableRow: 3 });
     rail(["none"], true, "search", [
-      { text: "Column 1: Tiền mặt", provenance: [row] } as (typeof entries)[number],
+      {
+        text: "Column 1: Tiền mặt\nSố cuối năm: 1.418.536.380",
+        provenance: [row],
+      } as (typeof entries)[number],
     ]);
 
-    expect(screen.getByRole("button")).toHaveTextContent("Column 1: Tiền mặt");
+    const button = screen.getByRole("button");
+    expect(button).toHaveTextContent("Tiền mặt");
+    expect(button).toHaveTextContent("Số cuối năm: 1.418.536.380");
+    expect(button).not.toHaveTextContent("Column 1");
   });
 });
 
@@ -130,6 +136,8 @@ describe("CitationRail table rows in Chat", () => {
       { text: "Column 1: Tiền mặt", provenance: [row] } as (typeof entries)[number],
     ]);
 
-    expect(screen.getByRole("button")).toHaveTextContent("Column 1: Tiền mặt");
+    const button = screen.getByRole("button");
+    expect(button).toHaveTextContent("Tiền mặt");
+    expect(button).not.toHaveTextContent("Column 1");
   });
 });

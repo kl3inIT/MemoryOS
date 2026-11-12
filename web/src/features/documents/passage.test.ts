@@ -1,7 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { passageBody, passageSection, stripGeneratedTitlePrefix } from "./passage";
+import {
+  passageBody,
+  passageSection,
+  stripGeneratedTitlePrefix,
+  withoutColumnLabels,
+} from "./passage";
 
 describe("passage", () => {
+  it("drops only the label the chunker gives a column without a header", () => {
+    expect(
+      withoutColumnLabels(
+        "Column 1: Tiền gửi ngân hàng\nSố cuối năm: 11.063.864.240\nColumn 12: (1)",
+      ),
+    ).toBe("Tiền gửi ngân hàng\nSố cuối năm: 11.063.864.240\n(1)");
+    // A real header named like a column, or the word inside a value, is the document's own text.
+    expect(withoutColumnLabels("Column A: 5\nGhi chú: xem Column 1: dưới")).toBe(
+      "Column A: 5\nGhi chú: xem Column 1: dưới",
+    );
+  });
   it("removes only the exact generated title prefix", () => {
     expect(stripGeneratedTitlePrefix("Title: policy.md\nSection: Leave\nBody", "policy.md")).toBe(
       "Section: Leave\nBody",

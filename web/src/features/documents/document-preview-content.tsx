@@ -3,7 +3,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import type { DocumentReading } from "./document-reading";
-import { passageBody } from "./passage";
+import { passageBody, withoutColumnLabels } from "./passage";
 import type { DocumentSelection } from "./document-preview-dialog";
 
 export function DocumentPreviewContent({
@@ -90,7 +90,7 @@ export function DocumentPreviewContent({
                       variant === "chat" ? "text-sm leading-7" : "font-main-content-body",
                     )}
                   >
-                    {passageBody(passage.content).trim()}
+                    {withoutColumnLabels(passageBody(passage.content)).trim()}
                   </p>
                 </article>
               );

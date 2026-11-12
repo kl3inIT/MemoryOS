@@ -48,6 +48,15 @@ describe("search presentation", () => {
     );
     expect(snippet.text).toBe("Được nghỉ phép năm.\nGửi đơn trước.");
   });
+  it("shows a table row's cells without the label the chunker gives a column without a header", () => {
+    const snippet = createSearchSnippet(
+      "Title: a.pdf\nSection: Tiền và các khoản tương đương tiền\nColumn 1: Tiền gửi ngân hàng\nSố cuối năm: 11.063.864.240",
+      "a.pdf",
+      "tiền gửi ngân hàng",
+    );
+    expect(snippet.text).toBe("Tiền gửi ngân hàng\nSố cuối năm: 11.063.864.240");
+    expect(marks(snippet)).toEqual(["phrase:Tiền gửi ngân hàng"]);
+  });
   it("handles identifiers, regex characters and Unicode without constructing HTML", () => {
     const snippet = createSearchSnippet(
       "Mã SP-ORION-042 có biểu thức (A+B)* và dữ liệu 😀 an toàn. <script>alert(1)</script>",
