@@ -5,6 +5,7 @@ import type { MatchKind } from "@/features/preview/preview-highlight";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
 import { MatchKindBadge } from "./match-kind-badge";
+import { withoutColumnLabels } from "./passage";
 import { readSourceLocation } from "./source-provenance";
 
 export type CitationEntry = {
@@ -124,7 +125,7 @@ export function CitationRail({
                 variant === "search" &&
                 (confidence[index] === "exact" || confidence[index] === "approximate") ? null : (
                   <p className="mt-1.5 line-clamp-4 font-main-ui-body leading-6 break-words whitespace-pre-wrap text-content-primary">
-                    {entry.text || "…"}
+                    {withoutColumnLabels(entry.text) || "…"}
                   </p>
                 )}
                 <Placement found={confidence[index]} located={located} />

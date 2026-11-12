@@ -1,4 +1,4 @@
-import { passageSection } from "@/features/documents/passage";
+import { passageSection, withoutColumnLabels } from "@/features/documents/passage";
 import { readSourceLocation } from "@/features/documents/source-provenance";
 import {
   markQuery,
@@ -55,7 +55,7 @@ function passageText(content: string, title: string): string {
     }
     if (lines[index + 1]?.startsWith("Section: ")) index += 1;
   }
-  return kept.join("\n").trim();
+  return withoutColumnLabels(kept.join("\n")).trim();
 }
 
 export function createSearchSnippet(
