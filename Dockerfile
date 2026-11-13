@@ -58,7 +58,7 @@ RUN ./gradlew --no-daemon --stacktrace :memoryos-api:bootJar :memoryos-worker:bo
     && java -Djarmode=tools -jar /workspace/worker.jar extract --layers --destination /workspace/worker-extracted \
     && java -Djarmode=tools -jar /workspace/channels.jar extract --layers --destination /workspace/channels-extracted
 
-FROM bellsoft/liberica-runtime-container:jre-25-glibc@sha256:294d5b4f2836c8ebf75978467305fdecf1a08daa6b706ad72eecc7da7dad3648 AS runtime
+FROM bellsoft/liberica-runtime-container:jre-25-glibc@sha256:f62154c76d3ed54d8c5c406c5410480f1e9f218ff4a85a9cec50634e1ae79b0a AS runtime
 
 RUN addgroup -S -g 1654 memoryos \
     && adduser -S -D -H -u 1654 -G memoryos memoryos
