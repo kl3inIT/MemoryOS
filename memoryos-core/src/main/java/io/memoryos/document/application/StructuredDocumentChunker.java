@@ -6,13 +6,17 @@ import io.memoryos.document.ExtractedDocument;
 import io.memoryos.document.ExtractedDocument.Block;
 import io.memoryos.document.ExtractedDocument.Cell;
 import io.memoryos.document.ExtractedDocument.Kind;
+import io.memoryos.document.ExtractedDocument.Line;
 import io.memoryos.document.ExtractedDocument.Table;
 import io.memoryos.shared.Sha256;
 import io.memoryos.shared.Tokenizers;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
+import org.jspecify.annotations.Nullable;
 import org.springframework.ai.tokenizer.TokenCountEstimator;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
@@ -40,6 +44,10 @@ public final class StructuredDocumentChunker {
         // buffer so a merged chunk never crosses a section boundary.
         var pending = new StringBuilder();
         var pendingProvenance = mapper.createArrayNode();
+        // The blocks whose location the pending passage cites, and so whose located lines it carries.
+        var pendingBlocks = new ArrayList<Integer>();
+        Map<Integer, List<Line>> lines = document.lines().stream()
+                .collect(Collectors.groupingBy(Line::block, TreeMap::new, Collectors.toList()));
         // Chat citations cap provenance at 8192 chars; keep the leading locations and drop the tail.
         int pendingProvenanceChars = 0;
         int pendingIndex = -1;
@@ -49,9 +57,10 @@ public final class StructuredDocumentChunker {
             String text = block.text().strip();
             if ((kind == Kind.HEADING || kind == Kind.TABLE) && !pending.isEmpty()) {
                 append(result, pending.toString(), prefix(title, headings), headings, pendingIndex,
-                        mergedProvenance(pendingProvenance), 0);
+                        mergedProvenance(pendingProvenance), linesJson(pendingBlocks, lines), 0);
                 pending.setLength(0);
                 pendingProvenance.removeAll();
+                pendingBlocks.clear();
                 pendingProvenanceChars = 0;
             }
             if (kind == Kind.HEADING) {
@@ -69,15 +78,19 @@ public final class StructuredDocumentChunker {
                         ? prefix : prefix(title, List.of(sheet));
                 appendTable(result, block.table(), tablePrefix, headings, blockIndex, provenance, 0);
             } else if (kind == Kind.HEADING) {
-                if (!text.isEmpty()) append(result, text, prefix, headings, blockIndex, provenance, 0);
+                if (!text.isEmpty()) {
+                    append(result, text, prefix, headings, blockIndex, provenance,
+                            linesJson(List.of(blockIndex), lines), 0);
+                }
             } else if (kind != Kind.IMAGE && !text.isEmpty()) {
                 if (pending.isEmpty()) {
                     pendingIndex = blockIndex;
                 } else if (tokens.estimate(prefix + pending + "\n\n" + text) > MAX_TOKENS) {
                     append(result, pending.toString(), prefix, headings, pendingIndex,
-                            mergedProvenance(pendingProvenance), 0);
+                            mergedProvenance(pendingProvenance), linesJson(pendingBlocks, lines), 0);
                     pending.setLength(0);
                     pendingProvenance.removeAll();
+                    pendingBlocks.clear();
                     pendingProvenanceChars = 0;
                     pendingIndex = blockIndex;
                 }
@@ -85,13 +98,14 @@ public final class StructuredDocumentChunker {
                 pending.append(text);
                 if (pendingProvenanceChars < 6000) {
                     pendingProvenance.add(location);
+                    pendingBlocks.add(blockIndex);
                     pendingProvenanceChars += provenance.length() + 1;
                 }
             }
         }
         if (!pending.isEmpty()) {
             append(result, pending.toString(), prefix(title, headings), headings, pendingIndex,
-                    mergedProvenance(pendingProvenance), 0);
+                    mergedProvenance(pendingProvenance), linesJson(pendingBlocks, lines), 0);
         }
         if (result.isEmpty()) throw new DocumentContentException("SEARCH_INDEX_NO_TEXT", "artifact has no searchable text");
         return List.copyOf(result);
@@ -103,6 +117,28 @@ public final class StructuredDocumentChunker {
         if (locations.isEmpty()) return mapper.nullNode();
         if (locations.size() == 1) return mapper.valueToTree(locations.getFirst());
         return mapper.valueToTree(locations);
+    }
+
+    /**
+     * The located lines of the cited blocks, in block order, as {@code {page_no, text, bbox}}; null when they have
+     * none. Lines past {@link DocumentChunk#MAX_LINES_JSON} are left out, the leading ones kept, as provenance does.
+     */
+    private @Nullable String linesJson(List<Integer> blocks, Map<Integer, List<Line>> lines) {
+        var array = mapper.createArrayNode();
+        int characters = 2;
+        for (int block : blocks) {
+            for (Line line : lines.getOrDefault(block, List.of())) {
+                var node = mapper.createObjectNode();
+                node.put("page_no", line.pageNo());
+                node.put("text", line.text());
+                node.set("bbox", mapper.valueToTree(line.bbox()));
+                int size = mapper.writeValueAsString(node).length() + 1;
+                if (characters + size > DocumentChunk.MAX_LINES_JSON) return array.isEmpty() ? null : mapper.writeValueAsString(array);
+                array.add(node);
+                characters += size;
+            }
+        }
+        return array.isEmpty() ? null : mapper.writeValueAsString(array);
     }
 
     /** One block keeps its original provenance shape; merged blocks report every source location. */
@@ -244,6 +280,12 @@ public final class StructuredDocumentChunker {
 
     private int append(List<DocumentChunk> result, String text, String prefix, List<String> headings,
             int blockIndex, String provenance, int part) {
+        return append(result, text, prefix, headings, blockIndex, provenance, null, part);
+    }
+
+    /** @param lines the cited blocks' located lines; every part of a split block carries all of them */
+    private int append(List<DocumentChunk> result, String text, String prefix, List<String> headings,
+            int blockIndex, String provenance, @Nullable String lines, int part) {
         int offset = 0;
         // Very large row headers must obey the same bound as section context.
         if (tokens.estimate(prefix) > 256) prefix = prefix("", List.of(prefix));
@@ -260,7 +302,7 @@ public final class StructuredDocumentChunker {
             String passage = prefix + window.substring(0, end).strip();
             if (result.size() >= MAX_CHUNKS) throw new DocumentContentException("SEARCH_INDEX_CONTENT_LIMIT", "document exceeds chunk limit");
             result.add(new DocumentChunk(result.size(), passage, headings, blockIndex, part++, provenance,
-                    Sha256.hex(passage), tokens.estimate(passage)));
+                    Sha256.hex(passage), tokens.estimate(passage), lines));
             offset += end;
         }
         return part;

@@ -18,7 +18,7 @@ import { server } from "@/test/msw";
 import { stackRows } from "@/test/row-layout";
 import { AssistantsSection } from "./chat-assistants-section";
 
-// The home sidebar's assistants: five rows, then more on request, as LobeHub's agent list.
+// The home sidebar's assistants: three rows, then more on request.
 
 const capabilities = vi.hoisted(() => ({ create: false }));
 vi.mock("@/features/identity/application-session-context", () => ({
@@ -95,15 +95,15 @@ beforeEach(async () => {
 });
 afterEach(cleanup);
 
-it("lists MemoryOS and the first four pins, then opens the rest in place and folds them again", async () => {
+it("lists MemoryOS and the first two pins, then opens the rest in place and folds them again", async () => {
   const user = userEvent.setup();
   show(roster());
 
-  expect(await listed()).toEqual(names.slice(0, 5));
-  await user.click(screen.getByRole("button", { name: "Xem thêm (3)" }));
+  expect(await listed()).toEqual(names.slice(0, 3));
+  await user.click(screen.getByRole("button", { name: "Xem thêm (5)" }));
   expect(await listed()).toEqual(names);
   await user.click(screen.getByRole("button", { name: "Thu gọn" }));
-  expect(await listed()).toEqual(names.slice(0, 5));
+  expect(await listed()).toEqual(names.slice(0, 3));
 });
 
 it("lists as many rows as the menu says and remembers the choice", async () => {
@@ -122,18 +122,18 @@ it("lists as many rows as the menu says and remembers the choice", async () => {
   expect(await listed()).toEqual(names);
 });
 
-it("starts from five rows when storage holds no known choice", async () => {
+it("starts from three rows when storage holds no known choice", async () => {
   window.localStorage.setItem("memoryos:chat-assistants-rows", "7");
   show(roster());
 
-  expect(await listed()).toEqual(names.slice(0, 5));
+  expect(await listed()).toEqual(names.slice(0, 3));
 });
 
 it("always lists the open assistant and one that is answering", async () => {
   show(roster(6), id(7));
 
-  expect(await listed()).toEqual([...names.slice(0, 5), "Trợ lý 6", "Trợ lý 7"]);
-  expect(screen.getByRole("button", { name: "Xem thêm (1)" })).toBeInTheDocument();
+  expect(await listed()).toEqual([...names.slice(0, 3), "Trợ lý 6", "Trợ lý 7"]);
+  expect(screen.getByRole("button", { name: "Xem thêm (3)" })).toBeInTheDocument();
 });
 
 it("saves every pin, with the hidden ones in their places, when a shown one moves", async () => {
@@ -150,13 +150,13 @@ it("saves every pin, with the hidden ones in their places, when a shown one move
   show(roster(), id(7));
   await listed();
 
-  // Shown pins: 1..4 and the open 7, in slots 0-3 and 6; pins 5 and 6 keep slots 4 and 5.
+  // Shown pins: 1, 2 and the open 7, in slots 0, 1 and 6; pins 3 to 6 keep slots 2 to 5.
   screen.getByRole("button", { name: "Kéo để sắp xếp Trợ lý 7" }).focus();
   await user.keyboard(" ");
   await user.keyboard("{ArrowUp}");
   await user.keyboard(" ");
 
-  await waitFor(() => expect(saved).toEqual([{ personaIds: [1, 2, 3, 7, 5, 6, 4].map(id) }]));
+  await waitFor(() => expect(saved).toEqual([{ personaIds: [1, 7, 3, 4, 5, 6, 2].map(id) }]));
 });
 
 it("heads the section with the rows menu, explore and, for who may, create", async () => {

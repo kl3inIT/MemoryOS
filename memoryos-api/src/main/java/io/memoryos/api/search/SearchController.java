@@ -5,6 +5,7 @@ import io.memoryos.iam.IdentityContext;
 import io.memoryos.api.search.contract.DocumentSpreadsheetResponse;
 import io.memoryos.api.search.contract.SearchDocumentResponse;
 import io.memoryos.api.search.contract.SearchPageResponse;
+import io.memoryos.api.search.contract.SearchPassageLinesResponse;
 import io.memoryos.retrieval.DocumentOriginalService;
 import io.memoryos.retrieval.SearchRequest;
 import io.memoryos.retrieval.DocumentSearchService;
@@ -71,6 +72,14 @@ class SearchController {
             @PathVariable UUID documentId, @RequestParam UUID generation) {
         return ResponseEntity.ok()
                 .body(DocumentSpreadsheetResponse.from(originals.searchWorkbook(identity.actorId(), documentId, generation)));
+    }
+
+    @GetMapping("/documents/{documentId}/passages/{ordinal}/lines")
+    @Operation(operationId = "readSearchPassageLines",
+            summary = "Read the text lines the OCR located in one passage of a search result, to mark the line that holds the question")
+    SearchPassageLinesResponse passageLines(@CurrentActor IdentityContext identity, @PathVariable UUID documentId,
+            @PathVariable int ordinal, @RequestParam UUID generation) {
+        return SearchPassageLinesResponse.from(service.passageLines(identity.actorId(), documentId, generation, ordinal));
     }
 
     @PostMapping

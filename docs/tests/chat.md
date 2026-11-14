@@ -4,6 +4,19 @@ UI reuse follow-up: `chat-ui-polish.spec.ts` exercises the composer `+` menu ord
 
 Conversation history search: `ChatSessionApiIntegrationTest.searchChatHistoryUsesIndexesAllVersionsAndOwnerFilteredPagination` proves V50 indexes, title and unselected-version token matching, >64 KiB tail matching, owner/deletion/membership isolation, pagination and input validation on PostgreSQL, plus the matched-message `snippet` (delimited tokens; null for title-only and >64 KiB matches). `chat-history-search.spec.ts` checks the icon trigger beside the collapse/Close button and the collapsed rail entry, New chat on a blank query, server-only hits with a highlighted fragment and no local filtering, paging, navigation, stale-query suppression, error retry and focus at 1440/390px with a mocked endpoint. Receipts: [history search verification](../increments/completed/chat-history-search/verification.md).
 
+## Follow-up suggestions (MEM-266)
+
+| Behavior | Evidence |
+| --- | --- |
+| The latest completed answer gets suggestions from the `CHAT_NAMING` model and records `CHAT_FOLLOW_UPS` usage; switch off, an answer that may not have them, a spent budget and a failing model give none; another owner's conversation is unavailable | `ChatFollowUpsServiceTest` |
+| Model output is parsed into at most three clean, distinct questions of at most 160 characters | `ChatFollowUpsTest` |
+| On PostgreSQL: off by default with no model call, only model managers save the switch, a stale revision is refused, CSRF and another owner are refused, a question message gets none, one usage row is recorded | `ChatSessionApiIntegrationTest.followUpSuggestionsAreOfferedForTheLatestAnswerOnlyWhenTurnedOn` (CI) |
+| The adapter asks only for a completed answer of a kept conversation while the switch is on, marks the answer while it waits and shows nothing on failure | `chat-follow-up-adapter.test.ts` |
+| Chips under the last answer only, choosing one sends it, three placeholders while pending, nothing when none came | `chat-follow-ups.test.tsx` |
+| The administrator's switch saves at once with the revision | `admin-chat-settings.test.tsx` |
+| In the browser with a mocked endpoint: placeholders then chips, a chip asks its question and the next answer gets its own, a reload shows none, a failed answer asks nothing; screenshots at 1280 and 390 px | `chat-follow-ups.spec.ts` |
+| Real token cost per answer on staging | Open ([plan](../increments/active/mem-266-follow-up-suggestions/plan.md#acceptance)) |
+
 ## Chat standardization (MEM-202) — 2026-09-30
 
 | Behavior | Evidence |
@@ -482,6 +495,7 @@ Self-hosted model serving was removed on 2026-09-19 (`7bb7834d`; the last commit
 | Citation original PDF authority before/after storage open (also per byte range), magic bytes, size, closing rejected streams | `DocumentOriginalServiceTest` |
 | Only an actor-readable active mapping's current version that produced the Document is served; provider file id is read | `SourceOriginalQueryTest.servesOnlyTheReadableCurrentVersionThatProducedTheDocument` |
 | A provider that refuses the credential (401/403) fails the turn as `CHAT_PROVIDER_CREDENTIAL_REJECTED` while answering; the OpenAI adapter recognises 401 and 403 through wrappers and nothing else; a Responses stream refused with 401 ends with that code and no provider detail | `ChatGroundedTurnTest.aCredentialTheProviderRefusesWhileAnsweringFailsTheTurnWithItsOwnCode`, `OpenAiFailuresTest`, `OpenAiResponsesChatModelTest.aRefusedCredentialEndsTheStreamWithItsOwnFailureAndNoProviderDetail` |
+| A provider rate limit fails the turn as `CHAT_PROVIDER_RATE_LIMITED`: OpenAI's `rate_limit_exceeded` as HTTP 429 or inside the stream, and an HTTP 503 with `Retry-After` such as 9Router's answer when every account is on cooldown; a 503 without `Retry-After` and billing 429s stay unnamed | `OpenAiFailuresTest.aRateLimitIsRecognisedAsAnHttpStatusAndInsideTheStream`, `OpenAiFailuresTest.anUnavailableAnswerThatSaysWhenToRetryIsARateLimit`, `OpenAiFailuresTest.billingAndAnyOtherFailureAreNotNamed` |
 | A failed answer shows a red alert inside the message; a refused credential reads differently for a model manager (link to Models) and a member; neither sees "interrupted" nor the unconfirmed notice, and the composer stays enabled; a failure after text still says the content was kept | `chat.spec.ts` "names a refused provider credential without the unconfirmed notice" (2), and "recovers failed" (Chromium, 2026-10-01) |
 | A guardrail check never fails a turn: a check that fails is not asked again on another model, and the answer model runs carrying the enabled topics and the Tenant's replies as its own instruction; a spent budget still ends the turn with its code | `ChatGroundedTurnTest` (5 cases) |
 | MEM-206: the check receives the conversation's earlier messages, oldest first, with the question | `ChatGroundedTurnTest.theCheckReadsTheConversationBeforeTheQuestion` |
@@ -641,6 +655,9 @@ Receipts: [MEM-112 verification](../increments/completed/mem-112-chat-mcp-client
 | Delete all chats removes only the caller's sessions | `ChatSessionApiIntegrationTest.deleteAllChatsRemovesOnlyTheCallersConversations` |
 | MCP OAuth can return to Settings → Connections and never leaves MemoryOS | `memoryos-api/src/test/java/io/memoryos/api/mcp/McpReturnPathTest.java` |
 | Preferences save through one PUT, drafts save on blur, theme and profile render | `chat-preferences.test.tsx`, `general-settings-page.test.tsx` under `web/src/features/identity/` |
+| MEM-148: `pasteAsTile` is off without a row, saved on by its owner only, and an absent member in `PUT` saves it off; Settings › Chat's *Collapse large pastes* starts off and saves with the whole record | `ChatSessionApiIntegrationTest.collapsingLargePastesIsOffUntilTheMemberTurnsItOn` (Spring API, PostgreSQL); `chat-preferences.test.tsx` |
+| MEM-148: a paste over 3 lines or 200 characters becomes a tile (boundaries and a trailing line break included), none while the preference is off; a tile is edited in its dialog without the dialog's submit reaching the composer, removed by × or an emptied text, and restored after a remount; Send and Enter send the typed text and the tiles in paste order; past 32,000 characters Send is blocked with an alert | `web/src/features/chat/composer/chat-paste-tiles.test.tsx` (assistant-ui local runtime, production composer wrappers) |
+| MEM-148: a five-line paste waits as a tile, opens to its text, and is sent with the typed question | `web/tests/e2e/chat-paste-tiles.spec.ts` (fixture backend) |
 | Delete all confirmation and Connections connect/disconnect | `danger-zone-section.test.tsx`, `connections-settings-page.test.tsx` |
 
 ## User memory (MEM-250)
@@ -675,7 +692,7 @@ The file library is the `library` module ([ADR 0015 step 3](../decisions/0015-ca
 | The endpoint is owner-private and Tenant-scoped, rejects an unknown sort, names the Project holding an upload in `409 CHAT_FILE_IN_USE`, and the artifact delete routes require CSRF and owner authority | `ChatSessionApiIntegrationTest.fileLibraryListsOwnUploadsAndNamesWhatBlocksDeletingOne` |
 | A selection made on one page is dropped when the page changes, so a bulk delete cannot silently delete nothing | `library-page.test.tsx` |
 | A day heading chooses that day alone, leaves the other days unchosen and leaves the page's own box part-chosen; the page's box chooses every file on the page and says so on its label | `web/src/features/library/library-page.test.tsx` |
-| Selecting and clearing a 50-file page keeps checkbox indicators mounted without measuring their animation styles, while keyboard selection, mixed state, day selection and clear remain usable | `web/tests/e2e/library-hub.spec.ts` |
+| Selecting and clearing a 50-file page keeps checkbox indicators mounted without measuring their animation styles, each row's checkbox outside its `Item` and without a transition, while keyboard selection, mixed state, day selection and clear remain usable | `web/tests/e2e/library-hub.spec.ts` |
 | The page lists every source with size, total and conversation link, hides the link for an upload, labels and disables a file a Project holds, sends the filters/search/sort to the server, and deletes a selection through each source's route while naming a refusal | `web/src/features/library/library-page.test.tsx` |
 | A deleted generated file keeps its card without a download, preview or chart | `chat-code.test.tsx` |
 | V90 gives artifacts written before the library an owner and a conversation, and an image its creation-time name and stored size | `ChatFileLibraryMigrationTest` |

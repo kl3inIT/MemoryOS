@@ -70,8 +70,9 @@ final class PagePictureOcrReader implements OcrReader {
 
     @Override public boolean readsImage(String mediaType) { return IMAGES.contains(mediaType); }
 
+    /** A page's text is one block without a position, so no line is located whatever {@code lines} asks. */
     @Override public @Nullable DocumentContent read(PaddleOcrVlClient.Input input, @Nullable PdfLayout layout,
-            String filename, String mediaType, long maxInput) throws ExtractionException {
+            String filename, String mediaType, long maxInput, boolean lines) throws ExtractionException {
         List<String> texts = layout == null ? List.of(image(input, mediaType)) : pdf(input, layout);
         var blocks = new ArrayList<Block>();
         for (int index = 0; index < texts.size(); index++) {

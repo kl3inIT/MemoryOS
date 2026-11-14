@@ -16,6 +16,7 @@ import com.anthropic.core.http.StreamResponse;
 import com.anthropic.errors.AnthropicIoException;
 import com.anthropic.models.messages.RawMessageStreamEvent;
 import com.anthropic.services.async.MessageServiceAsync;
+import io.memoryos.ai.ProviderAdapter;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -51,6 +52,7 @@ import reactor.core.publisher.Flux;
 final class AnthropicCancellation implements AutoCloseable {
     private final Transport transport;
     private final AnthropicClientAsync client;
+    private final AnthropicClient sync;
 
     /**
      * Connect and every read or write gap are bounded, the whole call is not, so a long streamed answer that keeps
@@ -60,19 +62,26 @@ final class AnthropicCancellation implements AutoCloseable {
         return Timeout.builder().connect(readTimeout).read(readTimeout).write(readTimeout).request(Duration.ZERO).build();
     }
 
-    AnthropicCancellation(String baseUrl, String credential, Duration readTimeout) {
-        var timeout = gap(readTimeout);
+    /** A call that does not stream: its answer comes in one piece, so the wait for it is bounded as a whole. */
+    static Timeout answer(ProviderAdapter.Timeouts timeouts) {
+        return Timeout.builder().connect(timeouts.readGap()).read(timeouts.answer()).write(timeouts.readGap())
+                .request(timeouts.answer()).build();
+    }
+
+    AnthropicCancellation(String baseUrl, String credential, ProviderAdapter.Timeouts timeouts) {
+        var timeout = gap(timeouts.readGap());
         transport = new Transport(AnthropicBackend.builder().baseUrl(baseUrl).apiKey(credential).build(), timeout);
         try {
             client = new AnthropicClientAsyncImpl(ClientOptions.builder().httpClient(transport).maxRetries(0)
                     .timeout(timeout).build());
+            sync = client.sync().withOptions(options -> options.timeout(answer(timeouts)));
         } catch (RuntimeException | Error failure) {
             transport.close();
             throw failure;
         }
     }
 
-    AnthropicClient sync() { return client.sync(); }
+    AnthropicClient sync() { return sync; }
 
     AnthropicClientAsync async() { return client; }
 

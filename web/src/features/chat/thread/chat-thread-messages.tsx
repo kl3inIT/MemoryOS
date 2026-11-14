@@ -36,6 +36,7 @@ import type { ResearchState } from "@/features/chat/research/chat-research";
 import { ChatMessageActions, ChatUserMessageContent } from "./chat-message-actions";
 import { ChatFilePart, ChatSharedFilePart, ChatMessageAttachment } from "./chat-attachments";
 import { ChatArtifactCards } from "./chat-artifact-view";
+import { ChatFollowUps } from "./chat-follow-ups";
 import { ChatReplyAddon } from "./chat-reply-addon";
 import { ChatMessageTiming } from "./chat-message-timing";
 import { ChatUserMessageQuote, ChatUserText } from "./chat-quote";
@@ -144,7 +145,14 @@ function ChatFailureNotice({ code }: { code?: string }) {
   return <ErrorState className="mt-3" title={title} detail={detail} />;
 }
 
-export function AssistantMessage({ readOnly }: { readOnly: boolean }) {
+/** `followUpsFor` is the answer whose follow-up questions are being written (MEM-266). */
+export function AssistantMessage({
+  readOnly,
+  followUpsFor,
+}: {
+  readOnly: boolean;
+  followUpsFor?: string;
+}) {
   const ui = useAppTranslation();
 
   const serverStatus = useAuiState((state) => state.message.metadata.custom.serverStatus);
@@ -246,6 +254,7 @@ export function AssistantMessage({ readOnly }: { readOnly: boolean }) {
           {!readOnly && <ChatMessageActions author="assistant" />}
           <ChatMessageTiming />
         </ActionBarPrimitive.Root>
+        {!readOnly && <ChatFollowUps pendingFor={followUpsFor} />}
       </ChatSourcesProvider>
     </MessagePrimitive.Root>
   );

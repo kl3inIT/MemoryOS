@@ -33,13 +33,24 @@ public final class Meeting {
     /** A decision the meeting reached, work it handed out, or a subject it moved on to. */
     public enum ItemKind { DECISION, ACTION, TOPIC }
 
-    /** A decision the meeting reached or work it handed out, with the line it rests on. */
+    /** One voice of a meeting, as its utterances and its speaker row know it. */
+    public record SpeakerRef(Track track, String label) {}
+
+    /**
+     * A decision the meeting reached or work it handed out, with the line it rests on. Work is owned by a voice of the
+     * meeting, named whenever it is shown, or by a name as written; never both.
+     */
     public record MinutesItem(UUID id, ItemKind kind, String text, @Nullable String owner, @Nullable String due,
                               @Nullable String quote, @Nullable UUID sourceUtteranceId, boolean done,
-                              boolean edited) {
+                              boolean edited, @Nullable SpeakerRef ownerSpeaker) {
         public MinutesItem(UUID id, ItemKind kind, String text, @Nullable String owner, @Nullable String due,
                 @Nullable String quote, @Nullable UUID sourceUtteranceId, boolean done) {
-            this(id, kind, text, owner, due, quote, sourceUtteranceId, done, false);
+            this(id, kind, text, owner, due, quote, sourceUtteranceId, done, false, null);
+        }
+
+        public MinutesItem(UUID id, ItemKind kind, String text, @Nullable String owner, @Nullable String due,
+                @Nullable String quote, @Nullable UUID sourceUtteranceId, boolean done, boolean edited) {
+            this(id, kind, text, owner, due, quote, sourceUtteranceId, done, edited, null);
         }
     }
 
@@ -118,6 +129,9 @@ public final class Meeting {
      * ordinary rename, and dismissing it keeps the automatic label without asking again.
      */
     public record SpeakerSuggestion(String name, UUID utteranceId, double confidence) {}
+
+    /** One line as it now reads, and the voice it now belongs to. */
+    public record LineSpeaker(Utterance utterance, Speaker speaker) {}
 
     public record Utterance(UUID id, Track track, String speaker, long startMs, long endMs, String text,
                             double confidence, List<Span> spans, @Nullable EditSource editSource) {

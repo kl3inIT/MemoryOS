@@ -181,3 +181,71 @@ describe("frameBoxRect", () => {
     expect(frameBoxRect({ ...box, frame: { width: 400, height: 2000 } })).toBeUndefined();
   });
 });
+
+describe("outlines", () => {
+  // A line tilted across its box: [100, 300, 500, 900] in a 1000 x 2000 picture.
+  const tilted = {
+    page: 1,
+    left: 100,
+    top: 300,
+    right: 500,
+    bottom: 900,
+    origin: "TOPLEFT",
+    frame: { width: 1000, height: 2000 },
+    outline: [
+      [100, 800],
+      [450, 300],
+      [500, 400],
+      [150, 900],
+    ],
+  } as const;
+
+  it("places a picture's outline as fractions of its box", () => {
+    expect(frameBoxRect(tilted)?.outline).toEqual([
+      [0, 5 / 6],
+      [0.875, 0],
+      [1, 1 / 6],
+      [0.125, 1],
+    ]);
+  });
+
+  it("places an outline inside the box drawn on a PDF page, margin included, in either origin", () => {
+    // Letter at half scale: the box [72, 700, 540, 640] from the bottom left is 234 x 30 px plus a 2 px margin.
+    const rect = pdfBoxRect(
+      {
+        page: 1,
+        left: 72,
+        top: 700,
+        right: 540,
+        bottom: 640,
+        origin: "BOTTOMLEFT",
+        outline: [
+          [72, 660],
+          [500, 700],
+          [540, 680],
+          [100, 640],
+        ],
+      },
+      { view: [0, 0, 612, 792], rotate: 0 },
+      306,
+    );
+    if (!rect?.outline) throw new Error("no outline");
+    const pixel = ([x, y]: [number, number]) => [
+      rect.left + x * rect.width,
+      rect.top + y * rect.height,
+    ];
+    expect(pixel(rect.outline[0]!).map((value) => value.toFixed(3))).toEqual(["36.000", "66.000"]);
+    expect(pixel(rect.outline[1]!).map((value) => value.toFixed(3))).toEqual(["250.000", "46.000"]);
+    // A framed box on a page turned a quarter: the outline is in the page as displayed.
+    const turned = pdfBoxRect(tilted, { view: [0, 0, 2000, 1000], rotate: 90 }, 500);
+    if (!turned?.outline) throw new Error("no outline");
+    const first = turned.outline[0]!;
+    expect(turned.left + first[0] * turned.width).toBeCloseTo(50, 6);
+    expect(turned.top + first[1] * turned.height).toBeCloseTo(400, 6);
+  });
+
+  it("refuses an outline with the box it belongs to", () => {
+    expect(frameBoxRect({ ...tilted, frame: { width: 400, height: 2000 } })).toBeUndefined();
+    expect(pdfBoxRect(tilted, { view: [0, 0, 1000, 1000], rotate: 0 }, 500)).toBeUndefined();
+  });
+});

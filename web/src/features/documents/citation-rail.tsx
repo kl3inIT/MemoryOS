@@ -1,8 +1,11 @@
 import type { ReactNode } from "react";
 import type { CitationConfidence } from "@/features/preview/file-preview";
 import { formatPages } from "@/features/preview/pdf-pages";
+import type { MatchKind } from "@/features/preview/preview-highlight";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
+import { MatchKindBadge } from "./match-kind-badge";
+import { withoutColumnLabels } from "./passage";
 import { readSourceLocation } from "./source-provenance";
 
 export type CitationEntry = {
@@ -12,6 +15,8 @@ export type CitationEntry = {
   section?: string;
   /** Provenance of this citation, which carries its page or sheet when the extraction recorded one. */
   provenance?: readonly string[];
+  /** How a Search passage answers the question; a Chat citation has none. */
+  kind?: MatchKind;
 };
 
 /**
@@ -94,6 +99,11 @@ export function CitationRail({
                     current ? "bg-pdf-highlight" : "bg-transparent",
                   )}
                 />
+                {entry.kind ? (
+                  <div className="mb-1.5">
+                    <MatchKindBadge kind={entry.kind} />
+                  </div>
+                ) : null}
                 <div className="flex items-center gap-2 font-secondary-body text-content-muted">
                   <span className="tabular-nums">{index + 1}</span>
                   {pages ? <span>·</span> : null}
@@ -106,9 +116,18 @@ export function CitationRail({
                     {entry.section}
                   </p>
                 ) : null}
-                <p className="mt-1.5 line-clamp-4 font-main-ui-body leading-6 break-words whitespace-pre-wrap text-content-primary">
-                  {entry.text || "…"}
-                </p>
+                {/*
+                  In Search a table row reads as labelled cells; once it is marked in the original, its page and
+                  heading above say where it is. A row that could not be marked keeps its text, the only way to
+                  tell it from the page's other rows.
+                */}
+                {place.table &&
+                variant === "search" &&
+                (confidence[index] === "exact" || confidence[index] === "approximate") ? null : (
+                  <p className="mt-1.5 line-clamp-4 font-main-ui-body leading-6 break-words whitespace-pre-wrap text-content-primary">
+                    {withoutColumnLabels(entry.text) || "…"}
+                  </p>
+                )}
                 <Placement found={confidence[index]} located={located} />
               </button>
             </li>

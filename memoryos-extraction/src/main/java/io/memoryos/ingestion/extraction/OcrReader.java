@@ -15,15 +15,18 @@ interface OcrReader extends AutoCloseable {
 
     /**
      * @param layout the PDF's pages; null for an image
+     * @param lines whether to also locate each text line, so Search's reader can mark the line that holds a
+     *        question; only a Source document's citations are read that way. A reader that cannot locate lines
+     *        reads the document without them.
      * @return the document, or null when the input holds no text at all (a photograph)
      */
     @Nullable DocumentContent read(PaddleOcrVlClient.Input input, @Nullable PdfLayout layout, String filename,
-            String mediaType, long maxInput) throws ExtractionException;
+            String mediaType, long maxInput, boolean lines) throws ExtractionException;
 
     /** A blank result is malformed, as it is for Docling: an index entry that answers nothing is not a success. */
     default DocumentContent extract(PaddleOcrVlClient.Input input, @Nullable PdfLayout layout, String filename,
-            String mediaType, long maxInput) throws ExtractionException {
-        var content = read(input, layout, filename, mediaType, maxInput);
+            String mediaType, long maxInput, boolean lines) throws ExtractionException {
+        var content = read(input, layout, filename, mediaType, maxInput, lines);
         if (content == null) throw DocumentAssembly.failure(ExtractionFailure.MALFORMED);
         return content;
     }

@@ -99,7 +99,12 @@ describe("the minutes items", () => {
       handleAddMeetingMinutesItem(async ({ request }) => {
         const body = await request.json();
         sent.push(body);
-        return HttpResponse.json({ ...item("a2", body.text), owner: body.owner, due: body.due });
+        return HttpResponse.json({
+          ...item("a2", body.text),
+          owner: body.owner,
+          ownerSpeaker: body.ownerSpeaker,
+          due: body.due,
+        });
       }),
     );
     const user = userEvent.setup();
@@ -123,6 +128,126 @@ describe("the minutes items", () => {
     expect(screen.getByText("Chị Hoa")).toBeVisible();
     expect(screen.queryByRole("textbox", { name: "Nội dung" })).not.toBeInTheDocument();
     expect(sent).toEqual([{ kind: "ACTION", text: "Đặt phòng họp", owner: "Chị Hoa", due: null }]);
+  });
+
+  it("gives the work to a voice picked by the name the page shows it under", async () => {
+    const sent: unknown[] = [];
+    server.use(
+      handleAddMeetingMinutesItem(async ({ request }) => {
+        const body = await request.json();
+        sent.push(body);
+        return HttpResponse.json({
+          ...item("a3", body.text),
+          owner: body.owner,
+          ownerSpeaker: body.ownerSpeaker,
+          due: body.due,
+        });
+      }),
+    );
+    server.use(
+      handleGetMeeting({
+        body: { ...meeting(), speakers: [{ track: "MIC", label: "2", name: null }] },
+      }),
+    );
+    const user = userEvent.setup();
+    mount((current) => (
+      <MinutesItems
+        meeting={current}
+        items={current.minutes.actions}
+        kind="ACTION"
+        onReveal={() => undefined}
+      />
+    ));
+
+    await user.click(await screen.findByRole("button", { name: "Thêm việc" }));
+    await user.type(screen.getByRole("textbox", { name: "Nội dung" }), "Gửi sơ đồ kiến trúc");
+    await user.type(screen.getByLabelText("Người nhận"), "Người nói 2");
+    await user.click(screen.getByRole("button", { name: "Thêm" }));
+
+    expect(await screen.findByRole("button", { name: "Đặt tên cho Người nói 2" })).toBeVisible();
+    expect(sent).toEqual([
+      {
+        kind: "ACTION",
+        text: "Gửi sơ đồ kiến trúc",
+        owner: null,
+        ownerSpeaker: { track: "MIC", label: "2" },
+        due: null,
+      },
+    ]);
+  });
+
+  it("names the work by the name its voice has now", async () => {
+    server.use(
+      handleGetMeeting({
+        body: {
+          ...meeting(),
+          speakers: [{ track: "MIC", label: "2", name: "Chị Lan" }],
+          minutes: {
+            ...meeting().minutes,
+            actions: [
+              { ...item("a4", "Gửi sơ đồ kiến trúc"), ownerSpeaker: { track: "MIC", label: "2" } },
+            ],
+          },
+        },
+      }),
+    );
+    mount((current) => (
+      <MinutesItems
+        meeting={current}
+        items={current.minutes.actions}
+        kind="ACTION"
+        onReveal={() => undefined}
+      />
+    ));
+
+    expect(await screen.findByRole("button", { name: "Đặt tên cho Chị Lan" })).toBeVisible();
+  });
+
+  it("keeps the voice of work whose owner was left alone, even beside a voice of the same name", async () => {
+    const sent: unknown[] = [];
+    server.use(
+      handleGetMeeting({
+        body: {
+          ...meeting(),
+          speakers: [
+            { track: "MIC", label: "1", name: "Lan" },
+            { track: "MIC", label: "2", name: "Lan" },
+          ],
+          minutes: {
+            ...meeting().minutes,
+            actions: [{ ...item("a5", "Gửi sơ đồ"), ownerSpeaker: { track: "MIC", label: "2" } }],
+          },
+        },
+      }),
+      handleEditMeetingMinutesItem(async ({ request }) => {
+        const body = await request.json();
+        sent.push(body);
+        return HttpResponse.json({ ...item("a5", body.text), ownerSpeaker: body.ownerSpeaker });
+      }),
+    );
+    const user = userEvent.setup();
+    mount((current) => (
+      <MinutesItems
+        meeting={current}
+        items={current.minutes.actions}
+        kind="ACTION"
+        onReveal={() => undefined}
+      />
+    ));
+
+    await user.click(await screen.findByRole("button", { name: "Sửa" }));
+    await user.type(screen.getByRole("textbox", { name: "Nội dung" }), " kiến trúc");
+    await user.click(screen.getByRole("button", { name: "Lưu" }));
+
+    await screen.findByText("Gửi sơ đồ kiến trúc");
+    expect(sent).toEqual([
+      {
+        text: "Gửi sơ đồ kiến trúc",
+        owner: null,
+        ownerSpeaker: { track: "MIC", label: "2" },
+        due: null,
+      },
+    ]);
   });
 
   it("keeps an edit open with the failure when the server refuses it", async () => {

@@ -22,6 +22,7 @@ function input(value: ChatPreferences): ChatPreferencesInput {
     reasoningEffortDefault: value.reasoningEffortDefault ?? undefined,
     autoScroll: value.autoScroll,
     channelPersonaId: value.channelPersonaId ?? undefined,
+    pasteAsTile: value.pasteAsTile,
   };
 }
 

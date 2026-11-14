@@ -3,6 +3,7 @@ package io.memoryos.meeting;
 import java.nio.charset.StandardCharsets;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The minutes as a document Chat can read: the summary, the decisions and the work the meeting handed out.
@@ -42,12 +43,13 @@ public final class MeetingMinutesMarkdown {
 
         if (!meeting.minutes().decisions().isEmpty()) {
             out.append("## Quyết định\n\n");
-            for (var decision : meeting.minutes().decisions()) item(out, decision);
+            for (var decision : meeting.minutes().decisions()) item(out, decision, null);
             out.append('\n');
         }
         if (!meeting.minutes().actions().isEmpty()) {
             out.append("## Việc cần làm\n\n");
-            for (var action : meeting.minutes().actions()) item(out, action);
+            var names = SpeakerNames.of(meeting);
+            for (var action : meeting.minutes().actions()) item(out, action, names.owner(action));
             out.append('\n');
         }
         // Said plainly, so a reader of the file knows the full wording lives somewhere else.
@@ -56,9 +58,9 @@ public final class MeetingMinutesMarkdown {
         return text.getBytes(StandardCharsets.UTF_8);
     }
 
-    private static void item(StringBuilder out, Meeting.MinutesItem item) {
+    private static void item(StringBuilder out, Meeting.MinutesItem item, @Nullable String owner) {
         out.append("- ").append(item.text());
-        if (item.owner() != null) out.append(" — ").append(item.owner());
+        if (owner != null) out.append(" — ").append(owner);
         if (item.due() != null) out.append(" (hạn: ").append(item.due()).append(')');
         out.append('\n');
         if (item.quote() != null && !item.quote().isBlank())

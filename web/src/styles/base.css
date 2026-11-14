@@ -137,4 +137,23 @@
     color: var(--content-document);
     text-decoration: underline;
   }
+
+  /*
+   * A searched passage points the reader at the sentences holding the question rather than at the whole
+   * passage: a light step of the highlighter, with the question's marks laid over it. A word of the question
+   * found alone is underlined, not filled, so it reads as weaker than the whole question.
+   */
+  ::highlight(memoryos-citation-focus) {
+    background-color: color-mix(in srgb, var(--pdf-highlight) 40%, transparent);
+  }
+
+  ::highlight(memoryos-citation-word) {
+    color: var(--content-document);
+    text-decoration: underline 2px var(--pdf-highlight-border);
+  }
+
+  /* The question's marks in a passage other than the one being read: a hint of where to step next. */
+  ::highlight(memoryos-citation-hint) {
+    text-decoration: underline dotted var(--pdf-highlight-border);
+  }
 }

@@ -21,7 +21,7 @@ final class OcrConnectionProbe implements OcrProbe {
 
     @Override public boolean reads(OcrConnectionService.Connection connection, String key) {
         try (var reader = adapters.adapter(connection.provider()).reader(connection, key)) {
-            var content = reader.read(PaddleOcrVlClient.Input.of(PICTURE), null, "probe.png", "image/png", MAX_INPUT);
+            var content = reader.read(PaddleOcrVlClient.Input.of(PICTURE), null, "probe.png", "image/png", MAX_INPUT, false);
             String text = content == null ? "" : content.normalizedText().toLowerCase(Locale.ROOT);
             return text.contains("memoryos") && text.contains("2026");
         } catch (ExtractionException | RuntimeException failed) {

@@ -1,6 +1,7 @@
 package io.memoryos.ai.openai;
 
 import io.memoryos.ai.ModelTurns;
+import io.memoryos.ai.ProviderAdapter;
 import com.openai.client.OpenAIClientAsync;
 import com.openai.client.OpenAIClientAsyncImpl;
 import com.openai.core.ClientOptions;
@@ -47,6 +48,12 @@ public final class OpenAiCancellation implements AutoCloseable {
      */
     static Timeout gap(Duration readTimeout) {
         return Timeout.builder().connect(readTimeout).read(readTimeout).write(readTimeout).request(Duration.ZERO).build();
+    }
+
+    /** A call that does not stream: its answer comes in one piece, so the wait for it is bounded as a whole. */
+    static Timeout answer(ProviderAdapter.Timeouts timeouts) {
+        return Timeout.builder().connect(timeouts.readGap()).read(timeouts.answer()).write(timeouts.readGap())
+                .request(timeouts.answer()).build();
     }
 
     OpenAiCancellation(String baseUrl, String credential, Duration readTimeout) {

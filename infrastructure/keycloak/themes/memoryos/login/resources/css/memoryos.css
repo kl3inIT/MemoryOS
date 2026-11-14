@@ -128,6 +128,13 @@
   border-radius: inherit;
 }
 
+/* The input fills the rounded control, so a browser's autofill background follows its corners
+   instead of painting a shorter square box over them. */
+.pf-v5-c-form-control > input {
+  min-height: 2.5rem;
+  border-radius: inherit;
+}
+
 .pf-v5-c-form-control:hover {
   --pf-v5-c-form-control--before--BorderTopColor: var(--memoryos-border-strong);
   --pf-v5-c-form-control--before--BorderRightColor: var(--memoryos-border-strong);

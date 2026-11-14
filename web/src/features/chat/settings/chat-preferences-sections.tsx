@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowDownToLine, Brain, Sparkles, Thermometer } from "lucide-react";
+import { ArrowDownToLine, Brain, ClipboardPaste, Sparkles, Thermometer } from "lucide-react";
 import {
   ModelSelectorContent,
   ModelSelectorEmpty,
@@ -25,7 +25,7 @@ const PREFERENCES_LIMIT = 2000;
 /** Stands for "no personal default"; the Tenant default then applies. */
 const INHERITED = "inherited";
 
-/** Onyx Chat Preferences: default model, personal preferences and auto-scroll. */
+/** Onyx Chat Preferences: default model, personal preferences, auto-scroll and collapsing large pastes. */
 export function ChatPreferencesSections() {
   const ui = useAppTranslation();
   const preferences = useChatPreferences();
@@ -169,6 +169,24 @@ export function ChatPreferencesSections() {
                 checked={data?.autoScroll ?? true}
                 disabled={disabled}
                 onCheckedChange={(checked) => save.mutate({ autoScroll: checked })}
+              />
+            }
+          />
+          <SettingRow
+            htmlFor="paste-as-tile"
+            descriptionId="paste-as-tile-description"
+            icon={<ClipboardPaste />}
+            title={ui("Thu gọn đoạn dán dài")}
+            description={ui(
+              "Đoạn dán dài hơn 3 dòng hoặc 200 ký tự hiện thành thẻ gọn thay vì chèn vào ô nhập.",
+            )}
+            control={
+              <Switch
+                id="paste-as-tile"
+                aria-describedby="paste-as-tile-description"
+                checked={data?.pasteAsTile ?? false}
+                disabled={disabled}
+                onCheckedChange={(checked) => save.mutate({ pasteAsTile: checked })}
               />
             }
           />

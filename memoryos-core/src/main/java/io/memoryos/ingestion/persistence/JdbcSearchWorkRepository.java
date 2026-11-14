@@ -18,6 +18,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public class JdbcSearchWorkRepository {
+    /**
+     * The error code of a failure that may heal on its own, such as an unreachable index. Repair and rebuild retry
+     * only this one; a content rejection keeps its own code and waits for new content or a new chunk convention.
+     */
+    public static final String RETRYABLE_FAILURE = "SEARCH_INDEX_FAILED";
+
     private final JdbcClient jdbc;
     public JdbcSearchWorkRepository(JdbcClient jdbc) { this.jdbc = jdbc; }
 
@@ -32,9 +38,10 @@ public class JdbcSearchWorkRepository {
                 SET status='NOT_STARTED',processing_attempts=0,error_code=NULL,completed_at=NULL,
                     next_dispatch_at=CURRENT_TIMESTAMP,dispatch_token=NULL,dispatch_lease_expires_at=NULL
                 WHERE :repair AND (search_index_operations.status IN ('SUCCESS','CANCELLED') OR
-                    (search_index_operations.status='FAILED' AND
+                    (search_index_operations.status='FAILED' AND search_index_operations.error_code=:retryable AND
                      search_index_operations.completed_at < CURRENT_TIMESTAMP - INTERVAL '15' MINUTE))
                 """).param("id", UUID.randomUUID()).param("tenant", event.tenantId().value())
+                .param("retryable", RETRYABLE_FAILURE)
                 .param("document", event.documentId().value()).param("generation", event.generation())
                 .param("action", event.removed() ? "DELETE" : "INDEX").param("identity", identity)
                 .param("trace", origin == null ? null : origin.traceId(), Types.VARCHAR)
@@ -101,7 +108,7 @@ public class JdbcSearchWorkRepository {
 
     /**
      * Repairs only the access fields of a fully indexed generation. Like INDEX repair, an existing row is reset only
-     * after success or a failure older than 15 minutes, so a pending refresh is not restarted by every scan.
+     * after success or a retryable failure older than 15 minutes, so a pending refresh is not restarted by every scan.
      */
     @Transactional
     public void enqueueAccessRepair(TenantId tenant, DocumentId document, UUID generation, String identity) {
@@ -112,8 +119,10 @@ public class JdbcSearchWorkRepository {
                 SET status='NOT_STARTED',processing_attempts=0,error_code=NULL,completed_at=NULL,
                     next_dispatch_at=CURRENT_TIMESTAMP,dispatch_token=NULL,dispatch_lease_expires_at=NULL
                 WHERE search_index_operations.status='SUCCESS' OR (search_index_operations.status='FAILED'
+                    AND search_index_operations.error_code=:retryable
                     AND search_index_operations.completed_at < CURRENT_TIMESTAMP - INTERVAL '15' MINUTE)
                 """).param("id", UUID.randomUUID()).param("tenant", tenant.value()).param("document", document.value())
+                .param("retryable", RETRYABLE_FAILURE)
                 .param("generation", generation).param("identity", identity).update();
     }
 
@@ -122,7 +131,8 @@ public class JdbcSearchWorkRepository {
      * content generation, minus the work already outstanding there, and returns how many were queued. The rebuild
      * reads the chunks already stored, so no Source is fetched and nothing is OCRed again. Everything it needs is
      * durable, so a restarted worker resumes where the last one stopped; the small window keeps changes to PRESENT
-     * from waiting behind the whole corpus. Work that failed is retried after 15 minutes, as repair does.
+     * from waiting behind the whole corpus. A retryable failure is retried after 15 minutes, as repair does; a content
+     * rejection is not, and rebuild progress counts it as failed.
      */
     @Transactional
     public int enqueueRebuild(String identity, int window) {
@@ -142,12 +152,13 @@ public class JdbcSearchWorkRepository {
                     AND NOT EXISTS (SELECT 1 FROM search_index_operations w WHERE w.tenant_id=d.tenant_id
                         AND w.document_id=d.id AND w.generation=d.content_generation AND w.action='INDEX'
                         AND w.index_identity=:identity AND (w.status IN ('NOT_STARTED','IN_PROGRESS')
-                            OR w.status='FAILED' AND w.completed_at >= CURRENT_TIMESTAMP - INTERVAL '15' MINUTE))
+                            OR w.status='FAILED' AND (w.error_code IS DISTINCT FROM :retryable
+                                OR w.completed_at >= CURRENT_TIMESTAMP - INTERVAL '15' MINUTE)))
                 ORDER BY d.tenant_id,d.id LIMIT :room
                 ON CONFLICT (tenant_id,document_id,generation,action,index_identity) DO UPDATE
                 SET status='NOT_STARTED',processing_attempts=0,error_code=NULL,completed_at=NULL,claim_token=NULL,
                     lease_expires_at=NULL,next_dispatch_at=CURRENT_TIMESTAMP,dispatch_token=NULL,dispatch_lease_expires_at=NULL
-                """).param("identity", identity).param("room", room).update();
+                """).param("identity", identity).param("room", room).param("retryable", RETRYABLE_FAILURE).update();
     }
 
     /** Claims the delivered work whatever index it is for; the caller refuses an index that is no longer active. */

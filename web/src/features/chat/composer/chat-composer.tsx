@@ -3,6 +3,8 @@ import { ComposerPrimitive, useAui, useAuiState } from "@assistant-ui/react";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { ChatDictationAutoSend } from "@/features/voice/chat-dictation-controls";
 import { useFilesBlocked } from "./use-files-blocked";
+import { usePasteTiles } from "./chat-paste-tiles-context";
+import { Slot } from "radix-ui";
 
 /**
  * Restores unsent composer text after a reload of the same tab. The draft is keyed by actor and
@@ -44,11 +46,17 @@ export function ChatComposerRoot({
   const blocked = useFilesBlocked();
   // The draft is incomplete until dictation writes its final transcript.
   const dictating = useAuiState((state) => state.composer.dictation != null);
+  const pastes = usePasteTiles();
   return (
     <ComposerPrimitive.Root
       {...props}
       onSubmit={(event) => {
         if (blocked || dictating) event.preventDefault();
+        // With paste tiles the message is the typed text and the tiles, so the send is ours (Enter submits here).
+        else if (pastes && pastes.tiles.length > 0) {
+          event.preventDefault();
+          pastes.send();
+        }
         onSubmit?.(event);
       }}
     />
@@ -61,10 +69,34 @@ export function ChatComposerSend({
 }: ComponentProps<typeof ComposerPrimitive.Send>) {
   const blocked = useFilesBlocked();
   const dictating = useAuiState((state) => state.composer.dictation != null);
+  const pastes = usePasteTiles();
+  if (pastes && pastes.tiles.length > 0) {
+    // assistant-ui keeps its Send disabled while the field is empty, though the tiles alone are a message.
+    const { asChild, children, onClick, ...rest } = props;
+    const Button = asChild ? Slot.Root : "button";
+    return (
+      <Button
+        type="button"
+        {...rest}
+        disabled={disabled || blocked || dictating || pastes.overLimit}
+        onClick={(event) => {
+          onClick?.(event);
+          if (!event.defaultPrevented) pastes.send();
+        }}
+      >
+        {children}
+      </Button>
+    );
+  }
   return <ComposerPrimitive.Send {...props} disabled={disabled || blocked || dictating} />;
 }
 
-/** Voice Auto-Send, held back while an attachment is still uploading or unreadable, as Send is. */
+/**
+ * Voice Auto-Send, held back while an attachment is still uploading or unreadable, as Send is, and while paste
+ * tiles are on the draft, so a spoken question is never sent without the text it refers to.
+ */
 export function ChatComposerAutoSend() {
-  return <ChatDictationAutoSend filesBlocked={useFilesBlocked()} />;
+  const blocked = useFilesBlocked();
+  const pasted = (usePasteTiles()?.tiles.length ?? 0) > 0;
+  return <ChatDictationAutoSend filesBlocked={blocked || pasted} />;
 }

@@ -8,6 +8,7 @@ import io.memoryos.connector.SourceSearchScope;
 import io.memoryos.connector.SourceType;
 import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.document.DocumentId;
+import io.memoryos.document.PassageLine;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
@@ -201,6 +202,19 @@ public class DocumentSearchService {
     /** Search reader: requires SEARCH_READ plus current document eligibility. */
     public SearchDocument document(ActorId actor, UUID id, UUID generation, int from) {
         return read(actor, IamCapability.SEARCH_READ, id, generation, from);
+    }
+
+    /**
+     * Search reader for the text lines the OCR located in the blocks one passage cites, so the reader of a scan can mark
+     * the line that holds the question. Same authority as {@link #document}: SEARCH_READ, a readable Document and the
+     * generation it serves. A passage without located lines answers none.
+     */
+    public List<PassageLine> passageLines(ActorId actor, UUID id, UUID generation, int ordinal) {
+        if (ordinal < 0 || ordinal > 9999) throw new SearchRequestException();
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(SearchDocumentUnavailableException::new);
+        authorization.require(actor, IamCapability.SEARCH_READ, false);
+        requireDocumentAccess(actor, tenant, id, generation);
+        return documents.passageLines(tenant, new DocumentId(id), generation, ordinal);
     }
 
     /**

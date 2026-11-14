@@ -20,6 +20,8 @@ public class ChatSettingsEntity {
     @Column(name = "grounded_answers", nullable = false) private boolean groundedAnswers;
     /** MEM-195: in grounded mode, whether a person may turn Web search on for a turn. */
     @Column(name = "grounded_allow_web", nullable = false) private boolean groundedAllowWeb;
+    /** MEM-266: follow-up questions under the latest answer. */
+    @Column(name = "follow_up_suggestions", nullable = false) private boolean followUpSuggestions;
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "guardrail_topics", nullable = false, columnDefinition = "jsonb")
     private List<StoredTopic> guardrailTopics = new ArrayList<>();
@@ -44,6 +46,8 @@ public class ChatSettingsEntity {
     public boolean groundedAnswers() { return groundedAnswers; }
     public boolean groundedAllowWeb() { return groundedAllowWeb; }
     public void grounded(boolean answers, boolean allowWeb) { groundedAnswers = answers; groundedAllowWeb = allowWeb; }
+    public boolean followUpSuggestions() { return followUpSuggestions; }
+    public void followUpSuggestions(boolean enabled) { followUpSuggestions = enabled; }
     public List<StoredTopic> guardrailTopics() { return List.copyOf(guardrailTopics); }
     public List<String> blockedPhrases() { return List.copyOf(blockedPhrases); }
     public @Nullable String blockedPhraseMessage() { return blockedPhraseMessage; }

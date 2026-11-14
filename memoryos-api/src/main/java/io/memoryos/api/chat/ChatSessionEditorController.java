@@ -2,6 +2,7 @@ package io.memoryos.api.chat;
 
 import io.memoryos.api.security.CurrentActor;
 import io.memoryos.api.chat.contract.ChatBranchSelectionRequest;
+import io.memoryos.api.chat.contract.ChatFollowUpsResponse;
 import io.memoryos.api.chat.contract.ChatPersonaSelectionRequest;
 import io.memoryos.api.chat.contract.ChatProjectSelectionRequest;
 import io.memoryos.api.chat.contract.ChatReasoningSelectionRequest;
@@ -67,6 +68,13 @@ class ChatSessionEditorController {
     ChatSessionResponse generateTitle(@CurrentActor IdentityContext identity, @PathVariable UUID sessionId) {
         turns.generateTitle(identity.actorId(), sessionId);
         return ChatSessionResponse.from(sessions.get(identity.actorId(), sessionId));
+    }
+    @PostMapping("/messages/{messageId}/follow-ups")
+    @Operation(operationId = "suggestChatFollowUps", summary = "Suggest questions to ask after the latest answer of an owned conversation, when the Tenant offers them")
+    @ApiResponse(responseCode = "200", description = "Up to three questions; empty when the answer gets none", useReturnTypeSchema = true)
+    ChatFollowUpsResponse suggestFollowUps(@CurrentActor IdentityContext identity, @PathVariable UUID sessionId,
+            @PathVariable UUID messageId) {
+        return new ChatFollowUpsResponse(turns.suggestFollowUps(identity.actorId(), sessionId, messageId));
     }
     @GetMapping("/branches")
     @Operation(operationId = "getChatBranches", summary = "Read version relationships in an owned conversation")

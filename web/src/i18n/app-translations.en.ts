@@ -1,6 +1,17 @@
 // English for the Vietnamese source keys. Natural source keys are static UI copy, never document text, filenames or API identifiers.
 // Natural source keys are static UI copy, never document text, filenames or API identifiers.
 export const vietnameseUi: Record<string, string> = {
+  // MEM-148 large pastes collapse into composer tiles
+  "Thu gọn đoạn dán dài": "Collapse large pastes",
+  "Đoạn dán dài hơn 3 dòng hoặc 200 ký tự hiện thành thẻ gọn thay vì chèn vào ô nhập.":
+    "Collapse a paste longer than 3 lines or 200 characters into a compact tile instead of inserting it into the field.",
+  "Đoạn dán": "Pasted text",
+  "1 dòng": "1 line",
+  "Xem đoạn dán, {{lines}}": "Open pasted text, {{lines}}",
+  "Nội dung đoạn dán": "Pasted text content",
+  "Gỡ đoạn dán": "Remove pasted text",
+  "Tin nhắn dài hơn 32.000 ký tự. Hãy gỡ hoặc rút gọn đoạn dán trước khi gửi.":
+    "The message is longer than 32,000 characters. Remove or shorten a pasted text before sending.",
   // MEM-285 a Zalo group answers only once an administrator allows it
   "Cho phép trả lời": "Allow answers",
   "Cho phép trả lời trong {{v1}}": "Allow answers in {{v1}}",
@@ -133,6 +144,11 @@ export const vietnameseUi: Record<string, string> = {
     "Answers must cite a document; without one the assistant declines.",
   "Cho phép người dùng bật Tìm kiếm Web": "Let people turn on Web search",
   "Câu trả lời dùng nguồn Internet được ghi rõ.": "Answers that use Internet sources say so.",
+  // MEM-266 follow-up questions under the latest answer
+  "Gợi ý câu hỏi tiếp theo": "Follow-up suggestions",
+  "Sau mỗi câu trả lời, đề xuất 3 câu hỏi để hỏi tiếp. Mỗi câu trả lời tốn thêm một lần gọi model, tính vào mức dùng của người hỏi.":
+    "After each answer, suggest 3 questions to ask next. Each answer costs one more model call, counted in the asker's usage.",
+  "Đang gợi ý câu hỏi tiếp theo": "Suggesting follow-up questions",
   "Chủ đề nhạy cảm": "Sensitive topics",
   "Câu trả lời": "Answers",
   "Đã đủ 30 chủ đề.": "30 topics is the limit.",
@@ -292,6 +308,7 @@ export const vietnameseUi: Record<string, string> = {
   "Bạn chưa chọn tab cuộc họp nên chưa bắt đầu ghi.":
     "No meeting tab was chosen, so recording has not started.",
   "Bắt đầu ghi": "Start recording",
+  "Bật mic": "Unmute",
   "Bỏ tên": "Remove name",
   "Buổi họp hôm nay được ghi lại thành văn bản trên MemoryOS để làm biên bản. Nếu ai không đồng ý, xin báo ngay.":
     "Today's meeting is being transcribed in MemoryOS for the minutes. If you do not agree, please say so now.",
@@ -412,6 +429,13 @@ export const vietnameseUi: Record<string, string> = {
     "The meeting tab stopped sharing, so only your voice is recorded.",
   "Tab họp": "Meeting tab",
   "Tạm dừng": "Pause",
+  "Câu này": "This line",
+  "Mọi câu của {{name}}": "Every line of {{name}}",
+  "Đổi cho": "Change for",
+  "Đang chọn": "Selected",
+  "Đổi người nói của câu lúc {{time}}": "Change who spoke the line at {{time}}",
+  "Không đổi được người nói. Hãy thử lại.": "The speaker could not be changed. Try again.",
+  "Tắt mic": "Mute",
   "Tên riêng, từ viết tắt, thuật ngữ": "Names, abbreviations, domain terms",
   "Tên cuộc họp": "Meeting name",
   "Tên khác": "Another name",
@@ -807,6 +831,8 @@ export const vietnameseUi: Record<string, string> = {
   "Ngày tạo": "Created",
   "Chọn {{name}}": "Select {{name}}",
   "Đang dùng trong {{name}}": "Used in {{name}}",
+  "Bản cũ của biên bản đang được dùng trong {{name}}":
+    "An earlier copy of these minutes is used in {{name}}",
   "Xem trước {{name}}": "Preview {{name}}",
   "Trang trước": "Previous page",
   "Trang sau": "Next page",
@@ -897,6 +923,9 @@ export const vietnameseUi: Record<string, string> = {
     "The original PDF could not be opened. Use the passages view.",
   "Vùng được trích dẫn trên trang {{page}}": "Cited region on page {{page}}",
   "Vùng được trích dẫn trên ảnh": "Cited region on the picture",
+  "Khớp chính xác": "Exact match",
+  "Khớp một phần": "Partial match",
+  "Liên quan về nghĩa": "Related in meaning",
   "Trang {{pages}} / {{total}}": "Page {{pages}} / {{total}}",
   "Đang tải tài liệu…": "Loading the document…",
   "Điều khiển tài liệu": "Document controls",

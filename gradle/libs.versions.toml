@@ -6,26 +6,26 @@ spring-boot = "4.1.2"
 spring-dependency-management = "1.1.7"
 spring-modulith = "2.1.2"
 archunit = "1.5.1"
-springdoc = "3.1.1"
+springdoc = "3.2.0"
 keycloak-admin-client = "26.0.12"
-tika = "4.1.0"
+tika = "4.2.0"
 jsoup = "1.23.2"
 pdfbox = "3.0.8"
 imageio = "3.15.3"
 db-scheduler = "16.12.0"
-aws-sdk = "2.57.3"
+aws-sdk = "2.57.7"
 docling-java = "0.7.1"
 poi = "6.0.0"
 commons-csv = "1.14.1"
 commons-compress = "1.28.0"
 spring-ai = "2.0.2"
-embabel = "1.5.3"
+embabel = "1.5.4"
 opensearch-java = "3.10.0"
 msal4j = "1.26.0"
 microsoft-graph = "6.72.0"
 lark-oapi = "2.8.7"
 # MEM-270: the Chat sandbox runtime (ADR 0029).
-opensandbox = "1.1.1"
+opensandbox = "1.2.0"
 google-api-drive = "v3-rev20260916-2.0.0"
 google-api-sheets = "v4-rev20260930-2.0.0"
 google-api-docs = "v1-rev20261006-2.0.0"
@@ -81,12 +81,12 @@ pdfbox = { module = "org.apache.pdfbox:pdfbox", version.ref = "pdfbox" }
 # MEM-243: PDFBox renders a scanned page for a model to read; black-and-white scans are commonly JBIG2.
 pdfbox-jbig2 = { module = "org.apache.pdfbox:jbig2-imageio", version = "3.0.5" }
 docling-client = { module = "ai.docling:docling-serve-client", version.ref = "docling-java" }
-otel-instrumentation-bom = { module = "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom-alpha", version = "2.32.0-alpha" }
+otel-instrumentation-bom = { module = "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom-alpha", version = "2.33.1-alpha" }
 spring-boot-starter-opentelemetry = { module = "org.springframework.boot:spring-boot-starter-opentelemetry" }
 micrometer-core = { module = "io.micrometer:micrometer-core" }
 micrometer-context = { module = "io.micrometer:context-propagation" }
 micrometer-registry-otlp = { module = "io.micrometer:micrometer-registry-otlp" }
-otel-logback-appender = { module = "io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0", version = "2.32.0-alpha" }
+otel-logback-appender = { module = "io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0", version = "2.33.1-alpha" }
 aws-sdk-bom = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk" }
 aws-sdk-s3 = { module = "software.amazon.awssdk:s3" }
 aws-sdk-auth = { module = "software.amazon.awssdk:auth" }

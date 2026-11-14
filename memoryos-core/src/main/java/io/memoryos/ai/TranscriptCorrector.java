@@ -4,14 +4,18 @@ import io.memoryos.shared.ActorId;
 import io.memoryos.usage.AiUsage;
 import io.memoryos.usage.AiUsageFlow;
 import io.memoryos.usage.AiUsageRecorder;
+import java.text.Normalizer;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,6 +57,10 @@ public class TranscriptCorrector {
     /** Two marked stretches this close together, with no sentence ending between, read as one. */
     static final int MERGE_GAP_CHARS = 5;
     static final int MERGE_GAP_WORDS = 8;
+    /** The longest run of words checked for a repeat: enough for a name like "Google Drive Workspace". */
+    private static final int EDGE_WORDS = 3;
+    private static final String SENTENCE_END = ".!?";
+    private static final Pattern NOT_WORD = Pattern.compile("[^\\p{L}\\p{N}\\p{Mn}]+");
 
     private final ModelResolver models;
     private final ModelCalls calls;
@@ -230,8 +238,8 @@ public class TranscriptCorrector {
     }
 
     /** Drops what cannot be used: an unknown stretch, an empty replacement, or one that leaked its context back. */
-    private static List<TranscriptCorrections.Proposal> clean(TranscriptCorrections answered, List<Stretch> batch,
-                                                              Map<String, Line> byId) {
+    static List<TranscriptCorrections.Proposal> clean(TranscriptCorrections answered, List<Stretch> batch,
+                                                      Map<String, Line> byId) {
         var wanted = new LinkedHashMap<String, Stretch>();
         for (var stretch : batch) wanted.put(stretch.id(), stretch);
         var kept = new ArrayList<TranscriptCorrections.Proposal>(batch.size());
@@ -248,12 +256,49 @@ public class TranscriptCorrector {
             if (said.isEmpty() || said.equals(original)) continue;
             // A stretch is a few words; an answer several times its length has taken the context with it.
             if (said.length() > Math.max(80, original.length() * 3)) continue;
+            // "Google" answered as "Google Drive" before "Drive" reads "Google Drive Drive" once put in.
+            if (repeatsNeighbour(line.text(), start, end, said)) continue;
             if (!proposal.replace()) continue;
             kept.add(new TranscriptCorrections.Proposal(proposal.id(), true, said,
                     proposal.reason() == null ? "" : proposal.reason().strip(), score(proposal.confidence()),
                     score(proposal.contextFit()), score(proposal.meaningSafe()), proposal.matchedGlossary()));
         }
         return kept;
+    }
+
+    /**
+     * True when putting the replacement in would say a word, or a run of up to three words, twice in a row more often
+     * than the sentence already did ("Google" answered as "Google Drive" before "Drive"). Only the stretch's own
+     * sentence is compared, so a word that ends one sentence and opens the next is no repeat.
+     */
+    static boolean repeatsNeighbour(String line, int start, int end, String replacement) {
+        int from = start, to = end;
+        while (from > 0 && SENTENCE_END.indexOf(line.charAt(from - 1)) < 0) from--;
+        while (to < line.length() && SENTENCE_END.indexOf(line.charAt(to)) < 0) to++;
+        var before = words(line.substring(from, start));
+        var after = words(line.substring(end, to));
+        var heard = new ArrayList<>(before);
+        heard.addAll(words(line.substring(start, end)));
+        heard.addAll(after);
+        var changed = new ArrayList<>(before);
+        changed.addAll(words(replacement));
+        changed.addAll(after);
+        return repeats(changed) > repeats(heard);
+    }
+
+    /** How many times a run of one to three words is followed at once by the same run. */
+    private static int repeats(List<String> words) {
+        int found = 0;
+        for (int size = 1; size <= EDGE_WORDS; size++)
+            for (int at = 0; at + 2 * size <= words.size(); at++)
+                if (words.subList(at, at + size).equals(words.subList(at + size, at + 2 * size))) found++;
+        return found;
+    }
+
+    private static List<String> words(String text) {
+        String folded = Normalizer.normalize(text, Normalizer.Form.NFC).toLowerCase(Locale.ROOT).strip();
+        if (folded.isEmpty()) return List.of();
+        return Arrays.stream(NOT_WORD.split(folded)).filter(word -> !word.isEmpty()).toList();
     }
 
     private static double score(double value) {

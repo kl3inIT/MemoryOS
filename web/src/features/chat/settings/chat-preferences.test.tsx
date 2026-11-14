@@ -20,6 +20,7 @@ const saved = {
   personalPreferences: "",
   defaultModelId: null,
   autoScroll: true,
+  pasteAsTile: false,
   temperatureDefault: null,
   reasoningEffortDefault: "MEDIUM" as const,
   displayName: "Trần Thu Hà",
@@ -101,6 +102,26 @@ describe("personal Chat preferences", () => {
     fireEvent.click(screen.getByRole("switch", { name: "Chat Auto-scroll" }));
     await waitFor(() => expect(puts).toHaveLength(2));
     expect(puts[1]).toMatchObject({ autoScroll: false, defaultModelId: "qwen" });
+  });
+
+  it("offers collapsing large pastes off by default and saves it with the whole record", async () => {
+    const puts = mount(<ChatPreferencesSections />);
+    const toggle = await screen.findByRole("switch", { name: "Collapse large pastes" });
+    await waitFor(() => expect(toggle).toBeEnabled());
+    expect(toggle).not.toBeChecked();
+    expect(
+      screen.getByText(
+        "Collapse a paste longer than 3 lines or 200 characters into a compact tile instead of inserting it into the field.",
+      ),
+    ).toBeVisible();
+    fireEvent.click(toggle);
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0]).toMatchObject({
+      pasteAsTile: true,
+      autoScroll: true,
+      workRole: "Kế toán trưởng",
+    });
+    await waitFor(() => expect(toggle).toBeChecked());
   });
 
   it("shows the sign-in profile read-only and saves the work role on leaving the field", async () => {

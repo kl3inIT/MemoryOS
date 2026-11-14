@@ -68,6 +68,7 @@ const flowLabels: Record<Flow, AppCopy> = {
   CHAT_NAMING: "Conversation naming",
   CHAT_GUARDRAIL: "Question check",
   CHAT_COMPACTION: "Long conversation summaries",
+  CHAT_FOLLOW_UPS: "Follow-up suggestions",
   AGENT_BUILDER: "Agent Builder",
   DEEP_RESEARCH: "Deep research",
   EMBEDDING_QUERY: "Search embeddings",

@@ -86,3 +86,58 @@ describe("CitationRail", () => {
     expect(onActivate).toHaveBeenCalledWith(1);
   });
 });
+
+describe("CitationRail table rows", () => {
+  it("shows a table row by its page and heading, not by its labelled cells", async () => {
+    await i18n.changeLanguage("vi");
+    const row = JSON.stringify({
+      source: { page_no: 22, bbox: { l: 1, t: 2, r: 3, b: 4, coord_origin: "TOPLEFT" } },
+      tableRow: 3,
+    });
+    rail(["exact", "exact"], true, "search", [
+      {
+        text: "Column 1: Các khoản tương đương tiền (1)\nSố cuối năm: 11.045.201.439",
+        section: "PHẦN II > Tiền và các khoản tương đương tiền",
+        provenance: [row],
+      } as (typeof entries)[number],
+      entries[1]!,
+    ]);
+
+    const [table, prose] = screen.getAllByRole("button");
+    expect(table).toHaveTextContent("Trang 22");
+    expect(table).toHaveTextContent("Tiền và các khoản tương đương tiền");
+    expect(table).not.toHaveTextContent("Column 1");
+    expect(table).not.toHaveTextContent("11.045.201.439");
+    expect(prose).toHaveTextContent("Lợi nhuận sau thuế đạt 87 tỷ đồng.");
+  });
+
+  it("keeps the text of a table row that could not be marked, without the chunker's column label", async () => {
+    await i18n.changeLanguage("vi");
+    const row = JSON.stringify({ source: { page_no: 22 }, tableRow: 3 });
+    rail(["none"], true, "search", [
+      {
+        text: "Column 1: Tiền mặt\nSố cuối năm: 1.418.536.380",
+        provenance: [row],
+      } as (typeof entries)[number],
+    ]);
+
+    const button = screen.getByRole("button");
+    expect(button).toHaveTextContent("Tiền mặt");
+    expect(button).toHaveTextContent("Số cuối năm: 1.418.536.380");
+    expect(button).not.toHaveTextContent("Column 1");
+  });
+});
+
+describe("CitationRail table rows in Chat", () => {
+  it("keeps a Chat citation's table row text, which the answer quoted", async () => {
+    await i18n.changeLanguage("vi");
+    const row = JSON.stringify({ source: { page_no: 22 }, tableRow: 3 });
+    rail(["exact"], true, "chat", [
+      { text: "Column 1: Tiền mặt", provenance: [row] } as (typeof entries)[number],
+    ]);
+
+    const button = screen.getByRole("button");
+    expect(button).toHaveTextContent("Tiền mặt");
+    expect(button).not.toHaveTextContent("Column 1");
+  });
+});

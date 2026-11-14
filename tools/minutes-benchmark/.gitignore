@@ -1,0 +1,5 @@
+# Transcripts, keys and results are private meeting content: they stay on the staging server.
+key/
+results/
+*.json
+!tests/*.json

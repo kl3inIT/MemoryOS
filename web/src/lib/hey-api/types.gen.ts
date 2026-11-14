@@ -20,6 +20,22 @@ export type ReplaceSharePointScopeRequest = {
     scope: SharePointScopeRequest;
 };
 
+export type SearchPassageLine = {
+    pageNo: number;
+    text: string;
+    coordOrigin: 'TOPLEFT' | 'BOTTOMLEFT';
+    frameWidth?: number;
+    frameHeight?: number;
+    /**
+     * The line's quadrilateral as [x, y] corners, in the order the OCR answered them
+     */
+    points: Array<Array<number>>;
+};
+
+export type SearchPassageLines = {
+    lines: Array<SearchPassageLine>;
+};
+
 export type SharePointScopeRequest = {
     scopeMode: 'ALL_SITES' | 'SPECIFIC';
     /**
@@ -281,6 +297,10 @@ export type MeetingMinutesItem = {
     id: string;
     text: string;
     owner: string | null;
+    /**
+     * The voice that owns the work; named by the meeting's speakers
+     */
+    ownerSpeaker?: MeetingSpeakerRef;
     due: string | null;
     /**
      * The transcript sentence the item rests on
@@ -292,6 +312,39 @@ export type MeetingMinutesItem = {
      * Whether these words are the owner's rather than the model's
      */
     edited: boolean;
+};
+
+/**
+ * One line as it now reads, and the voice it now belongs to
+ */
+export type MeetingLineSpeaker = {
+    utterance: MeetingUtterance;
+    /**
+     * The voice the line now belongs to; new to the meeting when the owner gave a new name
+     */
+    speaker: MeetingSpeaker;
+};
+
+/**
+ * Who spoke one line: a voice of the meeting or a new name, exactly one of them
+ */
+export type MeetingLineSpeakerRequest = {
+    /**
+     * A voice of the meeting; one of the other track lends only its name
+     */
+    speaker?: MeetingSpeakerRef;
+    /**
+     * A name; the line takes the voice of its track with that name, or a new one
+     */
+    name?: string | null;
+};
+
+/**
+ * One voice of the meeting, as its speakers list names it
+ */
+export type MeetingSpeakerRef = {
+    track: 'MIC' | 'TAB';
+    label: string;
 };
 
 export type MeetingMinutesSummaryRequest = {
@@ -312,6 +365,10 @@ export type MeetingMinutesSummary = {
 export type MeetingMinutesItemRequest = {
     text: string;
     owner?: string | null;
+    /**
+     * A voice of the meeting as the owner, instead of a written name
+     */
+    ownerSpeaker?: MeetingSpeakerRef;
     due?: string | null;
 };
 
@@ -975,6 +1032,10 @@ export type ChatSettingsResponse = {
      * In that mode, a person may still turn Web search on for a turn
      */
     groundedAllowWeb: boolean;
+    /**
+     * After each answer, offer three questions to ask next; each costs one more model call
+     */
+    followUpSuggestions: boolean;
     revision: number;
 };
 
@@ -1028,6 +1089,21 @@ export type ChatGuardrailsResponse = {
     blockedPhrases: Array<string>;
     blockedPhraseMessage: string;
     revision: number;
+};
+
+export type ChatFollowUpsRequest = {
+    /**
+     * After each answer, offer three questions to ask next; each costs one more model call
+     */
+    followUpSuggestions: boolean;
+    revision?: number;
+};
+
+export type ChatFollowUpsResponse = {
+    /**
+     * Up to three questions to ask next; empty when the answer gets none
+     */
+    suggestions: Array<string>;
 };
 
 export type ChatGroundedRequest = {
@@ -1281,6 +1357,10 @@ export type ChatPreferencesInput = {
      * The assistant the member's direct messages to a bot answer with; null keeps the bot's own
      */
     channelPersonaId?: string | null;
+    /**
+     * Collapse a paste over 3 lines or 200 characters into a composer tile; absent is off
+     */
+    pasteAsTile?: boolean | null;
 };
 
 export type ChatMemory = {
@@ -1328,6 +1408,10 @@ export type ChatPreferences = {
      * The assistant the member's direct messages to a bot answer with; absent for the bot's own
      */
     channelPersonaId?: string | null;
+    /**
+     * Collapse a paste of more than 3 lines or 200 characters into a composer tile
+     */
+    pasteAsTile: boolean;
     displayName: string | null;
     email: string | null;
 };
@@ -2217,6 +2301,10 @@ export type MeetingNewMinutesItemRequest = {
     kind: 'DECISION' | 'ACTION';
     text: string;
     owner?: string | null;
+    /**
+     * A voice of the meeting as the owner, instead of a written name
+     */
+    ownerSpeaker?: MeetingSpeakerRef;
     due?: string | null;
 };
 
@@ -5103,6 +5191,46 @@ export type UpdateMeetingResponses = {
 
 export type UpdateMeetingResponse = UpdateMeetingResponses[keyof UpdateMeetingResponses];
 
+export type SetMeetingLineSpeakerData = {
+    body: MeetingLineSpeakerRequest;
+    path: {
+        meetingId: string;
+        utteranceId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/utterances/{utteranceId}/speaker';
+};
+
+export type SetMeetingLineSpeakerErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting, line or voice not available
+     */
+    404: ApiProblem;
+};
+
+export type SetMeetingLineSpeakerError = SetMeetingLineSpeakerErrors[keyof SetMeetingLineSpeakerErrors];
+
+export type SetMeetingLineSpeakerResponses = {
+    /**
+     * The line and the voice it now belongs to
+     */
+    200: MeetingLineSpeaker;
+};
+
+export type SetMeetingLineSpeakerResponse = SetMeetingLineSpeakerResponses[keyof SetMeetingLineSpeakerResponses];
+
 export type UnstarMeetingUtteranceData = {
     body?: never;
     path: {
@@ -6988,6 +7116,47 @@ export type SaveChatGuardrailsResponses = {
 
 export type SaveChatGuardrailsResponse = SaveChatGuardrailsResponses[keyof SaveChatGuardrailsResponses];
 
+export type SaveChatFollowUpsData = {
+    body: ChatFollowUpsRequest;
+    path?: never;
+    query?: never;
+    url: '/api/chat/settings/follow-ups';
+};
+
+export type SaveChatFollowUpsErrors = {
+    /**
+     * Invalid Chat settings
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Chat unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Chat settings changed
+     */
+    409: ApiProblem;
+};
+
+export type SaveChatFollowUpsError = SaveChatFollowUpsErrors[keyof SaveChatFollowUpsErrors];
+
+export type SaveChatFollowUpsResponses = {
+    /**
+     * Saved Tenant Chat settings
+     */
+    200: ChatSettingsResponse;
+};
+
+export type SaveChatFollowUpsResponse = SaveChatFollowUpsResponses[keyof SaveChatFollowUpsResponses];
+
 export type SaveChatGroundedData = {
     body: ChatGroundedRequest;
     path?: never;
@@ -8456,7 +8625,7 @@ export type SetPersonaModelData = {
         personaId: string;
     };
     query: {
-        modelConfigurationId?: string;
+        modelConfigurationId?: string | null;
         revision: number;
     };
     url: '/api/chat/personas/{personaId}/model';
@@ -8899,7 +9068,7 @@ export type SetChatModelFlowData = {
         flow: 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'AGENT_BUILDER' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     };
     query: {
-        modelConfigurationId?: string;
+        modelConfigurationId?: string | null;
         reasoningEffort?: 'OFF' | 'LOW' | 'MEDIUM' | 'HIGH';
         revision: number;
     };
@@ -12794,7 +12963,7 @@ export type ListChatSessionsData = {
         /**
          * Only the topics of this assistant
          */
-        personaId?: string;
+        personaId?: string | null;
         offset?: number;
         limit?: number;
     };
@@ -12913,7 +13082,7 @@ export type GetChatHistoryData = {
         sessionId: string;
     };
     query?: {
-        after?: string;
+        after?: string | null;
         limit?: number;
     };
     url: '/api/chat/sessions/{sessionId}/messages';
@@ -13091,6 +13260,50 @@ export type EditChatMessageResponses = {
 };
 
 export type EditChatMessageResponse = EditChatMessageResponses[keyof EditChatMessageResponses];
+
+export type SuggestChatFollowUpsData = {
+    body?: never;
+    path: {
+        sessionId: string;
+        messageId: string;
+    };
+    query?: never;
+    url: '/api/chat/sessions/{sessionId}/messages/{messageId}/follow-ups';
+};
+
+export type SuggestChatFollowUpsErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type SuggestChatFollowUpsError = SuggestChatFollowUpsErrors[keyof SuggestChatFollowUpsErrors];
+
+export type SuggestChatFollowUpsResponses = {
+    /**
+     * Up to three questions; empty when the answer gets none
+     */
+    200: ChatFollowUpsResponse;
+};
+
+export type SuggestChatFollowUpsResponse = SuggestChatFollowUpsResponses[keyof SuggestChatFollowUpsResponses];
 
 export type BranchChatSessionData = {
     body?: BranchChatSessionRequest;
@@ -13971,8 +14184,8 @@ export type ListChatPersonasData = {
     path?: never;
     query?: {
         view?: 'ALL' | 'MINE' | 'SHARED';
-        labelId?: string;
-        q?: string;
+        labelId?: string | null;
+        q?: string | null;
         offset?: number;
         limit?: number;
     };
@@ -15422,7 +15635,7 @@ export type GetSharePointRootsData = {
         sourceId: string;
     };
     query?: {
-        cursor?: string;
+        cursor?: string | null;
         size?: number;
     };
     url: '/api/sources/{sourceId}/sharepoint/roots';
@@ -15468,12 +15681,12 @@ export type ListSourceRunsData = {
         sourceId: string;
     };
     query?: {
-        cursor?: string;
+        cursor?: string | null;
         size?: number;
-        status?: Array<'QUEUED' | 'ACQUIRING' | 'RETRY_SCHEDULED' | 'RECOVERY_PENDING' | 'INDEXING' | 'SUCCEEDED' | 'COMPLETED_WITH_ERRORS' | 'FAILED' | 'SUPERSEDED' | 'CANCELLED' | 'UNKNOWN'>;
+        status?: Array<'QUEUED' | 'ACQUIRING' | 'RETRY_SCHEDULED' | 'RECOVERY_PENDING' | 'INDEXING' | 'SUCCEEDED' | 'COMPLETED_WITH_ERRORS' | 'FAILED' | 'SUPERSEDED' | 'CANCELLED' | 'UNKNOWN'> | null;
         trigger?: 'SCHEDULED' | 'MANUAL' | 'INITIAL' | 'RESUMED';
-        from?: string;
-        to?: string;
+        from?: string | null;
+        to?: string | null;
     };
     url: '/api/sources/{sourceId}/runs';
 };
@@ -15513,7 +15726,7 @@ export type ListSourceRunErrorsData = {
         runId: string;
     };
     query?: {
-        cursor?: string;
+        cursor?: string | null;
         size?: number;
     };
     url: '/api/sources/{sourceId}/runs/{runId}/errors';
@@ -15534,7 +15747,7 @@ export type ListSourceItemsData = {
         sourceId: string;
     };
     query?: {
-        cursor?: string;
+        cursor?: string | null;
         size?: number;
     };
     url: '/api/sources/{sourceId}/items';
@@ -15555,7 +15768,7 @@ export type ListSourceIndexAttemptsData = {
         sourceId: string;
     };
     query?: {
-        cursor?: string;
+        cursor?: string | null;
         size?: number;
     };
     url: '/api/sources/{sourceId}/index-attempts';
@@ -15594,9 +15807,9 @@ export type GetGoogleDriveSelectionData = {
         sourceId: string;
     };
     query?: {
-        search?: string;
+        search?: string | null;
         kind?: 'FOLDER' | 'FILE' | 'LINKED';
-        cursor?: string;
+        cursor?: string | null;
         size?: number;
     };
     url: '/api/sources/{sourceId}/google-drive/selection';
@@ -15617,8 +15830,8 @@ export type GetGoogleDriveSelectionTreeData = {
         sourceId: string;
     };
     query?: {
-        parentId?: string;
-        cursor?: string;
+        parentId?: string | null;
+        cursor?: string | null;
         size?: number;
     };
     url: '/api/sources/{sourceId}/google-drive/selection-tree';
@@ -15739,7 +15952,7 @@ export type ListSourceGroupOptionsData = {
     body?: never;
     path?: never;
     query?: {
-        search?: string;
+        search?: string | null;
         page?: number;
         size?: number;
     };
@@ -15906,7 +16119,7 @@ export type GetSearchDocumentData = {
         /**
          * The generation a search result named; without one, the current generation, as a link that carries only the document opens it
          */
-        generation?: string;
+        generation?: string | null;
         from?: number;
     };
     url: '/api/search/documents/{documentId}';
@@ -15941,13 +16154,34 @@ export type ReadSearchDocumentSpreadsheetResponses = {
 
 export type ReadSearchDocumentSpreadsheetResponse = ReadSearchDocumentSpreadsheetResponses[keyof ReadSearchDocumentSpreadsheetResponses];
 
+export type ReadSearchPassageLinesData = {
+    body?: never;
+    path: {
+        documentId: string;
+        ordinal: number;
+    };
+    query: {
+        generation: string;
+    };
+    url: '/api/search/documents/{documentId}/passages/{ordinal}/lines';
+};
+
+export type ReadSearchPassageLinesResponses = {
+    /**
+     * OK
+     */
+    200: SearchPassageLines;
+};
+
+export type ReadSearchPassageLinesResponse = ReadSearchPassageLinesResponses[keyof ReadSearchPassageLinesResponses];
+
 export type ReadSearchDocumentOriginalData = {
     body?: never;
     headers?: {
         /**
          * One byte range, for example bytes=0-1048575
          */
-        Range?: string;
+        Range?: string | null;
     };
     path: {
         documentId: string;
@@ -16193,7 +16427,7 @@ export type ListMcpGroupOptionsData = {
     body?: never;
     path?: never;
     query?: {
-        search?: string;
+        search?: string | null;
         page?: number;
         size?: number;
     };
@@ -16400,22 +16634,22 @@ export type ListMcpEndpointActivityData = {
         /**
          * Calls at or after this instant
          */
-        from?: string;
+        from?: string | null;
         /**
          * Calls before this instant
          */
-        to?: string;
+        to?: string | null;
         client?: 'CLAUDE' | 'CHATGPT' | 'OTHER';
-        tool?: string;
+        tool?: string | null;
         outcome?: 'SUCCESS' | 'REFUSED' | 'FAILED' | 'RATE_LIMITED';
         /**
          * Part of the person's name or e-mail address
          */
-        person?: string;
+        person?: string | null;
         /**
          * The next value of the previous page
          */
-        cursor?: string;
+        cursor?: string | null;
         size?: number;
     };
     url: '/api/mcp/endpoint/activity';
@@ -16533,7 +16767,7 @@ export type SearchPrincipalsData = {
     body?: never;
     path?: never;
     query?: {
-        search?: string;
+        search?: string | null;
         size?: number;
     };
     url: '/api/identity/principals';
@@ -17044,7 +17278,7 @@ export type GetSharedChatHistoryData = {
         sessionId: string;
     };
     query?: {
-        after?: string;
+        after?: string | null;
         limit?: number;
     };
     url: '/api/chat/shared/{sessionId}/messages';
@@ -17169,14 +17403,14 @@ export type GetChatSessionResponse = GetChatSessionResponses[keyof GetChatSessio
 export type StreamChatMessageData = {
     body?: never;
     headers?: {
-        'Last-Event-ID'?: string;
+        'Last-Event-ID'?: string | null;
     };
     path: {
         sessionId: string;
         assistantMessageId: string;
     };
     query?: {
-        after?: string;
+        after?: string | null;
     };
     url: '/api/chat/sessions/{sessionId}/messages/{assistantMessageId}/events';
 };
@@ -17311,7 +17545,7 @@ export type SearchChatSessionsData = {
         /**
          * Only the topics of this assistant
          */
-        personaId?: string;
+        personaId?: string | null;
         offset?: number;
         limit?: number;
     };
@@ -17352,7 +17586,7 @@ export type PreviewChatRetentionData = {
     body?: never;
     path?: never;
     query?: {
-        days?: number;
+        days?: number | null;
     };
     url: '/api/chat/retention/preview';
 };
@@ -17802,7 +18036,7 @@ export type ListAvailableChatModelsData = {
     body?: never;
     path?: never;
     query?: {
-        sessionId?: string;
+        sessionId?: string | null;
     };
     url: '/api/chat/models';
 };
@@ -17949,15 +18183,15 @@ export type ListChatLibraryData = {
         /**
          * Empty means every source
          */
-        sources?: Array<string>;
+        sources?: Array<string> | null;
         /**
          * Empty means every category
          */
-        categories?: Array<string>;
+        categories?: Array<string> | null;
         /**
          * Only this conversation's own files; the caller must own it
          */
-        sessionId?: string;
+        sessionId?: string | null;
         /**
          * Only starred files
          */
@@ -18097,7 +18331,7 @@ export type ListChatLibraryStarredData = {
         /**
          * Empty means every kind
          */
-        kinds?: Array<string>;
+        kinds?: Array<string> | null;
         offset?: number;
         limit?: number;
     };
@@ -18187,11 +18421,11 @@ export type ListChatLibrarySharedData = {
         /**
          * MEETING or AGENT_FILE; empty means both
          */
-        kinds?: Array<string>;
+        kinds?: Array<string> | null;
         /**
          * Empty means every category; a meeting has none
          */
-        categories?: Array<string>;
+        categories?: Array<string> | null;
         sort?: 'NEWEST' | 'OLDEST' | 'NAME';
         offset?: number;
         limit?: number;
@@ -18330,16 +18564,16 @@ export type ListChatLibraryDocumentsData = {
         /**
          * Empty means every Source the caller may search
          */
-        sourceIds?: Array<string>;
+        sourceIds?: Array<string> | null;
         /**
          * Empty means every category
          */
-        categories?: Array<string>;
+        categories?: Array<string> | null;
         sort?: 'NEWEST' | 'NAME';
         /**
          * The nextCursor of the previous page, with the same filters and sort
          */
-        cursor?: string;
+        cursor?: string | null;
         limit?: number;
     };
     url: '/api/chat/library/documents';
@@ -18738,13 +18972,13 @@ export type ListChatHistoryData = {
     body?: never;
     path?: never;
     query?: {
-        from?: string;
-        to?: string;
-        q?: string;
-        actorId?: string;
+        from?: string | null;
+        to?: string | null;
+        q?: string | null;
+        actorId?: string | null;
         feedback?: 'POSITIVE' | 'NEGATIVE' | 'MIXED' | 'NONE';
         blocked?: boolean;
-        cursor?: string;
+        cursor?: string | null;
         size?: number;
     };
     url: '/api/chat/history';
@@ -18823,10 +19057,10 @@ export type ExportChatHistoryData = {
     body?: never;
     path?: never;
     query?: {
-        from?: string;
-        to?: string;
-        q?: string;
-        actorId?: string;
+        from?: string | null;
+        to?: string | null;
+        q?: string | null;
+        actorId?: string | null;
         feedback?: 'POSITIVE' | 'NEGATIVE' | 'MIXED' | 'NONE';
         blocked?: boolean;
     };
@@ -18867,7 +19101,7 @@ export type ListChatGroupOptionsData = {
     body?: never;
     path?: never;
     query?: {
-        search?: string;
+        search?: string | null;
         page?: number;
         size?: number;
     };
@@ -19693,7 +19927,7 @@ export type ReadChatDocumentOriginalData = {
         /**
          * One byte range, for example bytes=0-1048575
          */
-        Range?: string;
+        Range?: string | null;
     };
     path: {
         documentId: string;
@@ -19746,13 +19980,13 @@ export type ExportAuditEventsData = {
     body?: never;
     path?: never;
     query?: {
-        from?: string;
-        to?: string;
-        q?: string;
+        from?: string | null;
+        to?: string | null;
+        q?: string | null;
         eventClass?: 'AUTHENTICATION' | 'ACCOUNT_CHANGE' | 'USER_ACCESS_MANAGEMENT' | 'GROUP_MANAGEMENT' | 'API_ACTIVITY';
-        action?: string;
+        action?: string | null;
         outcome?: 'SUCCESS' | 'FAILURE' | 'DENIED';
-        actorId?: string;
+        actorId?: string | null;
     };
     url: '/api/audit/export';
 };
@@ -19787,16 +20021,16 @@ export type ListAuditEventsData = {
     body?: never;
     path?: never;
     query?: {
-        from?: string;
-        to?: string;
-        q?: string;
+        from?: string | null;
+        to?: string | null;
+        q?: string | null;
         eventClass?: 'AUTHENTICATION' | 'ACCOUNT_CHANGE' | 'USER_ACCESS_MANAGEMENT' | 'GROUP_MANAGEMENT' | 'API_ACTIVITY';
-        action?: string;
+        action?: string | null;
         outcome?: 'SUCCESS' | 'FAILURE' | 'DENIED';
-        actorId?: string;
-        resourceType?: string;
-        resourceId?: string;
-        cursor?: string;
+        actorId?: string | null;
+        resourceType?: string | null;
+        resourceId?: string | null;
+        cursor?: string | null;
         size?: number;
     };
     url: '/api/audit/events';
@@ -19906,8 +20140,8 @@ export type GetAiCostSummaryData = {
     query: {
         from: string;
         to: string;
-        model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'AGENT_BUILDER' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
+        model?: string | null;
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'CHAT_FOLLOW_UPS' | 'AGENT_BUILDER' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
     };
     url: '/api/ai-costs/summary';
 };
@@ -20052,7 +20286,7 @@ export type GetAiCostDetailData = {
     query: {
         from: string;
         to: string;
-        actorId?: string;
+        actorId?: string | null;
         system?: boolean;
     };
     url: '/api/ai-costs/detail';
@@ -20091,8 +20325,8 @@ export type ListAiCostDaysData = {
         from: string;
         to: string;
         split?: 'BOUNDARY' | 'MODEL' | 'NONE';
-        model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'AGENT_BUILDER' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
+        model?: string | null;
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'CHAT_FOLLOW_UPS' | 'AGENT_BUILDER' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
     };
     url: '/api/ai-costs/daily';
 };
@@ -20131,8 +20365,8 @@ export type ListAiCostBreakdownData = {
         to: string;
         by: 'ACTOR' | 'GROUP' | 'MODEL' | 'FLOW' | 'PROVIDER';
         limit?: number;
-        model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'AGENT_BUILDER' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
+        model?: string | null;
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'CHAT_GUARDRAIL' | 'CHAT_COMPACTION' | 'CHAT_FOLLOW_UPS' | 'AGENT_BUILDER' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION' | 'OCR';
     };
     url: '/api/ai-costs/breakdown';
 };

@@ -225,13 +225,13 @@ public final class OpenAiProviderAdapter implements ProviderAdapter {
     }
 
     @Override
-    public Client create(Connection connection, String modelName, ModelSettings settings, Duration readTimeout) {
+    public Client create(Connection connection, String modelName, ModelSettings settings, Timeouts timeouts) {
         validate(connection.baseUrl(), modelName, settings);
         if (connection.credential().isBlank()) throw AiException.providerUnavailable();
         var sync = OpenAIOkHttpClient.builder().baseUrl(connection.baseUrl()).apiKey(connection.credential())
-                .maxRetries(0).timeout(OpenAiCancellation.gap(readTimeout)).build();
+                .maxRetries(0).timeout(OpenAiCancellation.answer(timeouts)).build();
         try {
-            var async = asyncClient(connection.baseUrl(), connection.credential(), readTimeout);
+            var async = asyncClient(connection.baseUrl(), connection.credential(), timeouts.readGap());
             try {
                 // As Onyx, a model served by OpenAI itself always streams through the Responses API with reasoning
                 // summaries; an OpenAI-compatible endpoint opts in with hosted Web search or configured summaries.

@@ -21,13 +21,21 @@ public record ExtractedDocument(
         List<Block> blocks,
         @JsonInclude(JsonInclude.Include.NON_EMPTY) List<Page> pages,
         @JsonProperty("page_orientation") @Nullable JsonNode pageOrientation,
-        @JsonProperty("financial_checks") @Nullable JsonNode financialChecks) {
+        @JsonProperty("financial_checks") @Nullable JsonNode financialChecks,
+        @JsonInclude(JsonInclude.Include.NON_EMPTY) List<Line> lines) {
     public static final String SCHEMA = "memoryos-extraction-v2";
 
     public ExtractedDocument {
         Objects.requireNonNull(schema, "schema");
         blocks = List.copyOf(Objects.requireNonNull(blocks, "blocks"));
         pages = pages == null ? List.of() : List.copyOf(pages);
+        lines = lines == null ? List.of() : List.copyOf(lines);
+    }
+
+    /** A document whose reader located no text line. */
+    public ExtractedDocument(String schema, @Nullable JsonNode source, List<Block> blocks, List<Page> pages,
+            @Nullable JsonNode pageOrientation, @Nullable JsonNode financialChecks) {
+        this(schema, source, blocks, pages, pageOrientation, financialChecks, List.of());
     }
 
     public enum Kind { HEADING, PARAGRAPH, LIST_ITEM, TABLE, IMAGE }
@@ -99,12 +107,21 @@ public record ExtractedDocument(
      * {@code frame_height} is measured from the top left of a frame of that size as a reader sees it,
      * x right and y down, in the frame's own unit: a pixel of a picture after its EXIF orientation,
      * or a point of a PDF page as displayed, {@code /Rotate} applied. Its origin is {@code TOPLEFT}.
+     *
+     * <p>{@code polygon}, when present, is the block's own outline as {@code [x, y]} points in the
+     * same space and origin as the box, inside it: a tilted or curved block drawn in its own shape
+     * rather than as the upright box around it. The box stays the outline's bounds.
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record BoundingBox(double l, double t, double r, double b,
             @JsonProperty("coord_origin") CoordOrigin coordOrigin,
             @JsonProperty("frame_width") @Nullable Double frameWidth,
-            @JsonProperty("frame_height") @Nullable Double frameHeight) {
+            @JsonProperty("frame_height") @Nullable Double frameHeight,
+            @Nullable List<List<Double>> polygon) {
+        /** The fewest and the most points an outline has. */
+        public static final int MIN_POLYGON_POINTS = 3;
+        public static final int MAX_POLYGON_POINTS = 64;
+
         public BoundingBox {
             Objects.requireNonNull(coordOrigin, "coordOrigin");
             if ((frameWidth == null) != (frameHeight == null)) {
@@ -113,11 +130,34 @@ public record ExtractedDocument(
             if (frameWidth != null && (coordOrigin != CoordOrigin.TOPLEFT || !(frameWidth > 0) || !(frameHeight > 0))) {
                 throw new IllegalArgumentException("a framed box is measured from the top left of a frame with a size");
             }
+            if (polygon != null) {
+                if (polygon.size() < MIN_POLYGON_POINTS || polygon.size() > MAX_POLYGON_POINTS) {
+                    throw new IllegalArgumentException("an outline has 3 to 64 points");
+                }
+                for (List<Double> point : polygon) {
+                    if (point == null || point.size() != 2 || point.stream().anyMatch(value -> value == null
+                            || !Double.isFinite(value))) {
+                        throw new IllegalArgumentException("an outline point is a finite [x, y]");
+                    }
+                }
+                polygon = polygon.stream().map(List::copyOf).toList();
+            }
         }
 
         /** A box in PDF user space. */
         public BoundingBox(double l, double t, double r, double b, CoordOrigin coordOrigin) {
-            this(l, t, r, b, coordOrigin, null, null);
+            this(l, t, r, b, coordOrigin, null, null, null);
+        }
+
+        /** A box without an outline. */
+        public BoundingBox(double l, double t, double r, double b, CoordOrigin coordOrigin,
+                @Nullable Double frameWidth, @Nullable Double frameHeight) {
+            this(l, t, r, b, coordOrigin, frameWidth, frameHeight, null);
+        }
+
+        /** This box with the given outline. */
+        public BoundingBox withPolygon(List<List<Double>> outline) {
+            return new BoundingBox(l, t, r, b, coordOrigin, frameWidth, frameHeight, outline);
         }
     }
 
@@ -162,6 +202,25 @@ public record ExtractedDocument(
     }
 
     public record Page(@JsonProperty("page_no") int pageNo, double width, double height) {}
+
+    /**
+     * One text line the OCR located inside a block: {@code block} is the block's {@code index}, {@code bbox} is in
+     * the block's own space and origin, and its {@code polygon} is the line's quadrilateral as the OCR answered it,
+     * corner by corner. A reader that locates no line writes none; a viewer that finds none marks the block whole.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record Line(int block, @JsonProperty("page_no") int pageNo, String text, BoundingBox bbox) {
+        /** The most characters a line keeps; the OCR's longest line on an A4 page is far shorter. */
+        public static final int MAX_TEXT = 1_000;
+
+        public Line {
+            Objects.requireNonNull(bbox, "bbox");
+            if (block < 0 || pageNo < 1 || text == null || text.isBlank() || text.length() > MAX_TEXT
+                    || bbox.polygon() == null) {
+                throw new IllegalArgumentException("a line has a block, a page, its text and its quadrilateral");
+            }
+        }
+    }
 
     /** Omits the default span, which a workbook of 200,000 cells would otherwise repeat. */
     static final class SingleSpan {

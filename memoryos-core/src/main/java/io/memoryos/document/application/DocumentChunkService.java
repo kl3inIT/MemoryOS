@@ -4,6 +4,7 @@ import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.document.DocumentChunkSet;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.DocumentIndexState;
+import io.memoryos.document.PassageLine;
 import io.memoryos.document.persistence.JdbcDocumentChunkRepository;
 import io.memoryos.shared.Sha256;
 import io.memoryos.shared.TenantId;
@@ -83,6 +84,11 @@ public class DocumentChunkService implements DocumentChunkPort {
     @Override
     public boolean isCurrent(TenantId tenant, DocumentId document, UUID generation, String identity) {
         return repository.isCurrent(tenant, document, generation, identity);
+    }
+
+    @Override
+    public List<PassageLine> passageLines(TenantId tenant, DocumentId document, UUID generation, int ordinal) {
+        return repository.passageLines(tenant, document, generation, ordinal);
     }
 
     @Override

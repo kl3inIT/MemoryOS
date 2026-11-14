@@ -50,6 +50,9 @@ updates:
     open-pull-requests-limit: 10
     labels:
       - dependencies
+    # The PDF worker must be the pdfjs-dist react-pdf pins (11.0.0: 6.3.289); it moves with react-pdf, by hand.
+    ignore:
+      - dependency-name: pdfjs-dist
     groups:
       npm-minor-and-patch:
         update-types:

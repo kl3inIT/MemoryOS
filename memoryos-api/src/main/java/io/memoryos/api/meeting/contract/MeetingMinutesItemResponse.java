@@ -9,6 +9,9 @@ import org.jspecify.annotations.Nullable;
 public record MeetingMinutesItemResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
                                          @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String text,
                                          @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String owner,
+                                         @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true,
+                                                 description = "The voice that owns the work; named by the meeting's speakers")
+                                         @Nullable MeetingSpeakerRef ownerSpeaker,
                                          @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String due,
                                          @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
                                                  description = "The transcript sentence the item rests on") @Nullable String quote,
@@ -18,7 +21,9 @@ public record MeetingMinutesItemResponse(@Schema(requiredMode = Schema.RequiredM
                                                  description = "Whether these words are the owner's rather than the model's")
                                          boolean edited) {
     public static MeetingMinutesItemResponse from(Meeting.MinutesItem item) {
-        return new MeetingMinutesItemResponse(item.id(), item.text(), item.owner(), item.due(), item.quote(),
+        var speaker = item.ownerSpeaker();
+        return new MeetingMinutesItemResponse(item.id(), item.text(), item.owner(),
+                speaker == null ? null : MeetingSpeakerRef.from(speaker), item.due(), item.quote(),
                 item.sourceUtteranceId(), item.done(), item.edited());
     }
 }

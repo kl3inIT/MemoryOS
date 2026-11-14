@@ -38,6 +38,8 @@ export type ChatThreadState = {
   historyFailed: boolean;
   resume: boolean;
   attachmentError?: ErrorMessage;
+  /** MEM-266: the answer whose follow-up questions are being written, for their placeholders. */
+  followUpsFor?: string;
 };
 
 type Deferred<T> = {
@@ -209,6 +211,12 @@ export class ChatThreadController {
 
   setAttachmentError = (attachmentError?: ErrorMessage) => {
     this.set({ attachmentError });
+  };
+
+  /** Marks the answer whose follow-up questions are being written; ending another answer's request changes nothing. */
+  setFollowUpsFor = (messageId: string, pending: boolean) => {
+    if (pending) this.set({ followUpsFor: messageId });
+    else if (this.state.followUpsFor === messageId) this.set({ followUpsFor: undefined });
   };
 
   async loadHistory(): Promise<ChatUiMessage[]> {

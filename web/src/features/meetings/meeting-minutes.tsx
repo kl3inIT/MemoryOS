@@ -20,6 +20,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ApplicationSessionContext } from "@/features/identity/application-session-context";
+import { refusedBy } from "@/features/library/library";
 import { i18n } from "@/i18n";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
@@ -40,6 +41,7 @@ import {
   type MeetingDetail,
   type MeetingMinutesItem,
 } from "./meetings-api";
+import { SpeakerChip } from "./speaker-chip";
 import { useFailureText } from "./use-failure-text";
 
 /**
@@ -78,7 +80,11 @@ export function MinutesActions({ meeting }: { meeting: MeetingDetail }) {
     <div className="flex flex-wrap items-center gap-1">
       {failed ? (
         <p role="alert" className="text-sm text-status-danger-content">
-          {failureText(failed)}
+          {refusedBy(failed).length > 0
+            ? ui("Bản cũ của biên bản đang được dùng trong {{name}}", {
+                name: refusedBy(failed).join(", "),
+              })
+            : failureText(failed)}
         </p>
       ) : null}
       {meeting.owned &&
@@ -313,13 +319,22 @@ export function MinutesItems({
                   >
                     {item.text}
                   </p>
-                  {(item.owner || item.due) && (
-                    <p className="mt-0.5 flex flex-wrap gap-3 text-xs text-content-secondary">
-                      {item.owner && (
-                        <span className="inline-flex items-center gap-1">
-                          <Users className="size-3" aria-hidden="true" />
-                          {item.owner}
-                        </span>
+                  {(item.owner || item.ownerSpeaker || item.due) && (
+                    <div className="mt-0.5 flex flex-wrap items-center gap-3 text-xs text-content-secondary">
+                      {item.ownerSpeaker ? (
+                        <SpeakerChip
+                          meeting={meeting}
+                          track={item.ownerSpeaker.track}
+                          label={item.ownerSpeaker.label}
+                          compact
+                        />
+                      ) : (
+                        item.owner && (
+                          <span className="inline-flex items-center gap-1">
+                            <Users className="size-3" aria-hidden="true" />
+                            {item.owner}
+                          </span>
+                        )
                       )}
                       {item.due && (
                         <span className="inline-flex items-center gap-1">
@@ -327,7 +342,7 @@ export function MinutesItems({
                           {item.due}
                         </span>
                       )}
-                    </p>
+                    </div>
                   )}
                   {item.quote && (
                     <p className="mt-1 text-xs text-content-muted">

@@ -28,7 +28,7 @@ class OcrConnectionProbeTest {
     private final ObjectMapper mapper = new ObjectMapper();
     private final OcrPageReader pages = mock(OcrPageReader.class);
     private final OcrAdapterRegistry adapters = OcrAdapterRegistry.installed(
-            new PaddleOcrVlProperties(Duration.ofSeconds(10), 200, null, null), pages, mock(OcrServiceUsage.class), mapper);
+            new PaddleOcrVlProperties(Duration.ofSeconds(10), 200, null, null, null), pages, mock(OcrServiceUsage.class), mapper);
     private HttpServer server;
 
     @AfterEach void stop() { if (server != null) server.stop(0); }
@@ -61,7 +61,7 @@ class OcrConnectionProbeTest {
     @Test
     void everyProviderHasExactlyOneAdapter() {
         assertThrows(IllegalStateException.class, () -> new OcrAdapterRegistry(List.of()));
-        var paddle = new PaddleOcrVlOcrAdapter(new PaddleOcrVlProperties(null, 0, null, null), mapper);
+        var paddle = new PaddleOcrVlOcrAdapter(new PaddleOcrVlProperties(null, 0, null, null, null), mapper);
         assertThrows(IllegalStateException.class, () -> new OcrAdapterRegistry(List.of(paddle, paddle)));
     }
 

@@ -10,16 +10,19 @@
 | Soniox tokens group into one utterance per speaker, broken at a speaker change and at a pause, with the mean confidence and an end derived from a duration; control tokens are dropped; OpenAI verbose segments become one speaker with times and a confidence read from its log probability, and a server without them still gives one utterance; only Soniox separates speakers and only OpenAI caps the file | `BatchTranscriptionTest` |
 | A meeting is unreachable to another member until it is shared, and then readable: the transcript, the speakers and the minutes arrive, the owner's notes and the reader list do not, and the list row says it is not theirs. Renaming a speaker, writing notes, rerunning the minutes, sharing, deleting and taking a ticket all answer 404 for a reader. Naming somebody outside the Tenant is refused and leaves the readers as they were; emptying the list makes the meeting unreachable again | `ChatSessionApiIntegrationTest.aSharedMeetingIsReadByItsReaderAndChangedByNobodyButItsOwner` |
 | Ending a meeting queues its minutes; the API job writes them with the transcript's numbered lines and the owner's speaker names; a decision and an action point back at the utterance they rest on; an item with no text is dropped; ticking an action off persists; an unknown item and another member's rerun answer 404; the call is billed to the owner's Tenant as `MEETING_MINUTES` | `ChatSessionApiIntegrationTest.endingAMeetingWritesItsMinutesFromTheTranscriptWithTheLinesTheyRestOn`: real PostgreSQL with the scheduled job and a stubbed model |
-| The prompt numbers every line, carries the title, participants and owner notes, refuses invention and unowned work, and keeps both ends of a transcript past the budget while saying part is missing | `TranscriptSummarizerTest` |
+| The prompt numbers every line in a `<transcript>` block with the task after it, carries the title, participants and owner notes, asks for every decision and piece of work beside what does not count, keeps unowned work, requires support by the transcript, and keeps both ends of a transcript past the budget while saying part is missing; the schema sends field descriptions and has items written before the summary and evidence before each item | `TranscriptSummarizerTest` |
 | The published minutes carry the summary, the decisions and the work with owners, deadlines and quotes, are named after the meeting with no character a file system refuses, render a heading even when nothing was decided, and never carry a line of the transcript | `MeetingMinutesMarkdownTest` |
-| `POST /api/meetings/{meetingId}/library` puts written minutes into the owner's library as one Markdown file through the server-write lifecycle, and asking again returns the same file; another member gets `404` and a meeting without written minutes `400` | `ChatSessionApiIntegrationTest.publishingWrittenMinutesPutsOneFileInTheOwnersLibraryAndRefusesOthersAndUnwrittenMinutes`: full API context and PostgreSQL, object storage stubbed |
+| `POST /api/meetings/{meetingId}/library` puts written minutes into the owner's library as one Markdown file through the server-write lifecycle, and asking again returns the same file until the minutes are edited, then deletes it and publishes the edited wording, or answers `409 CHAT_FILE_IN_USE` naming a Project that holds it; another member gets `404` and a meeting without written minutes `400` | `ChatSessionApiIntegrationTest.publishingWrittenMinutesKeepsOneCurrentFileInTheOwnersLibraryAndRefusesOthersAndUnwrittenMinutes`: full API context and PostgreSQL, object storage stubbed |
 | The biên bản follows mẫu 1.9 (quốc hiệu, cơ quan, số, về việc, I–IV and the two signature columns), reads an action back as an assignment with its owner and deadline, prints an empty heading field as an ellipsis, uses Times New Roman at the decree's sizes and draws no table borders | `MeetingMinutesDocumentTest`: the rendered bytes are read back with `XWPFDocument` |
 | The meeting module stays closed and depends only on IAM's Group interface, `ai`, `voice`, `library`, `objectstorage` and `usage`, never on `chat`; its persistence is private | `ModulithArchitectureTest`, `CoreDependencyRulesTest` |
 | Browser support follows Nojoin (shared audio on desktop Chromium, microphone-only on mobile Chrome, otherwise unsupported); a shared tab keeps only its audio, a missing tab audio and a closed picker are reported | `meeting-capture.test.ts` |
 | The track socket addresses the meeting at a whole-millisecond offset, opens on `ready`, relays previews and stored utterances, finishes after `finished`, rejects a refused open with its code and reports a failure once | `meeting-socket.test.ts` |
-| The recorder queues audio until a track connects, reconnects at the delivered offset and replays the queue, stops on terminal codes, drops audio while paused and resumes the clock without the pause, and flags a quiet shared tab | `meeting-recorder.test.ts` |
+| The recorder queues audio until a track connects, reconnects at the delivered offset and replays the queue, stops on terminal codes, drops audio while paused and resumes the clock without the pause, sends nothing of a turned-off microphone while the tab and the clock go on and reopens it at the current time, and flags a quiet shared tab | `meeting-recorder.test.ts` |
 | A member uploads a recording, sees the chosen provider's speaker separation and size limit before sending it, cannot send it without the consent statement, and the meeting then says it is being transcribed with no stop control | `tests/e2e/meetings.spec.ts` |
 | A member creates an in-person meeting with consent, records with Chromium's fake microphone through the real AudioWorklet, sees stored utterances and the live preview, names a speaker, stops and ends the meeting, exports the biên bản with the heading the meeting pre-filled, at 1440 and 390 px without horizontal overflow | `tests/e2e/meetings.spec.ts` with a mocked API and WebSocket |
+| Online, a member turns the microphone off while the shared tab keeps recording: no new `MIC` socket opens until *Bật mic*, which reopens it past the time it was off | `tests/e2e/meetings.spec.ts` |
+| The owner moves one line to a new name and to a named voice of the other track: the line keeps its track, a new voice is `M1` of that track, a name given twice is one voice, a move back keeps the provider's label; both or neither, an unnamed voice of the other track (400), an unknown line or voice and another member (404) are refused | `ChatSessionApiIntegrationTest.theOwnerSaysWhoSpokeOneLineAndALineKeepsItsTrack` |
+| On the page, a line inside a turn and the turn's own name open the speaker picker; this line only by default, the microphone's line without the whole-voice choice; the panel lists one person heard on both tracks once and drops a voice with no line left | `tests/e2e/meeting-transcript.spec.ts`, `meetings-api.test.ts` |
 | An utterance keeps the stretches the provider was unsure of, as offsets into the line it is stored with: a token below the threshold is marked at the word and not at the space before it, neighbouring uncertain tokens become one stretch carrying the worst of them, a token at the threshold is left alone, and a leading space on the first token does not shift the marks | `SpokenTextTest` |
 | Both Soniox adapters mark the same way: the live stream marks within the segment a token lands in, and an uploaded recording marks within its grouped segment | `SonioxLiveTranscriptionTest`, `BatchTranscriptionTest` |
 | A stretch survives the whole way — Soniox tokens, the transcription job, `jsonb`, the REST read — and still indexes the characters the reader sees | `ChatSessionApiIntegrationTest.aStretchSonioxWasUnsureOfReachesTheTranscriptAtTheRightCharacters`: real PostgreSQL and a loopback Soniox |
@@ -31,6 +34,7 @@
 | A mark on part of a word covers the whole word and pieces of one word join at their lowest confidence; a pass asks about the word and its answer replaces the word; a legacy proposal on half a word replaces the whole word once, and reverting puts back exactly that word | `MeetingCorrectionSpansTest`, `ChatSessionApiIntegrationTest.aMarkOnHalfAWordIsAskedAboutAndReplacedAsTheWholeWord` |
 | The owner writes what was said at a marked word: refused while recording, for an unmarked stretch (409) and for a reader (404); the line becomes `HUMAN` and loses that mark, the change appears as an accepted correction and a revert puts the provider's words and the mark back | `ChatSessionApiIntegrationTest.theOwnerWritesWhatWasSaidAtAMarkedWordAndCanTakeItBack` |
 | Clicking a highlighted word opens a field holding the word; Enter sends its range and the new words, and the transcript shows them | `tests/e2e/meetings.spec.ts` |
+| A proposed correction that would say its neighbouring word twice once put in ("Google" → "Google Drive" before "Drive", or a repeat of the word before) is not offered, nor one that makes a repeat the speaker made longer; words the speaker really repeated may still end a replacement, and a word that ends one sentence and opens the next is no repeat | `TranscriptCorrectorTest` |
 | Marks that read as one phrase are asked about together and a full stop keeps them apart; the ask carries the words either side, the speaker, the meeting's terms, the marked window and the same words said elsewhere; the instructions put the burden on replacing rather than on keeping, defend against instructions inside the transcript, and ask nothing about naturalness | `TranscriptCorrectorTest` |
 | A rewritten line keeps its other proposals on their words: one after the change moves with it, an undecided one over the rewritten words is declined, one before it and those of other lines stay; the browser does the same to its cached proposals on accept and on revert | `MeetingRepositoryTest.aRewrittenLineKeepsItsOtherProposalsOnTheirWords`, `meetings-api.test.ts` |
 | Accepting moves the line's remaining marks: one covering the replaced words is dropped, one before it stays and one after it lands on the same word | `MeetingCorrectionSpansTest` |
@@ -40,6 +44,10 @@
 | The owner corrects the summary and one action's words, owner and deadline; each change is an event carrying what the model wrote; a decision may not be given an owner; a reader of a shared meeting is refused; and a rerun answers 409 until it is told to discard the corrections, after which the minutes are the model's again | `ChatSessionApiIntegrationTest.theOwnerCorrectsTheMinutesAndARerunAsksBeforeThrowingThatWorkAway` |
 | The chosen typeface is named on every run of the biên bản, tables included, and a face nobody offered falls back to Times New Roman | `MeetingMinutesDocumentTest.theChosenFaceIsNamedOnEveryRunAndAnUnknownOneIsNot` |
 | Minutes that cannot be written say why: a refused key fails at once after one model call, an answer that is not the minutes is retried three times and fails with its own code, and the page names the reason (a refused key, an unreadable answer, no model at all) and links a model manager to the models page | `ChatSessionApiIntegrationTest.minutesThatCannotBeWrittenSayWhyAndARefusedKeyIsNotRetried`, `meeting-minutes.test.tsx` |
+| The minutes keep an owner only when it is one person (a voice of the transcript stays, named or not; a speaker label of no voice here, a group or organisation and several people are cleared, the work stays); the instructions name who does the work, not who asked for it; a quote not in its line moves to the nearest line or run of lines that holds it, a shortened quote becomes the line's own words, one said nowhere is dropped, and a lineless item takes the one line its quote was said on; quotes match whole words; a decision on an action's sentence is dropped but one beside an unrelated action on the same line stays; an item repeated in other words is dropped and the one kept takes the owner, deadline and quote only the repeat had, while two people's work stays two | `TranscriptSummarizerTest` |
+| An action owned by a voice is stored and read back as that voice | `MeetingRepositoryTest` |
+| Work owned by a voice is named in the Markdown as the voice is named now, its label until it is named | `MeetingMinutesMarkdownTest.workOwnedByAVoiceIsNamedAsTheVoiceIsNamedNow` |
+| Work given to a voice by the name the page shows is sent as that voice, and work owned by a named voice shows that name and names it from there | `meeting-editing.test.tsx` |
 | Topics come back in the order the meeting reached them, and one on a missing line or on a line already taken is dropped | `ChatSessionApiIntegrationTest.endingAMeetingWritesItsMinutesFromTheTranscriptWithTheLinesTheyRestOn` |
 | Choosing a topic in the timeline scrolls its line into view | `tests/e2e/meetings.spec.ts` |
 | A transcript longer than the window marks the subject being read, and choosing another moves the transcript and the mark | `tests/e2e/meeting-transcript.spec.ts` |
@@ -70,3 +78,53 @@ Live Soniox acceptance with real meetings, real microphones and shared tabs rema
 | A transcribed recording's 300 lines and their speakers, the minutes items, the shares and the correction proposals are each written in a fixed number of statements, with every column intact | `MeetingRepositoryTest.aTranscribedRecordingItsMinutesAndItsSharesAreWrittenInAFixedNumberOfStatements` |
 | Every voice is named one way — a name, the owner on an online microphone, otherwise numbered in the meeting's language — and times read `mm:ss` then `h:mm:ss`, in the exports and in the minutes prompt | `MeetingTranscriptExportTest.everyVoiceIsNamedTheOneWayThePageNamesIt`, `ChatSessionApiIntegrationTest.endingAMeetingWritesItsMinutesFromTheTranscriptWithTheLinesTheyRestOn` |
 | PDF text wraps greedily, cuts a word longer than a line without losing a character, and draws a character the face lacks as `?` | `PdfTextTest` |
+
+## Minutes benchmark baseline (MEM-304, 2026-11-02)
+
+The [minutes benchmark](../../tools/minutes-benchmark/README.md) on staging: 17 of the owner's meetings copied to the *Minutes Benchmark* account (corpus `fbc0c2298a0c`), an answer key of 61 decisions and 97 actions drafted and reviewed by Claude from the transcripts (keys `a69c329e6e93`), minutes written by the deployed pipeline with the Tenant's `MEETING_MINUTES` model `cx/gpt-6-luna`, three writings per meeting (`eval-q2P-2026-11-02T15:09:26`, scored again with the final scoring). Mean over meetings and writings, with the range of the three writings:
+
+| Metric | Baseline |
+| --- | --- |
+| Actions found (`action_recall`) | 0.34 (0.32–0.36) |
+| Written actions in the key (`action_precision`) | 0.72 (0.59–0.81) |
+| Decisions found (`decision_recall`) | 0.34 (0.30–0.41) |
+| Written decisions in the key (`decision_precision`) | 0.79 (0.67–0.86) |
+| Owner right, where it can be told (`owner_accuracy`) | 0.51 (0.46–0.55) |
+| Owner given but wrong (`owner_wrong`) | 0.45 (0.44–0.46) |
+| Owner a voice nobody named against a name (`owner_unverifiable`) | 0.20 |
+| Repeated items (`duplicates`) | 0.04 |
+| Quotes found in their line (`quote_in_line`) | 0.96 |
+
+The minutes keep about a third of what the key holds, and most of what they write is in the key: they are short rather than wrong. Most wrong owners are a voice given where the key names nobody, often in meetings whose one voice carries several people.
+
+After the prompt was written by practice ([MEM-305](../increments/completed/mem-305-minutes-prompt/design.md), `eval-fVF-2026-11-02T17:16:48`, same corpus, key and scoring):
+
+| Metric | Baseline | MEM-305 |
+| --- | --- | --- |
+| Actions found | 0.34 | 0.64 (0.59–0.70) |
+| Written actions in the key | 0.72 | 0.62 (0.60–0.63) |
+| Decisions found | 0.34 | 0.57 (0.49–0.68) |
+| Written decisions in the key | 0.79 | 0.69 (0.64–0.75) |
+| Owner right, where it can be told | 0.51 | 0.77 (0.72–0.80) |
+| Owner given but wrong | 0.45 | 0.15 (0.14–0.18) |
+| Owner unverifiable | 0.20 | 0.09 |
+| Repeated items | 0.04 | 0.09 |
+| Quotes found in their line | 0.96 | 0.94 |
+
+The minutes now find about two thirds of the actions and more than half of the decisions, and wrong owners fall to a third; they write somewhat more that the key does not hold, and repeat an item more often.
+
+Reading the transcript in parts and then merging the candidates ([MEM-306](../increments/superseded/mem-306-minutes-chunks/design.md#result)) was measured twice against MEM-305 and reverted: it found more actions (up to 0.73) but wrote more outside the key (decisions in the key down to 0.45), found fewer decisions (0.37 or 0.50) and barely reduced repeats.
+
+The same prompt with a stronger model shows that the model, not the prompt, limits recall. On 2026-11-04 staging wrote the minutes with `cx/gpt-6.1-sol` (reasoning MEDIUM, through 9Router), one writing a meeting. On the 15 meetings it wrote that MEM-305 also scored, against MEM-305's `cx/gpt-6-luna` mean of three:
+
+| Metric | sol | Luna |
+| --- | --- | --- |
+| Actions found | 0.96 | 0.63 |
+| Written actions in the key | 0.59 | 0.62 |
+| Decisions found | 0.77 | 0.59 |
+| Written decisions in the key | 0.49 | 0.65 |
+| Owner right, where it can be told | 0.76 | 0.79 |
+| Repeated items | 0.10 | 0.08 |
+| Quotes found in their line | 1.00 | 0.96 |
+
+Evals `eval-O1b-2026-11-04T12:28:18` and `eval-OAo-2026-11-04T16:09:04`. A long meeting takes sol about two minutes. That is past the old 60-second read gap, which [MEM-307](https://linear.app/memory-os/issue/MEM-307) fixed, and past promptfoo's default 300-second Python worker. The second eval reran the meetings the first one lost, with the provider's `config.timeout` at 15 minutes. Two meetings stayed unscored: 9Router answered a 5xx after the model had finished. Sol finds a third more actions and more decisions at about the same action precision, and writes more decisions the key does not hold.

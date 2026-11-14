@@ -53,7 +53,7 @@ class OpenAiProviderAdapterTest {
                 Map<String, Object> options = lowest.equals("default")
                         ? Map.of("maxCompletionTokens", true, "reasoningEffort", "high")
                         : Map.of("maxCompletionTokens", true, "reasoningEffort", "high", "helperReasoningEffort", lowest);
-                try (var client = adapter.create(connection, "configured-model", settings(options, true), Duration.ofSeconds(5))) {
+                try (var client = adapter.create(connection, "configured-model", settings(options, true), ProviderAdapter.Timeouts.forChat(Duration.ofSeconds(5)))) {
                     var service = client.binding().service();
                     service.getChatModel().call(new Prompt("Helper", service.convertOptions(new LlmOptions().withMaxTokens(100).withoutThinking())));
                     assertEquals(lowest.equals("default") ? "none" : lowest, request.get().path("reasoning_effort").asString());
@@ -142,11 +142,11 @@ class OpenAiProviderAdapterTest {
             assertFalse(adapter.supportsNativeWebSearch(noTools));
             assertThrows(AiException.class, () -> adapter.validate("http://model.internal/v1", "gpt-5.6", noTools));
             var connection = new ProviderAdapter.Connection("http://127.0.0.1:9/v1", "fixture-only");
-            try (var client = adapter.create(connection, "gpt-5.6", declared, Duration.ofSeconds(1))) {
+            try (var client = adapter.create(connection, "gpt-5.6", declared, ProviderAdapter.Timeouts.forChat(Duration.ofSeconds(1)))) {
                 assertInstanceOf(ModelTurns.class, client.binding().service().getChatModel());
                 assertFalse(client.binding().service().getChatModel() instanceof ChatCompletionsReasoning);
             }
-            try (var client = adapter.create(connection, "gpt-5.6", settings(Map.of(), false), Duration.ofSeconds(1))) {
+            try (var client = adapter.create(connection, "gpt-5.6", settings(Map.of(), false), ProviderAdapter.Timeouts.forChat(Duration.ofSeconds(1)))) {
                 assertInstanceOf(ChatCompletionsReasoning.class, client.binding().service().getChatModel());
             }
         } finally { meters.close(); }
@@ -160,7 +160,7 @@ class OpenAiProviderAdapterTest {
             assertThrows(AiException.class, () -> adapter.validate("http://model.internal/v1", "gpt-5.6", settings(Map.of("reasoningSummary", "auto"), false)));
             assertThrows(AiException.class, () -> adapter.validate("http://model.internal/v1", "gpt-5.6", settings(Map.of("reasoningSummary", "detailed"), true)));
             var connection = new ProviderAdapter.Connection("http://127.0.0.1:9/v1", "fixture-only");
-            try (var client = adapter.create(connection, "gpt-5.6", settings(Map.of("reasoningSummary", "auto"), true), Duration.ofSeconds(1))) {
+            try (var client = adapter.create(connection, "gpt-5.6", settings(Map.of("reasoningSummary", "auto"), true), ProviderAdapter.Timeouts.forChat(Duration.ofSeconds(1)))) {
                 var model = assertInstanceOf(ModelTurns.class, client.binding().service().getChatModel());
                 assertFalse(model instanceof ChatCompletionsReasoning, "the Responses route");
                 assertFalse(model.nativeWebSearch());
@@ -181,13 +181,13 @@ class OpenAiProviderAdapterTest {
         try {
             var adapter = new OpenAiProviderAdapter(ObservationRegistry.NOOP, meters);
             var openAi = new ProviderAdapter.Connection("https://api.openai.com/v1", "fixture-only");
-            try (var client = adapter.create(openAi, "gpt-5.6-terra", settings(Map.of(), true), Duration.ofSeconds(1))) {
+            try (var client = adapter.create(openAi, "gpt-5.6-terra", settings(Map.of(), true), ProviderAdapter.Timeouts.forChat(Duration.ofSeconds(1)))) {
                 var model = assertInstanceOf(ModelTurns.class, client.binding().service().getChatModel());
                 assertFalse(model instanceof ChatCompletionsReasoning, "the Responses route");
                 assertFalse(model.nativeWebSearch());
             }
             var gateway = new ProviderAdapter.Connection("https://openrouter.ai/api/v1", "fixture-only");
-            try (var client = adapter.create(gateway, "qwen/qwen3.8-27b", settings(Map.of(), true), Duration.ofSeconds(1))) {
+            try (var client = adapter.create(gateway, "qwen/qwen3.8-27b", settings(Map.of(), true), ProviderAdapter.Timeouts.forChat(Duration.ofSeconds(1)))) {
                 // Chat Completions, which still publishes the reasoning the gateway streams beside the answer.
                 assertInstanceOf(ChatCompletionsReasoning.class, client.binding().service().getChatModel());
             }
@@ -215,7 +215,7 @@ class OpenAiProviderAdapterTest {
         var adapter = new OpenAiProviderAdapter(ObservationRegistry.NOOP, meters);
         try {
             var connection = new ProviderAdapter.Connection("http://127.0.0.1:" + server.getAddress().getPort() + "/v1", "fixture-only");
-            try (var client = adapter.create(connection, "configured-model", structured(Map.of(), true), Duration.ofSeconds(5))) {
+            try (var client = adapter.create(connection, "configured-model", structured(Map.of(), true), ProviderAdapter.Timeouts.forChat(Duration.ofSeconds(5)))) {
                 var binding = client.binding();
                 assertTrue(binding.structuredOutput());
                 for (var effort : ReasoningEffort.values())
@@ -234,7 +234,7 @@ class OpenAiProviderAdapterTest {
                 assertFalse(format.path("json_schema").path("name").asString().isBlank());
                 assertEquals(100, request.get().path("max_completion_tokens").asInt(100), "the other options survive");
             }
-            try (var client = adapter.create(connection, "configured-model", structured(Map.of(), false), Duration.ofSeconds(5))) {
+            try (var client = adapter.create(connection, "configured-model", structured(Map.of(), false), ProviderAdapter.Timeouts.forChat(Duration.ofSeconds(5)))) {
                 assertFalse(client.binding().structuredOutput());
                 var service = client.binding().service();
                 service.getChatModel().call(new Prompt("Write the minutes.", service.convertOptions(new LlmOptions().withMaxTokens(100))));
@@ -264,7 +264,7 @@ class OpenAiProviderAdapterTest {
         var adapter = new OpenAiProviderAdapter(ObservationRegistry.NOOP, meters);
         try {
             var connection = new ProviderAdapter.Connection("http://127.0.0.1:" + server.getAddress().getPort() + "/v1", "fixture-only");
-            try (var client = adapter.create(connection, "configured-model", settings(Map.of(), false), Duration.ofSeconds(5))) {
+            try (var client = adapter.create(connection, "configured-model", settings(Map.of(), false), ProviderAdapter.Timeouts.forChat(Duration.ofSeconds(5)))) {
                 var binding = client.binding();
                 // The turn's sampling wraps the converter, and ModelGuard rewrites the request on the way out.
                 var service = binding.forOptions(new ModelSampling(0.4, null, false)).service();

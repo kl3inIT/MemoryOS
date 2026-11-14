@@ -17,6 +17,7 @@ import io.memoryos.ai.ModelClients;
 import io.memoryos.ai.ModelConfiguration;
 import io.memoryos.ai.ModelLeases;
 import io.memoryos.ai.ModelSettings;
+import io.memoryos.ai.ProviderAdapter;
 import io.memoryos.ai.ProviderAdapterRegistry;
 import io.memoryos.ai.ProviderCredentials;
 import io.memoryos.ai.anthropic.AnthropicProviderConfiguration;
@@ -75,7 +76,8 @@ class OcrPageReaderTest {
         server.start();
         when(credentials.resolve(any(), any(), any())).thenReturn("fixture-only");
         var adapter = new AnthropicProviderConfiguration().anthropicChatProviderAdapter(ObservationRegistry.NOOP, meters);
-        var leases = new ModelLeases(new ProviderAdapterRegistry(List.of(adapter)), credentials, clients, Duration.ofSeconds(5));
+        var leases = new ModelLeases(new ProviderAdapterRegistry(List.of(adapter)), credentials, clients,
+                new ProviderAdapter.Timeouts(Duration.ofSeconds(5), Duration.ofSeconds(5)));
         ObjectProvider<AiUsageRecorder> recorder = mock(ObjectProvider.class);
         when(recorder.getIfAvailable()).thenReturn(usage);
         reader = new OcrPageReader(connections, leases, recorder);

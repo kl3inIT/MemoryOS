@@ -18,6 +18,9 @@ public record ChatPreferencesResponse(
         @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true,
                 description = "The assistant the member's direct messages to a bot answer with; absent for the bot's own")
         @Nullable UUID channelPersonaId,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "Collapse a paste of more than 3 lines or 200 characters into a composer tile")
+        boolean pasteAsTile,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String displayName,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String email
 ) {
@@ -25,6 +28,7 @@ public record ChatPreferencesResponse(
         var value = view.preferences();
         return new ChatPreferencesResponse(value.workRole(), value.personalPreferences(), value.defaultModelId(),
                 value.temperatureDefault(), value.reasoningEffortDefault(), value.autoScroll(), value.channelPersonaId(),
+                value.pasteAsTile(),
                 view.profile().displayName(),
                 view.profile().email());
     }

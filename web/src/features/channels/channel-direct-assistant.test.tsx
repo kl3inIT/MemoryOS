@@ -22,6 +22,7 @@ const preferences: ChatPreferences = {
   temperatureDefault: null,
   reasoningEffortDefault: "OFF",
   autoScroll: true,
+  pasteAsTile: false,
   displayName: "Lê Thu Hà",
   email: "ha.le@minhlong.vn",
 };

@@ -22,7 +22,7 @@ class ChatModelCatalogConfiguration {
     @Bean
     ModelLeases chatModelLeases(ProviderAdapterRegistry adapters, ProviderCredentials credentials, ModelClients clients,
                                 ChatExecutionProperties limits) {
-        return new ModelLeases(adapters, credentials, clients, limits.providerReadTimeout());
+        return new ModelLeases(adapters, credentials, clients, ProviderAdapter.Timeouts.forChat(limits.providerReadTimeout()));
     }
     @Bean
     ModelResolver chatModelResolver(ModelCatalogService catalog, ProviderAdapterRegistry adapters, ModelLeases leases,

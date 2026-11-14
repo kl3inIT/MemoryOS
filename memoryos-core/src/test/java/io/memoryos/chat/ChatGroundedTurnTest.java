@@ -117,7 +117,7 @@ class ChatGroundedTurnTest {
                 .options(grounded)
                 .build());
         when(settings.turnPolicy(any())).thenReturn(policy);
-        when(settings.read(any())).thenReturn(new ChatSettingsService.View(true, ChatHistoryVisibility.NORMAL, true, policy.groundedAllowWeb(), 0));
+        when(settings.read(any())).thenReturn(new ChatSettingsService.View(true, ChatHistoryVisibility.NORMAL, true, policy.groundedAllowWeb(), false, 0));
         when(guardrails.check(any(), any(), any(), any(), any(), any())).thenReturn(new ChatGuardrailCheck.Result(kind,
                 kind == ChatGuardrailCheck.Kind.BLOCKED ? "Trợ lý không trả lời câu hỏi về lãnh tụ." : null,
                 kind == ChatGuardrailCheck.Kind.BLOCKED ? ChatGuardrails.BUILT_IN.get(1) : null, null));

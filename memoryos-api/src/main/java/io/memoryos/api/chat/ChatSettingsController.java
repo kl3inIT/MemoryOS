@@ -1,6 +1,7 @@
 package io.memoryos.api.chat;
 
 import io.memoryos.api.security.CurrentActor;
+import io.memoryos.api.chat.contract.ChatFollowUpsRequest;
 import io.memoryos.api.chat.contract.ChatGroundedRequest;
 import io.memoryos.api.chat.contract.ChatGuardrailTopic;
 import io.memoryos.api.chat.contract.ChatGuardrailsRequest;
@@ -68,6 +69,13 @@ class ChatSettingsController {
     ChatSettingsResponse saveGrounded(@CurrentActor IdentityContext identity, @Valid @RequestBody ChatGroundedRequest request) {
         return ChatSettingsResponse.from(settings.saveGrounded(identity.actorId(), request.groundedAnswers(),
                 request.groundedAllowWeb(), request.revision()));
+    }
+
+    @PutMapping("/follow-ups")
+    @ApiResponse(responseCode = "200", description = "Saved Tenant Chat settings", useReturnTypeSchema = true)
+    @Operation(operationId = "saveChatFollowUps", summary = "Offer follow-up questions after each answer; requires model management")
+    ChatSettingsResponse saveFollowUps(@CurrentActor IdentityContext identity, @Valid @RequestBody ChatFollowUpsRequest request) {
+        return ChatSettingsResponse.from(settings.saveFollowUps(identity.actorId(), request.followUpSuggestions(), request.revision()));
     }
 
     @GetMapping("/guardrails")

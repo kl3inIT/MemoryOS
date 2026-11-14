@@ -11,6 +11,7 @@ import {
 import { IconButton } from "@/components/ui/icon-button";
 import type { CitationConfidence } from "@/features/preview/file-preview";
 import { LazyOriginalView } from "@/features/preview/lazy-original-view";
+import type { MatchKind, QueryTerms } from "@/features/preview/preview-highlight";
 import { previewKind, previewSize } from "@/features/preview/preview-kind";
 import { warmOriginal } from "@/features/preview/warm-original";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -21,6 +22,7 @@ import { useDocumentReading } from "./document-reading";
 import { DocumentSourceIcon } from "./document-source-icon";
 import type { DocumentSourceType } from "./document-source-presentation";
 import type { EvidenceView } from "./evidence-order";
+import { usePassageLines } from "./passage-lines";
 import { DocumentMeta } from "./provider-link";
 import { readSourceLocation, type SourceLocation } from "./source-provenance";
 
@@ -37,10 +39,12 @@ export type DocumentSelection = {
     matchingEndOrdinal?: number;
     /** Provenance of this citation, carrying its page, region or sheet when one was recorded. */
     provenance?: readonly string[];
+    /** How this passage answers the search: the whole question, some of its words, or its meaning only. */
+    kind?: MatchKind;
   }>;
   activeMatchIndex: number;
-  /** The words a search was asked with, marked inside the located passage of a text original. */
-  terms?: readonly string[];
+  /** The question a search was asked with, marked inside the located passage or cited region of the original. */
+  terms?: QueryTerms;
 };
 
 /** Kinds whose rendered text a citation can be searched in; elsewhere provenance is the only anchor. */
@@ -111,6 +115,18 @@ export function DocumentPreviewDialog({
             !framed(place) ? "none" : framed(cited) ? placed[index] : "exact",
           )
         : placed;
+  // A scan's regions are narrowed to the lines that hold the question, which only the Search reader asks.
+  const lines = usePassageLines({
+    documentId: selection.documentId,
+    generation: selection.generation,
+    ordinal: reading.activeMatch?.matchingOrdinal,
+    enabled:
+      variant === "search" &&
+      Boolean(reader) &&
+      (kind === "pdf" || kind === "image") &&
+      cited.boxes.length > 0 &&
+      Boolean(selection.terms?.phrase.trim()),
+  });
   const located =
     kind === "pdf"
       ? cited.boxes.length > 0
@@ -160,6 +176,7 @@ export function DocumentPreviewDialog({
                 mediaType={selection.mediaType}
                 pages={cited.pages}
                 boxes={cited.boxes}
+                lines={lines}
                 rows={places.map((place) =>
                   place.row === undefined ? undefined : { sheet: place.sheet, row: place.row },
                 )}
@@ -187,6 +204,7 @@ export function DocumentPreviewDialog({
                 text: reading.citations[index] ?? "",
                 section: reading.sections[index],
                 provenance: match.provenance,
+                kind: match.kind,
               }))}
               confidence={confidence}
               active={reading.activeMatchIndex}

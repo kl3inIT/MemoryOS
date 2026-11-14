@@ -32,10 +32,10 @@ public class ChatSettingsService {
 
     /**
      * Deep research is enabled while an administrator has not saved settings, as Onyx reads an unset value. Answers
-     * from documents only (MEM-195) are off until an administrator turns them on.
+     * from documents only (MEM-195) and follow-up suggestions (MEM-266) are off until an administrator turns them on.
      */
     public record View(boolean deepResearchEnabled, ChatHistoryVisibility chatHistoryVisibility,
-                       boolean groundedAnswers, boolean groundedAllowWeb, long revision) {}
+                       boolean groundedAnswers, boolean groundedAllowWeb, boolean followUpSuggestions, long revision) {}
 
     /** What a turn needs from these settings; read without a capability, since the turn itself is authorized. */
     public record TurnPolicy(boolean groundedAnswers, boolean groundedAllowWeb, ChatGuardrails guardrails) {
@@ -49,7 +49,7 @@ public class ChatSettingsService {
     public View read(ActorId actor) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable).value();
         return settings.findById(tenant).map(ChatSettingsService::view)
-                .orElse(new View(true, ChatHistoryVisibility.NORMAL, false, false, 0));
+                .orElse(new View(true, ChatHistoryVisibility.NORMAL, false, false, false, 0));
     }
 
     @Transactional(readOnly = true)
@@ -58,6 +58,23 @@ public class ChatSettingsService {
         return settings.findById(tenant)
                 .map(entity -> new TurnPolicy(entity.groundedAnswers(), entity.groundedAllowWeb(), guardrails(entity)))
                 .orElse(TurnPolicy.NONE);
+    }
+
+    /** MEM-266: whether answers get follow-up suggestions; read without a capability, since the request is authorized. */
+    @Transactional(readOnly = true)
+    public boolean followUpSuggestions(ActorId actor) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable).value();
+        return settings.findById(tenant).map(ChatSettingsEntity::followUpSuggestions).orElse(false);
+    }
+
+    /** MEM-266: follow-up questions under the latest answer, each one more model call on the Tenant's key. */
+    @Transactional
+    public View saveFollowUps(ActorId actor, boolean followUpSuggestions, long revision) {
+        var entity = writable(actor, revision);
+        entity.followUpSuggestions(followUpSuggestions);
+        var saved = settings.saveAndFlush(entity);
+        record(actor, saved, "followUpSuggestions", followUpSuggestions);
+        return view(saved);
     }
 
     @Transactional
@@ -141,7 +158,7 @@ public class ChatSettingsService {
     private static View view(ChatSettingsEntity entity) {
         return new View(entity.deepResearchEnabled(),
                 ChatHistoryVisibility.valueOf(entity.chatHistoryVisibility()),
-                entity.groundedAnswers(), entity.groundedAllowWeb(), entity.revision());
+                entity.groundedAnswers(), entity.groundedAllowWeb(), entity.followUpSuggestions(), entity.revision());
     }
 
     private static ChatGuardrails guardrails(ChatSettingsEntity entity) {

@@ -159,6 +159,27 @@ describe("meeting recorder", () => {
     expect(h.recorder.getSnapshot().elapsedMs).toBe(2_000);
   });
 
+  it("turning the microphone off sends nothing of it while the tab and the clock go on", async () => {
+    const h = harness();
+    await h.recorder.start([
+      { track: "MIC", stream: stream(), offsetMs: 0 },
+      { track: "TAB", stream: stream(), offsetMs: 0 },
+    ]);
+    h.chunk("MIC", 1_000);
+    await h.recorder.setMicMuted(true);
+    expect(h.socket(0).finish).toHaveBeenCalled();
+    h.chunk("MIC", 3_000);
+    h.chunk("TAB", 3_000);
+    expect(h.socket(0).sent).toHaveLength(1);
+    expect(h.socket(1).sent).toHaveLength(1);
+    expect(h.recorder.getSnapshot()).toMatchObject({ micMuted: true, elapsedMs: 4_000 });
+    expect(h.recorder.getSnapshot().tracks[0]).toMatchObject({ level: 0, reconnecting: false });
+    await h.recorder.setMicMuted(false);
+    expect(h.socket(2).options).toMatchObject({ track: "MIC", offsetMs: 4_000 });
+    h.chunk("MIC", 500);
+    expect(h.socket(2).sent).toHaveLength(1);
+  });
+
   it("flags a shared tab that stays quiet, as Nojoin's quiet hint does", async () => {
     const h = harness();
     await h.recorder.start([

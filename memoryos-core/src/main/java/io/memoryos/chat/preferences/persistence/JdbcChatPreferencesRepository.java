@@ -14,7 +14,7 @@ import org.springframework.stereotype.Repository;
 public class JdbcChatPreferencesRepository {
     private static final String COLUMNS =
             "work_role, personal_preferences, default_model_configuration_id, temperature_default, reasoning_effort_default,"
-                    + " auto_scroll, channel_persona_id";
+                    + " auto_scroll, channel_persona_id, paste_as_tile";
     private final JdbcClient jdbc;
 
     public JdbcChatPreferencesRepository(JdbcClient jdbc) {
@@ -32,9 +32,9 @@ public class JdbcChatPreferencesRepository {
         return jdbc.sql("""
                         INSERT INTO chat_preferences (tenant_id, actor_id, work_role, personal_preferences,
                             default_model_configuration_id, temperature_default, reasoning_effort_default, auto_scroll,
-                            channel_persona_id)
+                            channel_persona_id, paste_as_tile)
                         VALUES (:tenant, :actor, :role, :preferences, :model, :temperature, :reasoning, :autoScroll,
-                            :channelPersona)
+                            :channelPersona, :pasteAsTile)
                         ON CONFLICT (tenant_id, actor_id) DO UPDATE SET
                             work_role = EXCLUDED.work_role,
                             personal_preferences = EXCLUDED.personal_preferences,
@@ -42,13 +42,15 @@ public class JdbcChatPreferencesRepository {
                             temperature_default = EXCLUDED.temperature_default,
                             reasoning_effort_default = EXCLUDED.reasoning_effort_default,
                             auto_scroll = EXCLUDED.auto_scroll,
-                            channel_persona_id = EXCLUDED.channel_persona_id
+                            channel_persona_id = EXCLUDED.channel_persona_id,
+                            paste_as_tile = EXCLUDED.paste_as_tile
                         RETURNING\s""" + COLUMNS)
                 .param("tenant", tenant).param("actor", actor)
                 .param("role", value.workRole()).param("preferences", value.personalPreferences())
                 .param("model", value.defaultModelId()).param("temperature", value.temperatureDefault())
                 .param("reasoning", value.reasoningEffortDefault() == null ? null : value.reasoningEffortDefault().name())
                 .param("autoScroll", value.autoScroll()).param("channelPersona", value.channelPersonaId())
+                .param("pasteAsTile", value.pasteAsTile())
                 .query((row, _) -> map(row)).single();
     }
 
@@ -75,6 +77,6 @@ public class JdbcChatPreferencesRepository {
         String reasoning = row.getString(5);
         return new ChatPreferences(row.getString(1), row.getString(2), row.getObject(3, UUID.class),
                 row.getObject(4, Double.class), reasoning == null ? null : ReasoningEffort.valueOf(reasoning),
-                row.getBoolean(6), row.getObject(7, UUID.class));
+                row.getBoolean(6), row.getObject(7, UUID.class), row.getBoolean(8));
     }
 }

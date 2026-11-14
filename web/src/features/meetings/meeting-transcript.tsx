@@ -10,7 +10,7 @@ import {
 import { createPortal } from "react-dom";
 import { useMutation } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ArrowDown, ChevronDown, ChevronUp, FileDown, Star } from "lucide-react";
+import { ArrowDown, ChevronDown, ChevronUp, FileDown, Star, UserRound } from "lucide-react";
 import { hoverReveal } from "@/components/composites/hover-reveal";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,6 +37,7 @@ import {
   type TimelineEntry,
 } from "./meetings-api";
 import { useRecorderValue } from "./recorder-state";
+import { LineSpeakerPicker } from "./line-speaker-picker";
 import { SpeakerBadge } from "./speaker-chip";
 import { speakerName } from "./speakers";
 import { matches } from "./transcript-search";
@@ -554,11 +555,24 @@ function TranscriptLine({
         )}
       </span>
       <div className="min-w-0 flex-1 py-0.5">
-        {!continued && (
-          <p className="mb-0.5 text-xs font-medium text-content-muted">
-            {speakerName(meeting, utterance.track, utterance.speaker, ui)}
-          </p>
-        )}
+        {!continued &&
+          (meeting.owned ? (
+            <LineSpeakerPicker meeting={meeting} utterance={utterance}>
+              <button
+                type="button"
+                className="mb-0.5 block rounded text-xs font-medium text-content-muted hover:text-content-primary hover:underline focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none"
+                aria-label={ui("Đổi người nói của câu lúc {{time}}", {
+                  time: formatClock(utterance.startMs),
+                })}
+              >
+                {speakerName(meeting, utterance.track, utterance.speaker, ui)}
+              </button>
+            </LineSpeakerPicker>
+          ) : (
+            <p className="mb-0.5 text-xs font-medium text-content-muted">
+              {speakerName(meeting, utterance.track, utterance.speaker, ui)}
+            </p>
+          ))}
         <p className="text-content-primary">
           <Said
             text={utterance.text}
@@ -605,6 +619,21 @@ function TranscriptLine({
       >
         {formatClock(utterance.startMs)}
       </span>
+      {/* A line inside a turn has no name of its own to click, so the owner changes its speaker from here. */}
+      {meeting.owned && continued && (
+        <span className={cn("-my-0.5 flex", hoverReveal)}>
+          <LineSpeakerPicker meeting={meeting} utterance={utterance}>
+            <IconButton
+              size="sm"
+              aria-label={ui("Đổi người nói của câu lúc {{time}}", {
+                time: formatClock(utterance.startMs),
+              })}
+            >
+              <UserRound aria-hidden="true" />
+            </IconButton>
+          </LineSpeakerPicker>
+        </span>
+      )}
       {/* A starred line keeps its star in view; the others offer one to whoever is on the line. The star is
           taller than a line of text and must not set the distance between the lines of a turn. */}
       <span className={cn("-my-0.5 flex", !starred && hoverReveal)}>

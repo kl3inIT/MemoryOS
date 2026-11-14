@@ -24,6 +24,7 @@ import io.memoryos.connector.SourceId;
 import io.memoryos.document.DocumentChanged;
 import io.memoryos.document.DocumentChunk;
 import io.memoryos.document.DocumentContent;
+import io.memoryos.document.DocumentContentException;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.application.DocumentChunkService;
 import io.memoryos.document.application.StructuredDocumentChunker;
@@ -49,6 +50,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -224,6 +226,38 @@ class SearchIndexWorkIntegrationTest {
     }
 
     @Test
+    void aPassagesLocatedLinesAreStoredBesideItsProvenanceAndReadBackByOrdinal() {
+        var document = publish(null);
+        var generation = generation(document);
+        var reader = tx.execute(_ -> chunkRepository.openReader(tenant, document, generation).orElseThrow());
+        String lines = "[{\"page_no\":2,\"text\":\"Nghỉ phép năm\",\"bbox\":{\"l\":10.0,\"t\":20.0,\"r\":110.0,"
+                + "\"b\":40.0,\"coord_origin\":\"TOPLEFT\",\"frame_width\":400.0,\"frame_height\":300.0,"
+                + "\"polygon\":[[10.0,20.0],[110.0,20.0],[110.0,40.0],[10.0,40.0]]}},{\"text\":\"không có khung\"}]";
+        var chunks = List.of(
+                new DocumentChunk(0, "Nghỉ phép năm", List.of(), 0, 0, "{\"page_no\":2}", Sha256.hex("Nghỉ phép năm"), 5,
+                        lines),
+                new DocumentChunk(1, "Phụ lục", List.of(), 1, 0, "{\"page_no\":3}", Sha256.hex("Phụ lục"), 3),
+                new DocumentChunk(2, "Hỏng", List.of(), 2, 0, "{\"page_no\":4}", Sha256.hex("Hỏng"), 2, "[{\"text\":"));
+        try {
+            assertEquals(Boolean.TRUE, tx.execute(_ -> chunkRepository.publish(reader, chunks)));
+            assertEquals(chunks, chunkRepository.load(tenant, document, generation).orElseThrow().chunks());
+
+            var read = chunkRepository.passageLines(tenant, document, generation, 0);
+            assertEquals(1, read.size(), "an entry without a box marks nothing");
+            assertEquals(2, read.getFirst().pageNo());
+            assertEquals("Nghỉ phép năm", read.getFirst().text());
+            assertEquals(4, Objects.requireNonNull(read.getFirst().bbox().polygon()).size());
+            assertEquals(400.0, read.getFirst().bbox().frameWidth());
+            assertEquals(List.of(), chunkRepository.passageLines(tenant, document, generation, 1));
+            assertEquals(List.of(), chunkRepository.passageLines(tenant, document, generation, 2), "unreadable lines mark nothing");
+            assertEquals(List.of(), chunkRepository.passageLines(tenant, document, generation, 3));
+            assertEquals(List.of(), chunkRepository.passageLines(tenant, document, UUID.randomUUID(), 0));
+        } finally {
+            chunkRepository.closeReader(reader.readerId());
+        }
+    }
+
+    @Test
     void publishesMultipleChunkBatchesAndRollsBackReplacementWhenALaterBatchFails() {
         var document = publish(null);
         var generation = generation(document);
@@ -334,6 +368,33 @@ class SearchIndexWorkIntegrationTest {
         maintenance.reconcile();
         assertFalse(chunks.isCurrent(tenant, document, generation(document), IDENTITY), "Missing chunks still require a full rewrite");
         assertEquals("NOT_STARTED", jdbc.sql("SELECT status FROM search_index_operations WHERE action='INDEX'").query(String.class).single());
+    }
+
+    @Test
+    void repairAndRebuildLeaveAContentRejectionFailedButRetryAnOldRetryableFailure() {
+        publish(null);
+        doThrow(new DocumentContentException("SEARCH_INDEX_CONTENT_LIMIT", "document exceeds chunk limit"))
+                .when(index).index(any(), any());
+        try (var scheduler = Executors.newSingleThreadScheduledExecutor()) {
+            var coordinator = new SearchIngestionCoordinator(work, chunks, index, tx, scheduler, new SimpleMeterRegistry());
+            assertEquals(IngestionCoordinator.Outcome.FAILED, coordinator.process(delivery()));
+        }
+        jdbc.sql("UPDATE search_index_operations SET completed_at=CURRENT_TIMESTAMP - INTERVAL '1' HOUR").update();
+        var maintenance = new SearchProjectionMaintenance(chunks, work, index, new DataSourceTransactionManager(dataSource), 64);
+        maintenance.reconcile();
+        assertEquals("FAILED", jdbc.sql("SELECT status FROM search_index_operations").query(String.class).single(),
+                "Repair must not retry content that fails the same way every time");
+        assertEquals("SEARCH_INDEX_CONTENT_LIMIT", jdbc.sql("SELECT search_error_code FROM documents").query(String.class).single());
+
+        // The same rejection in an index being rebuilt is not queued again either.
+        jdbc.sql("UPDATE search_index_operations SET index_identity=:future").param("future", IDENTITY + "-future").update();
+        assertEquals(0, work.enqueueRebuild(IDENTITY + "-future", 64));
+
+        jdbc.sql("UPDATE search_index_operations SET index_identity=:identity, error_code='SEARCH_INDEX_FAILED'")
+                .param("identity", IDENTITY).update();
+        maintenance.reconcile();
+        assertEquals("NOT_STARTED", jdbc.sql("SELECT status FROM search_index_operations").query(String.class).single(),
+                "A failure that may heal is still retried after 15 minutes");
     }
 
     @Test

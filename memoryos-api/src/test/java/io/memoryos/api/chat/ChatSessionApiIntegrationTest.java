@@ -397,7 +397,7 @@ class ChatSessionApiIntegrationTest {
                         known.capabilities().reasoning(), false),
                 Map.of("maxCompletionTokens", known.capabilities().reasoning()), known.pricing(), "openai-o200k-v1");
         return new OpenAiProviderAdapter(ObservationRegistry.NOOP, meters).create(
-                new ProviderAdapter.Connection("https://api.openai.com/v1", key), DEFAULT_MODEL, settings, limits.providerReadTimeout());
+                new ProviderAdapter.Connection("https://api.openai.com/v1", key), DEFAULT_MODEL, settings, ProviderAdapter.Timeouts.forChat(limits.providerReadTimeout()));
     }
 
     @Test
@@ -458,7 +458,7 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
-    void publishingWrittenMinutesPutsOneFileInTheOwnersLibraryAndRefusesOthersAndUnwrittenMinutes() throws Exception {
+    void publishingWrittenMinutesKeepsOneCurrentFileInTheOwnersLibraryAndRefusesOthersAndUnwrittenMinutes() throws Exception {
         // Object storage is a mock in this suite: keep what is written, and describe it back truthfully.
         var stored = new ConcurrentHashMap<String, byte[]>();
         var types = new ConcurrentHashMap<String, String>();
@@ -501,6 +501,48 @@ class ChatSessionApiIntegrationTest {
             mockMvc.perform(post("/api/meetings/" + meeting + "/library")
                             .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
                     .andExpect(status().isOk()).andExpect(jsonPath("$.fileId").value(fileId));
+
+            // Minutes edited since are taken again as they now read, in place of the earlier file.
+            mockMvc.perform(put("/api/meetings/" + meeting + "/minutes/summary").with(authentication(actor)).with(csrf())
+                            .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"summary\":\"Cuộc họp chốt ngân sách quý 4 trước thứ Năm.\"}"))
+                    .andExpect(status().isOk());
+            String rewritten = Json.mapper().readTree(mockMvc.perform(post("/api/meetings/" + meeting + "/library")
+                            .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString()).path("fileId").asText();
+            assertNotEquals(fileId, rewritten);
+            assertTrue(stored.values().stream().anyMatch(bytes ->
+                    new String(bytes, StandardCharsets.UTF_8).contains("quý 4 trước thứ Năm")));
+            assertEquals(List.of("DELETING"), jdbc.sql("SELECT status FROM chat_user_file WHERE id = :id")
+                    .param("id", UUID.fromString(fileId)).query(String.class).list());
+            mockMvc.perform(post("/api/meetings/" + meeting + "/library")
+                            .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.fileId").value(rewritten));
+
+            // An earlier file a Project holds stays with the Project, and is not handed out as the current minutes.
+            jdbc.sql("UPDATE chat_user_file SET status = 'READY' WHERE id = :id")
+                    .param("id", UUID.fromString(rewritten)).update();
+            var project = Json.mapper().readTree(mockMvc.perform(post("/api/chat/projects")
+                            .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"name\":\"Ngân sách\",\"description\":\"\",\"instructions\":\"\",\"fileIds\":[\""
+                                    + rewritten + "\"]}"))
+                    .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+            mockMvc.perform(put("/api/meetings/" + meeting + "/minutes/summary").with(authentication(actor)).with(csrf())
+                            .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"summary\":\"Cuộc họp dời ngân sách sang tháng sau.\"}"))
+                    .andExpect(status().isOk());
+            mockMvc.perform(post("/api/meetings/" + meeting + "/library")
+                            .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.code").value("CHAT_FILE_IN_USE"))
+                    .andExpect(jsonPath("$.usedBy[0].name").value("Ngân sách"));
+            assertEquals(List.of("READY"), jdbc.sql("SELECT status FROM chat_user_file WHERE id = :id")
+                    .param("id", UUID.fromString(rewritten)).query(String.class).list());
+            mockMvc.perform(delete("/api/chat/projects/" + project.path("id").asText()).with(authentication(actor))
+                            .with(csrf()).header("X-MemoryOS-CSRF", "1")
+                            .param("revision", project.path("revision").asText()))
+                    .andExpect(status().isNoContent());
 
             mockMvc.perform(post("/api/meetings/" + meeting + "/library")
                             .with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
@@ -1812,6 +1854,69 @@ class ChatSessionApiIntegrationTest {
                 .param("tenant", TENANT).query().singleRow();
         assertEquals(1L, naming.get("calls"));
         assertTrue((Long) naming.get("tokens") > 0);
+    }
+
+    @Test
+    void followUpSuggestionsAreOfferedForTheLatestAnswerOnlyWhenTurnedOn() throws Exception {
+        // The Tenant is shared by this class: the switch left on would not change other turns, but keep it clean.
+        jdbc.sql("DELETE FROM chat_settings WHERE tenant_id = :tenant").param("tenant", TENANT).update();
+        jdbc.sql("DELETE FROM ai_usage WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        try {
+            followUpsRoundTrip();
+        } finally {
+            jdbc.sql("DELETE FROM chat_settings WHERE tenant_id = :tenant").param("tenant", TENANT).update();
+        }
+    }
+
+    private void followUpsRoundTrip() throws Exception {
+        when(model.stream(any(Prompt.class))).thenReturn(Flux.just(response("Gửi đơn trên cổng HR.", "stop", 12)));
+        var session = create();
+        var reply = send(session, UUID.randomUUID().toString());
+        awaitOutcome(reply.path("assistantMessageId").asText(), "COMPLETED");
+        var path = "/api/chat/sessions/" + session.path("id").asText() + "/messages/" + reply.path("assistantMessageId").asText()
+                + "/follow-ups";
+
+        // Off by default: nothing, and no model call beyond the answer.
+        mockMvc.perform(get("/api/chat/settings").with(authentication(actor))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.followUpSuggestions").value(false));
+        mockMvc.perform(post(path).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.suggestions.length()").value(0));
+        verify(model, times(1)).stream(any(Prompt.class));
+
+        // Only model managers turn it on, against the settings revision.
+        mockMvc.perform(put("/api/chat/settings/follow-ups").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"followUpSuggestions\":true,\"revision\":0}"))
+                .andExpect(status().isForbidden());
+        grantModelManagement();
+        mockMvc.perform(put("/api/chat/settings/follow-ups").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"followUpSuggestions\":true,\"revision\":0}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.followUpSuggestions").value(true));
+        mockMvc.perform(put("/api/chat/settings/follow-ups").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"followUpSuggestions\":false,\"revision\":7}"))
+                .andExpect(status().isConflict());
+
+        when(model.stream(any(Prompt.class))).thenAnswer(call -> {
+            var prompt = call.<Prompt>getArgument(0);
+            assertTrue(prompt.getContents().contains("Suggest exactly 3 short follow-up questions"));
+            assertTrue(prompt.getContents().contains("Gửi đơn trên cổng HR."));
+            return Flux.just(response("1. Mẫu đơn ở đâu?\n2. Nghỉ quá số ngày thì sao?\n3. Mẫu đơn ở đâu?\n4. Ai duyệt?", "stop", 20));
+        });
+        mockMvc.perform(post(path).with(authentication(actor))).andExpect(status().isForbidden());
+        mockMvc.perform(post(path).with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isNotFound());
+        mockMvc.perform(post(path).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.suggestions.length()").value(3))
+                .andExpect(jsonPath("$.suggestions[0]").value("Mẫu đơn ở đâu?"))
+                .andExpect(jsonPath("$.suggestions[2]").value("Ai duyệt?"));
+        var usage = jdbc.sql("SELECT calls FROM ai_usage WHERE tenant_id=:tenant AND flow='CHAT_FOLLOW_UPS'")
+                .param("tenant", TENANT).query(Long.class).single();
+        assertEquals(1L, usage);
+
+        // The question is not an answer: nothing, and no call.
+        var question = "/api/chat/sessions/" + session.path("id").asText() + "/messages/" + reply.path("userMessageId").asText()
+                + "/follow-ups";
+        mockMvc.perform(post(question).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.suggestions.length()").value(0));
+        verify(model, times(2)).stream(any(Prompt.class));
     }
 
     @Test
@@ -3452,6 +3557,26 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void collapsingLargePastesIsOffUntilTheMemberTurnsItOn() throws Exception {
+        // MEM-148: Onyx's Collapse Large Pastes is off for a member who never chose.
+        mockMvc.perform(get("/api/chat/preferences").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.pasteAsTile").value(false));
+        var body = Json.mapper().createObjectNode().put("workRole", "").put("personalPreferences", "").put("autoScroll", true);
+        mockMvc.perform(put("/api/chat/preferences").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content(body.deepCopy().put("pasteAsTile", true).toString()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.pasteAsTile").value(true));
+        mockMvc.perform(get("/api/chat/preferences").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.pasteAsTile").value(true));
+        // Nobody else's composer changes.
+        mockMvc.perform(get("/api/chat/preferences").with(authentication(other)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.pasteAsTile").value(false));
+        // The whole record is replaced: a client that leaves the member out saves it off.
+        mockMvc.perform(put("/api/chat/preferences").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.pasteAsTile").value(false));
+    }
+
+    @Test
     void reasoningLevelIsPinnedPerConversationAndDefaultsBelongToTheMember() throws Exception {
         String session = create().path("id").asText();
         // A conversation starts with nothing pinned; the model configuration decides.
@@ -3547,7 +3672,7 @@ class ChatSessionApiIntegrationTest {
                 @Override public void validate(String url, String name, ModelSettings settings) {
                     ModelCatalogService.validateEndpoint(url);
                 }
-                @Override public Client create(Connection connection, String name, ModelSettings settings, Duration timeout) {
+                @Override public Client create(Connection connection, String name, ModelSettings settings, Timeouts timeouts) {
                     ChatModel nativeModel = new ChatModel() {
                         @Override public ChatResponse call(Prompt prompt) { throw new UnsupportedOperationException(); }
                         @Override public Flux<ChatResponse> stream(Prompt prompt) { return Flux.just(response("Local adapter answer", "stop", 2)); }
@@ -4225,6 +4350,33 @@ class ChatSessionApiIntegrationTest {
                     .content("{\"text\":\"Chốt ngân sách quý 4\",\"owner\":\"Anh Minh\",\"due\":null}"))
                     .andExpect(status().isBadRequest());
 
+            // Work given to a voice of the meeting points at that voice, so naming the voice names the work.
+            var voiced = Json.mapper().readTree(mockMvc.perform(
+                    put("/api/meetings/" + meeting + "/minutes/items/" + action).with(authentication(actor))
+                            .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"text\":\"Gửi bảng KPI tháng 9\",\"ownerSpeaker\":{\"track\":\"MIC\","
+                                    + "\"label\":\"1\"},\"due\":\"thứ Năm\"}"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertTrue(voiced.path("owner").isNull(), "a voice owns it, not a written name");
+            assertEquals("MIC", voiced.path("ownerSpeaker").path("track").asText());
+            assertEquals("1", voiced.path("ownerSpeaker").path("label").asText());
+            assertEquals("Người nói 1", jdbc.sql("""
+                    SELECT after FROM meeting_minutes_event
+                    WHERE tenant_id = :tenant AND meeting_id = :meeting AND item_id = CAST(:item AS uuid)
+                      AND field = 'OWNER' ORDER BY id DESC LIMIT 1
+                    """).param("tenant", TENANT).param("meeting", meeting).param("item", action.toString())
+                    .query(String.class).single(), "the record says who, as the transcript named the voice then");
+            // A voice and a name at once, or a voice the meeting never heard, is no owner.
+            mockMvc.perform(put("/api/meetings/" + meeting + "/minutes/items/" + action).with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"text\":\"Gửi bảng KPI\",\"owner\":\"Anh Minh\",\"ownerSpeaker\":{\"track\":\"MIC\","
+                            + "\"label\":\"1\"}}"))
+                    .andExpect(status().isBadRequest());
+            mockMvc.perform(put("/api/meetings/" + meeting + "/minutes/items/" + action).with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"text\":\"Gửi bảng KPI\",\"ownerSpeaker\":{\"track\":\"TAB\",\"label\":\"7\"}}"))
+                    .andExpect(status().isBadRequest());
+
             // What the model missed is written in, after the others of its kind, and what should not be there comes
             // out; both stay on the record as events.
             var added = Json.mapper().readTree(mockMvc.perform(
@@ -4687,7 +4839,10 @@ class ChatSessionApiIntegrationTest {
             assertEquals(utterances[0].toString(), topics.get(0).path("sourceUtteranceId").asText());
             assertEquals("Số liệu KPI", topics.get(1).path("text").asText());
             var action = minutes.path("actions").get(0);
-            assertEquals("Chị Lan", action.path("owner").asText());
+            // "Chị Lan" is the name of a voice of this meeting, so the work points at that voice.
+            assertTrue(action.path("owner").isNull());
+            assertEquals("MIC", action.path("ownerSpeaker").path("track").asText());
+            assertEquals("2", action.path("ownerSpeaker").path("label").asText());
             assertEquals("chiều nay", action.path("due").asText());
             assertEquals(utterances[1].toString(), action.path("sourceUtteranceId").asText());
             assertFalse(action.path("done").asBoolean());
@@ -4698,7 +4853,7 @@ class ChatSessionApiIntegrationTest {
                     "the model reads the names and times the transcript shows");
             assertTrue(prompt.contains("[2] 00:05 Chị Lan: Em gửi bảng KPI tháng 9 chiều nay."),
                     "a named speaker reaches the model under that name");
-            assertTrue(prompt.contains("Never invent a decision"));
+            assertTrue(prompt.contains("must be supported by the transcript"), "the minutes prompt reaches the model");
 
             mockMvc.perform(put("/api/meetings/" + meeting + "/minutes/" + action.path("id").asText())
                     .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
@@ -4749,7 +4904,7 @@ class ChatSessionApiIntegrationTest {
                     .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(heading))
                     .andExpect(status().isBadRequest())
                     .andExpect(header().string("Content-Type", Matchers.startsWith(MediaType.APPLICATION_PROBLEM_JSON_VALUE)));
-            assertEquals(1, jdbc.sql("SELECT count(*) FROM ai_usage WHERE tenant_id=:tenant AND flow='MEETING_MINUTES'")
+            assertEquals(1, jdbc.sql("SELECT sum(calls) FROM ai_usage WHERE tenant_id=:tenant AND flow='MEETING_MINUTES'")
                     .param("tenant", TENANT).query(Integer.class).single(), "the call is billed to the owner's Tenant");
         } finally {
             jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
@@ -5102,6 +5257,90 @@ class ChatSessionApiIntegrationTest {
             mockMvc.perform(put("/api/meetings/" + meeting + "/speakers/MIC/9").with(authentication(actor))
                     .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
                     .content("{\"name\":\"Ai đó\"}")).andExpect(status().isNotFound());
+        } finally {
+            jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        }
+    }
+
+    @Test
+    void theOwnerSaysWhoSpokeOneLineAndALineKeepsItsTrack() throws Exception {
+        UUID meeting = UUID.randomUUID();
+        UUID mine = UUID.randomUUID();
+        UUID first = UUID.randomUUID();
+        UUID second = UUID.randomUUID();
+        try {
+            jdbc.sql("""
+                    INSERT INTO meeting(tenant_id, id, owner_actor_id, title, kind, language, participants, status)
+                    VALUES (:tenant, :id, :owner, 'Giao ban tuần', 'ONLINE', 'vi', '[]'::jsonb, 'RECORDING')
+                    """).param("tenant", TENANT).param("id", meeting)
+                    .param("owner", actor.getPrincipal().actorId().value()).update();
+            jdbc.sql("""
+                    INSERT INTO meeting_speaker(tenant_id, meeting_id, track, label, name)
+                    VALUES (:tenant, :meeting, 'MIC', '1', NULL), (:tenant, :meeting, 'TAB', '2', 'Hiệp')
+                    """).param("tenant", TENANT).param("meeting", meeting).update();
+            jdbc.sql("""
+                    INSERT INTO meeting_utterance(tenant_id, id, meeting_id, track, speaker, start_ms, end_ms, text, confidence)
+                    VALUES (:tenant, :mine, :meeting, 'MIC', '1', 0, 3000, 'Quy trình là gì?', 0.9),
+                           (:tenant, :first, :meeting, 'TAB', '2', 4000, 7000, 'Em xin chia sẻ màn hình.', 0.9),
+                           (:tenant, :second, :meeting, 'TAB', '2', 8000, 9000, 'Nãy giờ Hiệp có nói gì không?', 0.9)
+                    """).param("tenant", TENANT).param("meeting", meeting).param("mine", mine)
+                    .param("first", first).param("second", second).update();
+            String base = "/api/meetings/" + meeting + "/utterances/";
+
+            // A new name becomes a voice of the line's own track, labelled apart from the provider's numbers.
+            mockMvc.perform(put(base + second + "/speaker").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"name\":\"Duy HN\"}"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.utterance.speaker").value("M1"))
+                    .andExpect(jsonPath("$.speaker.track").value("TAB")).andExpect(jsonPath("$.speaker.label").value("M1"))
+                    .andExpect(jsonPath("$.speaker.name").value("Duy HN"));
+            // The microphone heard him too: his name carries over to a voice of the microphone's own track.
+            mockMvc.perform(put(base + mine + "/speaker").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"speaker\":{\"track\":\"TAB\",\"label\":\"M1\"}}"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.utterance.track").value("MIC"))
+                    .andExpect(jsonPath("$.utterance.speaker").value("M1"))
+                    .andExpect(jsonPath("$.speaker.track").value("MIC")).andExpect(jsonPath("$.speaker.name").value("Duy HN"));
+            // The same name, written differently, is the same voice; a line moved back keeps what was first heard.
+            mockMvc.perform(put(base + first + "/speaker").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"name\":\"  duy  hn \"}"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.utterance.speaker").value("M1"));
+            mockMvc.perform(put(base + first + "/speaker").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"speaker\":{\"track\":\"TAB\",\"label\":\"2\"}}"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.utterance.speaker").value("2"))
+                    .andExpect(jsonPath("$.speaker.name").value("Hiệp"));
+            assertEquals(List.of("MIC|M1|1", "TAB|2|2", "TAB|M1|2"), jdbc.sql("""
+                    SELECT track || '|' || speaker || '|' || diarized_speaker FROM meeting_utterance
+                    WHERE tenant_id = :tenant AND meeting_id = :meeting AND diarized_speaker IS NOT NULL
+                    ORDER BY track, speaker
+                    """).param("tenant", TENANT).param("meeting", meeting).query(String.class).list(),
+                    "a move keeps the provider's label, and moving back does not overwrite it");
+            assertEquals(4, jdbc.sql("SELECT count(*) FROM meeting_speaker WHERE tenant_id = :tenant AND meeting_id = :meeting")
+                    .param("tenant", TENANT).param("meeting", meeting).query(Integer.class).single(),
+                    "one new voice on each track, none for a name given twice");
+
+            for (String refused : List.of("{}", "{\"name\":\" \"}",
+                    "{\"name\":\"Lan\",\"speaker\":{\"track\":\"TAB\",\"label\":\"2\"}}",
+                    // The owner's unnamed microphone has no name a tab line could carry over.
+                    "{\"speaker\":{\"track\":\"MIC\",\"label\":\"1\"}}"))
+                mockMvc.perform(put(base + first + "/speaker").with(authentication(actor)).with(csrf())
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(refused))
+                        .andExpect(status().isBadRequest());
+            mockMvc.perform(put(base + first + "/speaker").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"speaker\":{\"track\":\"TAB\",\"label\":\"9\"}}"))
+                    .andExpect(status().isNotFound());
+            mockMvc.perform(put(base + UUID.randomUUID() + "/speaker").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"name\":\"Lan\"}"))
+                    .andExpect(status().isNotFound());
+            // Only the owner says who spoke.
+            mockMvc.perform(put(base + first + "/speaker").with(authentication(other)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"name\":\"Lan\"}"))
+                    .andExpect(status().isNotFound());
         } finally {
             jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
         }

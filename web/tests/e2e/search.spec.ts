@@ -863,6 +863,435 @@ test("marks the cited region on an image original, through zoom and a turn, and 
   await expect(region).toHaveCount(0);
 });
 
+test("draws a tilted line and an arched heading of a picture around their letters, inside the OCR's outline", async ({
+  page,
+}) => {
+  // citation-outlines.png is 854 x 534: an arched heading whose ink spans [241, 58, 613, 155] and a line tilted
+  // 20 degrees spanning [183, 272, 670, 461]. The OCR's outlines are the coarse block shapes PaddleOCR-VL answers:
+  // a margin around the text, the hollow under the arch included.
+  const picture = readFileSync(new URL("../fixtures/citation-outlines.png", import.meta.url));
+  const arch = {
+    box: [221, 40, 633, 175],
+    outline: [
+      [221, 175],
+      [221, 120],
+      [330, 45],
+      [520, 45],
+      [633, 120],
+      [633, 175],
+    ],
+  };
+  const tilted = {
+    box: [163, 252, 690, 481],
+    outline: [
+      [163, 481],
+      [163, 420],
+      [650, 252],
+      [690, 252],
+      [690, 320],
+      [200, 481],
+    ],
+  };
+  const located = ({ box, outline }: { box: number[]; outline: number[][] }) =>
+    `{"page_no":1,"bbox":{"l":${box[0]},"t":${box[1]},"r":${box[2]},"b":${box[3]},"coord_origin":"TOPLEFT",` +
+    `"frame_width":854,"frame_height":534,"polygon":${JSON.stringify(outline)}}}`;
+  const provenanceJson = `[${located(arch)},${located(tilted)}]`;
+  await page.route("**/api/search", (route) =>
+    route.fulfill({
+      json: {
+        page: 0,
+        hasMore: false,
+        totalResults: 1,
+        candidateLimit: 500,
+        sourceFacets: { total: 1, types: [{ type: "FILE", count: 1 }] },
+        results: [
+          {
+            documentId,
+            generation,
+            title: "Ảnh chụp báo cáo.png",
+            mediaType: "image/png",
+            updatedAt: "2026-09-08T00:00:00Z",
+            score: 0.8,
+            sections: [{ ...sections[0], provenance: [{ ordinal: 2, provenanceJson }] }],
+            sourceTypes: ["FILE"],
+            authors: [],
+            providerUrl: null,
+          },
+        ],
+      },
+    }),
+  );
+  await page.route("**/api/search/documents/*?*", (route) =>
+    route.fulfill({
+      json: {
+        documentId,
+        generation,
+        title: "Ảnh chụp báo cáo.png",
+        mediaType: "image/png",
+        passages: [passage, nextPassage],
+        firstOrdinal: 2,
+        totalChunks: 41,
+        hasMore: false,
+      },
+    }),
+  );
+  await page.route("**/api/search/documents/*/original?*", (route) =>
+    route.fulfill({ contentType: "image/png", body: picture }),
+  );
+
+  await page.goto("/search");
+  await page.getByRole("textbox", { name: "Search documents" }).fill("doanh thu");
+  await page.getByRole("main").getByRole("button", { name: "Search", exact: true }).click();
+  await page.getByRole("button", { name: "Ảnh chụp báo cáo.png", exact: true }).click();
+
+  const dialog = page.getByRole("dialog");
+  const regions = dialog.locator('[data-slot="image-citation-box"]');
+  await expect(regions).toHaveCount(2);
+  await expect(dialog.getByText("Highlighted")).toBeVisible();
+  // Once the picture's pixels are read, each outline is replaced by one band around its line of letters.
+  await expect(
+    dialog.locator('svg[data-slot="image-citation-box"][data-shape="lines"]'),
+  ).toHaveCount(2);
+
+  /** Whether a point of the picture, in its pixels, is marked by a region's bands. */
+  const marked = (index: number, box: number[], [x, y]: number[]) =>
+    regions
+      .nth(index)
+      .evaluate(
+        (region, [fx, fy]) =>
+          Array.from(region.querySelectorAll("polygon[data-band]")).some((band) =>
+            band.isPointInFill(new DOMPoint(fx, fy)),
+          ),
+        [
+          ((x ?? 0) - (box[0] ?? 0)) / ((box[2] ?? 0) - (box[0] ?? 0)),
+          ((y ?? 0) - (box[1] ?? 0)) / ((box[3] ?? 0) - (box[1] ?? 0)),
+        ],
+      );
+  const expectMarks = async () => {
+    // The letters along the arch are marked; the hollow under it, inside the OCR's outline, is not.
+    for (const letter of [
+      [256, 139],
+      [324, 97],
+      [460, 86],
+      [528, 97],
+      [597, 139],
+    ])
+      expect(await marked(0, arch.box, letter), `arch ${letter}`).toBe(true);
+    expect(await marked(0, arch.box, [427, 140])).toBe(false);
+    // The letters of the tilted line are marked; the outline's margin above the line is not.
+    for (const letter of [
+      [198, 447],
+      [289, 414],
+      [471, 350],
+      [562, 319],
+      [654, 281],
+    ])
+      expect(await marked(1, tilted.box, letter), `line ${letter}`).toBe(true);
+    expect(await marked(1, tilted.box, [300, 380])).toBe(false);
+  };
+  await expectMarks();
+
+  // Zoomed, the bands keep their place: they are fractions of the region, which follows the picture.
+  await dialog.getByRole("button", { name: "Zoom in" }).click();
+  await page.waitForTimeout(400);
+  await expectMarks();
+});
+
+test("marks the question in its line on a picture, the line lighter and the citation's other line faint", async ({
+  page,
+}) => {
+  // The picture and the OCR's outlines of the case above; the lines the OCR located in each block, as Search's
+  // passage lines answer them: a quadrilateral along the tilted line and one around the arched heading.
+  const picture = readFileSync(new URL("../fixtures/citation-outlines.png", import.meta.url));
+  const frame = { coord_origin: "TOPLEFT", frame_width: 854, frame_height: 534 };
+  const arch = {
+    box: [221, 40, 633, 175],
+    outline: [
+      [221, 175],
+      [221, 120],
+      [330, 45],
+      [520, 45],
+      [633, 120],
+      [633, 175],
+    ],
+  };
+  const tilted = {
+    box: [163, 252, 690, 481],
+    outline: [
+      [163, 481],
+      [163, 420],
+      [650, 252],
+      [690, 252],
+      [690, 320],
+      [200, 481],
+    ],
+  };
+  const located = ({ box, outline }: { box: number[]; outline: number[][] }) =>
+    JSON.stringify({
+      page_no: 1,
+      bbox: { l: box[0], t: box[1], r: box[2], b: box[3], ...frame, polygon: outline },
+    });
+  const provenanceJson = `[${located(arch)},${located(tilted)}]`;
+  const lines = [
+    {
+      pageNo: 1,
+      text: "BÁO CÁO NĂM 2026",
+      coordOrigin: "TOPLEFT",
+      frameWidth: 854,
+      frameHeight: 534,
+      points: [
+        [241, 58],
+        [613, 58],
+        [613, 155],
+        [241, 155],
+      ],
+    },
+    {
+      pageNo: 1,
+      text: "Doanh thu tăng mạnh trong quý",
+      coordOrigin: "TOPLEFT",
+      frameWidth: 854,
+      frameHeight: 534,
+      points: [
+        [172.6, 441.4],
+        [670.8, 260],
+        [680.4, 286.3],
+        [182.2, 467.8],
+      ],
+    },
+  ];
+  await page.route("**/api/search", (route) =>
+    route.fulfill({
+      json: {
+        page: 0,
+        hasMore: false,
+        totalResults: 1,
+        candidateLimit: 500,
+        sourceFacets: { total: 1, types: [{ type: "FILE", count: 1 }] },
+        results: [
+          {
+            documentId,
+            generation,
+            title: "Ảnh chụp báo cáo.png",
+            mediaType: "image/png",
+            updatedAt: "2026-09-08T00:00:00Z",
+            score: 0.8,
+            sections: [
+              { ...sections[0], matchingOrdinal: 2, provenance: [{ ordinal: 2, provenanceJson }] },
+            ],
+            sourceTypes: ["FILE"],
+            authors: [],
+            providerUrl: null,
+          },
+        ],
+      },
+    }),
+  );
+  await page.route("**/api/search/documents/*?*", (route) =>
+    route.fulfill({
+      json: {
+        documentId,
+        generation,
+        title: "Ảnh chụp báo cáo.png",
+        mediaType: "image/png",
+        passages: [passage, nextPassage],
+        firstOrdinal: 2,
+        totalChunks: 41,
+        hasMore: false,
+      },
+    }),
+  );
+  await page.route("**/api/search/documents/*/original?*", (route) =>
+    route.fulfill({ contentType: "image/png", body: picture }),
+  );
+  const asked: string[] = [];
+  await page.route("**/api/search/documents/*/passages/*/lines?*", (route) => {
+    asked.push(route.request().url());
+    return route.fulfill({ json: { lines } });
+  });
+
+  await page.goto("/search");
+  await page.getByRole("textbox", { name: "Search documents" }).fill("doanh thu");
+  await page.getByRole("main").getByRole("button", { name: "Search", exact: true }).click();
+  await page.getByRole("button", { name: "Ảnh chụp báo cáo.png", exact: true }).click();
+
+  const dialog = page.getByRole("dialog");
+  const regions = dialog.locator('[data-slot="image-citation-box"]');
+  await expect(regions).toHaveCount(2);
+  await expect(
+    dialog.locator('svg[data-slot="image-citation-box"][data-shape="lines"]'),
+  ).toHaveCount(2);
+  expect(asked).toHaveLength(1);
+  expect(asked[0]).toContain(
+    `/api/search/documents/${documentId}/passages/2/lines?generation=${generation}`,
+  );
+
+  // The tilted line holds the question: its stroke is the focus and the question is laid over its start, cut to
+  // the slab "Doanh thu" takes. The heading's stroke stays, faint, so the reader still sees the whole citation.
+  const tones = (index: number) =>
+    regions
+      .nth(index)
+      .evaluate((region) =>
+        Array.from(region.querySelectorAll("polygon[data-band]"), (band) =>
+          band.getAttribute("data-tone"),
+        ),
+      );
+  await expect.poll(() => tones(1)).toContain("focus");
+  expect(await tones(0)).not.toContain("focus");
+  expect((await tones(0)).length).toBeGreaterThan(0);
+  await expect(regions.nth(0).locator("[data-mark]")).toHaveCount(0);
+  const slab = await regions
+    .nth(1)
+    .locator('[data-mark="whole"] polygon')
+    .evaluate((mark) => {
+      const clip = mark.getAttribute("clip-path");
+      const shape = clip
+        ? mark.ownerSVGElement!.querySelector(`clipPath[id="${clip.slice(5, -1)}"] polygon`)!
+        : mark;
+      return shape
+        .getAttribute("points")!
+        .split(" ")
+        .map((point) => point.split(",").map(Number) as [number, number]);
+    });
+  /** Whether a point of the picture, in its pixels, lies in the question's slab of the tilted line. */
+  const inSlab = ([x = 0, y = 0]: number[]) => {
+    const [px, py] = [(x - 163) / (690 - 163), (y - 252) / (481 - 252)];
+    let inside = false;
+    for (let index = 0, previous = slab.length - 1; index < slab.length; previous = index++) {
+      const [x1, y1] = slab[index]!;
+      const [x2, y2] = slab[previous]!;
+      if (y1 > py !== y2 > py && px < ((x2 - x1) * (py - y1)) / (y2 - y1) + x1) inside = !inside;
+    }
+    return inside;
+  };
+  expect(inSlab([198, 447]), "the line's first letters").toBe(true);
+  expect(inSlab([654, 281]), "the line's last letters").toBe(false);
+});
+
+test("marks the question in its line on a scanned PDF page, the line lighter and the other block faint", async ({
+  page,
+}) => {
+  // Two cited blocks on a page without a text layer, in user space; the OCR located two lines in the first and
+  // one in the second, each a quadrilateral in the same space.
+  const block = (top: number, bottom: number) =>
+    `{"page_no":1,"bbox":{"l":72,"t":${top},"r":540,"b":${bottom},"coord_origin":"BOTTOMLEFT"}}`;
+  const provenanceJson = `[${block(700, 620)},${block(500, 440)}]`;
+  const line = (text: string, top: number, right = 500) => ({
+    pageNo: 1,
+    text,
+    coordOrigin: "BOTTOMLEFT",
+    // As the API answers a line on an upright PDF page: no frame, written as null.
+    frameWidth: null,
+    frameHeight: null,
+    points: [
+      [80, top],
+      [right, top],
+      [right, top - 20],
+      [80, top - 20],
+    ],
+  });
+  await page.route("**/api/search", (route) =>
+    route.fulfill({
+      json: {
+        page: 0,
+        hasMore: false,
+        totalResults: 1,
+        candidateLimit: 500,
+        sourceFacets: { total: 1, types: [{ type: "FILE", count: 1 }] },
+        results: [
+          {
+            documentId,
+            generation,
+            title: "Quy chế nghỉ phép (bản scan).pdf",
+            mediaType: "application/pdf",
+            updatedAt: "2026-09-08T00:00:00Z",
+            score: 0.8,
+            sections: [
+              { ...sections[0], matchingOrdinal: 2, provenance: [{ ordinal: 2, provenanceJson }] },
+            ],
+            sourceTypes: ["FILE"],
+            authors: [],
+            providerUrl: null,
+          },
+        ],
+      },
+    }),
+  );
+  await page.route("**/api/search/documents/*?*", (route) =>
+    route.fulfill({
+      json: {
+        documentId,
+        generation,
+        title: "Quy chế nghỉ phép (bản scan).pdf",
+        mediaType: "application/pdf",
+        passages: [passage, nextPassage],
+        firstOrdinal: 2,
+        totalChunks: 41,
+        hasMore: false,
+      },
+    }),
+  );
+  const originalPdf = scannedReportPdf(2, { text: false });
+  await page.route("**/api/search/documents/*/original?*", (route) =>
+    fulfillPdfRange(route, originalPdf),
+  );
+  await page.route("**/api/search/documents/*/passages/*/lines?*", (route) =>
+    route.fulfill({
+      json: {
+        lines: [
+          line("Điều 5. Nghỉ phép năm", 690),
+          line("Người lao động đăng ký trước ba ngày.", 655, 460),
+          line("Điều 6. Nghỉ ốm", 490, 300),
+        ],
+      },
+    }),
+  );
+
+  await page.goto("/search");
+  await page.getByRole("textbox", { name: "Search documents" }).fill("nghỉ phép năm");
+  await page.getByRole("main").getByRole("button", { name: "Search", exact: true }).click();
+  await page.getByRole("button", { name: "Quy chế nghỉ phép (bản scan).pdf", exact: true }).click();
+
+  const regions = page.getByRole("dialog").locator('[data-slot="pdf-citation-box"]');
+  await expect(regions).toHaveCount(2);
+  // The page has no text to mark, so the marked line is drawn in the first block and the second block is faint.
+  await expect(regions.nth(0)).toHaveAttribute("data-shape", "lines");
+  await expect(regions.nth(0).locator("polygon[data-band]")).toHaveCount(1);
+  await expect(regions.nth(0).locator("polygon[data-band]")).toHaveAttribute("data-tone", "focus");
+  const [top, bottom] = await regions
+    .nth(0)
+    .locator("polygon[data-band]")
+    .evaluate((band) => {
+      const ys = band
+        .getAttribute("points")!
+        .split(" ")
+        .map((point) => Number(point.split(",")[1]));
+      return [Math.min(...ys), Math.max(...ys)];
+    });
+  // The first line spans 690 to 670 of a block from 700 to 620: its top quarter, give or take the region's room.
+  expect(top).toBeGreaterThan(0);
+  expect(bottom).toBeLessThan(0.4);
+  // "Nghỉ phép năm" ends "Điều 5. Nghỉ phép năm": the question is laid over the line's end, not its start, and
+  // underlined, as no stroke was read in a block without an outline.
+  const extent = (selector: string) =>
+    regions
+      .nth(0)
+      .locator(selector)
+      .evaluate((shape) => {
+        const xs = shape
+          .getAttribute("points")!
+          .split(" ")
+          .map((point) => Number(point.split(",")[0]));
+        return [Math.min(...xs), Math.max(...xs)];
+      });
+  const [lineStart, lineEnd] = await extent("polygon[data-band]");
+  const [markStart, markEnd] = await extent('[data-mark="whole"] polygon');
+  expect(markStart).toBeGreaterThan(lineStart + 0.3 * (lineEnd - lineStart));
+  expect(markEnd).toBeCloseTo(lineEnd, 2);
+  await expect(regions.nth(0).locator('[data-mark="whole"] polyline')).toHaveCount(1);
+  await expect(regions.nth(1)).toHaveAttribute("data-tone", "faint");
+});
+
 /** One result with a match on every tenth passage, best first. */
 function matchedPassages(
   title: string,
@@ -1052,13 +1481,102 @@ test("marks the words of the question inside the located passages of a text orig
       (highlight) => [...(CSS.highlights.get(highlight) ?? [])].map((range) => range.toString()),
       name,
     );
-  // The heading holds both words and is no cited passage, so it carries no mark.
-  await expect.poll(() => painted("memoryos-citation-term")).toEqual(["nghỉ phép", "nghỉ"]);
-  expect(await painted("memoryos-citation-active")).toEqual([lines[1]]);
-  expect(await painted("memoryos-citation")).toEqual([lines[2]]);
+  // The rail says which passage holds the whole question and which only one of its words.
+  const rail = dialog.getByRole("complementary");
+  await expect(rail.getByText("Exact match")).toBeVisible();
+  await expect(rail.getByText("Partial match")).toBeVisible();
+  // The passage being read points at its sentence with the question marked over it, not at the whole
+  // passage. The heading holds the question too, but it is no cited passage, so it carries no mark.
+  await expect.poll(() => painted("memoryos-citation-term")).toEqual(["nghỉ phép"]);
+  expect(await painted("memoryos-citation-focus")).toEqual([lines[1]]);
+  expect(await painted("memoryos-citation-word")).toEqual([]);
+  expect(await painted("memoryos-citation-active")).toEqual([]);
+  // The other passage holds only "nghỉ": a faint hint under that word, and no fill.
+  expect(await painted("memoryos-citation")).toEqual([]);
+  expect(await painted("memoryos-citation-hint")).toEqual(["nghỉ"]);
 
-  // The words stay marked when the other passage becomes the one being read.
+  // Stepping to it underlines its lone word, and the first passage keeps only its hint.
   await dialog.getByRole("button", { name: "Next passage" }).click();
-  await expect.poll(() => painted("memoryos-citation-active")).toEqual([lines[2]]);
-  expect(await painted("memoryos-citation-term")).toEqual(["nghỉ phép", "nghỉ"]);
+  await expect.poll(() => painted("memoryos-citation-focus")).toEqual([lines[2]]);
+  expect(await painted("memoryos-citation-word")).toEqual(["nghỉ"]);
+  expect(await painted("memoryos-citation-term")).toEqual([]);
+  expect(await painted("memoryos-citation-hint")).toEqual(["nghỉ phép"]);
+});
+
+test("marks the question and its sentence inside a PDF's cited region, and outlines a match by meaning", async ({
+  page,
+}) => {
+  const title = "Leave handbook.pdf";
+  // The fixture draws "Employee handbook: leave policy" and "Requests need manager approval." on every page.
+  const region = (pageNumber: number, top: number) =>
+    `[{"page_no":${pageNumber},"bbox":{"l":72,"t":${top},"r":341,"b":${top - 20},"coord_origin":"BOTTOMLEFT"}}]`;
+  const matches = [
+    { content: `Title: ${title}\nEmployee handbook: leave policy`, provenanceJson: region(3, 696) },
+    { content: `Title: ${title}\nRequests need manager approval.`, provenanceJson: region(5, 636) },
+  ];
+  await page.route("**/api/search", (route) =>
+    route.fulfill({ json: matchedPassages(title, "application/pdf", matches) }),
+  );
+  await page.route("**/api/search/documents/*?*", (route) => {
+    const from = Number(new URL(route.request().url()).searchParams.get("from"));
+    const ordinal = from === 0 ? 0 : from + 1;
+    return route.fulfill({
+      json: {
+        documentId,
+        generation,
+        title,
+        mediaType: "application/pdf",
+        passages: [
+          { ordinal, content: matches[ordinal / 10]?.content ?? "", provenanceJson: "[]" },
+        ],
+        firstOrdinal: from,
+        totalChunks: 20,
+        hasMore: true,
+      },
+    });
+  });
+  const originalPdf = rangedHandbookPdf();
+  await page.route("**/api/search/documents/*/original?*", (route) =>
+    fulfillPdfRange(route, originalPdf),
+  );
+  await page.goto("/search");
+  await page.getByRole("textbox", { name: "Search documents" }).fill("leave policy");
+  await page.getByRole("main").getByRole("button", { name: "Search", exact: true }).click();
+
+  // The card says how each match answers the question and where it is, before the document opens.
+  const best = page.getByRole("button", { name: `Open best match in ${title}` });
+  await expect(best.getByText("Exact match")).toBeVisible();
+  await expect(best.getByText("Page 3")).toBeVisible();
+  await expect(best.locator('mark[data-mark="phrase"]')).toHaveText("leave policy");
+  const related = page.getByRole("button", { name: `Open related match 2 in ${title}` });
+  await expect(related.getByRole("img", { name: "Related in meaning" })).toBeVisible();
+  await expect(related.locator("mark")).toHaveCount(0);
+
+  await best.click();
+  const dialog = page.getByRole("dialog");
+  const box = dialog.locator('[data-slot="pdf-citation-box"]');
+  const mark = dialog.locator('[data-slot="pdf-citation-mark"]');
+  // The region is a bar in its margin; the phrase is marked inside it, over the sentence that holds it.
+  await expect(box).toHaveAttribute("data-variant", "bar");
+  await expect(mark).toHaveCount(1);
+  await expect(mark).toHaveAttribute("data-whole", "true");
+  await expect(mark).toBeInViewport();
+  await expect(dialog.locator('[data-slot="pdf-citation-focus"]')).toHaveCount(1);
+  const regionBox = await box.boundingBox();
+  const markBox = await mark.boundingBox();
+  if (!regionBox || !markBox) throw new Error("The cited region or its mark has no box.");
+  // "leave policy" ends the line: the mark covers the end of the region, not the whole of it.
+  expect(markBox.x).toBeGreaterThan(regionBox.x + regionBox.width * 0.4);
+  expect(markBox.width).toBeLessThan(regionBox.width * 0.5);
+  expect(markBox.height).toBeLessThan(regionBox.height + 8);
+
+  // A match found by meaning holds none of the words: its region is outlined, and nothing is marked.
+  await dialog.getByRole("button", { name: "Next passage" }).click();
+  await expect(dialog.getByRole("spinbutton", { name: "Page number" })).toHaveValue("5");
+  await expect(box).toHaveAttribute("data-variant", "outline");
+  await expect(box).toBeInViewport();
+  await expect(mark).toHaveCount(0);
+  const rail = dialog.getByRole("complementary");
+  await expect(rail.getByText("Exact match")).toBeVisible();
+  await expect(rail.getByText("Related in meaning")).toBeVisible();
 });

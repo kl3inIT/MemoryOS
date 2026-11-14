@@ -138,10 +138,10 @@ public final class AnthropicProviderAdapter implements ProviderAdapter {
     }
 
     @Override
-    public Client create(Connection connection, String modelName, ModelSettings settings, Duration readTimeout) {
+    public Client create(Connection connection, String modelName, ModelSettings settings, Timeouts timeouts) {
         validate(connection.baseUrl(), modelName, settings);
         if (connection.credential().isBlank()) throw AiException.providerUnavailable();
-        var clients = new AnthropicCancellation(root(connection.baseUrl()), connection.credential(), readTimeout);
+        var clients = new AnthropicCancellation(root(connection.baseUrl()), connection.credential(), timeouts);
         try {
             var model = new AnthropicTurnModel(clients, view -> AnthropicChatModel.builder()
                     .anthropicClient(clients.sync()).anthropicClientAsync(view)
