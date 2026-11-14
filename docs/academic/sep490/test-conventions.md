@@ -107,3 +107,110 @@ Dùng bảng tài khoản và bảng dữ liệu tối thiểu của Report 5.0 
 - Giữ tên mẫu: `Report-5.1_Unit Test`, `Report-5.2_Integration Test`, `Report-5.3_System Test_FRs`, `Report-5.4_System Test_NFRs`, `Report-5.5_Acceptance Test Scripts`. 5.1 mẫu là `.xls`; nếu nhóm chuyển sang `.xlsx` thì chuyển cả báo cáo trong 5.0 mục II.2.
 - Mỗi lần sửa thêm một dòng vào Record of change ở sheet Cover (ngày, phiên bản, A/M/D, mô tả, tài liệu tham chiếu).
 - Workbook đã điền đặt ở `reports/`, không ghi đè mẫu trong `templates/`. `.gitignore` hiện chặn `*.docx` ngoài `templates/` nhưng không chặn `.xls` và `.xlsx`; cần đưa workbook lên repo hay không thì thống nhất trong nhóm trước.
+
+## 10. Mã yêu cầu của Report 3
+
+Bảng dưới trích từ Report 3 (phiên bản hiện hành, mục I.2, I.4, II, III, V.1) để mọi người điền cột Requirement bằng cùng một mã. Khi Report 3 đổi thì sửa Report 3 trước, rồi cập nhật bảng này. Tên giữ nguyên tiếng Anh như trong Report 3.
+
+### 10.1 Use case theo tính năng
+
+| FE | UC | Tên use case |
+| --- | --- | --- |
+| FE-01 Account Access | UC-01 | Sign in |
+| | UC-02 | Sign out |
+| | UC-03 | Manage personal settings |
+| FE-02 Data Sources, Search and Evidence | UC-04 | Manage data sources |
+| | UC-05 | Configure external data connections |
+| | UC-06 | Manage source documents |
+| | UC-07 | Manage source synchronization |
+| | UC-08 | Manage source access |
+| | UC-09 | Search documents |
+| | UC-10 | View document evidence |
+| FE-03 Chat and Personal Workspace | UC-11 | Ask questions and receive cited answers |
+| | UC-12 | Edit questions and regenerate answers |
+| | UC-13 | Manage conversations |
+| | UC-14 | Share conversations |
+| | UC-15 | Manage files and AI-generated artifacts |
+| | UC-16 | Manage conversation projects |
+| FE-04 Organization Administration | UC-17 | Manage member accounts |
+| | UC-18 | Manage groups and members |
+| | UC-19 | Manage group permissions |
+| | UC-20 | Configure sign-in providers |
+| | UC-21 | View audit logs |
+| FE-05 AI Administration | UC-22 | Manage AI providers |
+| | UC-23 | Manage AI models |
+| | UC-24 | Monitor AI usage and cost |
+| | UC-25 | Manage AI usage limits |
+| | UC-26 | Configure AI safety policies |
+| FE-06 MCP Integration | UC-27 | Manage MCP integrations |
+| | UC-28 | Publish MemoryOS through MCP |
+| FE-07 Meetings | UC-29 | Record meetings |
+| | UC-30 | Import and transcribe meetings |
+| | UC-31 | Generate meeting summaries and action items |
+| | UC-32 | Explore meeting content |
+| | UC-33 | Manage meetings |
+| | UC-34 | Export meeting minutes |
+
+### 10.2 Business flow, background job và external API
+
+| Mã | Tên |
+| --- | --- |
+| BF-01 | Give teams access to private sources |
+| BF-02 | Ask a question and verify the cited answer |
+| BF-03 | Search authorized knowledge and open the evidence |
+| BF-04 | Create, synchronize and index a Source |
+| JOB-01 | Start Due Source Synchronizations |
+| JOB-02 | Synchronize a Source |
+| JOB-03 | Extract and Publish a Document |
+| JOB-04 | Index a Document for Search |
+| JOB-05 | Reconcile the Search Index |
+| JOB-06 | Remove Files and Sources |
+| JOB-07 đến JOB-12 | Maintenance and Retention |
+| API-01 | Sign-in Callback |
+| API-02 | Google Drive Consent Callback |
+| API-03 | REST API with Access Token |
+| API-04 | MCP Endpoint |
+| API-05 | Health Check |
+
+### 10.3 Business rule (tóm tắt)
+
+Phát biểu đầy đủ ở Report 3, phụ lục V.1 (Table 16). Cột "Áp dụng cho" lấy từ chính bảng đó.
+
+| Mã | Nội dung tóm tắt | Áp dụng cho |
+| --- | --- | --- |
+| BR-01 | Một người chỉ được nhận diện bằng issuer và subject đã xác thực; email không dùng để nhận diện | Sign-in |
+| BR-02 | Chỉ thành viên đang hoạt động được dùng hệ thống; bị vô hiệu hóa thì bị từ chối từ request kế tiếp | Mọi request |
+| BR-03 | Người lần đầu vào chỉ qua lời mời hoặc nhà cung cấp danh tính được phép, và chỉ vào nhóm Basic | Sign-in |
+| BR-04 | Không vô hiệu hóa chủ sở hữu đã cấu hình và quản trị viên hoạt động cuối cùng | Members, groups |
+| BR-05 | Quyền quản trị chỉ đến từ khả năng được cấp cho nhóm | Mọi request |
+| BR-06 | Source Private không gắn nhóm nào thì không ai đọc được | Sources |
+| BR-07 | Nhóm Admin và Basic có ý nghĩa cố định, không đổi tên, xóa, gắn quản lý, thêm quyền hay gắn source | Groups |
+| BR-08 | Cách đặt và gỡ group manager; manager không tự gỡ mình | Groups |
+| BR-09 | Group manager chỉ thao tác trên nhóm mình quản lý | Groups, sources |
+| BR-10 | Group manager không có Manage Sources chỉ tạo source Private hoặc Auto Sync cho Google Drive | Source creation |
+| BR-11 | Tệp tải lên: định dạng cho phép, 1 B đến 100 MiB, PDF có mật khẩu hoặc quá 200 trang bị từ chối | File upload |
+| BR-12 | Public, Private và Auto Sync quyết định ai đọc source; quyền quản trị không vượt qua | Search, chat, preview |
+| BR-13 | Auto Sync: quyền đọc theo email đã xác thực và quyền Google Drive hoặc Lark lần đồng bộ cuối | Search, chat, preview |
+| BR-14 | Văn bản trong câu hỏi, tài liệu hay bộ lọc không mở rộng quyền đọc; bộ lọc chỉ thu hẹp | Chat, search |
+| BR-15 | Tài liệu vẫn tìm được ở phiên bản cũ cho đến khi phiên bản mới sẵn sàng | Indexing |
+| BR-16 | Hội thoại, project và tệp cá nhân chỉ chủ sở hữu đọc; ngoại lệ là đọc có ghi vết | Chat, library |
+| BR-17 | Citation chỉ tô sáng khi tìm được vị trí; không tìm được thì hiện cả tệp | Citations, preview |
+| BR-18 | Khóa và thông tin xác thực được mã hóa và không trả về trình duyệt | Sources, models |
+| BR-19 | Model mặc định không bị ẩn hoặc xóa, nhà cung cấp của nó không bị tắt, cho đến khi chọn model khác | Models |
+| BR-20 | Chỉ trả lời khi hạn mức sử dụng còn ngân sách | Chat |
+| BR-21 | Cụm từ bị chặn hoặc chủ đề nhạy cảm đang bật bị từ chối trước khi gọi model | Chat |
+| BR-22 | Chế độ "chỉ trả lời từ tài liệu": không có citation hợp lệ thì không hiện câu trả lời | Chat |
+| BR-23 | Mọi thay đổi quản trị được ghi lại: ai, khi nào, giá trị trước và sau | Administration |
+| BR-24 | Chỉ người có quyền View audit log đọc được audit trail; mỗi lần xuất cũng được ghi | Audit |
+| BR-25 | Source là Public hoặc Private; Auto Sync chỉ cho Google Drive và Lark | Sources |
+
+### 10.4 Yêu cầu phi chức năng
+
+Mã U-01 đến U-07 (usability), P-01 đến P-07 (performance), S-01 đến S-07 (security), RL-01 đến RL-07 (reliability) và Q-01 đến Q-04 (answer quality) ở Report 3, mục IV.2; mục tiêu cụ thể ở các bảng của mục đó. Nhóm làm 5.4 lấy mục tiêu từ đó, không tự đặt số.
+
+### 10.5 Tra cứu ở đâu
+
+- Đặc tả từng UC (luồng chính, ngoại lệ, quy tắc, thông báo): Report 3, phần II.
+- Yêu cầu chức năng theo UC: Report 3, phần III.
+- Thông báo hệ thống MSG-xx: Report 3, phụ lục V.2.
+- Bản đã điền của Report 3 và 5.0 là tệp `.docx` đặt cục bộ ở `docs/academic/sep490/reports/` và không lên git (`.gitignore` chặn `*.docx` ngoài `templates/`); xin bản từ người giữ Report 3.
