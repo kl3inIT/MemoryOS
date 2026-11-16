@@ -152,6 +152,9 @@ export function SourceList<T extends SourceListItem>({
         {statusChips.length > 0 ? (
           <FilterChips
             label={ui("Filter sources by status")}
+            // From a tablet up the status chips share one width, that of the widest, so the row reads evenly; on
+            // a phone they wrap as chips do elsewhere.
+            className="sm:grid sm:auto-cols-fr sm:grid-flow-col [&>button]:justify-center"
             chips={statusChips}
             value={filters.status || undefined}
             onChange={(status) => onFilters({ ...filters, status: status ?? "" })}
