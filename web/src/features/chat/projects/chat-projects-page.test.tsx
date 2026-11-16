@@ -348,3 +348,31 @@ it("says nothing matches and clears the search from the empty state", async () =
   await waitFor(() => expect(router.state.location.search).toEqual({}));
   expect(screen.getByRole("button", { name: "Kéo để sắp xếp Kế hoạch" })).toBeInTheDocument();
 });
+
+it("returns focus to the button that opened the new project dialog when it closes", async () => {
+  server.use(handleListChatProjects({ body: [planning] }));
+  await show();
+  const user = userEvent.setup();
+
+  const create = await screen.findByRole("button", { name: "Tạo dự án" });
+  await user.click(create);
+  expect(await screen.findByRole("dialog")).toBeInTheDocument();
+  await user.keyboard("{Escape}");
+
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  await waitFor(() => expect(create).toHaveFocus());
+});
+
+it("returns focus to the project menu when the edit dialog closes", async () => {
+  server.use(handleListChatProjects({ body: [planning] }));
+  await show();
+  const user = userEvent.setup();
+
+  const menu = await screen.findByRole("button", { name: "Thao tác với Kế hoạch" });
+  await user.click(menu);
+  await user.click(await screen.findByRole("menuitem", { name: "Sửa" }));
+  await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Đóng" }));
+
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  await waitFor(() => expect(menu).toHaveFocus());
+});

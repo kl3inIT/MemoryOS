@@ -355,7 +355,13 @@ const ProjectFolder = memo(function ProjectFolder({
         onOpenChange={setDeleting}
         restoreFocusRef={menuTrigger}
       />
-      {editing && <ProjectEditor project={project} onClose={() => setEditing(false)} />}
+      {editing && (
+        <ProjectEditor
+          project={project}
+          onClose={() => setEditing(false)}
+          restoreFocusRef={menuTrigger}
+        />
+      )}
       <CollapsibleContent>
         <ProjectConversations project={project} onNavigate={onNavigate} />
       </CollapsibleContent>
