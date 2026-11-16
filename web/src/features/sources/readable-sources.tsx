@@ -1,4 +1,4 @@
-import type { ComponentType, ReactNode } from "react";
+import { useMemo, type ComponentType, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BrandLoader } from "@/components/brand-loader";
 import { EmptyState } from "@/components/composites/empty-state";
@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { listChatLibrarySourcesOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { ChatLibrarySource } from "@/lib/hey-api/types.gen";
+import { findSourceProvider } from "@/features/sources/shared/source-provider-catalog";
 import { IDLE_SOURCE_POLL_MS } from "@/features/sources/shared/source-polling";
 import type { SourceFilters } from "@/features/sources/source-filters";
 import { SourceList } from "@/features/sources/source-list";
@@ -41,6 +42,21 @@ export function ReadableSources({
     ...listChatLibrarySourcesOptions(),
     refetchInterval: IDLE_SOURCE_POLL_MS,
   });
+  const readable = sources.data;
+  const shown = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return (readable ?? []).filter((source) => {
+      const providerName = ui(findSourceProvider(source.type)?.name ?? source.type);
+      return (
+        (!query ||
+          source.name.toLowerCase().includes(query) ||
+          providerName.toLowerCase().includes(query)) &&
+        (!filters.status || source.status === filters.status) &&
+        (!filters.provider || source.type === filters.provider) &&
+        (!filters.access || source.access === filters.access)
+      );
+    });
+  }, [filters, readable, search, ui]);
 
   if (sources.isPending)
     return (
@@ -67,9 +83,17 @@ export function ReadableSources({
         detail={ui("Ask a Source manager or an administrator for access.")}
       />
     );
+  const byStatus: Record<string, number> = {};
+  for (const source of sources.data) byStatus[source.status] = (byStatus[source.status] ?? 0) + 1;
   return (
     <SourceList
-      sources={sources.data}
+      sources={shown}
+      totals={{
+        total: sources.data.length,
+        failed: byStatus.FAILED ?? 0,
+        documents: sources.data.reduce((sum, source) => sum + source.readableDocuments, 0),
+        byStatus,
+      }}
       search={search}
       onSearch={onSearch}
       filters={filters}
@@ -92,7 +116,7 @@ export function ReadableSources({
   );
 }
 
-/** The Source's name, leading to its documents while Search serves them, and who answers for it. */
+/** The Source's name, leading to its documents while Search serves them,  */
 function SourceName({
   source,
   DocumentsLink,
@@ -100,7 +124,6 @@ function SourceName({
   source: ChatLibrarySource;
   DocumentsLink: DocumentsLink;
 }) {
-  const ui = useAppTranslation();
   const opens = source.status !== "PAUSED" && source.readableDocuments > 0;
   return (
     <span className="flex min-w-0 flex-col">
@@ -114,11 +137,6 @@ function SourceName({
       ) : (
         <span className="truncate text-sm font-medium text-content-primary">{source.name}</span>
       )}
-      {source.managerName ? (
-        <span className="truncate font-secondary-body text-content-muted">
-          {ui("Responsible manager: {{v1}}", { v1: source.managerName })}
-        </span>
-      ) : null}
     </span>
   );
 }
