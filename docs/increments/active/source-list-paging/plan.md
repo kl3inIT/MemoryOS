@@ -15,8 +15,8 @@ table; a row shows the manager, the failure reason and the relative time. Latest
    `api/source/contract/`; regenerate `openapi.yml` and the Hey API client.
 3. **Web.**
    - `SourceList` presentational: flat rows with the provider icon, manager line and status line; optional pager.
-   - `sources-page.tsx` reads `listSourcePage` with the address's search, filters and `page`; tiles and status counts
-     from `counts`; fast polling while `counts.pendingWork`.
+   - `sources-page.tsx` reads `listSourcePage` with the address's search, filters and `page`; status chips beside the
+     search and footer totals from `counts` (no stat tiles); fast polling while `counts.pendingWork`.
    - `readable-sources.tsx` keeps its client-side list.
    - Remove the `group` row tone and the multi-body rule from `table.tsx`.
 4. **Docs.** `docs/specs/connector.md` (the list operation and order), `docs/tests/connector.md`, the roadmap row.
@@ -32,4 +32,9 @@ table; a row shows the manager, the failure reason and the relative time. Latest
 
 | What | Result |
 | --- | --- |
-| Pending | |
+| Core page query (`PostgresSourceLifecycleTest`, 31 tests) | Pass |
+| API operation and validation (`SourceApiIntegrationTest`, 29 tests), `OpenApiContractTest` | Pass |
+| `ModulithArchitectureTest`, `CoreDependencyRulesTest` | Pass |
+| Web i18n, knip, lint, format, typecheck, unit (209 files, 1207 tests) | Pass |
+| Local run against the dev stack with 34+ Sources: paging, chips, status lines | Checked by the owner |
+| `pnpm check:routes` (production build) | Left to CI |

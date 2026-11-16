@@ -26,8 +26,8 @@ shows its own run history.
   not a speculative surface ([ADR 0002](../../../decisions/0002-no-speculative-operational-surfaces.md)).
 - **Counts come from the server, over what the actor may read.** `counts` holds the total, the count of each status,
   the documents of every Source and whether any Source has pending work, all under the same read scope
-  (`SourceScopeSql.READ` and the global flags) as the rows and without the search and filters, so the tiles and the
-  status counts do not change as the person filters and never count a Source the actor may not read. The page polls
+  (`SourceScopeSql.READ` and the global flags) as the rows and without the search and filters, so the status chips and
+  the footer totals do not change as the person filters and never count a Source the actor may not read. The page polls
   quickly while `counts.pendingWork` is true, wherever the busy Source sits.
 - **Order.** Failed first, then indexing and pausing, then the rest; within a rank by name, then by id so pages never
   overlap.
@@ -35,7 +35,7 @@ shows its own run history.
   translate it, and the type filter covers it.
 - **Flat rows.** No provider groups. A row shows the provider's icon before the name with the manager's name under it,
   the status with a line under it (the failure reason from `errorCode` through the existing catalog messages, "Still
-  working" while `pendingWork`, otherwise when it last indexed, relative), access, documents and the manage action.
+  working" while `pendingWork`, and the relative time of the last success only under ACTIVE, as Onyx writes it), access, documents and the manage action.
 - **Address.** `page` joins the search and filters already kept in the address; changing the search or a filter goes
   back to the first page.
 - **The member library keeps its list.** `readable-sources.tsx` lists the Sources a member may read from
