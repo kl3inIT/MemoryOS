@@ -2882,4 +2882,7 @@ Object.assign(englishUi, {
     "Quyền đọc tài liệu theo các nhóm MemoryOS của Nguồn này, không theo chia sẻ trên Lark.",
   "Whoever the document is shared with in Lark can read it.":
     "Ai được chia sẻ tài liệu trên Lark thì đọc được.",
+  "Still working": "Đang xử lý",
+  "Filter sources by status": "Lọc nguồn theo trạng thái",
+  "Source pages": "Các trang nguồn",
 });
