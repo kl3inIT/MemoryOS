@@ -31,4 +31,10 @@ describe("source error presentation", () => {
       /^Some files could not be acquired/,
     );
   });
+
+  it("tells the person how to recover a password-protected file", () => {
+    expect(sourceStatusMessage("SOURCE_EXTRACTION_ENCRYPTED")).toBe(
+      "Password-protected files cannot be indexed. Remove the password, then upload the file again.",
+    );
+  });
 });
