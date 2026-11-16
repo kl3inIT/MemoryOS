@@ -71,9 +71,7 @@ function TableBody({ className, ...props }: React.ComponentProps<"tbody">) {
   return (
     <tbody
       data-slot="table-body"
-      // Only the table's last body drops its closing rule; a grouped table's earlier bodies keep it, so one
-      // group's last row never runs into the next group's heading.
-      className={cn("last:[&_tr:last-child]:border-0", className)}
+      className={cn("[&_tr:last-child]:border-0", className)}
       {...props}
     />
   );
@@ -99,12 +97,10 @@ const tableRowVariants = cva(
       /**
        * `surface` gives the row an opaque background, which a pinned cell inherits; `cited` and `current` mark a
        * row the reader came for, as a cited passage is marked inside a document, and keep the mark under the pointer.
-       * `group` heads a group of rows in a grouped table, a band apart from the rows it heads.
        */
       tone: {
         none: "",
         surface: "bg-surface-base",
-        group: "bg-surface-subtle hover:bg-surface-subtle has-aria-expanded:bg-surface-subtle",
         cited: "bg-evidence-highlight-surface/60 hover:bg-evidence-highlight-surface/60",
         current:
           "border-y border-evidence-highlight-border bg-evidence-highlight-surface hover:bg-evidence-highlight-surface",
