@@ -1,6 +1,6 @@
 # The OpenSandbox lifecycle server for the Chat sandbox (MEM-270), with MemoryOS's configuration, as
 # infrastructure/keycloak/Dockerfile carries Keycloak's.
-FROM opensandbox/server:release-1.2.0@sha256:25bebdcf1cf7724eb923faecbdbbf82d4038c6ab35c736151574726d14006f30
+FROM opensandbox/server:release-1.2.1@sha256:07f9b39adb8cadf68357dd1b86367068210e960fc4cb50e11b75176387557ea7
 
 ARG VCS_REF=unknown
 ARG BUILD_DATE=unknown
