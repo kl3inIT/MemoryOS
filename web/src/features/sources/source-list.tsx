@@ -378,6 +378,7 @@ function SourceGroupBody<T extends SourceListItem>({
     <TableBody>
       {/* The whole row toggles its group; the provider's button stays the keyboard's way to it. */}
       <TableRow
+        tone="group"
         className="h-12 cursor-pointer"
         onClick={(event) => {
           if (!(event.target as Element).closest("button, a")) onToggle();
