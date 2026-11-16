@@ -2,23 +2,6 @@
 
 import * as z from 'zod';
 
-export const zAllowChannelGroupRequest = z.object({
-    allowed: z.boolean()
-});
-
-export const zSearchPassageLine = z.object({
-    pageNo: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
-    text: z.string(),
-    coordOrigin: z.enum(['TOPLEFT', 'BOTTOMLEFT']),
-    frameWidth: z.number().optional(),
-    frameHeight: z.number().optional(),
-    points: z.array(z.array(z.number()))
-});
-
-export const zSearchPassageLines = z.object({
-    lines: z.array(zSearchPassageLine)
-});
-
 export const zSharePointScopeRequest = z.object({
     scopeMode: z.enum(['ALL_SITES', 'SPECIFIC']),
     siteUrls: z.array(z.string().min(0).max(2048)).min(0).max(1000).optional(),
@@ -82,6 +65,48 @@ export const zSharePointConfigurationResponse = z.object({
     tenantHost: z.string().optional(),
     lastSyncedAt: z.iso.datetime().optional(),
     lastPrunedAt: z.iso.datetime().optional(),
+    pendingWork: z.boolean(),
+    errorCode: z.string().optional(),
+    pendingSelectionOperation: zSourceOperation.optional()
+});
+
+export const zLarkRootRequest = z.object({
+    kind: z.enum(['WIKI_SPACE', 'DRIVE_FOLDER']),
+    value: z.string().min(0).max(2048)
+});
+
+export const zLarkScopeRequest = z.object({
+    roots: z.array(zLarkRootRequest).min(1).max(100),
+    syncIntervalMinutes: z.int().gte(1).lte(525600)
+});
+
+export const zReplaceLarkScopeRequest = z.object({
+    requestId: z.uuid(),
+    expectedCredentialRevision: z.coerce.bigint().gt(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    scope: zLarkScopeRequest
+});
+
+export const zLarkSelectionReceiptResponse = z.object({
+    sourceId: z.uuid(),
+    operation: zSourceOperation
+});
+
+export const zUpdateLarkScheduleRequest = z.object({
+    syncIntervalMinutes: z.int().gte(1).lte(525600)
+});
+
+export const zLarkConfigurationResponse = z.object({
+    sourceId: z.uuid(),
+    credentialId: z.uuid(),
+    credentialName: z.string(),
+    credentialStatus: z.string(),
+    credentialRevision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    scopeRevision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    rootCount: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    syncIntervalMinutes: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    scheduleRevision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    syncPaused: z.boolean(),
+    lastSyncedAt: z.iso.datetime().optional(),
     pendingWork: z.boolean(),
     errorCode: z.string().optional(),
     pendingSelectionOperation: zSourceOperation.optional()
@@ -212,10 +237,19 @@ export const zMeetingParticulars = z.object({
 });
 
 /**
- * A blank or absent name restores the automatic label
+ * One voice of the meeting, as its speakers list names it
  */
-export const zMeetingSpeakerRequest = z.object({
-    name: z.string().max(200).nullish()
+export const zMeetingSpeakerRef = z.object({
+    track: z.enum(['MIC', 'TAB']),
+    label: z.string().regex(/^[0-9A-Za-z_-]{1,16}$/)
+});
+
+/**
+ * Who spoke one line: a voice of the meeting or a new name, exactly one of them
+ */
+export const zMeetingLineSpeakerRequest = z.object({
+    speaker: zMeetingSpeakerRef.optional(),
+    name: z.string().min(0).max(200).nullish()
 });
 
 export const zMeetingSpeakerSuggestion = z.object({
@@ -229,6 +263,42 @@ export const zMeetingSpeaker = z.object({
     label: z.string(),
     name: z.string().nullable(),
     suggestion: zMeetingSpeakerSuggestion.optional()
+});
+
+/**
+ * A stretch of the utterance the provider was unsure of, by character offset, half-open.
+ */
+export const zMeetingUtteranceSpan = z.object({
+    start: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    end: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    confidence: z.number()
+});
+
+export const zMeetingUtterance = z.object({
+    id: z.uuid(),
+    track: z.enum(['MIC', 'TAB']),
+    speaker: z.string(),
+    startMs: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    endMs: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    text: z.string(),
+    confidence: z.number(),
+    spans: z.array(zMeetingUtteranceSpan),
+    editSource: z.enum(['MODEL', 'HUMAN']).optional()
+});
+
+/**
+ * One line as it now reads, and the voice it now belongs to
+ */
+export const zMeetingLineSpeaker = z.object({
+    utterance: zMeetingUtterance,
+    speaker: zMeetingSpeaker
+});
+
+/**
+ * A blank or absent name restores the automatic label
+ */
+export const zMeetingSpeakerRequest = z.object({
+    name: z.string().max(200).nullish()
 });
 
 /**
@@ -266,14 +336,6 @@ export const zMeetingItemRequest = z.object({
 });
 
 /**
- * One voice of the meeting, as its speakers list names it
- */
-export const zMeetingSpeakerRef = z.object({
-    track: z.enum(['MIC', 'TAB']),
-    label: z.string().regex(/^[0-9A-Za-z_-]{1,16}$/)
-});
-
-/**
  * A decision the meeting reached or work it handed out
  */
 export const zMeetingMinutesItem = z.object({
@@ -286,14 +348,6 @@ export const zMeetingMinutesItem = z.object({
     sourceUtteranceId: z.uuid().nullable(),
     done: z.boolean(),
     edited: z.boolean()
-});
-
-/**
- * Who spoke one line: a voice of the meeting or a new name, exactly one of them
- */
-export const zMeetingLineSpeakerRequest = z.object({
-    speaker: zMeetingSpeakerRef.optional(),
-    name: z.string().min(0).max(200).nullish()
 });
 
 export const zMeetingMinutesSummaryRequest = z.object({
@@ -695,82 +749,6 @@ export const zLarkCredentialResponse = z.object({
     actions: z.array(z.string())
 });
 
-export const zLarkCredentialTestResponse = z.object({
-    botName: z.string(),
-    missingScopes: z.array(z.string())
-});
-
-export const zLarkRootRequest = z.object({
-    kind: z.enum(['WIKI_SPACE', 'DRIVE_FOLDER']),
-    value: z.string().min(0).max(2048)
-});
-
-export const zLarkScopeRequest = z.object({
-    roots: z.array(zLarkRootRequest).min(1).max(100),
-    syncIntervalMinutes: z.int().gte(1).lte(525600)
-});
-
-export const zCreateLarkSourceRequest = z.object({
-    requestId: z.uuid(),
-    name: z.string().min(0).max(120),
-    credentialId: z.uuid(),
-    scope: zLarkScopeRequest,
-    access: z.enum([
-        'PUBLIC',
-        'PRIVATE',
-        'SYNC'
-    ]),
-    groupIds: z.array(z.uuid()).min(0).max(100).optional()
-});
-
-export const zReplaceLarkScopeRequest = z.object({
-    requestId: z.uuid(),
-    expectedCredentialRevision: z.coerce.bigint().gt(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
-    scope: zLarkScopeRequest
-});
-
-export const zUpdateLarkPauseRequest = z.object({
-    expectedRevision: z.coerce.bigint().gt(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
-    paused: z.boolean()
-});
-
-export const zUpdateLarkScheduleRequest = z.object({
-    syncIntervalMinutes: z.int().gte(1).lte(525600)
-});
-
-export const zLarkSelectionReceiptResponse = z.object({
-    sourceId: z.uuid(),
-    operation: zSourceOperation
-});
-
-export const zLarkRootResponse = z.object({
-    kind: z.enum(['WIKI_SPACE', 'DRIVE_FOLDER']),
-    token: z.string(),
-    displayName: z.string().optional()
-});
-
-export const zLarkSpaceOptionResponse = z.object({
-    spaceId: z.string(),
-    name: z.string()
-});
-
-export const zLarkConfigurationResponse = z.object({
-    sourceId: z.uuid(),
-    credentialId: z.uuid(),
-    credentialName: z.string(),
-    credentialStatus: z.string(),
-    credentialRevision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
-    scopeRevision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
-    rootCount: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
-    syncIntervalMinutes: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
-    scheduleRevision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
-    syncPaused: z.boolean(),
-    lastSyncedAt: z.iso.datetime().optional(),
-    pendingWork: z.boolean(),
-    errorCode: z.string().optional(),
-    pendingSelectionOperation: zSourceOperation.optional()
-});
-
 export const zGoogleDriveServiceAccountRequest = z.object({
     name: z.string().min(0).max(120),
     serviceAccountKeyJson: z.string().min(0).max(16384),
@@ -994,47 +972,19 @@ export const zChatGuardrailsResponse = z.object({
     revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
 });
 
-export const zChatFollowUpsRequest = z.object({
-    followUpSuggestions: z.boolean(),
-    revision: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
-});
-
-export const zChatFollowUpsResponse = z.object({
-    suggestions: z.array(z.string())
-});
-
 export const zChatGroundedRequest = z.object({
     groundedAnswers: z.boolean(),
     groundedAllowWeb: z.boolean(),
     revision: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
 });
 
+export const zChatFollowUpsRequest = z.object({
+    followUpSuggestions: z.boolean(),
+    revision: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
+});
+
 export const zTitle = z.object({
     title: z.string().min(0).max(200)
-});
-
-export const zChatAssistantTopic = z.object({
-    sessionId: z.uuid(),
-    title: z.string(),
-    lastMessageAt: z.iso.datetime(),
-    preview: z.string(),
-    replyRunning: z.boolean()
-});
-
-/**
- * One row of the caller's list of assistants: the built-in assistant first, then their pins in order
- */
-export const zChatAssistant = z.object({
-    id: z.uuid(),
-    name: z.string(),
-    title: z.string().nullable(),
-    description: z.string(),
-    avatarSeed: z.string(),
-    hasAvatar: z.boolean(),
-    builtin: z.boolean(),
-    ownerName: z.string().nullable(),
-    usable: z.boolean(),
-    latestTopic: zChatAssistantTopic.nullable()
 });
 
 export const zChatSession = z.object({
@@ -1096,6 +1046,18 @@ export const zFeedback = z.object({
 export const zBranchSelection = z.object({
     messageId: z.uuid(),
     expectedChildId: z.uuid().nullish()
+});
+
+export const zSandboxSettingsRequest = z.object({
+    enabled: z.boolean(),
+    revision: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+});
+
+export const zSandboxSettingsResponse = z.object({
+    configured: z.boolean(),
+    enabled: z.boolean(),
+    revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    allowedDomains: z.array(z.string())
 });
 
 export const zChatRetentionInput = z.object({
@@ -1209,22 +1171,6 @@ export const zChatPreferencesInput = z.object({
     autoScroll: z.boolean(),
     channelPersonaId: z.uuid().nullish(),
     pasteAsTile: z.boolean().nullish()
-});
-
-export const zChatMemory = z.object({
-    content: z.string(),
-    enabled: z.boolean(),
-    revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
-    maxLength: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
-});
-
-export const zChatMemoryEnabledInput = z.object({
-    enabled: z.boolean()
-});
-
-export const zChatMemoryInput = z.object({
-    content: z.string().min(0).max(4000),
-    revision: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
 });
 
 export const zChatPreferences = z.object({
@@ -1468,16 +1414,20 @@ export const zDefault = z.object({
     revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
 });
 
-export const zSandboxSettingsRequest = z.object({
-    enabled: z.boolean(),
+export const zChatMemoryInput = z.object({
+    content: z.string().min(0).max(4000),
     revision: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
 });
 
-export const zSandboxSettingsResponse = z.object({
-    configured: z.boolean(),
+export const zChatMemory = z.object({
+    content: z.string(),
     enabled: z.boolean(),
     revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
-    allowedDomains: z.array(z.string())
+    maxLength: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
+});
+
+export const zChatMemoryEnabledInput = z.object({
+    enabled: z.boolean()
 });
 
 export const zImageSelectionRequest = z.object({
@@ -1588,6 +1538,83 @@ export const zUpdateChannelTransportRequest = z.object({
 export const zChannelAssistantResponse = z.object({
     id: z.uuid(),
     name: z.string()
+});
+
+export const zChannelResponse = z.object({
+    id: z.uuid(),
+    provider: z.enum([
+        'LARK',
+        'ZALO_BOT',
+        'WHATSAPP'
+    ]),
+    name: z.string(),
+    region: z.enum(['LARK', 'FEISHU']).optional(),
+    transport: z.enum(['WEBHOOK', 'POLLING']).optional(),
+    appId: z.string(),
+    noticeLanguage: z.string(),
+    enabled: z.boolean(),
+    publicAccess: z.boolean(),
+    serviceAccountId: z.uuid(),
+    botName: z.string().optional(),
+    missingScopes: z.array(z.string()),
+    status: z.enum([
+        'OFF',
+        'NOT_RUNNING',
+        'CONNECTING',
+        'PAIRING',
+        'CONNECTED',
+        'FAILED'
+    ]),
+    failureCode: z.string().optional(),
+    failedAt: z.iso.datetime().optional(),
+    connectedAt: z.iso.datetime().optional(),
+    lastMessageAt: z.iso.datetime().optional(),
+    assistant: zChannelAssistantResponse.optional(),
+    revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    createdAt: z.iso.datetime(),
+    updatedAt: z.iso.datetime()
+});
+
+export const zReplaceChannelSecretRequest = z.object({
+    appSecret: z.string().min(0).max(256)
+});
+
+export const zUpdateChannelPublicRequest = z.object({
+    publicAccess: z.boolean()
+});
+
+export const zBindChannelAssistantRequest = z.object({
+    personaId: z.uuid().nullish()
+});
+
+export const zBindChannelGroupAssistantRequest = z.object({
+    personaId: z.uuid().nullish()
+});
+
+export const zChannelGroupResponse = z.object({
+    id: z.string(),
+    label: z.string().optional(),
+    name: z.string().optional(),
+    firstMessageAt: z.iso.datetime(),
+    lastMessageAt: z.iso.datetime().optional(),
+    assistant: zChannelAssistantResponse.optional(),
+    permission: z.enum([
+        'NOT_NEEDED',
+        'ALLOWED',
+        'WAITING'
+    ])
+});
+
+export const zAllowChannelGroupRequest = z.object({
+    allowed: z.boolean()
+});
+
+export const zLabelChannelGroupRequest = z.object({
+    label: z.string().min(0).max(100).nullish()
+});
+
+export const zUpdateChannelEnabledRequest = z.object({
+    enabled: z.boolean()
 });
 
 export const zAiUsageLimitRequest = z.object({
@@ -1723,6 +1750,11 @@ export const zAssignSourceManagerRequest = z.object({
     actorId: z.uuid().nullable()
 });
 
+export const zUpdateLarkPauseRequest = z.object({
+    expectedRevision: z.coerce.bigint().gt(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    paused: z.boolean()
+});
+
 export const zUpdateSourceGroupsRequest = z.object({
     groupIds: z.array(z.uuid()).min(0).max(100)
 });
@@ -1745,6 +1777,19 @@ export const zCreateSharePointSourceRequest = z.object({
     name: z.string().min(0).max(120),
     credentialId: z.uuid(),
     scope: zSharePointScopeRequest,
+    access: z.enum([
+        'PUBLIC',
+        'PRIVATE',
+        'SYNC'
+    ]),
+    groupIds: z.array(z.uuid()).min(0).max(100).optional()
+});
+
+export const zCreateLarkSourceRequest = z.object({
+    requestId: z.uuid(),
+    name: z.string().min(0).max(120),
+    credentialId: z.uuid(),
+    scope: zLarkScopeRequest,
     access: z.enum([
         'PUBLIC',
         'PRIVATE',
@@ -1977,35 +2022,6 @@ export const zMeetingMinutes = z.object({
     actions: z.array(zMeetingMinutesItem),
     edited: z.boolean(),
     topics: z.array(zMeetingMinutesItem)
-});
-
-/**
- * A stretch of the utterance the provider was unsure of, by character offset, half-open.
- */
-export const zMeetingUtteranceSpan = z.object({
-    start: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
-    end: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
-    confidence: z.number()
-});
-
-export const zMeetingUtterance = z.object({
-    id: z.uuid(),
-    track: z.enum(['MIC', 'TAB']),
-    speaker: z.string(),
-    startMs: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
-    endMs: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
-    text: z.string(),
-    confidence: z.number(),
-    spans: z.array(zMeetingUtteranceSpan),
-    editSource: z.enum(['MODEL', 'HUMAN']).optional()
-});
-
-/**
- * One line as it now reads, and the voice it now belongs to
- */
-export const zMeetingLineSpeaker = z.object({
-    utterance: zMeetingUtterance,
-    speaker: zMeetingSpeaker
 });
 
 export const zMeetingDetail = z.object({
@@ -2351,6 +2367,11 @@ export const zSharePointCredentialTestResponse = z.object({
     tenantHost: z.string().optional()
 });
 
+export const zLarkCredentialTestResponse = z.object({
+    botName: z.string(),
+    missingScopes: z.array(z.string())
+});
+
 export const zRevokeGoogleDriveCredentialRequest = z.object({
     expectedCredentialRevision: z.coerce.bigint().gt(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
 });
@@ -2451,6 +2472,10 @@ export const zEdit = z.object({
     ]).optional(),
     deepResearch: z.boolean().optional(),
     mcpServerIds: z.array(z.uuid()).min(0).max(8).optional()
+});
+
+export const zChatFollowUpsResponse = z.object({
+    suggestions: z.array(z.string())
 });
 
 export const zBranchChatSessionRequest = z.object({
@@ -2642,6 +2667,40 @@ export const zCreateZaloChannelRequest = z.object({
 
 export const zZaloBotRequest = z.object({
     token: z.string().min(0).max(256)
+});
+
+export const zChannelAppCheckResponse = z.object({
+    botName: z.string(),
+    missingScopes: z.array(z.string())
+});
+
+export const zCreateWhatsAppChannelRequest = z.object({
+    name: z.string().min(0).max(100),
+    phone: z.string().min(0).max(32),
+    noticeLanguage: z.enum(['vi', 'en'])
+});
+
+export const zCreateChannelRequest = z.object({
+    name: z.string().min(0).max(100),
+    region: z.enum(['LARK', 'FEISHU']),
+    appId: z.string().min(0).max(64),
+    appSecret: z.string().min(0).max(256),
+    noticeLanguage: z.enum(['vi', 'en'])
+});
+
+export const zChannelAppRequest = z.object({
+    region: z.enum(['LARK', 'FEISHU']),
+    appId: z.string().min(0).max(64),
+    appSecret: z.string().min(0).max(256)
+});
+
+export const zCreateChannelLinkCodeRequest = z.object({
+    connectionId: z.uuid()
+});
+
+export const zChannelLinkCodeResponse = z.object({
+    code: z.string(),
+    expiresAt: z.iso.datetime()
 });
 
 /**
@@ -2909,6 +2968,12 @@ export const zSourceRunErrorPage = z.object({
     nextCursor: z.string().nullable()
 });
 
+export const zLarkRootResponse = z.object({
+    kind: z.enum(['WIKI_SPACE', 'DRIVE_FOLDER']),
+    token: z.string(),
+    displayName: z.string().optional()
+});
+
 export const zSourceItemPage = z.object({
     items: z.array(zSourceItem),
     nextCursor: z.string().nullable(),
@@ -3009,6 +3074,36 @@ export const zSharePointSelectionPolicyResponse = z.object({
     maxRequestBytes: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
 });
 
+/**
+ * Every source the actor may read, whatever the search and filters of the page.
+ */
+export const zSourceCounts = z.object({
+    total: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    notStarted: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    indexing: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    active: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    failed: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    paused: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    pausing: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    deleting: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    documents: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    pendingWork: z.boolean()
+});
+
+export const zSourcePage = z.object({
+    items: z.array(zSourceSummary),
+    page: z.int().gte(0).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    size: z.int().gte(1).lte(100),
+    totalItems: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    totalPages: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    counts: zSourceCounts
+});
+
+export const zLarkSpaceOptionResponse = z.object({
+    spaceId: z.string(),
+    name: z.string()
+});
+
 export const zSourceGroupPage = z.object({
     items: z.array(zSourceGroup),
     page: z.int().gte(0).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
@@ -3057,6 +3152,19 @@ export const zDocumentSpreadsheetSheet = z.object({
 
 export const zDocumentSpreadsheet = z.object({
     sheets: z.array(zDocumentSpreadsheetSheet)
+});
+
+export const zSearchPassageLine = z.object({
+    pageNo: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    text: z.string(),
+    coordOrigin: z.enum(['TOPLEFT', 'BOTTOMLEFT']),
+    frameWidth: z.number().optional(),
+    frameHeight: z.number().optional(),
+    points: z.array(z.array(z.number()))
+});
+
+export const zSearchPassageLines = z.object({
+    lines: z.array(zSearchPassageLine)
 });
 
 export const zOcrProviderResponse = z.object({
@@ -3862,6 +3970,12 @@ export const zChatSessionSearchPage = z.object({
     hasMore: z.boolean()
 });
 
+export const zSandboxHealthResponse = z.object({
+    connected: z.boolean(),
+    error: z.string(),
+    version: z.string()
+});
+
 export const zChatRetentionPreview = z.object({
     days: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).nullable(),
     affected: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
@@ -4133,12 +4247,6 @@ export const zChatLibrarySourceOption = z.object({
     ])
 });
 
-export const zSandboxHealthResponse = z.object({
-    connected: z.boolean(),
-    error: z.string(),
-    version: z.string()
-});
-
 export const zImageAvailabilityResponse = z.object({
     available: z.boolean(),
     provider: z.enum([
@@ -4250,6 +4358,46 @@ export const zChatSpreadsheetPreview = z.object({
 export const zChatFilePolicyResponse = z.object({
     maxSizeBytes: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
     deploymentCeilingBytes: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
+});
+
+export const zChatAssistantTopic = z.object({
+    sessionId: z.uuid(),
+    title: z.string(),
+    lastMessageAt: z.iso.datetime(),
+    preview: z.string(),
+    replyRunning: z.boolean()
+});
+
+/**
+ * One row of the caller's list of assistants: the built-in assistant first, then their pins in order
+ */
+export const zChatAssistant = z.object({
+    id: z.uuid(),
+    name: z.string(),
+    title: z.string().nullable(),
+    description: z.string(),
+    avatarSeed: z.string(),
+    hasAvatar: z.boolean(),
+    builtin: z.boolean(),
+    ownerName: z.string().nullable(),
+    usable: z.boolean(),
+    latestTopic: zChatAssistantTopic.nullable()
+});
+
+export const zChannelPairingResponse = z.object({
+    code: z.string(),
+    expiresAt: z.iso.datetime()
+});
+
+export const zChannelLinkResponse = z.object({
+    connectionId: z.uuid(),
+    botName: z.string(),
+    provider: z.enum([
+        'LARK',
+        'ZALO_BOT',
+        'WHATSAPP'
+    ]),
+    linkedAt: z.iso.datetime().optional()
 });
 
 /**
@@ -4417,129 +4565,6 @@ export const zApiProblem = z.object({
     })).optional()
 });
 
-export const zReplaceChannelSecretRequest = z.object({
-    appSecret: z.string().min(0).max(256)
-});
-
-export const zUpdateChannelPublicRequest = z.object({
-    publicAccess: z.boolean()
-});
-
-export const zBindChannelAssistantRequest = z.object({
-    personaId: z.uuid().nullish()
-});
-
-export const zBindChannelGroupAssistantRequest = z.object({
-    personaId: z.uuid().nullish()
-});
-
-export const zChannelGroupResponse = z.object({
-    id: z.string(),
-    label: z.string().optional(),
-    name: z.string().optional(),
-    firstMessageAt: z.iso.datetime(),
-    lastMessageAt: z.iso.datetime().optional(),
-    assistant: zChannelAssistantResponse.optional(),
-    permission: z.enum([
-        'NOT_NEEDED',
-        'ALLOWED',
-        'WAITING'
-    ])
-});
-
-export const zLabelChannelGroupRequest = z.object({
-    label: z.string().min(0).max(100).nullish()
-});
-
-export const zCreateWhatsAppChannelRequest = z.object({
-    name: z.string().min(0).max(100),
-    phone: z.string().min(0).max(32),
-    noticeLanguage: z.enum(['vi', 'en'])
-});
-
-export const zChannelPairingResponse = z.object({
-    code: z.string(),
-    expiresAt: z.iso.datetime()
-});
-
-export const zChannelResponse = z.object({
-    id: z.uuid(),
-    provider: z.enum([
-        'LARK',
-        'ZALO_BOT',
-        'WHATSAPP'
-    ]),
-    name: z.string(),
-    region: z.enum(['LARK', 'FEISHU']).optional(),
-    transport: z.enum(['WEBHOOK', 'POLLING']).optional(),
-    appId: z.string(),
-    noticeLanguage: z.string(),
-    enabled: z.boolean(),
-    publicAccess: z.boolean(),
-    serviceAccountId: z.uuid(),
-    botName: z.string().optional(),
-    missingScopes: z.array(z.string()),
-    status: z.enum([
-        'OFF',
-        'NOT_RUNNING',
-        'CONNECTING',
-        'PAIRING',
-        'CONNECTED',
-        'FAILED'
-    ]),
-    failureCode: z.string().optional(),
-    failedAt: z.iso.datetime().optional(),
-    connectedAt: z.iso.datetime().optional(),
-    lastMessageAt: z.iso.datetime().optional(),
-    assistant: zChannelAssistantResponse.optional(),
-    revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
-    createdAt: z.iso.datetime(),
-    updatedAt: z.iso.datetime()
-});
-
-export const zUpdateChannelEnabledRequest = z.object({
-    enabled: z.boolean()
-});
-
-export const zCreateChannelRequest = z.object({
-    name: z.string().min(0).max(100),
-    region: z.enum(['LARK', 'FEISHU']),
-    appId: z.string().min(0).max(64),
-    appSecret: z.string().min(0).max(256),
-    noticeLanguage: z.enum(['vi', 'en'])
-});
-
-export const zChannelAppRequest = z.object({
-    region: z.enum(['LARK', 'FEISHU']),
-    appId: z.string().min(0).max(64),
-    appSecret: z.string().min(0).max(256)
-});
-
-export const zChannelAppCheckResponse = z.object({
-    botName: z.string(),
-    missingScopes: z.array(z.string())
-});
-
-export const zCreateChannelLinkCodeRequest = z.object({
-    connectionId: z.uuid()
-});
-
-export const zChannelLinkCodeResponse = z.object({
-    code: z.string(),
-    expiresAt: z.iso.datetime()
-});
-
-export const zChannelLinkResponse = z.object({
-    connectionId: z.uuid(),
-    botName: z.string(),
-    provider: z.enum([
-        'LARK',
-        'ZALO_BOT',
-        'WHATSAPP'
-    ]),
-    linkedAt: z.iso.datetime().optional()
-});
-
 export const zReplaceSharePointScopeBody = zReplaceSharePointScopeRequest;
 
 export const zReplaceSharePointScopeHeaders = z.object({
@@ -4569,6 +4594,36 @@ export const zUpdateSharePointSchedulePath = z.object({
  * Updated SharePoint configuration
  */
 export const zUpdateSharePointScheduleResponse = zSharePointConfigurationResponse;
+
+export const zReplaceLarkScopeBody = zReplaceLarkScopeRequest;
+
+export const zReplaceLarkScopeHeaders = z.object({
+    'If-Match': z.string()
+});
+
+export const zReplaceLarkScopePath = z.object({
+    sourceId: z.uuid()
+});
+
+/**
+ * Scope accepted for verification
+ */
+export const zReplaceLarkScopeResponse = zLarkSelectionReceiptResponse;
+
+export const zUpdateLarkScheduleBody = zUpdateLarkScheduleRequest;
+
+export const zUpdateLarkScheduleHeaders = z.object({
+    'If-Match': z.string()
+});
+
+export const zUpdateLarkSchedulePath = z.object({
+    sourceId: z.uuid()
+});
+
+/**
+ * Updated Lark configuration
+ */
+export const zUpdateLarkScheduleResponse = zLarkConfigurationResponse;
 
 export const zUpdateGoogleDriveScheduleBody = zUpdateGoogleDriveScheduleRequest;
 
@@ -4671,18 +4726,6 @@ export const zUpdateMeetingPath = z.object({
  */
 export const zUpdateMeetingResponse = zMeetingParticulars;
 
-export const zSetMeetingLineSpeakerBody = zMeetingLineSpeakerRequest;
-
-export const zSetMeetingLineSpeakerPath = z.object({
-    meetingId: z.uuid(),
-    utteranceId: z.uuid()
-});
-
-/**
- * The line and the voice it now belongs to
- */
-export const zSetMeetingLineSpeakerResponse = zMeetingLineSpeaker;
-
 export const zUnstarMeetingUtterancePath = z.object({
     meetingId: z.uuid(),
     utteranceId: z.uuid()
@@ -4702,6 +4745,18 @@ export const zStarMeetingUtterancePath = z.object({
  * Every line the caller starred in this meeting
  */
 export const zStarMeetingUtteranceResponse = z.array(z.uuid());
+
+export const zSetMeetingLineSpeakerBody = zMeetingLineSpeakerRequest;
+
+export const zSetMeetingLineSpeakerPath = z.object({
+    meetingId: z.uuid(),
+    utteranceId: z.uuid()
+});
+
+/**
+ * The line and the voice it now belongs to
+ */
+export const zSetMeetingLineSpeakerResponse = zMeetingLineSpeaker;
 
 export const zNameMeetingSpeakerBody = zMeetingSpeakerRequest;
 
@@ -4840,6 +4895,22 @@ export const zUpdateMcpServerQuery = z.object({
  */
 export const zUpdateMcpServerResponse = zMcpServerView;
 
+export const zSetMcpServerToolPolicyBody = zMcpToolPolicyChange;
+
+export const zSetMcpServerToolPolicyPath = z.object({
+    serverId: z.uuid(),
+    toolId: z.uuid()
+});
+
+export const zSetMcpServerToolPolicyQuery = z.object({
+    revision: z.coerce.bigint().gt(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+});
+
+/**
+ * Saved tool
+ */
+export const zSetMcpServerToolPolicyResponse = zMcpToolView;
+
 export const zResetMcpServerToolPoliciesPath = z.object({
     serverId: z.uuid()
 });
@@ -4859,22 +4930,6 @@ export const zSetMcpServerToolGroupPolicyPath = z.object({
  * Saved tools
  */
 export const zSetMcpServerToolGroupPolicyResponse = z.array(zMcpToolView);
-
-export const zSetMcpServerToolPolicyBody = zMcpToolPolicyChange;
-
-export const zSetMcpServerToolPolicyPath = z.object({
-    serverId: z.uuid(),
-    toolId: z.uuid()
-});
-
-export const zSetMcpServerToolPolicyQuery = z.object({
-    revision: z.coerce.bigint().gt(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
-});
-
-/**
- * Saved tool
- */
-export const zSetMcpServerToolPolicyResponse = zMcpToolView;
 
 export const zDeleteMcpServerOAuthClientPath = z.object({
     serverId: z.uuid(),
@@ -5022,6 +5077,49 @@ export const zReplaceSharePointCredentialAuthenticationPath = z.object({
  * Updated SharePoint credential
  */
 export const zReplaceSharePointCredentialAuthenticationResponse = zSharePointCredentialResponse;
+
+export const zDeleteLarkCredentialHeaders = z.object({
+    'If-Match': z.string()
+});
+
+export const zDeleteLarkCredentialPath = z.object({
+    credentialId: z.uuid()
+});
+
+/**
+ * Lark credential deleted
+ */
+export const zDeleteLarkCredentialResponse = z.void();
+
+export const zRenameLarkCredentialBody = zRenameLarkCredentialRequest;
+
+export const zRenameLarkCredentialHeaders = z.object({
+    'If-Match': z.string()
+});
+
+export const zRenameLarkCredentialPath = z.object({
+    credentialId: z.uuid()
+});
+
+/**
+ * Lark credential renamed
+ */
+export const zRenameLarkCredentialResponse = z.void();
+
+export const zReplaceLarkCredentialSecretBody = zLarkCredentialRequest;
+
+export const zReplaceLarkCredentialSecretHeaders = z.object({
+    'If-Match': z.string()
+});
+
+export const zReplaceLarkCredentialSecretPath = z.object({
+    credentialId: z.uuid()
+});
+
+/**
+ * Updated Lark credential
+ */
+export const zReplaceLarkCredentialSecretResponse = zLarkCredentialResponse;
 
 export const zReplaceGoogleDriveServiceAccountBody = zGoogleDriveServiceAccountRequest;
 
@@ -5177,19 +5275,19 @@ export const zSaveChatGuardrailsBody = zChatGuardrailsRequest;
  */
 export const zSaveChatGuardrailsResponse = zChatGuardrailsResponse;
 
-export const zSaveChatFollowUpsBody = zChatFollowUpsRequest;
-
-/**
- * Saved Tenant Chat settings
- */
-export const zSaveChatFollowUpsResponse = zChatSettingsResponse;
-
 export const zSaveChatGroundedBody = zChatGroundedRequest;
 
 /**
  * Saved Tenant Chat settings
  */
 export const zSaveChatGroundedResponse = zChatSettingsResponse;
+
+export const zSaveChatFollowUpsBody = zChatFollowUpsRequest;
+
+/**
+ * Saved Tenant Chat settings
+ */
+export const zSaveChatFollowUpsResponse = zChatSettingsResponse;
 
 export const zGenerateChatTitlePath = z.object({
     sessionId: z.uuid()
@@ -5307,6 +5405,18 @@ export const zSelectChatBranchPath = z.object({
  * No Content
  */
 export const zSelectChatBranchResponse = z.void();
+
+/**
+ * Sandbox setting
+ */
+export const zGetChatSandboxSettingsResponse = zSandboxSettingsResponse;
+
+export const zUpdateChatSandboxSettingsBody = zSandboxSettingsRequest;
+
+/**
+ * Saved Sandbox setting
+ */
+export const zUpdateChatSandboxSettingsResponse = zSandboxSettingsResponse;
 
 /**
  * Your retention policy
@@ -5566,11 +5676,6 @@ export const zSetChatPersonaListingQuery = z.object({
 export const zSetChatPersonaListingResponse = zPersonaView;
 
 /**
- * The assistants in order
- */
-export const zListChatAssistantsResponse = z.array(zChatAssistant);
-
-/**
  * Successful chat operation
  */
 export const zListChatPersonaPinsResponse = z.array(zPersonaView);
@@ -5679,6 +5784,30 @@ export const zSetChatModelDefaultQuery = z.object({
  */
 export const zSetChatModelDefaultResponse = zDefault;
 
+/**
+ * The emptied memory
+ */
+export const zClearChatMemoryResponse = zChatMemory;
+
+/**
+ * Your memory
+ */
+export const zGetChatMemoryResponse = zChatMemory;
+
+export const zSaveChatMemoryBody = zChatMemoryInput;
+
+/**
+ * The saved memory
+ */
+export const zSaveChatMemoryResponse = zChatMemory;
+
+export const zSetChatMemoryEnabledBody = zChatMemoryEnabledInput;
+
+/**
+ * The memory with its switch
+ */
+export const zSetChatMemoryEnabledResponse = zChatMemory;
+
 export const zUnstarChatLibraryEntryPath = z.object({
     kind: z.enum([
         'UPLOAD',
@@ -5712,18 +5841,6 @@ export const zStarChatLibraryEntryPath = z.object({
  * Starred
  */
 export const zStarChatLibraryEntryResponse = z.void();
-
-/**
- * Sandbox setting
- */
-export const zGetChatSandboxSettingsResponse = zSandboxSettingsResponse;
-
-export const zUpdateChatSandboxSettingsBody = zSandboxSettingsRequest;
-
-/**
- * Saved Sandbox setting
- */
-export const zUpdateChatSandboxSettingsResponse = zSandboxSettingsResponse;
 
 export const zSelectChatImageProviderBody = zImageSelectionRequest;
 
@@ -5817,6 +5934,98 @@ export const zUpdateChannelTransportPath = z.object({
  * Updated bot
  */
 export const zUpdateChannelTransportResponse = zChannelResponse;
+
+export const zReplaceChannelSecretBody = zReplaceChannelSecretRequest;
+
+export const zReplaceChannelSecretHeaders = z.object({
+    'If-Match': z.string()
+});
+
+export const zReplaceChannelSecretPath = z.object({
+    channelId: z.uuid()
+});
+
+/**
+ * Updated bot
+ */
+export const zReplaceChannelSecretResponse = zChannelResponse;
+
+export const zUpdateChannelPublicBody = zUpdateChannelPublicRequest;
+
+export const zUpdateChannelPublicHeaders = z.object({
+    'If-Match': z.string()
+});
+
+export const zUpdateChannelPublicPath = z.object({
+    channelId: z.uuid()
+});
+
+/**
+ * Updated bot
+ */
+export const zUpdateChannelPublicResponse = zChannelResponse;
+
+export const zBindChannelAssistantBody = zBindChannelAssistantRequest;
+
+export const zBindChannelAssistantPath = z.object({
+    channelId: z.uuid()
+});
+
+/**
+ * Updated bot
+ */
+export const zBindChannelAssistantResponse = zChannelResponse;
+
+export const zBindChannelGroupAssistantBody = zBindChannelGroupAssistantRequest;
+
+export const zBindChannelGroupAssistantPath = z.object({
+    channelId: z.uuid(),
+    groupId: z.string()
+});
+
+/**
+ * Updated group chat
+ */
+export const zBindChannelGroupAssistantResponse = zChannelGroupResponse;
+
+export const zAllowChannelGroupBody = zAllowChannelGroupRequest;
+
+export const zAllowChannelGroupPath = z.object({
+    channelId: z.uuid(),
+    groupId: z.string()
+});
+
+/**
+ * Updated group chat
+ */
+export const zAllowChannelGroupResponse = zChannelGroupResponse;
+
+export const zLabelChannelGroupBody = zLabelChannelGroupRequest;
+
+export const zLabelChannelGroupPath = z.object({
+    channelId: z.uuid(),
+    groupId: z.string()
+});
+
+/**
+ * Updated group chat
+ */
+export const zLabelChannelGroupResponse = zChannelGroupResponse;
+
+export const zUpdateChannelEnabledBody = zUpdateChannelEnabledRequest;
+
+export const zUpdateChannelEnabledHeaders = z.object({
+    'If-Match': z.string()
+});
+
+export const zUpdateChannelEnabledPath = z.object({
+    channelId: z.uuid()
+});
+
+/**
+ * Updated bot
+ */
+export const zUpdateChannelEnabledResponse = zChannelResponse;
 
 export const zDeleteAiUsageLimitPath = z.object({
     limitId: z.uuid()
@@ -5948,6 +6157,26 @@ export const zAssignSourceManagerPath = z.object({
  */
 export const zAssignSourceManagerResponse = zSourceSummary;
 
+export const zSynchronizeLarkSourcePath = z.object({
+    sourceId: z.uuid()
+});
+
+/**
+ * Run scheduled
+ */
+export const zSynchronizeLarkSourceResponse = zSourceOperation;
+
+export const zUpdateLarkPauseBody = zUpdateLarkPauseRequest;
+
+export const zUpdateLarkPausePath = z.object({
+    sourceId: z.uuid()
+});
+
+/**
+ * Updated Lark configuration
+ */
+export const zUpdateLarkPauseResponse = zLarkConfigurationResponse;
+
 export const zRemoveSourceItemPath = z.object({
     sourceId: z.uuid(),
     itemId: z.uuid()
@@ -6047,6 +6276,13 @@ export const zCreateSharePointSourceBody = zCreateSharePointSourceRequest;
  * Scope accepted for verification
  */
 export const zCreateSharePointSourceResponse = zSharePointSelectionReceiptResponse;
+
+export const zCreateLarkSourceBody = zCreateLarkSourceRequest;
+
+/**
+ * Scope accepted for verification
+ */
+export const zCreateLarkSourceResponse = zLarkSelectionReceiptResponse;
 
 export const zCreateGoogleDriveSourceBody = zCreateGoogleDriveSourceRequest;
 
@@ -6621,6 +6857,27 @@ export const zTestSharePointCredentialPath = z.object({
  * SharePoint credential works
  */
 export const zTestSharePointCredentialResponse = zSharePointCredentialTestResponse;
+
+/**
+ * Lark credentials
+ */
+export const zListLarkCredentialsResponse = z.array(zLarkCredentialResponse);
+
+export const zCreateLarkCredentialBody = zLarkCredentialRequest;
+
+/**
+ * Stored Lark credential
+ */
+export const zCreateLarkCredentialResponse = zLarkCredentialResponse;
+
+export const zTestLarkCredentialPath = z.object({
+    credentialId: z.uuid()
+});
+
+/**
+ * Lark credential works
+ */
+export const zTestLarkCredentialResponse = zLarkCredentialTestResponse;
 
 export const zRevokeGoogleDriveCredentialBody = zRevokeGoogleDriveCredentialRequest;
 
@@ -7233,6 +7490,28 @@ export const zCreateDocumentSetBody = zInput;
  */
 export const zCreateDocumentSetResponse = zView;
 
+export const zGetChannelPairingPath = z.object({
+    channelId: z.uuid()
+});
+
+export const zGetChannelPairingResponse = z.union([
+    zChannelPairingResponse,
+    z.void()
+]);
+
+export const zRelinkChannelHeaders = z.object({
+    'If-Match': z.string()
+});
+
+export const zRelinkChannelPath = z.object({
+    channelId: z.uuid()
+});
+
+/**
+ * Updated bot
+ */
+export const zRelinkChannelResponse = zChannelResponse;
+
 export const zCreateZaloChannelBody = zCreateZaloChannelRequest;
 
 /**
@@ -7246,6 +7525,39 @@ export const zTestZaloChannelBotBody = zZaloBotRequest;
  * Zalo accepts the token
  */
 export const zTestZaloChannelBotResponse = zChannelAppCheckResponse;
+
+export const zCreateWhatsAppChannelBody = zCreateWhatsAppChannelRequest;
+
+/**
+ * Added bot
+ */
+export const zCreateWhatsAppChannelResponse = zChannelResponse;
+
+export const zCreateLarkChannelBody = zCreateChannelRequest;
+
+/**
+ * Added bot
+ */
+export const zCreateLarkChannelResponse = zChannelResponse;
+
+export const zTestLarkChannelAppBody = zChannelAppRequest;
+
+/**
+ * Lark accepts the app
+ */
+export const zTestLarkChannelAppResponse = zChannelAppCheckResponse;
+
+/**
+ * Bots and links
+ */
+export const zListChannelLinksResponse = z.array(zChannelLinkResponse);
+
+export const zCreateChannelLinkCodeBody = zCreateChannelLinkCodeRequest;
+
+/**
+ * Linking code
+ */
+export const zCreateChannelLinkCodeResponse = zChannelLinkCodeResponse;
 
 /**
  * Successful result
@@ -7424,6 +7736,24 @@ export const zListSourceRunErrorsQuery = z.object({
  */
 export const zListSourceRunErrorsResponse = zSourceRunErrorPage;
 
+export const zGetLarkConfigurationPath = z.object({
+    sourceId: z.uuid()
+});
+
+/**
+ * Lark configuration
+ */
+export const zGetLarkConfigurationResponse = zLarkConfigurationResponse;
+
+export const zGetLarkRootsPath = z.object({
+    sourceId: z.uuid()
+});
+
+/**
+ * Lark roots
+ */
+export const zGetLarkRootsResponse = z.array(zLarkRootResponse);
+
 export const zListSourceItemsPath = z.object({
     sourceId: z.uuid()
 });
@@ -7518,6 +7848,55 @@ export const zGetSharePointSelectionRequestResponse = zSharePointSelectionReceip
  * SharePoint selection policy
  */
 export const zGetSharePointSelectionPolicyResponse = zSharePointSelectionPolicyResponse;
+
+export const zListSourcePageQuery = z.object({
+    search: z.string().min(0).max(200).nullish(),
+    status: z.enum([
+        'NOT_STARTED',
+        'INDEXING',
+        'ACTIVE',
+        'FAILED',
+        'PAUSED',
+        'PAUSING',
+        'DELETING'
+    ]).optional(),
+    type: z.enum([
+        'FILE',
+        'GOOGLE_DRIVE',
+        'SHAREPOINT',
+        'LARK'
+    ]).optional(),
+    access: z.enum([
+        'PUBLIC',
+        'PRIVATE',
+        'SYNC'
+    ]).optional(),
+    page: z.int().gte(0).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).optional().default(0),
+    size: z.int().gte(1).lte(100).optional().default(20)
+});
+
+/**
+ * OK
+ */
+export const zListSourcePageResponse = zSourcePage;
+
+export const zGetLarkSelectionRequestPath = z.object({
+    requestId: z.uuid()
+});
+
+/**
+ * Lark scope receipt
+ */
+export const zGetLarkSelectionRequestResponse = zLarkSelectionReceiptResponse;
+
+export const zListLarkSpacesPath = z.object({
+    credentialId: z.uuid()
+});
+
+/**
+ * Wiki spaces a source may name
+ */
+export const zListLarkSpacesResponse = z.array(zLarkSpaceOptionResponse);
 
 export const zListSourceGroupOptionsQuery = z.object({
     search: z.string().min(0).max(200).nullish(),
@@ -7939,6 +8318,11 @@ export const zSearchChatSessionsQuery = z.object({
  */
 export const zSearchChatSessionsResponse = zChatSessionSearchPage;
 
+/**
+ * Live sandbox runtime health
+ */
+export const zGetChatSandboxHealthResponse = zSandboxHealthResponse;
+
 export const zPreviewChatRetentionQuery = z.object({
     days: z.int().gte(1).lte(3650).nullish()
 });
@@ -7947,30 +8331,6 @@ export const zPreviewChatRetentionQuery = z.object({
  * What the policy would delete
  */
 export const zPreviewChatRetentionResponse = zChatRetentionPreview;
-
-/**
- * The emptied memory
- */
-export const zClearChatMemoryResponse = zChatMemory;
-
-/**
- * Your memory
- */
-export const zGetChatMemoryResponse = zChatMemory;
-
-export const zSaveChatMemoryBody = zChatMemoryInput;
-
-/**
- * The saved memory
- */
-export const zSaveChatMemoryResponse = zChatMemory;
-
-export const zSetChatMemoryEnabledBody = zChatMemoryEnabledInput;
-
-/**
- * The memory with its switch
- */
-export const zSetChatMemoryEnabledResponse = zChatMemory;
 
 /**
  * Successful result
@@ -8169,11 +8529,6 @@ export const zDownloadChatLibraryArchivePath = z.object({
  * The ZIP bytes
  */
 export const zDownloadChatLibraryArchiveResponse = z.string();
-
-/**
- * Live sandbox runtime health
- */
-export const zGetChatSandboxHealthResponse = zSandboxHealthResponse;
 
 /**
  * Configured image availability
@@ -8448,6 +8803,25 @@ export const zReadChatDocumentOriginalQuery = z.object({
  * Original bytes, under the object's declared media type
  */
 export const zReadChatDocumentOriginalResponse = z.string();
+
+/**
+ * The assistants in order
+ */
+export const zListChatAssistantsResponse = z.array(zChatAssistant);
+
+/**
+ * Bots
+ */
+export const zListChannelsResponse = z.array(zChannelResponse);
+
+export const zListChannelGroupsPath = z.object({
+    channelId: z.uuid()
+});
+
+/**
+ * Group chats
+ */
+export const zListChannelGroupsResponse = z.array(zChannelGroupResponse);
 
 export const zExportAuditEventsQuery = z.object({
     from: z.iso.datetime().nullish(),
@@ -8732,312 +9106,6 @@ export const zDeleteChatFileArtifactPath = z.object({
  */
 export const zDeleteChatFileArtifactResponse = z.void();
 
-/**
- * Lark credentials
- */
-export const zListLarkCredentialsResponse = z.array(zLarkCredentialResponse);
-
-export const zCreateLarkCredentialBody = zLarkCredentialRequest;
-
-/**
- * Stored Lark credential
- */
-export const zCreateLarkCredentialResponse = zLarkCredentialResponse;
-
-export const zDeleteLarkCredentialHeaders = z.object({
-    'If-Match': z.string()
-});
-
-export const zDeleteLarkCredentialPath = z.object({
-    credentialId: z.uuid()
-});
-
-/**
- * Lark credential deleted
- */
-export const zDeleteLarkCredentialResponse = z.void();
-
-export const zRenameLarkCredentialBody = zRenameLarkCredentialRequest;
-
-export const zRenameLarkCredentialHeaders = z.object({
-    'If-Match': z.string()
-});
-
-export const zRenameLarkCredentialPath = z.object({
-    credentialId: z.uuid()
-});
-
-/**
- * Lark credential renamed
- */
-export const zRenameLarkCredentialResponse = z.void();
-
-export const zReplaceLarkCredentialSecretBody = zLarkCredentialRequest;
-
-export const zReplaceLarkCredentialSecretHeaders = z.object({
-    'If-Match': z.string()
-});
-
-export const zReplaceLarkCredentialSecretPath = z.object({
-    credentialId: z.uuid()
-});
-
-/**
- * Updated Lark credential
- */
-export const zReplaceLarkCredentialSecretResponse = zLarkCredentialResponse;
-
-export const zTestLarkCredentialPath = z.object({
-    credentialId: z.uuid()
-});
-
-/**
- * Lark credential works
- */
-export const zTestLarkCredentialResponse = zLarkCredentialTestResponse;
-
-export const zCreateLarkSourceBody = zCreateLarkSourceRequest;
-
-/**
- * Scope accepted for verification
- */
-export const zCreateLarkSourceResponse = zLarkSelectionReceiptResponse;
-
-export const zGetLarkConfigurationPath = z.object({
-    sourceId: z.uuid()
-});
-
-/**
- * Lark configuration
- */
-export const zGetLarkConfigurationResponse = zLarkConfigurationResponse;
-
-export const zGetLarkSelectionRequestPath = z.object({
-    requestId: z.uuid()
-});
-
-/**
- * Lark scope receipt
- */
-export const zGetLarkSelectionRequestResponse = zLarkSelectionReceiptResponse;
-
-export const zReplaceLarkScopeBody = zReplaceLarkScopeRequest;
-
-export const zReplaceLarkScopeHeaders = z.object({
-    'If-Match': z.string()
-});
-
-export const zReplaceLarkScopePath = z.object({
-    sourceId: z.uuid()
-});
-
-/**
- * Scope accepted for verification
- */
-export const zReplaceLarkScopeResponse = zLarkSelectionReceiptResponse;
-
-export const zUpdateLarkScheduleBody = zUpdateLarkScheduleRequest;
-
-export const zUpdateLarkScheduleHeaders = z.object({
-    'If-Match': z.string()
-});
-
-export const zUpdateLarkSchedulePath = z.object({
-    sourceId: z.uuid()
-});
-
-/**
- * Updated Lark configuration
- */
-export const zUpdateLarkScheduleResponse = zLarkConfigurationResponse;
-
-export const zUpdateLarkPauseBody = zUpdateLarkPauseRequest;
-
-export const zUpdateLarkPausePath = z.object({
-    sourceId: z.uuid()
-});
-
-/**
- * Updated Lark configuration
- */
-export const zUpdateLarkPauseResponse = zLarkConfigurationResponse;
-
-export const zSynchronizeLarkSourcePath = z.object({
-    sourceId: z.uuid()
-});
-
-/**
- * Run scheduled
- */
-export const zSynchronizeLarkSourceResponse = zSourceOperation;
-
-export const zGetLarkRootsPath = z.object({
-    sourceId: z.uuid()
-});
-
-/**
- * Lark roots
- */
-export const zGetLarkRootsResponse = z.array(zLarkRootResponse);
-
-export const zListLarkSpacesPath = z.object({
-    credentialId: z.uuid()
-});
-
-/**
- * Wiki spaces a source may name
- */
-export const zListLarkSpacesResponse = z.array(zLarkSpaceOptionResponse);
-
-export const zReplaceChannelSecretBody = zReplaceChannelSecretRequest;
-
-export const zReplaceChannelSecretHeaders = z.object({
-    'If-Match': z.string()
-});
-
-export const zReplaceChannelSecretPath = z.object({
-    channelId: z.uuid()
-});
-
-/**
- * Updated bot
- */
-export const zReplaceChannelSecretResponse = zChannelResponse;
-
-export const zUpdateChannelPublicBody = zUpdateChannelPublicRequest;
-
-export const zUpdateChannelPublicHeaders = z.object({
-    'If-Match': z.string()
-});
-
-export const zUpdateChannelPublicPath = z.object({
-    channelId: z.uuid()
-});
-
-/**
- * Updated bot
- */
-export const zUpdateChannelPublicResponse = zChannelResponse;
-
-export const zBindChannelAssistantBody = zBindChannelAssistantRequest;
-
-export const zBindChannelAssistantPath = z.object({
-    channelId: z.uuid()
-});
-
-/**
- * Updated bot
- */
-export const zBindChannelAssistantResponse = zChannelResponse;
-
-export const zBindChannelGroupAssistantBody = zBindChannelGroupAssistantRequest;
-
-export const zBindChannelGroupAssistantPath = z.object({
-    channelId: z.uuid(),
-    groupId: z.string()
-});
-
-/**
- * Updated group chat
- */
-export const zBindChannelGroupAssistantResponse = zChannelGroupResponse;
-
-export const zLabelChannelGroupBody = zLabelChannelGroupRequest;
-
-export const zLabelChannelGroupPath = z.object({
-    channelId: z.uuid(),
-    groupId: z.string()
-});
-
-/**
- * Updated group chat
- */
-export const zLabelChannelGroupResponse = zChannelGroupResponse;
-
-export const zAllowChannelGroupBody = zAllowChannelGroupRequest;
-
-export const zAllowChannelGroupPath = z.object({
-    channelId: z.uuid(),
-    groupId: z.string()
-});
-
-/**
- * Updated group chat
- */
-export const zAllowChannelGroupResponse = zChannelGroupResponse;
-
-export const zUpdateChannelEnabledBody = zUpdateChannelEnabledRequest;
-
-export const zUpdateChannelEnabledHeaders = z.object({
-    'If-Match': z.string()
-});
-
-export const zUpdateChannelEnabledPath = z.object({
-    channelId: z.uuid()
-});
-
-/**
- * Updated bot
- */
-export const zUpdateChannelEnabledResponse = zChannelResponse;
-
-export const zCreateLarkChannelBody = zCreateChannelRequest;
-
-/**
- * Added bot
- */
-export const zCreateLarkChannelResponse = zChannelResponse;
-
-export const zTestLarkChannelAppBody = zChannelAppRequest;
-
-/**
- * Lark accepts the app
- */
-export const zTestLarkChannelAppResponse = zChannelAppCheckResponse;
-
-/**
- * Bots
- */
-export const zListChannelsResponse = z.array(zChannelResponse);
-
-export const zListChannelGroupsPath = z.object({
-    channelId: z.uuid()
-});
-
-/**
- * Group chats
- */
-export const zListChannelGroupsResponse = z.array(zChannelGroupResponse);
-
-export const zCreateWhatsAppChannelBody = zCreateWhatsAppChannelRequest;
-
-/**
- * Added bot
- */
-export const zCreateWhatsAppChannelResponse = zChannelResponse;
-
-export const zGetChannelPairingPath = z.object({
-    channelId: z.uuid()
-});
-
-export const zGetChannelPairingResponse = z.union([
-    zChannelPairingResponse,
-    z.void()
-]);
-
-export const zRelinkChannelHeaders = z.object({
-    'If-Match': z.string()
-});
-
-export const zRelinkChannelPath = z.object({
-    channelId: z.uuid()
-});
-
-/**
- * Updated bot
- */
-export const zRelinkChannelResponse = zChannelResponse;
-
 export const zDeleteChannelHeaders = z.object({
     'If-Match': z.string()
 });
@@ -9060,18 +9128,6 @@ export const zForgetChannelGroupPath = z.object({
  * Group chat forgotten
  */
 export const zForgetChannelGroupResponse = z.void();
-
-/**
- * Bots and links
- */
-export const zListChannelLinksResponse = z.array(zChannelLinkResponse);
-
-export const zCreateChannelLinkCodeBody = zCreateChannelLinkCodeRequest;
-
-/**
- * Linking code
- */
-export const zCreateChannelLinkCodeResponse = zChannelLinkCodeResponse;
 
 export const zDeleteChannelLinkPath = z.object({
     connectionId: z.uuid()

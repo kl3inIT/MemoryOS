@@ -325,6 +325,7 @@ class OpenApiContractTest {
             "/api/source-operations/{operationId}",
             "/api/sources",
             "/api/sources/file",
+            "/api/sources/page",
             "/api/sources/google-drive",
             "/api/sources/google-drive/selection-policy",
             "/api/sources/google-drive/selection-requests/{requestId}",
