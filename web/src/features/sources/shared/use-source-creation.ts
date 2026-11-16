@@ -1,9 +1,9 @@
+import { invalidateSourceLists } from "@/features/sources/shared/invalidate-source-lists";
 import type { AppCopy } from "@/i18n/app-text";
 import { useQueryClient, type QueryKey, type UseQueryOptions } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/api";
-import { listSourcesQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { sourceMutationError, sourceStatusMessage } from "./source-errors";
 import { useSourceSelectionOperation, type SelectionReceipt } from "./source-selection-operation";
 
@@ -72,10 +72,7 @@ export function useSourceCreation<
     if (terminalOperation?.status !== "SUCCEEDED") return;
     const targetId = tracking.receipt?.sourceId;
     if (!targetId) return;
-    void Promise.all([
-      queryClient.invalidateQueries({ queryKey: listSourcesQueryKey() }),
-      refresh(),
-    ])
+    void Promise.all([invalidateSourceLists(queryClient), refresh()])
       .then(async () => {
         if (!active.current) return;
         await navigate({ to: "/admin/sources/$sourceId", params: { sourceId: targetId } });

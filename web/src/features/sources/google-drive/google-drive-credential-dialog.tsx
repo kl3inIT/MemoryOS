@@ -1,3 +1,4 @@
+import { invalidateSourceLists } from "@/features/sources/shared/invalidate-source-lists";
 import { appText } from "@/i18n/app-text";
 import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -23,10 +24,7 @@ import { IconButton } from "@/components/ui/icon-button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { isUnauthenticated } from "@/lib/api";
-import {
-  getCurrentIdentityQueryKey,
-  listSourcesQueryKey,
-} from "@/lib/hey-api/@tanstack/react-query.gen";
+import { getCurrentIdentityQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { startGoogleDriveAuthorization } from "@/lib/hey-api/sdk.gen";
 import type { GoogleDriveCredentialResponse } from "@/lib/hey-api/types.gen";
 import { zStartGoogleDriveAuthorizationRequest } from "@/lib/hey-api/zod.gen";
@@ -151,7 +149,7 @@ function CredentialForm({
     // Sources on a replaced key read their configuration afresh when they are next opened.
     void Promise.all([
       refetchCredentials(),
-      ...(replaced ? [queryClient.invalidateQueries({ queryKey: listSourcesQueryKey() })] : []),
+      ...(replaced ? [invalidateSourceLists(queryClient)] : []),
     ]);
     if (!replaced) void navigate({ search: { credentialId: credential.id } });
   }

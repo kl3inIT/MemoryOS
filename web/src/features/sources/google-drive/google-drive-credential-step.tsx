@@ -1,3 +1,4 @@
+import { invalidateSourceLists } from "@/features/sources/shared/invalidate-source-lists";
 import { formatUiDay } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useMutation, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
@@ -20,7 +21,6 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   deleteGoogleDriveCredentialMutation,
-  listSourcesQueryKey,
   revokeGoogleDriveCredentialMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { GoogleDriveCredentialResponse } from "@/lib/hey-api/types.gen";
@@ -134,7 +134,7 @@ export function GoogleDriveCredentialStep({
       await Promise.all([
         credentials.refetch(),
         // Sources on a revoked credential read their state afresh when they are next opened.
-        queryClient.invalidateQueries({ queryKey: listSourcesQueryKey() }),
+        invalidateSourceLists(queryClient),
       ]);
     }
   }
