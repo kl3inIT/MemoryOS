@@ -409,8 +409,8 @@ function documentsOf(ui: AppTranslate, count: number) {
 }
 
 /**
- * Under the status: why a failed Source failed, that work is running, or how long ago it last succeeded. The
- * reason keeps to one line with the whole message on hover, so a long one does not stretch its row; a Source that
+ * Under the status, as Onyx writes it: why a failed Source failed, that work is running, or how long ago an
+ * active Source last succeeded. The reason keeps to one line with the whole message on hover; a Source that
  * did not fail keeps its time even when one of its files left an error code.
  */
 function SourceStatusLine({ source }: { source: SourceListItem }) {
@@ -426,7 +426,9 @@ function SourceStatusLine({ source }: { source: SourceListItem }) {
     );
   }
   if (source.pendingWork) return <span className={className}>{ui("Still working")}</span>;
-  if (!source.lastSucceededAt) return null;
+  // As Onyx's list, a time stands only under an indexed (active) Source: under "Scheduled" a bare date would read
+  // as the day it is scheduled for.
+  if (source.status !== "ACTIVE" || !source.lastSucceededAt) return null;
   const date = new Date(source.lastSucceededAt);
   return (
     <time dateTime={source.lastSucceededAt} title={formatUiMoment(date)} className={className}>
