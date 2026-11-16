@@ -217,7 +217,11 @@ export function ChatSessionMenu({
         }}
       />
       {dialog === "project" && (
-        <ProjectEditor onClose={closeDialog} onCreated={(project) => moveTo(project.id)} />
+        <ProjectEditor
+          onClose={closeDialog}
+          onCreated={(project) => moveTo(project.id)}
+          restoreFocusRef={trigger}
+        />
       )}
       <ConfirmDialog
         open={dialog === "delete"}

@@ -76,7 +76,13 @@ export function ProjectContextPanel({ project }: { project: Project }) {
       {project.description && (
         <p className="text-sm whitespace-pre-wrap text-content-secondary">{project.description}</p>
       )}
-      {editing && <ProjectEditor project={project} onClose={() => setEditing(false)} />}
+      {editing && (
+        <ProjectEditor
+          project={project}
+          onClose={() => setEditing(false)}
+          restoreFocusRef={menuTrigger}
+        />
+      )}
     </div>
   );
 }

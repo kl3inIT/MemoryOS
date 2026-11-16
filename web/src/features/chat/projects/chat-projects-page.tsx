@@ -259,7 +259,13 @@ const ProjectRow = memo(function ProjectRow({ project }: { project: Project }) {
         onOpenChange={setDeleting}
         restoreFocusRef={menuTrigger}
       />
-      {editing && <ProjectEditor project={project} onClose={() => setEditing(false)} />}
+      {editing && (
+        <ProjectEditor
+          project={project}
+          onClose={() => setEditing(false)}
+          restoreFocusRef={menuTrigger}
+        />
+      )}
     </>
   );
 });
