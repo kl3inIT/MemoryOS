@@ -10,12 +10,16 @@ import io.memoryos.connector.SourceItemStatus;
 import io.memoryos.connector.SourceItemView;
 import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceIndexAttemptView;
+import io.memoryos.connector.SourceCounts;
+import io.memoryos.connector.SourcePage;
+import io.memoryos.connector.SourcePageQuery;
 import io.memoryos.connector.SourceStatus;
 import io.memoryos.connector.SourceSummary;
 import io.memoryos.connector.SourceType;
 import io.memoryos.connector.sync.persistence.WorkLeases;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.GroupId;
+import io.memoryos.shared.LikePattern;
 import io.memoryos.shared.TenantId;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -188,6 +192,106 @@ public class JdbcSourceQueryRepository {
                 .param("globalManage", globalManage)
                 .query((resultSet, ignored) -> summary(resultSet, globalManage, globalDelete))
                 .list();
+    }
+
+    /**
+     * One page of the readable Sources: the summary select as a CTE so the derived status can be filtered and
+     * ordered, failed Sources first, then indexing and pausing, then the rest by name and id. The counts cover every
+     * readable Source, whatever the search and filters, under the scope the rows use.
+     */
+    public SourcePage page(
+            TenantId tenantId,
+            ActorId actorId,
+            SourcePageQuery query,
+            boolean globalRead,
+            boolean globalManage,
+            boolean globalDelete
+    ) {
+        String readable = "WITH readable AS (" + SOURCE_SELECT + """
+                WHERE pair.tenant_id = :tenantId
+                  AND (:globalRead OR %s)
+                )
+                """.formatted(SourceScopeSql.READ);
+        StringBuilder filter = new StringBuilder(" WHERE TRUE");
+        if (query.search() != null) {
+            filter.append(" AND name ILIKE :pattern");
+        }
+        if (query.status() != null) {
+            filter.append(" AND status = :status");
+        }
+        if (query.type() != null) {
+            filter.append(" AND connector_type = :type");
+        }
+        if (query.access() != null) {
+            filter.append(" AND access_type = :access");
+        }
+        long totalItems = bind(jdbcClient.sql(readable + "SELECT count(*) FROM readable" + filter),
+                tenantId, actorId, query, globalRead, globalManage).query(Long.class).single();
+        List<SourceSummary> items = totalItems <= query.offset() ? List.of() : bind(
+                jdbcClient.sql(readable + "SELECT * FROM readable" + filter + """
+
+                        ORDER BY CASE status WHEN 'FAILED' THEN 0 WHEN 'INDEXING' THEN 1 WHEN 'PAUSING' THEN 1
+                                 ELSE 2 END, LOWER(name), source_id
+                        LIMIT :limit OFFSET :offset
+                        """),
+                tenantId, actorId, query, globalRead, globalManage)
+                .param("limit", query.size())
+                .param("offset", query.offset())
+                .query((resultSet, ignored) -> summary(resultSet, globalManage, globalDelete))
+                .list();
+        SourceCounts counts = jdbcClient.sql(readable + """
+                        SELECT count(*) AS total,
+                               count(*) FILTER (WHERE status = 'NOT_STARTED') AS not_started,
+                               count(*) FILTER (WHERE status = 'INDEXING') AS indexing,
+                               count(*) FILTER (WHERE status = 'ACTIVE') AS active,
+                               count(*) FILTER (WHERE status = 'FAILED') AS failed,
+                               count(*) FILTER (WHERE status = 'PAUSED') AS paused,
+                               count(*) FILTER (WHERE status = 'PAUSING') AS pausing,
+                               count(*) FILTER (WHERE status = 'DELETING') AS deleting,
+                               COALESCE(sum(document_count), 0) AS documents,
+                               COALESCE(bool_or(status IN ('INDEXING', 'PAUSING', 'DELETING') OR cleanup_pending),
+                                        FALSE) AS pending_work
+                        FROM readable""")
+                .param("tenantId", tenantId.value())
+                .param("actorId", actorId.value())
+                .param("globalRead", globalRead)
+                .param("globalManage", globalManage)
+                .query((resultSet, ignored) -> new SourceCounts(
+                        resultSet.getLong("total"), resultSet.getLong("not_started"),
+                        resultSet.getLong("indexing"), resultSet.getLong("active"),
+                        resultSet.getLong("failed"), resultSet.getLong("paused"),
+                        resultSet.getLong("pausing"), resultSet.getLong("deleting"),
+                        resultSet.getLong("documents"), resultSet.getBoolean("pending_work")))
+                .single();
+        return new SourcePage(items, query.page(), query.size(), totalItems,
+                (totalItems + query.size() - 1) / query.size(), counts);
+    }
+
+    private static JdbcClient.StatementSpec bind(
+            JdbcClient.StatementSpec statement,
+            TenantId tenantId,
+            ActorId actorId,
+            SourcePageQuery query,
+            boolean globalRead,
+            boolean globalManage
+    ) {
+        statement.param("tenantId", tenantId.value())
+                .param("actorId", actorId.value())
+                .param("globalRead", globalRead)
+                .param("globalManage", globalManage);
+        if (query.search() != null) {
+            statement.param("pattern", LikePattern.containing(query.search()));
+        }
+        if (query.status() != null) {
+            statement.param("status", query.status().name());
+        }
+        if (query.type() != null) {
+            statement.param("type", query.type().name());
+        }
+        if (query.access() != null) {
+            statement.param("access", query.access().name());
+        }
+        return statement;
     }
 
     public SourceSummary summary(
