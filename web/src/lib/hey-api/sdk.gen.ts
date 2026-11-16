@@ -53,40 +53,6 @@ export const updateSharePointSchedule = <ThrowOnError extends boolean = true>(op
 });
 
 /**
- * Replace what a Lark source synchronizes; the new scope is verified before it applies
- */
-export const replaceLarkScope = <ThrowOnError extends boolean = true>(options: Options<ReplaceLarkScopeData, ThrowOnError>): RequestResult<ReplaceLarkScopeResponses, ReplaceLarkScopeErrors, ThrowOnError> => (options.client ?? client).put<ReplaceLarkScopeResponses, ReplaceLarkScopeErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/sources/{sourceId}/lark/scope',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Update the automatic synchronization interval
- */
-export const updateLarkSchedule = <ThrowOnError extends boolean = true>(options: Options<UpdateLarkScheduleData, ThrowOnError>): RequestResult<UpdateLarkScheduleResponses, UpdateLarkScheduleErrors, ThrowOnError> => (options.client ?? client).put<UpdateLarkScheduleResponses, UpdateLarkScheduleErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/sources/{sourceId}/lark/schedule',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
  * Update the automatic Google Drive sync interval
  */
 export const updateGoogleDriveSchedule = <ThrowOnError extends boolean = true>(options: Options<UpdateGoogleDriveScheduleData, ThrowOnError>): RequestResult<UpdateGoogleDriveScheduleResponses, unknown, ThrowOnError> => (options.client ?? client).put<UpdateGoogleDriveScheduleResponses, unknown, ThrowOnError>({
@@ -228,6 +194,23 @@ export const updateMeeting = <ThrowOnError extends boolean = true>(options: Opti
 });
 
 /**
+ * Say who spoke one line
+ */
+export const setMeetingLineSpeaker = <ThrowOnError extends boolean = true>(options: Options<SetMeetingLineSpeakerData, ThrowOnError>): RequestResult<SetMeetingLineSpeakerResponses, SetMeetingLineSpeakerErrors, ThrowOnError> => (options.client ?? client).put<SetMeetingLineSpeakerResponses, SetMeetingLineSpeakerErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/meetings/{meetingId}/utterances/{utteranceId}/speaker',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * Take the caller's mark off a line
  */
 export const unstarMeetingUtterance = <ThrowOnError extends boolean = true>(options: Options<UnstarMeetingUtteranceData, ThrowOnError>): RequestResult<UnstarMeetingUtteranceResponses, UnstarMeetingUtteranceErrors, ThrowOnError> => (options.client ?? client).delete<UnstarMeetingUtteranceResponses, UnstarMeetingUtteranceErrors, ThrowOnError>({
@@ -251,23 +234,6 @@ export const starMeetingUtterance = <ThrowOnError extends boolean = true>(option
         }],
     url: '/api/meetings/{meetingId}/utterances/{utteranceId}/star',
     ...options
-});
-
-/**
- * Say who spoke one line
- */
-export const setMeetingLineSpeaker = <ThrowOnError extends boolean = true>(options: Options<SetMeetingLineSpeakerData, ThrowOnError>): RequestResult<SetMeetingLineSpeakerResponses, SetMeetingLineSpeakerErrors, ThrowOnError> => (options.client ?? client).put<SetMeetingLineSpeakerResponses, SetMeetingLineSpeakerErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/meetings/{meetingId}/utterances/{utteranceId}/speaker',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
 });
 
 /**
@@ -459,23 +425,6 @@ export const updateMcpServer = <ThrowOnError extends boolean = true>(options: Op
 });
 
 /**
- * Set one tool's policy at the expected revision; refreshes keep it
- */
-export const setMcpServerToolPolicy = <ThrowOnError extends boolean = true>(options: Options<SetMcpServerToolPolicyData, ThrowOnError>): RequestResult<SetMcpServerToolPolicyResponses, SetMcpServerToolPolicyErrors, ThrowOnError> => (options.client ?? client).put<SetMcpServerToolPolicyResponses, SetMcpServerToolPolicyErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/mcp/servers/{serverId}/tools/{toolId}/policy',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
  * Return every tool to the default policy of its risk
  */
 export const resetMcpServerToolPolicies = <ThrowOnError extends boolean = true>(options: Options<ResetMcpServerToolPoliciesData, ThrowOnError>): RequestResult<ResetMcpServerToolPoliciesResponses, ResetMcpServerToolPoliciesErrors, ThrowOnError> => (options.client ?? client).delete<ResetMcpServerToolPoliciesResponses, ResetMcpServerToolPoliciesErrors, ThrowOnError>({
@@ -498,6 +447,23 @@ export const setMcpServerToolGroupPolicy = <ThrowOnError extends boolean = true>
             type: 'apiKey'
         }],
     url: '/api/mcp/servers/{serverId}/tools/policy',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Set one tool's policy at the expected revision; refreshes keep it
+ */
+export const setMcpServerToolPolicy = <ThrowOnError extends boolean = true>(options: Options<SetMcpServerToolPolicyData, ThrowOnError>): RequestResult<SetMcpServerToolPolicyResponses, SetMcpServerToolPolicyErrors, ThrowOnError> => (options.client ?? client).put<SetMcpServerToolPolicyResponses, SetMcpServerToolPolicyErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/mcp/servers/{serverId}/tools/{toolId}/policy',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -701,53 +667,6 @@ export const replaceSharePointCredentialAuthentication = <ThrowOnError extends b
             type: 'apiKey'
         }],
     url: '/api/credentials/sharepoint/{credentialId}/authentication',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Delete an unused Lark credential with a revision precondition
- */
-export const deleteLarkCredential = <ThrowOnError extends boolean = true>(options: Options<DeleteLarkCredentialData, ThrowOnError>): RequestResult<DeleteLarkCredentialResponses, DeleteLarkCredentialErrors, ThrowOnError> => (options.client ?? client).delete<DeleteLarkCredentialResponses, DeleteLarkCredentialErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/credentials/lark/{credentialId}',
-    ...options
-});
-
-/**
- * Rename a Lark credential with a revision precondition
- */
-export const renameLarkCredential = <ThrowOnError extends boolean = true>(options: Options<RenameLarkCredentialData, ThrowOnError>): RequestResult<RenameLarkCredentialResponses, RenameLarkCredentialErrors, ThrowOnError> => (options.client ?? client).put<RenameLarkCredentialResponses, RenameLarkCredentialErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/credentials/lark/{credentialId}',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Replace the App Secret of an existing Lark credential of the same app
- */
-export const replaceLarkCredentialSecret = <ThrowOnError extends boolean = true>(options: Options<ReplaceLarkCredentialSecretData, ThrowOnError>): RequestResult<ReplaceLarkCredentialSecretResponses, ReplaceLarkCredentialSecretErrors, ThrowOnError> => (options.client ?? client).put<ReplaceLarkCredentialSecretResponses, ReplaceLarkCredentialSecretErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/credentials/lark/{credentialId}/secret',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -978,23 +897,6 @@ export const saveChatGuardrails = <ThrowOnError extends boolean = true>(options:
 });
 
 /**
- * Answer from the organization's documents only; requires model management
- */
-export const saveChatGrounded = <ThrowOnError extends boolean = true>(options: Options<SaveChatGroundedData, ThrowOnError>): RequestResult<SaveChatGroundedResponses, SaveChatGroundedErrors, ThrowOnError> => (options.client ?? client).put<SaveChatGroundedResponses, SaveChatGroundedErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/chat/settings/grounded',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
  * Offer follow-up questions after each answer; requires model management
  */
 export const saveChatFollowUps = <ThrowOnError extends boolean = true>(options: Options<SaveChatFollowUpsData, ThrowOnError>): RequestResult<SaveChatFollowUpsResponses, SaveChatFollowUpsErrors, ThrowOnError> => (options.client ?? client).put<SaveChatFollowUpsResponses, SaveChatFollowUpsErrors, ThrowOnError>({
@@ -1004,6 +906,23 @@ export const saveChatFollowUps = <ThrowOnError extends boolean = true>(options: 
             type: 'apiKey'
         }],
     url: '/api/chat/settings/follow-ups',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Answer from the organization's documents only; requires model management
+ */
+export const saveChatGrounded = <ThrowOnError extends boolean = true>(options: Options<SaveChatGroundedData, ThrowOnError>): RequestResult<SaveChatGroundedResponses, SaveChatGroundedErrors, ThrowOnError> => (options.client ?? client).put<SaveChatGroundedResponses, SaveChatGroundedErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/settings/grounded',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -1179,36 +1098,6 @@ export const selectChatBranch = <ThrowOnError extends boolean = true>(options: O
             type: 'apiKey'
         }],
     url: '/api/chat/sessions/{sessionId}/branch',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Read whether the Sandbox is configured and enabled for the Tenant, and its allowed domains
- */
-export const getChatSandboxSettings = <ThrowOnError extends boolean = true>(options?: Options<GetChatSandboxSettingsData, ThrowOnError>): RequestResult<GetChatSandboxSettingsResponses, GetChatSandboxSettingsErrors, ThrowOnError> => (options?.client ?? client).get<GetChatSandboxSettingsResponses, GetChatSandboxSettingsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/chat/sandbox',
-    ...options
-});
-
-/**
- * Enable or disable the Sandbox for the Tenant
- */
-export const updateChatSandboxSettings = <ThrowOnError extends boolean = true>(options: Options<UpdateChatSandboxSettingsData, ThrowOnError>): RequestResult<UpdateChatSandboxSettingsResponses, UpdateChatSandboxSettingsErrors, ThrowOnError> => (options.client ?? client).put<UpdateChatSandboxSettingsResponses, UpdateChatSandboxSettingsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/chat/sandbox',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -1577,6 +1466,19 @@ export const setChatPersonaListing = <ThrowOnError extends boolean = true>(optio
 });
 
 /**
+ * List the caller's assistants for the sidebar: the built-in one, then the pins, each with the newest topic
+ */
+export const listChatAssistants = <ThrowOnError extends boolean = true>(options?: Options<ListChatAssistantsData, ThrowOnError>): RequestResult<ListChatAssistantsResponses, ListChatAssistantsErrors, ThrowOnError> => (options?.client ?? client).get<ListChatAssistantsResponses, ListChatAssistantsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/assistants',
+    ...options
+});
+
+/**
  * List the actor's pinned agents in order
  */
 export const listChatPersonaPins = <ThrowOnError extends boolean = true>(options?: Options<ListChatPersonaPinsData, ThrowOnError>): RequestResult<ListChatPersonaPinsResponses, ListChatPersonaPinsErrors, ThrowOnError> => (options?.client ?? client).get<ListChatPersonaPinsResponses, ListChatPersonaPinsErrors, ThrowOnError>({
@@ -1723,66 +1625,6 @@ export const setChatModelDefault = <ThrowOnError extends boolean = true>(options
 });
 
 /**
- * Forget everything Chat remembers about you
- */
-export const clearChatMemory = <ThrowOnError extends boolean = true>(options?: Options<ClearChatMemoryData, ThrowOnError>): RequestResult<ClearChatMemoryResponses, ClearChatMemoryErrors, ThrowOnError> => (options?.client ?? client).delete<ClearChatMemoryResponses, ClearChatMemoryErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/chat/memory',
-    ...options
-});
-
-/**
- * Read what Chat remembers about you
- */
-export const getChatMemory = <ThrowOnError extends boolean = true>(options?: Options<GetChatMemoryData, ThrowOnError>): RequestResult<GetChatMemoryResponses, GetChatMemoryErrors, ThrowOnError> => (options?.client ?? client).get<GetChatMemoryResponses, GetChatMemoryErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/chat/memory',
-    ...options
-});
-
-/**
- * Replace what Chat remembers about you
- */
-export const saveChatMemory = <ThrowOnError extends boolean = true>(options: Options<SaveChatMemoryData, ThrowOnError>): RequestResult<SaveChatMemoryResponses, SaveChatMemoryErrors, ThrowOnError> => (options.client ?? client).put<SaveChatMemoryResponses, SaveChatMemoryErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/chat/memory',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Turn Chat's memory of you on or off
- */
-export const setChatMemoryEnabled = <ThrowOnError extends boolean = true>(options: Options<SetChatMemoryEnabledData, ThrowOnError>): RequestResult<SetChatMemoryEnabledResponses, SetChatMemoryEnabledErrors, ThrowOnError> => (options.client ?? client).put<SetChatMemoryEnabledResponses, SetChatMemoryEnabledErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/chat/memory/enabled',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
  * Take the caller's star off an entry they may read now
  */
 export const unstarChatLibraryEntry = <ThrowOnError extends boolean = true>(options: Options<UnstarChatLibraryEntryData, ThrowOnError>): RequestResult<UnstarChatLibraryEntryResponses, UnstarChatLibraryEntryErrors, ThrowOnError> => (options.client ?? client).delete<UnstarChatLibraryEntryResponses, UnstarChatLibraryEntryErrors, ThrowOnError>({
@@ -1806,6 +1648,36 @@ export const starChatLibraryEntry = <ThrowOnError extends boolean = true>(option
         }],
     url: '/api/chat/library/entries/{kind}/{id}/star',
     ...options
+});
+
+/**
+ * Read whether the Sandbox is configured and enabled for the Tenant, and its allowed domains
+ */
+export const getChatSandboxSettings = <ThrowOnError extends boolean = true>(options?: Options<GetChatSandboxSettingsData, ThrowOnError>): RequestResult<GetChatSandboxSettingsResponses, GetChatSandboxSettingsErrors, ThrowOnError> => (options?.client ?? client).get<GetChatSandboxSettingsResponses, GetChatSandboxSettingsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/sandbox',
+    ...options
+});
+
+/**
+ * Enable or disable the Sandbox for the Tenant
+ */
+export const updateChatSandboxSettings = <ThrowOnError extends boolean = true>(options: Options<UpdateChatSandboxSettingsData, ThrowOnError>): RequestResult<UpdateChatSandboxSettingsResponses, UpdateChatSandboxSettingsErrors, ThrowOnError> => (options.client ?? client).put<UpdateChatSandboxSettingsResponses, UpdateChatSandboxSettingsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/sandbox',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 /**
@@ -1912,125 +1784,6 @@ export const updateChannelTransport = <ThrowOnError extends boolean = true>(opti
             type: 'apiKey'
         }],
     url: '/api/channels/{channelId}/transport',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Replace the App Secret of a bot's app once the platform accepts it, with a revision precondition
- */
-export const replaceChannelSecret = <ThrowOnError extends boolean = true>(options: Options<ReplaceChannelSecretData, ThrowOnError>): RequestResult<ReplaceChannelSecretResponses, ReplaceChannelSecretErrors, ThrowOnError> => (options.client ?? client).put<ReplaceChannelSecretResponses, ReplaceChannelSecretErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/channels/{channelId}/secret',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Make a bot answer anyone who addresses it, from its assistant's attachments only, or only the organisation's people, with a revision precondition
- */
-export const updateChannelPublic = <ThrowOnError extends boolean = true>(options: Options<UpdateChannelPublicData, ThrowOnError>): RequestResult<UpdateChannelPublicResponses, UpdateChannelPublicErrors, ThrowOnError> => (options.client ?? client).put<UpdateChannelPublicResponses, UpdateChannelPublicErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/channels/{channelId}/public',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Choose the assistant a bot answers with, moving it from another; needs edit rights on the assistant
- */
-export const bindChannelAssistant = <ThrowOnError extends boolean = true>(options: Options<BindChannelAssistantData, ThrowOnError>): RequestResult<BindChannelAssistantResponses, BindChannelAssistantErrors, ThrowOnError> => (options.client ?? client).put<BindChannelAssistantResponses, BindChannelAssistantErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/channels/{channelId}/persona',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Give a group chat an assistant in place of its bot's default, or return it to the default; needs edit rights on the assistant
- */
-export const bindChannelGroupAssistant = <ThrowOnError extends boolean = true>(options: Options<BindChannelGroupAssistantData, ThrowOnError>): RequestResult<BindChannelGroupAssistantResponses, BindChannelGroupAssistantErrors, ThrowOnError> => (options.client ?? client).put<BindChannelGroupAssistantResponses, BindChannelGroupAssistantErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/channels/{channelId}/groups/{groupId}/persona',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Allow the bot to answer in a group chat, or withdraw it; only a group of a platform that cannot tell who is in it (Zalo) needs it
- */
-export const allowChannelGroup = <ThrowOnError extends boolean = true>(options: Options<AllowChannelGroupData, ThrowOnError>): RequestResult<AllowChannelGroupResponses, AllowChannelGroupErrors, ThrowOnError> => (options.client ?? client).put<AllowChannelGroupResponses, AllowChannelGroupErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/channels/{channelId}/groups/{groupId}/permission',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Name a group chat for the bot's page, or clear the name
- */
-export const labelChannelGroup = <ThrowOnError extends boolean = true>(options: Options<LabelChannelGroupData, ThrowOnError>): RequestResult<LabelChannelGroupResponses, LabelChannelGroupErrors, ThrowOnError> => (options.client ?? client).put<LabelChannelGroupResponses, LabelChannelGroupErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/channels/{channelId}/groups/{groupId}/label',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Switch a bot on or off with a revision precondition
- */
-export const updateChannelEnabled = <ThrowOnError extends boolean = true>(options: Options<UpdateChannelEnabledData, ThrowOnError>): RequestResult<UpdateChannelEnabledResponses, UpdateChannelEnabledErrors, ThrowOnError> => (options.client ?? client).put<UpdateChannelEnabledResponses, UpdateChannelEnabledErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/channels/{channelId}/enabled',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -2234,36 +1987,6 @@ export const assignSourceManager = <ThrowOnError extends boolean = true>(options
 });
 
 /**
- * Schedule a synchronization run now
- */
-export const synchronizeLarkSource = <ThrowOnError extends boolean = true>(options: Options<SynchronizeLarkSourceData, ThrowOnError>): RequestResult<SynchronizeLarkSourceResponses, SynchronizeLarkSourceErrors, ThrowOnError> => (options.client ?? client).post<SynchronizeLarkSourceResponses, SynchronizeLarkSourceErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/sources/{sourceId}/lark/sync',
-    ...options
-});
-
-/**
- * Pause or resume future automatic synchronization
- */
-export const updateLarkPause = <ThrowOnError extends boolean = true>(options: Options<UpdateLarkPauseData, ThrowOnError>): RequestResult<UpdateLarkPauseResponses, UpdateLarkPauseErrors, ThrowOnError> => (options.client ?? client).post<UpdateLarkPauseResponses, UpdateLarkPauseErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/sources/{sourceId}/lark/pause',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
  * Start durable source item removal
  */
 export const removeSourceItem = <ThrowOnError extends boolean = true>(options: Options<RemoveSourceItemData, ThrowOnError>): RequestResult<RemoveSourceItemResponses, unknown, ThrowOnError> => (options.client ?? client).post<RemoveSourceItemResponses, unknown, ThrowOnError>({
@@ -2402,23 +2125,6 @@ export const createSharePointSource = <ThrowOnError extends boolean = true>(opti
             type: 'apiKey'
         }],
     url: '/api/sources/sharepoint',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Create a Lark source; its scope is verified with Lark before it takes effect
- */
-export const createLarkSource = <ThrowOnError extends boolean = true>(options: Options<CreateLarkSourceData, ThrowOnError>): RequestResult<CreateLarkSourceResponses, CreateLarkSourceErrors, ThrowOnError> => (options.client ?? client).post<CreateLarkSourceResponses, CreateLarkSourceErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/sources/lark',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -3359,49 +3065,6 @@ export const testSharePointCredential = <ThrowOnError extends boolean = true>(op
 });
 
 /**
- * List reusable Tenant-owned Lark credentials
- */
-export const listLarkCredentials = <ThrowOnError extends boolean = true>(options?: Options<ListLarkCredentialsData, ThrowOnError>): RequestResult<ListLarkCredentialsResponses, ListLarkCredentialsErrors, ThrowOnError> => (options?.client ?? client).get<ListLarkCredentialsResponses, ListLarkCredentialsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/credentials/lark',
-    ...options
-});
-
-/**
- * Verify a Lark custom app with Lark and store it; nothing is stored when Lark rejects it
- */
-export const createLarkCredential = <ThrowOnError extends boolean = true>(options: Options<CreateLarkCredentialData, ThrowOnError>): RequestResult<CreateLarkCredentialResponses, CreateLarkCredentialErrors, ThrowOnError> => (options.client ?? client).post<CreateLarkCredentialResponses, CreateLarkCredentialErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/credentials/lark',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Ask Lark for a tenant token, read the bot and probe the read scopes; records what Lark said
- */
-export const testLarkCredential = <ThrowOnError extends boolean = true>(options: Options<TestLarkCredentialData, ThrowOnError>): RequestResult<TestLarkCredentialResponses, TestLarkCredentialErrors, ThrowOnError> => (options.client ?? client).post<TestLarkCredentialResponses, TestLarkCredentialErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/credentials/lark/{credentialId}/test',
-    ...options
-});
-
-/**
  * Revoke a shared Google Drive credential and disconnect all attached Sources
  */
 export const revokeGoogleDriveCredential = <ThrowOnError extends boolean = true>(options: Options<RevokeGoogleDriveCredentialData, ThrowOnError>): RequestResult<RevokeGoogleDriveCredentialResponses, unknown, ThrowOnError> => (options.client ?? client).post<RevokeGoogleDriveCredentialResponses, unknown, ThrowOnError>({
@@ -4328,32 +3991,6 @@ export const createDocumentSet = <ThrowOnError extends boolean = true>(options: 
 });
 
 /**
- * Read the code a bot being linked shows, to scan with the bot's phone; none while it shows none
- */
-export const getChannelPairing = <ThrowOnError extends boolean = true>(options: Options<GetChannelPairingData, ThrowOnError>): RequestResult<GetChannelPairingResponses, GetChannelPairingErrors, ThrowOnError> => (options.client ?? client).get<GetChannelPairingResponses, GetChannelPairingErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/channels/{channelId}/pairing',
-    ...options
-});
-
-/**
- * Link a bot linked by a code again, out of a logout or a ban, with a revision precondition
- */
-export const relinkChannel = <ThrowOnError extends boolean = true>(options: Options<RelinkChannelData, ThrowOnError>): RequestResult<RelinkChannelResponses, RelinkChannelErrors, ThrowOnError> => (options.client ?? client).post<RelinkChannelResponses, RelinkChannelErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/channels/{channelId}/pairing',
-    ...options
-});
-
-/**
  * Check a Zalo bot's token with Zalo and add the bot, switched off; nothing is stored when Zalo rejects it
  */
 export const createZaloChannel = <ThrowOnError extends boolean = true>(options: Options<CreateZaloChannelData, ThrowOnError>): RequestResult<CreateZaloChannelResponses, CreateZaloChannelErrors, ThrowOnError> => (options.client ?? client).post<CreateZaloChannelResponses, CreateZaloChannelErrors, ThrowOnError>({
@@ -4380,87 +4017,6 @@ export const testZaloChannelBot = <ThrowOnError extends boolean = true>(options:
             type: 'apiKey'
         }],
     url: '/api/channels/zalo/test',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Add a WhatsApp bot by its number, switched off; it is linked by scanning its code once switched on
- */
-export const createWhatsAppChannel = <ThrowOnError extends boolean = true>(options: Options<CreateWhatsAppChannelData, ThrowOnError>): RequestResult<CreateWhatsAppChannelResponses, CreateWhatsAppChannelErrors, ThrowOnError> => (options.client ?? client).post<CreateWhatsAppChannelResponses, CreateWhatsAppChannelErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/channels/whatsapp',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Check a Lark app with Lark and add its bot, switched off; nothing is stored when Lark rejects it
- */
-export const createLarkChannel = <ThrowOnError extends boolean = true>(options: Options<CreateLarkChannelData, ThrowOnError>): RequestResult<CreateLarkChannelResponses, CreateLarkChannelErrors, ThrowOnError> => (options.client ?? client).post<CreateLarkChannelResponses, CreateLarkChannelErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/channels/lark',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Check a Lark app with Lark without storing anything
- */
-export const testLarkChannelApp = <ThrowOnError extends boolean = true>(options: Options<TestLarkChannelAppData, ThrowOnError>): RequestResult<TestLarkChannelAppResponses, TestLarkChannelAppErrors, ThrowOnError> => (options.client ?? client).post<TestLarkChannelAppResponses, TestLarkChannelAppErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/channels/lark/test',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * List the Tenant's bots that take a linked account, with the member's own link on each
- */
-export const listChannelLinks = <ThrowOnError extends boolean = true>(options?: Options<ListChannelLinksData, ThrowOnError>): RequestResult<ListChannelLinksResponses, ListChannelLinksErrors, ThrowOnError> => (options?.client ?? client).get<ListChannelLinksResponses, ListChannelLinksErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/channel-links',
-    ...options
-});
-
-/**
- * Make a code, valid ten minutes, that links the platform account sending it to the bot to the member
- */
-export const createChannelLinkCode = <ThrowOnError extends boolean = true>(options: Options<CreateChannelLinkCodeData, ThrowOnError>): RequestResult<CreateChannelLinkCodeResponses, CreateChannelLinkCodeErrors, ThrowOnError> => (options.client ?? client).post<CreateChannelLinkCodeResponses, CreateChannelLinkCodeErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/channel-links',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -4589,6 +4145,21 @@ export const listUsers = <ThrowOnError extends boolean = true>(options?: Options
 });
 
 /**
+ * List a page of Tenant sources
+ *
+ * Failed sources first, then indexing and pausing, then the rest by name. The counts cover every source the actor may read, whatever the search and filters.
+ */
+export const listSourcePage = <ThrowOnError extends boolean = true>(options?: Options<ListSourcePageData, ThrowOnError>): RequestResult<ListSourcePageResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListSourcePageResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/page',
+    ...options
+});
+
+/**
  * List Tenant sources
  */
 export const listSources = <ThrowOnError extends boolean = true>(options?: Options<ListSourcesData, ThrowOnError>): RequestResult<ListSourcesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListSourcesResponses, unknown, ThrowOnError>({
@@ -4676,32 +4247,6 @@ export const listSourceRunErrors = <ThrowOnError extends boolean = true>(options
             type: 'apiKey'
         }],
     url: '/api/sources/{sourceId}/runs/{runId}/errors',
-    ...options
-});
-
-/**
- * Get Lark source configuration
- */
-export const getLarkConfiguration = <ThrowOnError extends boolean = true>(options: Options<GetLarkConfigurationData, ThrowOnError>): RequestResult<GetLarkConfigurationResponses, GetLarkConfigurationErrors, ThrowOnError> => (options.client ?? client).get<GetLarkConfigurationResponses, GetLarkConfigurationErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/sources/{sourceId}/lark',
-    ...options
-});
-
-/**
- * List the Wiki spaces and Drive folders in scope
- */
-export const getLarkRoots = <ThrowOnError extends boolean = true>(options: Options<GetLarkRootsData, ThrowOnError>): RequestResult<GetLarkRootsResponses, GetLarkRootsErrors, ThrowOnError> => (options.client ?? client).get<GetLarkRootsResponses, GetLarkRootsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/sources/{sourceId}/lark/roots',
     ...options
 });
 
@@ -4806,47 +4351,6 @@ export const getSharePointSelectionPolicy = <ThrowOnError extends boolean = true
             type: 'apiKey'
         }],
     url: '/api/sources/sharepoint/selection-policy',
-    ...options
-});
-
-/**
- * List a page of Tenant sources
- *
- * Failed sources first, then indexing and pausing, then the rest by name. The counts cover every source the actor may read, whatever the search and filters.
- */
-export const listSourcePage = <ThrowOnError extends boolean = true>(options?: Options<ListSourcePageData, ThrowOnError>): RequestResult<ListSourcePageResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListSourcePageResponses, unknown, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/sources/page',
-    ...options
-});
-
-/**
- * Recover the receipt of an accepted scope request
- */
-export const getLarkSelectionRequest = <ThrowOnError extends boolean = true>(options: Options<GetLarkSelectionRequestData, ThrowOnError>): RequestResult<GetLarkSelectionRequestResponses, GetLarkSelectionRequestErrors, ThrowOnError> => (options.client ?? client).get<GetLarkSelectionRequestResponses, GetLarkSelectionRequestErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/sources/lark/selection-requests/{requestId}',
-    ...options
-});
-
-/**
- * List the Wiki spaces the credential's app is a member of, read from Lark now
- */
-export const listLarkSpaces = <ThrowOnError extends boolean = true>(options: Options<ListLarkSpacesData, ThrowOnError>): RequestResult<ListLarkSpacesResponses, ListLarkSpacesErrors, ThrowOnError> => (options.client ?? client).get<ListLarkSpacesResponses, ListLarkSpacesErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/sources/lark/credentials/{credentialId}/spaces',
     ...options
 });
 
@@ -5434,19 +4938,6 @@ export const searchChatSessions = <ThrowOnError extends boolean = true>(options?
 });
 
 /**
- * Check the sandbox runtime
- */
-export const getChatSandboxHealth = <ThrowOnError extends boolean = true>(options?: Options<GetChatSandboxHealthData, ThrowOnError>): RequestResult<GetChatSandboxHealthResponses, GetChatSandboxHealthErrors, ThrowOnError> => (options?.client ?? client).get<GetChatSandboxHealthResponses, GetChatSandboxHealthErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/chat/sandbox/health',
-    ...options
-});
-
-/**
  * How many of your conversations a retention policy would delete now
  */
 export const previewChatRetention = <ThrowOnError extends boolean = true>(options?: Options<PreviewChatRetentionData, ThrowOnError>): RequestResult<PreviewChatRetentionResponses, PreviewChatRetentionErrors, ThrowOnError> => (options?.client ?? client).get<PreviewChatRetentionResponses, PreviewChatRetentionErrors, ThrowOnError>({
@@ -5457,6 +4948,66 @@ export const previewChatRetention = <ThrowOnError extends boolean = true>(option
         }],
     url: '/api/chat/retention/preview',
     ...options
+});
+
+/**
+ * Forget everything Chat remembers about you
+ */
+export const clearChatMemory = <ThrowOnError extends boolean = true>(options?: Options<ClearChatMemoryData, ThrowOnError>): RequestResult<ClearChatMemoryResponses, ClearChatMemoryErrors, ThrowOnError> => (options?.client ?? client).delete<ClearChatMemoryResponses, ClearChatMemoryErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/memory',
+    ...options
+});
+
+/**
+ * Read what Chat remembers about you
+ */
+export const getChatMemory = <ThrowOnError extends boolean = true>(options?: Options<GetChatMemoryData, ThrowOnError>): RequestResult<GetChatMemoryResponses, GetChatMemoryErrors, ThrowOnError> => (options?.client ?? client).get<GetChatMemoryResponses, GetChatMemoryErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/memory',
+    ...options
+});
+
+/**
+ * Replace what Chat remembers about you
+ */
+export const saveChatMemory = <ThrowOnError extends boolean = true>(options: Options<SaveChatMemoryData, ThrowOnError>): RequestResult<SaveChatMemoryResponses, SaveChatMemoryErrors, ThrowOnError> => (options.client ?? client).put<SaveChatMemoryResponses, SaveChatMemoryErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/memory',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Turn Chat's memory of you on or off
+ */
+export const setChatMemoryEnabled = <ThrowOnError extends boolean = true>(options: Options<SetChatMemoryEnabledData, ThrowOnError>): RequestResult<SetChatMemoryEnabledResponses, SetChatMemoryEnabledErrors, ThrowOnError> => (options.client ?? client).put<SetChatMemoryEnabledResponses, SetChatMemoryEnabledErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/memory/enabled',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 /**
@@ -5729,6 +5280,19 @@ export const downloadChatLibraryArchive = <ThrowOnError extends boolean = true>(
             type: 'apiKey'
         }],
     url: '/api/chat/library/archives/{archiveId}/content',
+    ...options
+});
+
+/**
+ * Check the sandbox runtime
+ */
+export const getChatSandboxHealth = <ThrowOnError extends boolean = true>(options?: Options<GetChatSandboxHealthData, ThrowOnError>): RequestResult<GetChatSandboxHealthResponses, GetChatSandboxHealthErrors, ThrowOnError> => (options?.client ?? client).get<GetChatSandboxHealthResponses, GetChatSandboxHealthErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/sandbox/health',
     ...options
 });
 
@@ -6071,45 +5635,6 @@ export const readChatDocumentOriginal = <ThrowOnError extends boolean = true>(op
 });
 
 /**
- * List the caller's assistants for the sidebar: the built-in one, then the pins, each with the newest topic
- */
-export const listChatAssistants = <ThrowOnError extends boolean = true>(options?: Options<ListChatAssistantsData, ThrowOnError>): RequestResult<ListChatAssistantsResponses, ListChatAssistantsErrors, ThrowOnError> => (options?.client ?? client).get<ListChatAssistantsResponses, ListChatAssistantsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/chat/assistants',
-    ...options
-});
-
-/**
- * List the Tenant's bots with the state of their connections
- */
-export const listChannels = <ThrowOnError extends boolean = true>(options?: Options<ListChannelsData, ThrowOnError>): RequestResult<ListChannelsResponses, ListChannelsErrors, ThrowOnError> => (options?.client ?? client).get<ListChannelsResponses, ListChannelsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/channels',
-    ...options
-});
-
-/**
- * List the group chats a bot is known in, each with the assistant it is given and whether it may answer there
- */
-export const listChannelGroups = <ThrowOnError extends boolean = true>(options: Options<ListChannelGroupsData, ThrowOnError>): RequestResult<ListChannelGroupsResponses, ListChannelGroupsErrors, ThrowOnError> => (options.client ?? client).get<ListChannelGroupsResponses, ListChannelGroupsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/channels/{channelId}/groups',
-    ...options
-});
-
-/**
  * The events the filters select as CSV, at most 50,000 rows; the export is itself recorded; requires AUDIT_READ
  */
 export const exportAuditEvents = <ThrowOnError extends boolean = true>(options?: Options<ExportAuditEventsData, ThrowOnError>): RequestResult<ExportAuditEventsResponses, ExportAuditEventsErrors, ThrowOnError> => (options?.client ?? client).get<ExportAuditEventsResponses, ExportAuditEventsErrors, ThrowOnError>({
@@ -6357,6 +5882,451 @@ export const deleteChatFileArtifact = <ThrowOnError extends boolean = true>(opti
 });
 
 /**
+ * List reusable Tenant-owned Lark credentials
+ */
+export const listLarkCredentials = <ThrowOnError extends boolean = true>(options?: Options<ListLarkCredentialsData, ThrowOnError>): RequestResult<ListLarkCredentialsResponses, ListLarkCredentialsErrors, ThrowOnError> => (options?.client ?? client).get<ListLarkCredentialsResponses, ListLarkCredentialsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/credentials/lark',
+    ...options
+});
+
+/**
+ * Verify a Lark custom app with Lark and store it; nothing is stored when Lark rejects it
+ */
+export const createLarkCredential = <ThrowOnError extends boolean = true>(options: Options<CreateLarkCredentialData, ThrowOnError>): RequestResult<CreateLarkCredentialResponses, CreateLarkCredentialErrors, ThrowOnError> => (options.client ?? client).post<CreateLarkCredentialResponses, CreateLarkCredentialErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/credentials/lark',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete an unused Lark credential with a revision precondition
+ */
+export const deleteLarkCredential = <ThrowOnError extends boolean = true>(options: Options<DeleteLarkCredentialData, ThrowOnError>): RequestResult<DeleteLarkCredentialResponses, DeleteLarkCredentialErrors, ThrowOnError> => (options.client ?? client).delete<DeleteLarkCredentialResponses, DeleteLarkCredentialErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/credentials/lark/{credentialId}',
+    ...options
+});
+
+/**
+ * Rename a Lark credential with a revision precondition
+ */
+export const renameLarkCredential = <ThrowOnError extends boolean = true>(options: Options<RenameLarkCredentialData, ThrowOnError>): RequestResult<RenameLarkCredentialResponses, RenameLarkCredentialErrors, ThrowOnError> => (options.client ?? client).put<RenameLarkCredentialResponses, RenameLarkCredentialErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/credentials/lark/{credentialId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Replace the App Secret of an existing Lark credential of the same app
+ */
+export const replaceLarkCredentialSecret = <ThrowOnError extends boolean = true>(options: Options<ReplaceLarkCredentialSecretData, ThrowOnError>): RequestResult<ReplaceLarkCredentialSecretResponses, ReplaceLarkCredentialSecretErrors, ThrowOnError> => (options.client ?? client).put<ReplaceLarkCredentialSecretResponses, ReplaceLarkCredentialSecretErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/credentials/lark/{credentialId}/secret',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Ask Lark for a tenant token, read the bot and probe the read scopes; records what Lark said
+ */
+export const testLarkCredential = <ThrowOnError extends boolean = true>(options: Options<TestLarkCredentialData, ThrowOnError>): RequestResult<TestLarkCredentialResponses, TestLarkCredentialErrors, ThrowOnError> => (options.client ?? client).post<TestLarkCredentialResponses, TestLarkCredentialErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/credentials/lark/{credentialId}/test',
+    ...options
+});
+
+/**
+ * Create a Lark source; its scope is verified with Lark before it takes effect
+ */
+export const createLarkSource = <ThrowOnError extends boolean = true>(options: Options<CreateLarkSourceData, ThrowOnError>): RequestResult<CreateLarkSourceResponses, CreateLarkSourceErrors, ThrowOnError> => (options.client ?? client).post<CreateLarkSourceResponses, CreateLarkSourceErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/lark',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get Lark source configuration
+ */
+export const getLarkConfiguration = <ThrowOnError extends boolean = true>(options: Options<GetLarkConfigurationData, ThrowOnError>): RequestResult<GetLarkConfigurationResponses, GetLarkConfigurationErrors, ThrowOnError> => (options.client ?? client).get<GetLarkConfigurationResponses, GetLarkConfigurationErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}/lark',
+    ...options
+});
+
+/**
+ * Recover the receipt of an accepted scope request
+ */
+export const getLarkSelectionRequest = <ThrowOnError extends boolean = true>(options: Options<GetLarkSelectionRequestData, ThrowOnError>): RequestResult<GetLarkSelectionRequestResponses, GetLarkSelectionRequestErrors, ThrowOnError> => (options.client ?? client).get<GetLarkSelectionRequestResponses, GetLarkSelectionRequestErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/lark/selection-requests/{requestId}',
+    ...options
+});
+
+/**
+ * Replace what a Lark source synchronizes; the new scope is verified before it applies
+ */
+export const replaceLarkScope = <ThrowOnError extends boolean = true>(options: Options<ReplaceLarkScopeData, ThrowOnError>): RequestResult<ReplaceLarkScopeResponses, ReplaceLarkScopeErrors, ThrowOnError> => (options.client ?? client).put<ReplaceLarkScopeResponses, ReplaceLarkScopeErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}/lark/scope',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Update the automatic synchronization interval
+ */
+export const updateLarkSchedule = <ThrowOnError extends boolean = true>(options: Options<UpdateLarkScheduleData, ThrowOnError>): RequestResult<UpdateLarkScheduleResponses, UpdateLarkScheduleErrors, ThrowOnError> => (options.client ?? client).put<UpdateLarkScheduleResponses, UpdateLarkScheduleErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}/lark/schedule',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Pause or resume future automatic synchronization
+ */
+export const updateLarkPause = <ThrowOnError extends boolean = true>(options: Options<UpdateLarkPauseData, ThrowOnError>): RequestResult<UpdateLarkPauseResponses, UpdateLarkPauseErrors, ThrowOnError> => (options.client ?? client).post<UpdateLarkPauseResponses, UpdateLarkPauseErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}/lark/pause',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Schedule a synchronization run now
+ */
+export const synchronizeLarkSource = <ThrowOnError extends boolean = true>(options: Options<SynchronizeLarkSourceData, ThrowOnError>): RequestResult<SynchronizeLarkSourceResponses, SynchronizeLarkSourceErrors, ThrowOnError> => (options.client ?? client).post<SynchronizeLarkSourceResponses, SynchronizeLarkSourceErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}/lark/sync',
+    ...options
+});
+
+/**
+ * List the Wiki spaces and Drive folders in scope
+ */
+export const getLarkRoots = <ThrowOnError extends boolean = true>(options: Options<GetLarkRootsData, ThrowOnError>): RequestResult<GetLarkRootsResponses, GetLarkRootsErrors, ThrowOnError> => (options.client ?? client).get<GetLarkRootsResponses, GetLarkRootsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}/lark/roots',
+    ...options
+});
+
+/**
+ * List the Wiki spaces the credential's app is a member of, read from Lark now
+ */
+export const listLarkSpaces = <ThrowOnError extends boolean = true>(options: Options<ListLarkSpacesData, ThrowOnError>): RequestResult<ListLarkSpacesResponses, ListLarkSpacesErrors, ThrowOnError> => (options.client ?? client).get<ListLarkSpacesResponses, ListLarkSpacesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/lark/credentials/{credentialId}/spaces',
+    ...options
+});
+
+/**
+ * Replace the App Secret of a bot's app once the platform accepts it, with a revision precondition
+ */
+export const replaceChannelSecret = <ThrowOnError extends boolean = true>(options: Options<ReplaceChannelSecretData, ThrowOnError>): RequestResult<ReplaceChannelSecretResponses, ReplaceChannelSecretErrors, ThrowOnError> => (options.client ?? client).put<ReplaceChannelSecretResponses, ReplaceChannelSecretErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/channels/{channelId}/secret',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Make a bot answer anyone who addresses it, from its assistant's attachments only, or only the organisation's people, with a revision precondition
+ */
+export const updateChannelPublic = <ThrowOnError extends boolean = true>(options: Options<UpdateChannelPublicData, ThrowOnError>): RequestResult<UpdateChannelPublicResponses, UpdateChannelPublicErrors, ThrowOnError> => (options.client ?? client).put<UpdateChannelPublicResponses, UpdateChannelPublicErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/channels/{channelId}/public',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Choose the assistant a bot answers with, moving it from another; needs edit rights on the assistant
+ */
+export const bindChannelAssistant = <ThrowOnError extends boolean = true>(options: Options<BindChannelAssistantData, ThrowOnError>): RequestResult<BindChannelAssistantResponses, BindChannelAssistantErrors, ThrowOnError> => (options.client ?? client).put<BindChannelAssistantResponses, BindChannelAssistantErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/channels/{channelId}/persona',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Give a group chat an assistant in place of its bot's default, or return it to the default; needs edit rights on the assistant
+ */
+export const bindChannelGroupAssistant = <ThrowOnError extends boolean = true>(options: Options<BindChannelGroupAssistantData, ThrowOnError>): RequestResult<BindChannelGroupAssistantResponses, BindChannelGroupAssistantErrors, ThrowOnError> => (options.client ?? client).put<BindChannelGroupAssistantResponses, BindChannelGroupAssistantErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/channels/{channelId}/groups/{groupId}/persona',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Name a group chat for the bot's page, or clear the name
+ */
+export const labelChannelGroup = <ThrowOnError extends boolean = true>(options: Options<LabelChannelGroupData, ThrowOnError>): RequestResult<LabelChannelGroupResponses, LabelChannelGroupErrors, ThrowOnError> => (options.client ?? client).put<LabelChannelGroupResponses, LabelChannelGroupErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/channels/{channelId}/groups/{groupId}/label',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Allow the bot to answer in a group chat, or withdraw it; only a group of a platform that cannot tell who is in it (Zalo) needs it
+ */
+export const allowChannelGroup = <ThrowOnError extends boolean = true>(options: Options<AllowChannelGroupData, ThrowOnError>): RequestResult<AllowChannelGroupResponses, AllowChannelGroupErrors, ThrowOnError> => (options.client ?? client).put<AllowChannelGroupResponses, AllowChannelGroupErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/channels/{channelId}/groups/{groupId}/permission',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Switch a bot on or off with a revision precondition
+ */
+export const updateChannelEnabled = <ThrowOnError extends boolean = true>(options: Options<UpdateChannelEnabledData, ThrowOnError>): RequestResult<UpdateChannelEnabledResponses, UpdateChannelEnabledErrors, ThrowOnError> => (options.client ?? client).put<UpdateChannelEnabledResponses, UpdateChannelEnabledErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/channels/{channelId}/enabled',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Check a Lark app with Lark and add its bot, switched off; nothing is stored when Lark rejects it
+ */
+export const createLarkChannel = <ThrowOnError extends boolean = true>(options: Options<CreateLarkChannelData, ThrowOnError>): RequestResult<CreateLarkChannelResponses, CreateLarkChannelErrors, ThrowOnError> => (options.client ?? client).post<CreateLarkChannelResponses, CreateLarkChannelErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/channels/lark',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Check a Lark app with Lark without storing anything
+ */
+export const testLarkChannelApp = <ThrowOnError extends boolean = true>(options: Options<TestLarkChannelAppData, ThrowOnError>): RequestResult<TestLarkChannelAppResponses, TestLarkChannelAppErrors, ThrowOnError> => (options.client ?? client).post<TestLarkChannelAppResponses, TestLarkChannelAppErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/channels/lark/test',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List the Tenant's bots with the state of their connections
+ */
+export const listChannels = <ThrowOnError extends boolean = true>(options?: Options<ListChannelsData, ThrowOnError>): RequestResult<ListChannelsResponses, ListChannelsErrors, ThrowOnError> => (options?.client ?? client).get<ListChannelsResponses, ListChannelsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/channels',
+    ...options
+});
+
+/**
+ * List the group chats a bot is known in, each with the assistant it is given and whether it may answer there
+ */
+export const listChannelGroups = <ThrowOnError extends boolean = true>(options: Options<ListChannelGroupsData, ThrowOnError>): RequestResult<ListChannelGroupsResponses, ListChannelGroupsErrors, ThrowOnError> => (options.client ?? client).get<ListChannelGroupsResponses, ListChannelGroupsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/channels/{channelId}/groups',
+    ...options
+});
+
+/**
+ * Add a WhatsApp bot by its number, switched off; it is linked by scanning its code once switched on
+ */
+export const createWhatsAppChannel = <ThrowOnError extends boolean = true>(options: Options<CreateWhatsAppChannelData, ThrowOnError>): RequestResult<CreateWhatsAppChannelResponses, CreateWhatsAppChannelErrors, ThrowOnError> => (options.client ?? client).post<CreateWhatsAppChannelResponses, CreateWhatsAppChannelErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/channels/whatsapp',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Read the code a bot being linked shows, to scan with the bot's phone; none while it shows none
+ */
+export const getChannelPairing = <ThrowOnError extends boolean = true>(options: Options<GetChannelPairingData, ThrowOnError>): RequestResult<GetChannelPairingResponses, GetChannelPairingErrors, ThrowOnError> => (options.client ?? client).get<GetChannelPairingResponses, GetChannelPairingErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/channels/{channelId}/pairing',
+    ...options
+});
+
+/**
+ * Link a bot linked by a code again, out of a logout or a ban, with a revision precondition
+ */
+export const relinkChannel = <ThrowOnError extends boolean = true>(options: Options<RelinkChannelData, ThrowOnError>): RequestResult<RelinkChannelResponses, RelinkChannelErrors, ThrowOnError> => (options.client ?? client).post<RelinkChannelResponses, RelinkChannelErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/channels/{channelId}/pairing',
+    ...options
+});
+
+/**
  * Remove a bot and retire its account, with a revision precondition
  */
 export const deleteChannel = <ThrowOnError extends boolean = true>(options: Options<DeleteChannelData, ThrowOnError>): RequestResult<DeleteChannelResponses, DeleteChannelErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChannelResponses, DeleteChannelErrors, ThrowOnError>({
@@ -6380,6 +6350,36 @@ export const forgetChannelGroup = <ThrowOnError extends boolean = true>(options:
         }],
     url: '/api/channels/{channelId}/groups/{groupId}',
     ...options
+});
+
+/**
+ * List the Tenant's bots that take a linked account, with the member's own link on each
+ */
+export const listChannelLinks = <ThrowOnError extends boolean = true>(options?: Options<ListChannelLinksData, ThrowOnError>): RequestResult<ListChannelLinksResponses, ListChannelLinksErrors, ThrowOnError> => (options?.client ?? client).get<ListChannelLinksResponses, ListChannelLinksErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/channel-links',
+    ...options
+});
+
+/**
+ * Make a code, valid ten minutes, that links the platform account sending it to the bot to the member
+ */
+export const createChannelLinkCode = <ThrowOnError extends boolean = true>(options: Options<CreateChannelLinkCodeData, ThrowOnError>): RequestResult<CreateChannelLinkCodeResponses, CreateChannelLinkCodeErrors, ThrowOnError> => (options.client ?? client).post<CreateChannelLinkCodeResponses, CreateChannelLinkCodeErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/channel-links',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 /**

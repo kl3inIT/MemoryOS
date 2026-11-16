@@ -41,40 +41,6 @@ export const updateSharePointScheduleMutation = (options?: Partial<Options<Updat
 };
 
 /**
- * Replace what a Lark source synchronizes; the new scope is verified before it applies
- */
-export const replaceLarkScopeMutation = (options?: Partial<Options<ReplaceLarkScopeData>>): UseMutationOptions<ReplaceLarkScopeResponse, ReplaceLarkScopeError, Options<ReplaceLarkScopeData>> => {
-    const mutationOptions: UseMutationOptions<ReplaceLarkScopeResponse, ReplaceLarkScopeError, Options<ReplaceLarkScopeData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await replaceLarkScope({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Update the automatic synchronization interval
- */
-export const updateLarkScheduleMutation = (options?: Partial<Options<UpdateLarkScheduleData>>): UseMutationOptions<UpdateLarkScheduleResponse, UpdateLarkScheduleError, Options<UpdateLarkScheduleData>> => {
-    const mutationOptions: UseMutationOptions<UpdateLarkScheduleResponse, UpdateLarkScheduleError, Options<UpdateLarkScheduleData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await updateLarkSchedule({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
  * Update the automatic Google Drive sync interval
  */
 export const updateGoogleDriveScheduleMutation = (options?: Partial<Options<UpdateGoogleDriveScheduleData>>): UseMutationOptions<UpdateGoogleDriveScheduleResponse, DefaultError, Options<UpdateGoogleDriveScheduleData>> => {
@@ -262,6 +228,23 @@ export const updateMeetingMutation = (options?: Partial<Options<UpdateMeetingDat
 };
 
 /**
+ * Say who spoke one line
+ */
+export const setMeetingLineSpeakerMutation = (options?: Partial<Options<SetMeetingLineSpeakerData>>): UseMutationOptions<SetMeetingLineSpeakerResponse, SetMeetingLineSpeakerError, Options<SetMeetingLineSpeakerData>> => {
+    const mutationOptions: UseMutationOptions<SetMeetingLineSpeakerResponse, SetMeetingLineSpeakerError, Options<SetMeetingLineSpeakerData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await setMeetingLineSpeaker({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
  * Take the caller's mark off a line
  */
 export const unstarMeetingUtteranceMutation = (options?: Partial<Options<UnstarMeetingUtteranceData>>): UseMutationOptions<UnstarMeetingUtteranceResponse, UnstarMeetingUtteranceError, Options<UnstarMeetingUtteranceData>> => {
@@ -285,23 +268,6 @@ export const starMeetingUtteranceMutation = (options?: Partial<Options<StarMeeti
     const mutationOptions: UseMutationOptions<StarMeetingUtteranceResponse, StarMeetingUtteranceError, Options<StarMeetingUtteranceData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await starMeetingUtterance({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Say who spoke one line
- */
-export const setMeetingLineSpeakerMutation = (options?: Partial<Options<SetMeetingLineSpeakerData>>): UseMutationOptions<SetMeetingLineSpeakerResponse, SetMeetingLineSpeakerError, Options<SetMeetingLineSpeakerData>> => {
-    const mutationOptions: UseMutationOptions<SetMeetingLineSpeakerResponse, SetMeetingLineSpeakerError, Options<SetMeetingLineSpeakerData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await setMeetingLineSpeaker({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -519,23 +485,6 @@ export const updateMcpServerMutation = (options?: Partial<Options<UpdateMcpServe
 };
 
 /**
- * Set one tool's policy at the expected revision; refreshes keep it
- */
-export const setMcpServerToolPolicyMutation = (options?: Partial<Options<SetMcpServerToolPolicyData>>): UseMutationOptions<SetMcpServerToolPolicyResponse, SetMcpServerToolPolicyError, Options<SetMcpServerToolPolicyData>> => {
-    const mutationOptions: UseMutationOptions<SetMcpServerToolPolicyResponse, SetMcpServerToolPolicyError, Options<SetMcpServerToolPolicyData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await setMcpServerToolPolicy({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
  * Return every tool to the default policy of its risk
  */
 export const resetMcpServerToolPoliciesMutation = (options?: Partial<Options<ResetMcpServerToolPoliciesData>>): UseMutationOptions<ResetMcpServerToolPoliciesResponse, ResetMcpServerToolPoliciesError, Options<ResetMcpServerToolPoliciesData>> => {
@@ -559,6 +508,23 @@ export const setMcpServerToolGroupPolicyMutation = (options?: Partial<Options<Se
     const mutationOptions: UseMutationOptions<SetMcpServerToolGroupPolicyResponse, SetMcpServerToolGroupPolicyError, Options<SetMcpServerToolGroupPolicyData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await setMcpServerToolGroupPolicy({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Set one tool's policy at the expected revision; refreshes keep it
+ */
+export const setMcpServerToolPolicyMutation = (options?: Partial<Options<SetMcpServerToolPolicyData>>): UseMutationOptions<SetMcpServerToolPolicyResponse, SetMcpServerToolPolicyError, Options<SetMcpServerToolPolicyData>> => {
+    const mutationOptions: UseMutationOptions<SetMcpServerToolPolicyResponse, SetMcpServerToolPolicyError, Options<SetMcpServerToolPolicyData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await setMcpServerToolPolicy({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -783,57 +749,6 @@ export const replaceSharePointCredentialAuthenticationMutation = (options?: Part
     const mutationOptions: UseMutationOptions<ReplaceSharePointCredentialAuthenticationResponse, ReplaceSharePointCredentialAuthenticationError, Options<ReplaceSharePointCredentialAuthenticationData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await replaceSharePointCredentialAuthentication({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Delete an unused Lark credential with a revision precondition
- */
-export const deleteLarkCredentialMutation = (options?: Partial<Options<DeleteLarkCredentialData>>): UseMutationOptions<DeleteLarkCredentialResponse, DeleteLarkCredentialError, Options<DeleteLarkCredentialData>> => {
-    const mutationOptions: UseMutationOptions<DeleteLarkCredentialResponse, DeleteLarkCredentialError, Options<DeleteLarkCredentialData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await deleteLarkCredential({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Rename a Lark credential with a revision precondition
- */
-export const renameLarkCredentialMutation = (options?: Partial<Options<RenameLarkCredentialData>>): UseMutationOptions<RenameLarkCredentialResponse, RenameLarkCredentialError, Options<RenameLarkCredentialData>> => {
-    const mutationOptions: UseMutationOptions<RenameLarkCredentialResponse, RenameLarkCredentialError, Options<RenameLarkCredentialData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await renameLarkCredential({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Replace the App Secret of an existing Lark credential of the same app
- */
-export const replaceLarkCredentialSecretMutation = (options?: Partial<Options<ReplaceLarkCredentialSecretData>>): UseMutationOptions<ReplaceLarkCredentialSecretResponse, ReplaceLarkCredentialSecretError, Options<ReplaceLarkCredentialSecretData>> => {
-    const mutationOptions: UseMutationOptions<ReplaceLarkCredentialSecretResponse, ReplaceLarkCredentialSecretError, Options<ReplaceLarkCredentialSecretData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await replaceLarkCredentialSecret({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -1085,12 +1000,12 @@ export const saveChatGuardrailsMutation = (options?: Partial<Options<SaveChatGua
 };
 
 /**
- * Answer from the organization's documents only; requires model management
+ * Offer follow-up questions after each answer; requires model management
  */
-export const saveChatGroundedMutation = (options?: Partial<Options<SaveChatGroundedData>>): UseMutationOptions<SaveChatGroundedResponse, SaveChatGroundedError, Options<SaveChatGroundedData>> => {
-    const mutationOptions: UseMutationOptions<SaveChatGroundedResponse, SaveChatGroundedError, Options<SaveChatGroundedData>> = {
+export const saveChatFollowUpsMutation = (options?: Partial<Options<SaveChatFollowUpsData>>): UseMutationOptions<SaveChatFollowUpsResponse, SaveChatFollowUpsError, Options<SaveChatFollowUpsData>> => {
+    const mutationOptions: UseMutationOptions<SaveChatFollowUpsResponse, SaveChatFollowUpsError, Options<SaveChatFollowUpsData>> = {
         mutationFn: async (fnOptions) => {
-            const { data } = await saveChatGrounded({
+            const { data } = await saveChatFollowUps({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -1102,12 +1017,12 @@ export const saveChatGroundedMutation = (options?: Partial<Options<SaveChatGroun
 };
 
 /**
- * Offer follow-up questions after each answer; requires model management
+ * Answer from the organization's documents only; requires model management
  */
-export const saveChatFollowUpsMutation = (options?: Partial<Options<SaveChatFollowUpsData>>): UseMutationOptions<SaveChatFollowUpsResponse, SaveChatFollowUpsError, Options<SaveChatFollowUpsData>> => {
-    const mutationOptions: UseMutationOptions<SaveChatFollowUpsResponse, SaveChatFollowUpsError, Options<SaveChatFollowUpsData>> = {
+export const saveChatGroundedMutation = (options?: Partial<Options<SaveChatGroundedData>>): UseMutationOptions<SaveChatGroundedResponse, SaveChatGroundedError, Options<SaveChatGroundedData>> => {
+    const mutationOptions: UseMutationOptions<SaveChatGroundedResponse, SaveChatGroundedError, Options<SaveChatGroundedData>> = {
         mutationFn: async (fnOptions) => {
-            const { data } = await saveChatFollowUps({
+            const { data } = await saveChatGrounded({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -1296,41 +1211,6 @@ export const selectChatBranchMutation = (options?: Partial<Options<SelectChatBra
     const mutationOptions: UseMutationOptions<SelectChatBranchResponse, SelectChatBranchError, Options<SelectChatBranchData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await selectChatBranch({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-export const getChatSandboxSettingsQueryKey = (options?: Options<GetChatSandboxSettingsData>) => createQueryKey('getChatSandboxSettings', options);
-
-/**
- * Read whether the Sandbox is configured and enabled for the Tenant, and its allowed domains
- */
-export const getChatSandboxSettingsOptions = (options?: Options<GetChatSandboxSettingsData>) => queryOptions<GetChatSandboxSettingsResponse, GetChatSandboxSettingsError, GetChatSandboxSettingsResponse, ReturnType<typeof getChatSandboxSettingsQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await getChatSandboxSettings({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: getChatSandboxSettingsQueryKey(options)
-});
-
-/**
- * Enable or disable the Sandbox for the Tenant
- */
-export const updateChatSandboxSettingsMutation = (options?: Partial<Options<UpdateChatSandboxSettingsData>>): UseMutationOptions<UpdateChatSandboxSettingsResponse, UpdateChatSandboxSettingsError, Options<UpdateChatSandboxSettingsData>> => {
-    const mutationOptions: UseMutationOptions<UpdateChatSandboxSettingsResponse, UpdateChatSandboxSettingsError, Options<UpdateChatSandboxSettingsData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await updateChatSandboxSettings({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -1755,6 +1635,24 @@ export const setChatPersonaListingMutation = (options?: Partial<Options<SetChatP
     return mutationOptions;
 };
 
+export const listChatAssistantsQueryKey = (options?: Options<ListChatAssistantsData>) => createQueryKey('listChatAssistants', options);
+
+/**
+ * List the caller's assistants for the sidebar: the built-in one, then the pins, each with the newest topic
+ */
+export const listChatAssistantsOptions = (options?: Options<ListChatAssistantsData>) => queryOptions<ListChatAssistantsResponse, ListChatAssistantsError, ListChatAssistantsResponse, ReturnType<typeof listChatAssistantsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listChatAssistants({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listChatAssistantsQueryKey(options)
+});
+
 export const listChatPersonaPinsQueryKey = (options?: Options<ListChatPersonaPinsData>) => createQueryKey('listChatPersonaPins', options);
 
 /**
@@ -1928,75 +1826,6 @@ export const setChatModelDefaultMutation = (options?: Partial<Options<SetChatMod
 };
 
 /**
- * Forget everything Chat remembers about you
- */
-export const clearChatMemoryMutation = (options?: Partial<Options<ClearChatMemoryData>>): UseMutationOptions<ClearChatMemoryResponse, ClearChatMemoryError, Options<ClearChatMemoryData>> => {
-    const mutationOptions: UseMutationOptions<ClearChatMemoryResponse, ClearChatMemoryError, Options<ClearChatMemoryData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await clearChatMemory({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-export const getChatMemoryQueryKey = (options?: Options<GetChatMemoryData>) => createQueryKey('getChatMemory', options);
-
-/**
- * Read what Chat remembers about you
- */
-export const getChatMemoryOptions = (options?: Options<GetChatMemoryData>) => queryOptions<GetChatMemoryResponse, GetChatMemoryError, GetChatMemoryResponse, ReturnType<typeof getChatMemoryQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await getChatMemory({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: getChatMemoryQueryKey(options)
-});
-
-/**
- * Replace what Chat remembers about you
- */
-export const saveChatMemoryMutation = (options?: Partial<Options<SaveChatMemoryData>>): UseMutationOptions<SaveChatMemoryResponse, SaveChatMemoryError, Options<SaveChatMemoryData>> => {
-    const mutationOptions: UseMutationOptions<SaveChatMemoryResponse, SaveChatMemoryError, Options<SaveChatMemoryData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await saveChatMemory({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Turn Chat's memory of you on or off
- */
-export const setChatMemoryEnabledMutation = (options?: Partial<Options<SetChatMemoryEnabledData>>): UseMutationOptions<SetChatMemoryEnabledResponse, SetChatMemoryEnabledError, Options<SetChatMemoryEnabledData>> => {
-    const mutationOptions: UseMutationOptions<SetChatMemoryEnabledResponse, SetChatMemoryEnabledError, Options<SetChatMemoryEnabledData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await setChatMemoryEnabled({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
  * Take the caller's star off an entry they may read now
  */
 export const unstarChatLibraryEntryMutation = (options?: Partial<Options<UnstarChatLibraryEntryData>>): UseMutationOptions<UnstarChatLibraryEntryResponse, UnstarChatLibraryEntryError, Options<UnstarChatLibraryEntryData>> => {
@@ -2020,6 +1849,41 @@ export const starChatLibraryEntryMutation = (options?: Partial<Options<StarChatL
     const mutationOptions: UseMutationOptions<StarChatLibraryEntryResponse, StarChatLibraryEntryError, Options<StarChatLibraryEntryData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await starChatLibraryEntry({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getChatSandboxSettingsQueryKey = (options?: Options<GetChatSandboxSettingsData>) => createQueryKey('getChatSandboxSettings', options);
+
+/**
+ * Read whether the Sandbox is configured and enabled for the Tenant, and its allowed domains
+ */
+export const getChatSandboxSettingsOptions = (options?: Options<GetChatSandboxSettingsData>) => queryOptions<GetChatSandboxSettingsResponse, GetChatSandboxSettingsError, GetChatSandboxSettingsResponse, ReturnType<typeof getChatSandboxSettingsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getChatSandboxSettings({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getChatSandboxSettingsQueryKey(options)
+});
+
+/**
+ * Enable or disable the Sandbox for the Tenant
+ */
+export const updateChatSandboxSettingsMutation = (options?: Partial<Options<UpdateChatSandboxSettingsData>>): UseMutationOptions<UpdateChatSandboxSettingsResponse, UpdateChatSandboxSettingsError, Options<UpdateChatSandboxSettingsData>> => {
+    const mutationOptions: UseMutationOptions<UpdateChatSandboxSettingsResponse, UpdateChatSandboxSettingsError, Options<UpdateChatSandboxSettingsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateChatSandboxSettings({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -2140,125 +2004,6 @@ export const updateChannelTransportMutation = (options?: Partial<Options<UpdateC
     const mutationOptions: UseMutationOptions<UpdateChannelTransportResponse, UpdateChannelTransportError, Options<UpdateChannelTransportData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await updateChannelTransport({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Replace the App Secret of a bot's app once the platform accepts it, with a revision precondition
- */
-export const replaceChannelSecretMutation = (options?: Partial<Options<ReplaceChannelSecretData>>): UseMutationOptions<ReplaceChannelSecretResponse, ReplaceChannelSecretError, Options<ReplaceChannelSecretData>> => {
-    const mutationOptions: UseMutationOptions<ReplaceChannelSecretResponse, ReplaceChannelSecretError, Options<ReplaceChannelSecretData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await replaceChannelSecret({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Make a bot answer anyone who addresses it, from its assistant's attachments only, or only the organisation's people, with a revision precondition
- */
-export const updateChannelPublicMutation = (options?: Partial<Options<UpdateChannelPublicData>>): UseMutationOptions<UpdateChannelPublicResponse, UpdateChannelPublicError, Options<UpdateChannelPublicData>> => {
-    const mutationOptions: UseMutationOptions<UpdateChannelPublicResponse, UpdateChannelPublicError, Options<UpdateChannelPublicData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await updateChannelPublic({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Choose the assistant a bot answers with, moving it from another; needs edit rights on the assistant
- */
-export const bindChannelAssistantMutation = (options?: Partial<Options<BindChannelAssistantData>>): UseMutationOptions<BindChannelAssistantResponse, BindChannelAssistantError, Options<BindChannelAssistantData>> => {
-    const mutationOptions: UseMutationOptions<BindChannelAssistantResponse, BindChannelAssistantError, Options<BindChannelAssistantData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await bindChannelAssistant({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Give a group chat an assistant in place of its bot's default, or return it to the default; needs edit rights on the assistant
- */
-export const bindChannelGroupAssistantMutation = (options?: Partial<Options<BindChannelGroupAssistantData>>): UseMutationOptions<BindChannelGroupAssistantResponse, BindChannelGroupAssistantError, Options<BindChannelGroupAssistantData>> => {
-    const mutationOptions: UseMutationOptions<BindChannelGroupAssistantResponse, BindChannelGroupAssistantError, Options<BindChannelGroupAssistantData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await bindChannelGroupAssistant({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Allow the bot to answer in a group chat, or withdraw it; only a group of a platform that cannot tell who is in it (Zalo) needs it
- */
-export const allowChannelGroupMutation = (options?: Partial<Options<AllowChannelGroupData>>): UseMutationOptions<AllowChannelGroupResponse, AllowChannelGroupError, Options<AllowChannelGroupData>> => {
-    const mutationOptions: UseMutationOptions<AllowChannelGroupResponse, AllowChannelGroupError, Options<AllowChannelGroupData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await allowChannelGroup({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Name a group chat for the bot's page, or clear the name
- */
-export const labelChannelGroupMutation = (options?: Partial<Options<LabelChannelGroupData>>): UseMutationOptions<LabelChannelGroupResponse, LabelChannelGroupError, Options<LabelChannelGroupData>> => {
-    const mutationOptions: UseMutationOptions<LabelChannelGroupResponse, LabelChannelGroupError, Options<LabelChannelGroupData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await labelChannelGroup({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Switch a bot on or off with a revision precondition
- */
-export const updateChannelEnabledMutation = (options?: Partial<Options<UpdateChannelEnabledData>>): UseMutationOptions<UpdateChannelEnabledResponse, UpdateChannelEnabledError, Options<UpdateChannelEnabledData>> => {
-    const mutationOptions: UseMutationOptions<UpdateChannelEnabledResponse, UpdateChannelEnabledError, Options<UpdateChannelEnabledData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await updateChannelEnabled({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -2493,40 +2238,6 @@ export const assignSourceManagerMutation = (options?: Partial<Options<AssignSour
 };
 
 /**
- * Schedule a synchronization run now
- */
-export const synchronizeLarkSourceMutation = (options?: Partial<Options<SynchronizeLarkSourceData>>): UseMutationOptions<SynchronizeLarkSourceResponse, SynchronizeLarkSourceError, Options<SynchronizeLarkSourceData>> => {
-    const mutationOptions: UseMutationOptions<SynchronizeLarkSourceResponse, SynchronizeLarkSourceError, Options<SynchronizeLarkSourceData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await synchronizeLarkSource({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Pause or resume future automatic synchronization
- */
-export const updateLarkPauseMutation = (options?: Partial<Options<UpdateLarkPauseData>>): UseMutationOptions<UpdateLarkPauseResponse, UpdateLarkPauseError, Options<UpdateLarkPauseData>> => {
-    const mutationOptions: UseMutationOptions<UpdateLarkPauseResponse, UpdateLarkPauseError, Options<UpdateLarkPauseData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await updateLarkPause({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
  * Start durable source item removal
  */
 export const removeSourceItemMutation = (options?: Partial<Options<RemoveSourceItemData>>): UseMutationOptions<RemoveSourceItemResponse, DefaultError, Options<RemoveSourceItemData>> => {
@@ -2687,23 +2398,6 @@ export const createSharePointSourceMutation = (options?: Partial<Options<CreateS
     const mutationOptions: UseMutationOptions<CreateSharePointSourceResponse, CreateSharePointSourceError, Options<CreateSharePointSourceData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await createSharePointSource({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Create a Lark source; its scope is verified with Lark before it takes effect
- */
-export const createLarkSourceMutation = (options?: Partial<Options<CreateLarkSourceData>>): UseMutationOptions<CreateLarkSourceResponse, CreateLarkSourceError, Options<CreateLarkSourceData>> => {
-    const mutationOptions: UseMutationOptions<CreateLarkSourceResponse, CreateLarkSourceError, Options<CreateLarkSourceData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await createLarkSource({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -3938,58 +3632,6 @@ export const testSharePointCredentialMutation = (options?: Partial<Options<TestS
     const mutationOptions: UseMutationOptions<TestSharePointCredentialResponse, TestSharePointCredentialError, Options<TestSharePointCredentialData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await testSharePointCredential({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-export const listLarkCredentialsQueryKey = (options?: Options<ListLarkCredentialsData>) => createQueryKey('listLarkCredentials', options);
-
-/**
- * List reusable Tenant-owned Lark credentials
- */
-export const listLarkCredentialsOptions = (options?: Options<ListLarkCredentialsData>) => queryOptions<ListLarkCredentialsResponse, ListLarkCredentialsError, ListLarkCredentialsResponse, ReturnType<typeof listLarkCredentialsQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await listLarkCredentials({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: listLarkCredentialsQueryKey(options)
-});
-
-/**
- * Verify a Lark custom app with Lark and store it; nothing is stored when Lark rejects it
- */
-export const createLarkCredentialMutation = (options?: Partial<Options<CreateLarkCredentialData>>): UseMutationOptions<CreateLarkCredentialResponse, CreateLarkCredentialError, Options<CreateLarkCredentialData>> => {
-    const mutationOptions: UseMutationOptions<CreateLarkCredentialResponse, CreateLarkCredentialError, Options<CreateLarkCredentialData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await createLarkCredential({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Ask Lark for a tenant token, read the bot and probe the read scopes; records what Lark said
- */
-export const testLarkCredentialMutation = (options?: Partial<Options<TestLarkCredentialData>>): UseMutationOptions<TestLarkCredentialResponse, TestLarkCredentialError, Options<TestLarkCredentialData>> => {
-    const mutationOptions: UseMutationOptions<TestLarkCredentialResponse, TestLarkCredentialError, Options<TestLarkCredentialData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await testLarkCredential({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -5247,41 +4889,6 @@ export const createDocumentSetMutation = (options?: Partial<Options<CreateDocume
     return mutationOptions;
 };
 
-export const getChannelPairingQueryKey = (options: Options<GetChannelPairingData>) => createQueryKey('getChannelPairing', options);
-
-/**
- * Read the code a bot being linked shows, to scan with the bot's phone; none while it shows none
- */
-export const getChannelPairingOptions = (options: Options<GetChannelPairingData>) => queryOptions<GetChannelPairingResponse, GetChannelPairingError, GetChannelPairingResponse, ReturnType<typeof getChannelPairingQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await getChannelPairing({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: getChannelPairingQueryKey(options)
-});
-
-/**
- * Link a bot linked by a code again, out of a logout or a ban, with a revision precondition
- */
-export const relinkChannelMutation = (options?: Partial<Options<RelinkChannelData>>): UseMutationOptions<RelinkChannelResponse, RelinkChannelError, Options<RelinkChannelData>> => {
-    const mutationOptions: UseMutationOptions<RelinkChannelResponse, RelinkChannelError, Options<RelinkChannelData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await relinkChannel({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
 /**
  * Check a Zalo bot's token with Zalo and add the bot, switched off; nothing is stored when Zalo rejects it
  */
@@ -5306,92 +4913,6 @@ export const testZaloChannelBotMutation = (options?: Partial<Options<TestZaloCha
     const mutationOptions: UseMutationOptions<TestZaloChannelBotResponse, TestZaloChannelBotError, Options<TestZaloChannelBotData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await testZaloChannelBot({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Add a WhatsApp bot by its number, switched off; it is linked by scanning its code once switched on
- */
-export const createWhatsAppChannelMutation = (options?: Partial<Options<CreateWhatsAppChannelData>>): UseMutationOptions<CreateWhatsAppChannelResponse, CreateWhatsAppChannelError, Options<CreateWhatsAppChannelData>> => {
-    const mutationOptions: UseMutationOptions<CreateWhatsAppChannelResponse, CreateWhatsAppChannelError, Options<CreateWhatsAppChannelData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await createWhatsAppChannel({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Check a Lark app with Lark and add its bot, switched off; nothing is stored when Lark rejects it
- */
-export const createLarkChannelMutation = (options?: Partial<Options<CreateLarkChannelData>>): UseMutationOptions<CreateLarkChannelResponse, CreateLarkChannelError, Options<CreateLarkChannelData>> => {
-    const mutationOptions: UseMutationOptions<CreateLarkChannelResponse, CreateLarkChannelError, Options<CreateLarkChannelData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await createLarkChannel({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Check a Lark app with Lark without storing anything
- */
-export const testLarkChannelAppMutation = (options?: Partial<Options<TestLarkChannelAppData>>): UseMutationOptions<TestLarkChannelAppResponse, TestLarkChannelAppError, Options<TestLarkChannelAppData>> => {
-    const mutationOptions: UseMutationOptions<TestLarkChannelAppResponse, TestLarkChannelAppError, Options<TestLarkChannelAppData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await testLarkChannelApp({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-export const listChannelLinksQueryKey = (options?: Options<ListChannelLinksData>) => createQueryKey('listChannelLinks', options);
-
-/**
- * List the Tenant's bots that take a linked account, with the member's own link on each
- */
-export const listChannelLinksOptions = (options?: Options<ListChannelLinksData>) => queryOptions<ListChannelLinksResponse, ListChannelLinksError, ListChannelLinksResponse, ReturnType<typeof listChannelLinksQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await listChannelLinks({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: listChannelLinksQueryKey(options)
-});
-
-/**
- * Make a code, valid ten minutes, that links the platform account sending it to the bot to the member
- */
-export const createChannelLinkCodeMutation = (options?: Partial<Options<CreateChannelLinkCodeData>>): UseMutationOptions<CreateChannelLinkCodeResponse, CreateChannelLinkCodeError, Options<CreateChannelLinkCodeData>> => {
-    const mutationOptions: UseMutationOptions<CreateChannelLinkCodeResponse, CreateChannelLinkCodeError, Options<CreateChannelLinkCodeData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await createChannelLinkCode({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -5568,6 +5089,58 @@ export const listUsersInfiniteOptions = (options?: Options<ListUsersData>) => {
             return data;
         },
         queryKey: listUsersInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
+export const listSourcePageQueryKey = (options?: Options<ListSourcePageData>) => createQueryKey('listSourcePage', options);
+
+/**
+ * List a page of Tenant sources
+ *
+ * Failed sources first, then indexing and pausing, then the rest by name. The counts cover every source the actor may read, whatever the search and filters.
+ */
+export const listSourcePageOptions = (options?: Options<ListSourcePageData>) => queryOptions<ListSourcePageResponse, DefaultError, ListSourcePageResponse, ReturnType<typeof listSourcePageQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listSourcePage({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listSourcePageQueryKey(options)
+});
+
+export const listSourcePageInfiniteQueryKey = (options?: Options<ListSourcePageData>): QueryKey<Options<ListSourcePageData>> => createQueryKey('listSourcePage', options, true);
+
+/**
+ * List a page of Tenant sources
+ *
+ * Failed sources first, then indexing and pausing, then the rest by name. The counts cover every source the actor may read, whatever the search and filters.
+ */
+export const listSourcePageInfiniteOptions = (options?: Options<ListSourcePageData>) => {
+    const opts = infiniteQueryOptions<ListSourcePageResponse, DefaultError, InfiniteData<ListSourcePageResponse>, QueryKey<Options<ListSourcePageData>>, number | Pick<QueryKey<Options<ListSourcePageData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<ListSourcePageData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    page: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await listSourcePage({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: listSourcePageInfiniteQueryKey(options)
     });
     return opts as Omit<typeof opts, 'initialData'>;
 };
@@ -5787,42 +5360,6 @@ export const listSourceRunErrorsInfiniteOptions = (options: Options<ListSourceRu
     });
     return opts as Omit<typeof opts, 'initialData'>;
 };
-
-export const getLarkConfigurationQueryKey = (options: Options<GetLarkConfigurationData>) => createQueryKey('getLarkConfiguration', options);
-
-/**
- * Get Lark source configuration
- */
-export const getLarkConfigurationOptions = (options: Options<GetLarkConfigurationData>) => queryOptions<GetLarkConfigurationResponse, GetLarkConfigurationError, GetLarkConfigurationResponse, ReturnType<typeof getLarkConfigurationQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await getLarkConfiguration({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: getLarkConfigurationQueryKey(options)
-});
-
-export const getLarkRootsQueryKey = (options: Options<GetLarkRootsData>) => createQueryKey('getLarkRoots', options);
-
-/**
- * List the Wiki spaces and Drive folders in scope
- */
-export const getLarkRootsOptions = (options: Options<GetLarkRootsData>) => queryOptions<GetLarkRootsResponse, GetLarkRootsError, GetLarkRootsResponse, ReturnType<typeof getLarkRootsQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await getLarkRoots({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: getLarkRootsQueryKey(options)
-});
 
 export const listSourceItemsQueryKey = (options: Options<ListSourceItemsData>) => createQueryKey('listSourceItems', options);
 
@@ -6086,94 +5623,6 @@ export const getSharePointSelectionPolicyOptions = (options?: Options<GetSharePo
         return data;
     },
     queryKey: getSharePointSelectionPolicyQueryKey(options)
-});
-
-export const listSourcePageQueryKey = (options?: Options<ListSourcePageData>) => createQueryKey('listSourcePage', options);
-
-/**
- * List a page of Tenant sources
- *
- * Failed sources first, then indexing and pausing, then the rest by name. The counts cover every source the actor may read, whatever the search and filters.
- */
-export const listSourcePageOptions = (options?: Options<ListSourcePageData>) => queryOptions<ListSourcePageResponse, DefaultError, ListSourcePageResponse, ReturnType<typeof listSourcePageQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await listSourcePage({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: listSourcePageQueryKey(options)
-});
-
-export const listSourcePageInfiniteQueryKey = (options?: Options<ListSourcePageData>): QueryKey<Options<ListSourcePageData>> => createQueryKey('listSourcePage', options, true);
-
-/**
- * List a page of Tenant sources
- *
- * Failed sources first, then indexing and pausing, then the rest by name. The counts cover every source the actor may read, whatever the search and filters.
- */
-export const listSourcePageInfiniteOptions = (options?: Options<ListSourcePageData>) => {
-    const opts = infiniteQueryOptions<ListSourcePageResponse, DefaultError, InfiniteData<ListSourcePageResponse>, QueryKey<Options<ListSourcePageData>>, number | Pick<QueryKey<Options<ListSourcePageData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
-    // @ts-ignore
-    {
-        queryFn: async ({ pageParam, queryKey, signal }) => {
-            // @ts-ignore
-            const page: Pick<QueryKey<Options<ListSourcePageData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
-                query: {
-                    page: pageParam
-                }
-            };
-            const params = createInfiniteParams(queryKey, page);
-            const { data } = await listSourcePage({
-                ...options,
-                ...params,
-                signal,
-                throwOnError: true
-            });
-            return data;
-        },
-        queryKey: listSourcePageInfiniteQueryKey(options)
-    });
-    return opts as Omit<typeof opts, 'initialData'>;
-};
-
-export const getLarkSelectionRequestQueryKey = (options: Options<GetLarkSelectionRequestData>) => createQueryKey('getLarkSelectionRequest', options);
-
-/**
- * Recover the receipt of an accepted scope request
- */
-export const getLarkSelectionRequestOptions = (options: Options<GetLarkSelectionRequestData>) => queryOptions<GetLarkSelectionRequestResponse, GetLarkSelectionRequestError, GetLarkSelectionRequestResponse, ReturnType<typeof getLarkSelectionRequestQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await getLarkSelectionRequest({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: getLarkSelectionRequestQueryKey(options)
-});
-
-export const listLarkSpacesQueryKey = (options: Options<ListLarkSpacesData>) => createQueryKey('listLarkSpaces', options);
-
-/**
- * List the Wiki spaces the credential's app is a member of, read from Lark now
- */
-export const listLarkSpacesOptions = (options: Options<ListLarkSpacesData>) => queryOptions<ListLarkSpacesResponse, ListLarkSpacesError, ListLarkSpacesResponse, ReturnType<typeof listLarkSpacesQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await listLarkSpaces({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: listLarkSpacesQueryKey(options)
 });
 
 export const listSourceGroupOptionsQueryKey = (options?: Options<ListSourceGroupOptionsData>) => createQueryKey('listSourceGroupOptions', options);
@@ -7150,24 +6599,6 @@ export const searchChatSessionsInfiniteOptions = (options?: Options<SearchChatSe
     return opts as Omit<typeof opts, 'initialData'>;
 };
 
-export const getChatSandboxHealthQueryKey = (options?: Options<GetChatSandboxHealthData>) => createQueryKey('getChatSandboxHealth', options);
-
-/**
- * Check the sandbox runtime
- */
-export const getChatSandboxHealthOptions = (options?: Options<GetChatSandboxHealthData>) => queryOptions<GetChatSandboxHealthResponse, GetChatSandboxHealthError, GetChatSandboxHealthResponse, ReturnType<typeof getChatSandboxHealthQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await getChatSandboxHealth({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: getChatSandboxHealthQueryKey(options)
-});
-
 export const previewChatRetentionQueryKey = (options?: Options<PreviewChatRetentionData>) => createQueryKey('previewChatRetention', options);
 
 /**
@@ -7185,6 +6616,75 @@ export const previewChatRetentionOptions = (options?: Options<PreviewChatRetenti
     },
     queryKey: previewChatRetentionQueryKey(options)
 });
+
+/**
+ * Forget everything Chat remembers about you
+ */
+export const clearChatMemoryMutation = (options?: Partial<Options<ClearChatMemoryData>>): UseMutationOptions<ClearChatMemoryResponse, ClearChatMemoryError, Options<ClearChatMemoryData>> => {
+    const mutationOptions: UseMutationOptions<ClearChatMemoryResponse, ClearChatMemoryError, Options<ClearChatMemoryData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await clearChatMemory({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getChatMemoryQueryKey = (options?: Options<GetChatMemoryData>) => createQueryKey('getChatMemory', options);
+
+/**
+ * Read what Chat remembers about you
+ */
+export const getChatMemoryOptions = (options?: Options<GetChatMemoryData>) => queryOptions<GetChatMemoryResponse, GetChatMemoryError, GetChatMemoryResponse, ReturnType<typeof getChatMemoryQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getChatMemory({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getChatMemoryQueryKey(options)
+});
+
+/**
+ * Replace what Chat remembers about you
+ */
+export const saveChatMemoryMutation = (options?: Partial<Options<SaveChatMemoryData>>): UseMutationOptions<SaveChatMemoryResponse, SaveChatMemoryError, Options<SaveChatMemoryData>> => {
+    const mutationOptions: UseMutationOptions<SaveChatMemoryResponse, SaveChatMemoryError, Options<SaveChatMemoryData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await saveChatMemory({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Turn Chat's memory of you on or off
+ */
+export const setChatMemoryEnabledMutation = (options?: Partial<Options<SetChatMemoryEnabledData>>): UseMutationOptions<SetChatMemoryEnabledResponse, SetChatMemoryEnabledError, Options<SetChatMemoryEnabledData>> => {
+    const mutationOptions: UseMutationOptions<SetChatMemoryEnabledResponse, SetChatMemoryEnabledError, Options<SetChatMemoryEnabledData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await setChatMemoryEnabled({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
 
 export const listChatProviderAdaptersQueryKey = (options?: Options<ListChatProviderAdaptersData>) => createQueryKey('listChatProviderAdapters', options);
 
@@ -7774,6 +7274,24 @@ export const downloadChatLibraryArchiveOptions = (options: Options<DownloadChatL
     queryKey: downloadChatLibraryArchiveQueryKey(options)
 });
 
+export const getChatSandboxHealthQueryKey = (options?: Options<GetChatSandboxHealthData>) => createQueryKey('getChatSandboxHealth', options);
+
+/**
+ * Check the sandbox runtime
+ */
+export const getChatSandboxHealthOptions = (options?: Options<GetChatSandboxHealthData>) => queryOptions<GetChatSandboxHealthResponse, GetChatSandboxHealthError, GetChatSandboxHealthResponse, ReturnType<typeof getChatSandboxHealthQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getChatSandboxHealth({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getChatSandboxHealthQueryKey(options)
+});
+
 export const getChatImageAvailabilityQueryKey = (options?: Options<GetChatImageAvailabilityData>) => createQueryKey('getChatImageAvailability', options);
 
 /**
@@ -8361,60 +7879,6 @@ export const readChatDocumentOriginalOptions = (options: Options<ReadChatDocumen
     queryKey: readChatDocumentOriginalQueryKey(options)
 });
 
-export const listChatAssistantsQueryKey = (options?: Options<ListChatAssistantsData>) => createQueryKey('listChatAssistants', options);
-
-/**
- * List the caller's assistants for the sidebar: the built-in one, then the pins, each with the newest topic
- */
-export const listChatAssistantsOptions = (options?: Options<ListChatAssistantsData>) => queryOptions<ListChatAssistantsResponse, ListChatAssistantsError, ListChatAssistantsResponse, ReturnType<typeof listChatAssistantsQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await listChatAssistants({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: listChatAssistantsQueryKey(options)
-});
-
-export const listChannelsQueryKey = (options?: Options<ListChannelsData>) => createQueryKey('listChannels', options);
-
-/**
- * List the Tenant's bots with the state of their connections
- */
-export const listChannelsOptions = (options?: Options<ListChannelsData>) => queryOptions<ListChannelsResponse, ListChannelsError, ListChannelsResponse, ReturnType<typeof listChannelsQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await listChannels({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: listChannelsQueryKey(options)
-});
-
-export const listChannelGroupsQueryKey = (options: Options<ListChannelGroupsData>) => createQueryKey('listChannelGroups', options);
-
-/**
- * List the group chats a bot is known in, each with the assistant it is given and whether it may answer there
- */
-export const listChannelGroupsOptions = (options: Options<ListChannelGroupsData>) => queryOptions<ListChannelGroupsResponse, ListChannelGroupsError, ListChannelGroupsResponse, ReturnType<typeof listChannelGroupsQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await listChannelGroups({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: listChannelGroupsQueryKey(options)
-});
-
 export const exportAuditEventsQueryKey = (options?: Options<ExportAuditEventsData>) => createQueryKey('exportAuditEvents', options);
 
 /**
@@ -8779,6 +8243,507 @@ export const deleteChatFileArtifactMutation = (options?: Partial<Options<DeleteC
     return mutationOptions;
 };
 
+export const listLarkCredentialsQueryKey = (options?: Options<ListLarkCredentialsData>) => createQueryKey('listLarkCredentials', options);
+
+/**
+ * List reusable Tenant-owned Lark credentials
+ */
+export const listLarkCredentialsOptions = (options?: Options<ListLarkCredentialsData>) => queryOptions<ListLarkCredentialsResponse, ListLarkCredentialsError, ListLarkCredentialsResponse, ReturnType<typeof listLarkCredentialsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listLarkCredentials({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listLarkCredentialsQueryKey(options)
+});
+
+/**
+ * Verify a Lark custom app with Lark and store it; nothing is stored when Lark rejects it
+ */
+export const createLarkCredentialMutation = (options?: Partial<Options<CreateLarkCredentialData>>): UseMutationOptions<CreateLarkCredentialResponse, CreateLarkCredentialError, Options<CreateLarkCredentialData>> => {
+    const mutationOptions: UseMutationOptions<CreateLarkCredentialResponse, CreateLarkCredentialError, Options<CreateLarkCredentialData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createLarkCredential({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Delete an unused Lark credential with a revision precondition
+ */
+export const deleteLarkCredentialMutation = (options?: Partial<Options<DeleteLarkCredentialData>>): UseMutationOptions<DeleteLarkCredentialResponse, DeleteLarkCredentialError, Options<DeleteLarkCredentialData>> => {
+    const mutationOptions: UseMutationOptions<DeleteLarkCredentialResponse, DeleteLarkCredentialError, Options<DeleteLarkCredentialData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteLarkCredential({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Rename a Lark credential with a revision precondition
+ */
+export const renameLarkCredentialMutation = (options?: Partial<Options<RenameLarkCredentialData>>): UseMutationOptions<RenameLarkCredentialResponse, RenameLarkCredentialError, Options<RenameLarkCredentialData>> => {
+    const mutationOptions: UseMutationOptions<RenameLarkCredentialResponse, RenameLarkCredentialError, Options<RenameLarkCredentialData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await renameLarkCredential({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Replace the App Secret of an existing Lark credential of the same app
+ */
+export const replaceLarkCredentialSecretMutation = (options?: Partial<Options<ReplaceLarkCredentialSecretData>>): UseMutationOptions<ReplaceLarkCredentialSecretResponse, ReplaceLarkCredentialSecretError, Options<ReplaceLarkCredentialSecretData>> => {
+    const mutationOptions: UseMutationOptions<ReplaceLarkCredentialSecretResponse, ReplaceLarkCredentialSecretError, Options<ReplaceLarkCredentialSecretData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await replaceLarkCredentialSecret({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Ask Lark for a tenant token, read the bot and probe the read scopes; records what Lark said
+ */
+export const testLarkCredentialMutation = (options?: Partial<Options<TestLarkCredentialData>>): UseMutationOptions<TestLarkCredentialResponse, TestLarkCredentialError, Options<TestLarkCredentialData>> => {
+    const mutationOptions: UseMutationOptions<TestLarkCredentialResponse, TestLarkCredentialError, Options<TestLarkCredentialData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await testLarkCredential({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Create a Lark source; its scope is verified with Lark before it takes effect
+ */
+export const createLarkSourceMutation = (options?: Partial<Options<CreateLarkSourceData>>): UseMutationOptions<CreateLarkSourceResponse, CreateLarkSourceError, Options<CreateLarkSourceData>> => {
+    const mutationOptions: UseMutationOptions<CreateLarkSourceResponse, CreateLarkSourceError, Options<CreateLarkSourceData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createLarkSource({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getLarkConfigurationQueryKey = (options: Options<GetLarkConfigurationData>) => createQueryKey('getLarkConfiguration', options);
+
+/**
+ * Get Lark source configuration
+ */
+export const getLarkConfigurationOptions = (options: Options<GetLarkConfigurationData>) => queryOptions<GetLarkConfigurationResponse, GetLarkConfigurationError, GetLarkConfigurationResponse, ReturnType<typeof getLarkConfigurationQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getLarkConfiguration({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getLarkConfigurationQueryKey(options)
+});
+
+export const getLarkSelectionRequestQueryKey = (options: Options<GetLarkSelectionRequestData>) => createQueryKey('getLarkSelectionRequest', options);
+
+/**
+ * Recover the receipt of an accepted scope request
+ */
+export const getLarkSelectionRequestOptions = (options: Options<GetLarkSelectionRequestData>) => queryOptions<GetLarkSelectionRequestResponse, GetLarkSelectionRequestError, GetLarkSelectionRequestResponse, ReturnType<typeof getLarkSelectionRequestQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getLarkSelectionRequest({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getLarkSelectionRequestQueryKey(options)
+});
+
+/**
+ * Replace what a Lark source synchronizes; the new scope is verified before it applies
+ */
+export const replaceLarkScopeMutation = (options?: Partial<Options<ReplaceLarkScopeData>>): UseMutationOptions<ReplaceLarkScopeResponse, ReplaceLarkScopeError, Options<ReplaceLarkScopeData>> => {
+    const mutationOptions: UseMutationOptions<ReplaceLarkScopeResponse, ReplaceLarkScopeError, Options<ReplaceLarkScopeData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await replaceLarkScope({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Update the automatic synchronization interval
+ */
+export const updateLarkScheduleMutation = (options?: Partial<Options<UpdateLarkScheduleData>>): UseMutationOptions<UpdateLarkScheduleResponse, UpdateLarkScheduleError, Options<UpdateLarkScheduleData>> => {
+    const mutationOptions: UseMutationOptions<UpdateLarkScheduleResponse, UpdateLarkScheduleError, Options<UpdateLarkScheduleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateLarkSchedule({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Pause or resume future automatic synchronization
+ */
+export const updateLarkPauseMutation = (options?: Partial<Options<UpdateLarkPauseData>>): UseMutationOptions<UpdateLarkPauseResponse, UpdateLarkPauseError, Options<UpdateLarkPauseData>> => {
+    const mutationOptions: UseMutationOptions<UpdateLarkPauseResponse, UpdateLarkPauseError, Options<UpdateLarkPauseData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateLarkPause({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Schedule a synchronization run now
+ */
+export const synchronizeLarkSourceMutation = (options?: Partial<Options<SynchronizeLarkSourceData>>): UseMutationOptions<SynchronizeLarkSourceResponse, SynchronizeLarkSourceError, Options<SynchronizeLarkSourceData>> => {
+    const mutationOptions: UseMutationOptions<SynchronizeLarkSourceResponse, SynchronizeLarkSourceError, Options<SynchronizeLarkSourceData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await synchronizeLarkSource({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getLarkRootsQueryKey = (options: Options<GetLarkRootsData>) => createQueryKey('getLarkRoots', options);
+
+/**
+ * List the Wiki spaces and Drive folders in scope
+ */
+export const getLarkRootsOptions = (options: Options<GetLarkRootsData>) => queryOptions<GetLarkRootsResponse, GetLarkRootsError, GetLarkRootsResponse, ReturnType<typeof getLarkRootsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getLarkRoots({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getLarkRootsQueryKey(options)
+});
+
+export const listLarkSpacesQueryKey = (options: Options<ListLarkSpacesData>) => createQueryKey('listLarkSpaces', options);
+
+/**
+ * List the Wiki spaces the credential's app is a member of, read from Lark now
+ */
+export const listLarkSpacesOptions = (options: Options<ListLarkSpacesData>) => queryOptions<ListLarkSpacesResponse, ListLarkSpacesError, ListLarkSpacesResponse, ReturnType<typeof listLarkSpacesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listLarkSpaces({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listLarkSpacesQueryKey(options)
+});
+
+/**
+ * Replace the App Secret of a bot's app once the platform accepts it, with a revision precondition
+ */
+export const replaceChannelSecretMutation = (options?: Partial<Options<ReplaceChannelSecretData>>): UseMutationOptions<ReplaceChannelSecretResponse, ReplaceChannelSecretError, Options<ReplaceChannelSecretData>> => {
+    const mutationOptions: UseMutationOptions<ReplaceChannelSecretResponse, ReplaceChannelSecretError, Options<ReplaceChannelSecretData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await replaceChannelSecret({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Make a bot answer anyone who addresses it, from its assistant's attachments only, or only the organisation's people, with a revision precondition
+ */
+export const updateChannelPublicMutation = (options?: Partial<Options<UpdateChannelPublicData>>): UseMutationOptions<UpdateChannelPublicResponse, UpdateChannelPublicError, Options<UpdateChannelPublicData>> => {
+    const mutationOptions: UseMutationOptions<UpdateChannelPublicResponse, UpdateChannelPublicError, Options<UpdateChannelPublicData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateChannelPublic({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Choose the assistant a bot answers with, moving it from another; needs edit rights on the assistant
+ */
+export const bindChannelAssistantMutation = (options?: Partial<Options<BindChannelAssistantData>>): UseMutationOptions<BindChannelAssistantResponse, BindChannelAssistantError, Options<BindChannelAssistantData>> => {
+    const mutationOptions: UseMutationOptions<BindChannelAssistantResponse, BindChannelAssistantError, Options<BindChannelAssistantData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await bindChannelAssistant({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Give a group chat an assistant in place of its bot's default, or return it to the default; needs edit rights on the assistant
+ */
+export const bindChannelGroupAssistantMutation = (options?: Partial<Options<BindChannelGroupAssistantData>>): UseMutationOptions<BindChannelGroupAssistantResponse, BindChannelGroupAssistantError, Options<BindChannelGroupAssistantData>> => {
+    const mutationOptions: UseMutationOptions<BindChannelGroupAssistantResponse, BindChannelGroupAssistantError, Options<BindChannelGroupAssistantData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await bindChannelGroupAssistant({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Name a group chat for the bot's page, or clear the name
+ */
+export const labelChannelGroupMutation = (options?: Partial<Options<LabelChannelGroupData>>): UseMutationOptions<LabelChannelGroupResponse, LabelChannelGroupError, Options<LabelChannelGroupData>> => {
+    const mutationOptions: UseMutationOptions<LabelChannelGroupResponse, LabelChannelGroupError, Options<LabelChannelGroupData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await labelChannelGroup({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Allow the bot to answer in a group chat, or withdraw it; only a group of a platform that cannot tell who is in it (Zalo) needs it
+ */
+export const allowChannelGroupMutation = (options?: Partial<Options<AllowChannelGroupData>>): UseMutationOptions<AllowChannelGroupResponse, AllowChannelGroupError, Options<AllowChannelGroupData>> => {
+    const mutationOptions: UseMutationOptions<AllowChannelGroupResponse, AllowChannelGroupError, Options<AllowChannelGroupData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await allowChannelGroup({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Switch a bot on or off with a revision precondition
+ */
+export const updateChannelEnabledMutation = (options?: Partial<Options<UpdateChannelEnabledData>>): UseMutationOptions<UpdateChannelEnabledResponse, UpdateChannelEnabledError, Options<UpdateChannelEnabledData>> => {
+    const mutationOptions: UseMutationOptions<UpdateChannelEnabledResponse, UpdateChannelEnabledError, Options<UpdateChannelEnabledData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateChannelEnabled({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Check a Lark app with Lark and add its bot, switched off; nothing is stored when Lark rejects it
+ */
+export const createLarkChannelMutation = (options?: Partial<Options<CreateLarkChannelData>>): UseMutationOptions<CreateLarkChannelResponse, CreateLarkChannelError, Options<CreateLarkChannelData>> => {
+    const mutationOptions: UseMutationOptions<CreateLarkChannelResponse, CreateLarkChannelError, Options<CreateLarkChannelData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createLarkChannel({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Check a Lark app with Lark without storing anything
+ */
+export const testLarkChannelAppMutation = (options?: Partial<Options<TestLarkChannelAppData>>): UseMutationOptions<TestLarkChannelAppResponse, TestLarkChannelAppError, Options<TestLarkChannelAppData>> => {
+    const mutationOptions: UseMutationOptions<TestLarkChannelAppResponse, TestLarkChannelAppError, Options<TestLarkChannelAppData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await testLarkChannelApp({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listChannelsQueryKey = (options?: Options<ListChannelsData>) => createQueryKey('listChannels', options);
+
+/**
+ * List the Tenant's bots with the state of their connections
+ */
+export const listChannelsOptions = (options?: Options<ListChannelsData>) => queryOptions<ListChannelsResponse, ListChannelsError, ListChannelsResponse, ReturnType<typeof listChannelsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listChannels({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listChannelsQueryKey(options)
+});
+
+export const listChannelGroupsQueryKey = (options: Options<ListChannelGroupsData>) => createQueryKey('listChannelGroups', options);
+
+/**
+ * List the group chats a bot is known in, each with the assistant it is given and whether it may answer there
+ */
+export const listChannelGroupsOptions = (options: Options<ListChannelGroupsData>) => queryOptions<ListChannelGroupsResponse, ListChannelGroupsError, ListChannelGroupsResponse, ReturnType<typeof listChannelGroupsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listChannelGroups({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listChannelGroupsQueryKey(options)
+});
+
+/**
+ * Add a WhatsApp bot by its number, switched off; it is linked by scanning its code once switched on
+ */
+export const createWhatsAppChannelMutation = (options?: Partial<Options<CreateWhatsAppChannelData>>): UseMutationOptions<CreateWhatsAppChannelResponse, CreateWhatsAppChannelError, Options<CreateWhatsAppChannelData>> => {
+    const mutationOptions: UseMutationOptions<CreateWhatsAppChannelResponse, CreateWhatsAppChannelError, Options<CreateWhatsAppChannelData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createWhatsAppChannel({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getChannelPairingQueryKey = (options: Options<GetChannelPairingData>) => createQueryKey('getChannelPairing', options);
+
+/**
+ * Read the code a bot being linked shows, to scan with the bot's phone; none while it shows none
+ */
+export const getChannelPairingOptions = (options: Options<GetChannelPairingData>) => queryOptions<GetChannelPairingResponse, GetChannelPairingError, GetChannelPairingResponse, ReturnType<typeof getChannelPairingQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getChannelPairing({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getChannelPairingQueryKey(options)
+});
+
+/**
+ * Link a bot linked by a code again, out of a logout or a ban, with a revision precondition
+ */
+export const relinkChannelMutation = (options?: Partial<Options<RelinkChannelData>>): UseMutationOptions<RelinkChannelResponse, RelinkChannelError, Options<RelinkChannelData>> => {
+    const mutationOptions: UseMutationOptions<RelinkChannelResponse, RelinkChannelError, Options<RelinkChannelData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await relinkChannel({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
 /**
  * Remove a bot and retire its account, with a revision precondition
  */
@@ -8803,6 +8768,41 @@ export const forgetChannelGroupMutation = (options?: Partial<Options<ForgetChann
     const mutationOptions: UseMutationOptions<ForgetChannelGroupResponse, ForgetChannelGroupError, Options<ForgetChannelGroupData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await forgetChannelGroup({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listChannelLinksQueryKey = (options?: Options<ListChannelLinksData>) => createQueryKey('listChannelLinks', options);
+
+/**
+ * List the Tenant's bots that take a linked account, with the member's own link on each
+ */
+export const listChannelLinksOptions = (options?: Options<ListChannelLinksData>) => queryOptions<ListChannelLinksResponse, ListChannelLinksError, ListChannelLinksResponse, ReturnType<typeof listChannelLinksQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listChannelLinks({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listChannelLinksQueryKey(options)
+});
+
+/**
+ * Make a code, valid ten minutes, that links the platform account sending it to the bot to the member
+ */
+export const createChannelLinkCodeMutation = (options?: Partial<Options<CreateChannelLinkCodeData>>): UseMutationOptions<CreateChannelLinkCodeResponse, CreateChannelLinkCodeError, Options<CreateChannelLinkCodeData>> => {
+    const mutationOptions: UseMutationOptions<CreateChannelLinkCodeResponse, CreateChannelLinkCodeError, Options<CreateChannelLinkCodeData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createChannelLinkCode({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

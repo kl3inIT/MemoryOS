@@ -71,68 +71,6 @@ export function handleUpdateSharePointSchedule(response?: HandleUpdateSharePoint
     }, options);
 }
 
-export type HandleReplaceLarkScopeResponse = {
-    body: ReplaceLarkScopeResponses[202];
-    status?: 202;
-};
-
-/**
- * Handler for the `PUT /api/sources/{sourceId}/lark/scope` operation.
- */
-export function handleReplaceLarkScope(response?: HandleReplaceLarkScopeResponse | HttpResponseResolver<{
-    sourceId: string;
-}, ReplaceLarkScopeData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.put<{
-        sourceId: string;
-    }, ReplaceLarkScopeData['body']>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/lark/scope`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 202 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleUpdateLarkScheduleResponse = {
-    body: UpdateLarkScheduleResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `PUT /api/sources/{sourceId}/lark/schedule` operation.
- */
-export function handleUpdateLarkSchedule(response?: HandleUpdateLarkScheduleResponse | HttpResponseResolver<{
-    sourceId: string;
-}, UpdateLarkScheduleData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.put<{
-        sourceId: string;
-    }, UpdateLarkScheduleData['body']>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/lark/schedule`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
 export type HandleUpdateGoogleDriveScheduleResponse = {
     body: UpdateGoogleDriveScheduleResponses[200];
     status?: 200;
@@ -408,6 +346,39 @@ export function handleUpdateMeeting(response?: HandleUpdateMeetingResponse | Htt
     }, options);
 }
 
+export type HandleSetMeetingLineSpeakerResponse = {
+    body: SetMeetingLineSpeakerResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/meetings/{meetingId}/utterances/{utteranceId}/speaker` operation.
+ */
+export function handleSetMeetingLineSpeaker(response?: HandleSetMeetingLineSpeakerResponse | HttpResponseResolver<{
+    meetingId: string;
+    utteranceId: string;
+}, SetMeetingLineSpeakerData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        meetingId: string;
+        utteranceId: string;
+    }, SetMeetingLineSpeakerData['body']>(`${options?.baseUrl ?? '*'}/api/meetings/:meetingId/utterances/:utteranceId/speaker`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
 export type HandleUnstarMeetingUtteranceResponse = {
     body: UnstarMeetingUtteranceResponses[200];
     status?: 200;
@@ -457,39 +428,6 @@ export function handleStarMeetingUtterance(response?: HandleStarMeetingUtterance
         meetingId: string;
         utteranceId: string;
     }, never>(`${options?.baseUrl ?? '*'}/api/meetings/:meetingId/utterances/:utteranceId/star`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleSetMeetingLineSpeakerResponse = {
-    body: SetMeetingLineSpeakerResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `PUT /api/meetings/{meetingId}/utterances/{utteranceId}/speaker` operation.
- */
-export function handleSetMeetingLineSpeaker(response?: HandleSetMeetingLineSpeakerResponse | HttpResponseResolver<{
-    meetingId: string;
-    utteranceId: string;
-}, SetMeetingLineSpeakerData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.put<{
-        meetingId: string;
-        utteranceId: string;
-    }, SetMeetingLineSpeakerData['body']>(`${options?.baseUrl ?? '*'}/api/meetings/:meetingId/utterances/:utteranceId/speaker`, info => {
         if (typeof response === 'function') {
             return response(info);
         }
@@ -889,39 +827,6 @@ export function handleUpdateMcpServer(response?: HandleUpdateMcpServerResponse |
     }, options);
 }
 
-export type HandleSetMcpServerToolPolicyResponse = {
-    body: SetMcpServerToolPolicyResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `PUT /api/mcp/servers/{serverId}/tools/{toolId}/policy` operation.
- */
-export function handleSetMcpServerToolPolicy(response?: HandleSetMcpServerToolPolicyResponse | HttpResponseResolver<{
-    serverId: string;
-    toolId: string;
-}, SetMcpServerToolPolicyData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.put<{
-        serverId: string;
-        toolId: string;
-    }, SetMcpServerToolPolicyData['body']>(`${options?.baseUrl ?? '*'}/api/mcp/servers/:serverId/tools/:toolId/policy`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
 export type HandleResetMcpServerToolPoliciesResponse = {
     body: ResetMcpServerToolPoliciesResponses[200];
     status?: 200;
@@ -967,6 +872,39 @@ export function handleSetMcpServerToolGroupPolicy(response?: HandleSetMcpServerT
     return http.put<{
         serverId: string;
     }, SetMcpServerToolGroupPolicyData['body']>(`${options?.baseUrl ?? '*'}/api/mcp/servers/:serverId/tools/policy`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleSetMcpServerToolPolicyResponse = {
+    body: SetMcpServerToolPolicyResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/mcp/servers/{serverId}/tools/{toolId}/policy` operation.
+ */
+export function handleSetMcpServerToolPolicy(response?: HandleSetMcpServerToolPolicyResponse | HttpResponseResolver<{
+    serverId: string;
+    toolId: string;
+}, SetMcpServerToolPolicyData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        serverId: string;
+        toolId: string;
+    }, SetMcpServerToolPolicyData['body']>(`${options?.baseUrl ?? '*'}/api/mcp/servers/:serverId/tools/:toolId/policy`, info => {
         if (typeof response === 'function') {
             return response(info);
         }
@@ -1362,99 +1300,6 @@ export function handleReplaceSharePointCredentialAuthentication(response?: Handl
     return http.put<{
         credentialId: string;
     }, ReplaceSharePointCredentialAuthenticationData['body']>(`${options?.baseUrl ?? '*'}/api/credentials/sharepoint/:credentialId/authentication`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleDeleteLarkCredentialResponse = {
-    body: DeleteLarkCredentialResponses[204];
-    status?: 204;
-};
-
-/**
- * Handler for the `DELETE /api/credentials/lark/{credentialId}` operation.
- */
-export function handleDeleteLarkCredential(response?: HandleDeleteLarkCredentialResponse | HttpResponseResolver<{
-    credentialId: string;
-}, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.delete<{
-        credentialId: string;
-    }, never>(`${options?.baseUrl ?? '*'}/api/credentials/lark/:credentialId`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return new HttpResponse(body, { status: response?.status ?? 204 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleRenameLarkCredentialResponse = {
-    body: RenameLarkCredentialResponses[204];
-    status?: 204;
-};
-
-/**
- * Handler for the `PUT /api/credentials/lark/{credentialId}` operation.
- */
-export function handleRenameLarkCredential(response?: HandleRenameLarkCredentialResponse | HttpResponseResolver<{
-    credentialId: string;
-}, RenameLarkCredentialData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.put<{
-        credentialId: string;
-    }, RenameLarkCredentialData['body']>(`${options?.baseUrl ?? '*'}/api/credentials/lark/:credentialId`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return new HttpResponse(body, { status: response?.status ?? 204 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleReplaceLarkCredentialSecretResponse = {
-    body: ReplaceLarkCredentialSecretResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `PUT /api/credentials/lark/{credentialId}/secret` operation.
- */
-export function handleReplaceLarkCredentialSecret(response?: HandleReplaceLarkCredentialSecretResponse | HttpResponseResolver<{
-    credentialId: string;
-}, ReplaceLarkCredentialSecretData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.put<{
-        credentialId: string;
-    }, ReplaceLarkCredentialSecretData['body']>(`${options?.baseUrl ?? '*'}/api/credentials/lark/:credentialId/secret`, info => {
         if (typeof response === 'function') {
             return response(info);
         }
@@ -1878,16 +1723,16 @@ export function handleSaveChatGuardrails(response?: HandleSaveChatGuardrailsResp
     }, options);
 }
 
-export type HandleSaveChatGroundedResponse = {
-    body: SaveChatGroundedResponses[200];
+export type HandleSaveChatFollowUpsResponse = {
+    body: SaveChatFollowUpsResponses[200];
     status?: 200;
 };
 
 /**
- * Handler for the `PUT /api/chat/settings/grounded` operation.
+ * Handler for the `PUT /api/chat/settings/follow-ups` operation.
  */
-export function handleSaveChatGrounded(response?: HandleSaveChatGroundedResponse | HttpResponseResolver<never, SaveChatGroundedData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.put<never, SaveChatGroundedData['body']>(`${options?.baseUrl ?? '*'}/api/chat/settings/grounded`, info => {
+export function handleSaveChatFollowUps(response?: HandleSaveChatFollowUpsResponse | HttpResponseResolver<never, SaveChatFollowUpsData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<never, SaveChatFollowUpsData['body']>(`${options?.baseUrl ?? '*'}/api/chat/settings/follow-ups`, info => {
         if (typeof response === 'function') {
             return response(info);
         }
@@ -1905,16 +1750,16 @@ export function handleSaveChatGrounded(response?: HandleSaveChatGroundedResponse
     }, options);
 }
 
-export type HandleSaveChatFollowUpsResponse = {
-    body: SaveChatFollowUpsResponses[200];
+export type HandleSaveChatGroundedResponse = {
+    body: SaveChatGroundedResponses[200];
     status?: 200;
 };
 
 /**
- * Handler for the `PUT /api/chat/settings/follow-ups` operation.
+ * Handler for the `PUT /api/chat/settings/grounded` operation.
  */
-export function handleSaveChatFollowUps(response?: HandleSaveChatFollowUpsResponse | HttpResponseResolver<never, SaveChatFollowUpsData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.put<never, SaveChatFollowUpsData['body']>(`${options?.baseUrl ?? '*'}/api/chat/settings/follow-ups`, info => {
+export function handleSaveChatGrounded(response?: HandleSaveChatGroundedResponse | HttpResponseResolver<never, SaveChatGroundedData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<never, SaveChatGroundedData['body']>(`${options?.baseUrl ?? '*'}/api/chat/settings/grounded`, info => {
         if (typeof response === 'function') {
             return response(info);
         }
@@ -2266,60 +2111,6 @@ export function handleSelectChatBranch(response?: HandleSelectChatBranchResponse
         const body = response?.body;
         if (body !== undefined) {
             return new HttpResponse(body, { status: response?.status ?? 204 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleGetChatSandboxSettingsResponse = {
-    body: GetChatSandboxSettingsResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `GET /api/chat/sandbox` operation.
- */
-export function handleGetChatSandboxSettings(response?: HandleGetChatSandboxSettingsResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/chat/sandbox`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleUpdateChatSandboxSettingsResponse = {
-    body: UpdateChatSandboxSettingsResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `PUT /api/chat/sandbox` operation.
- */
-export function handleUpdateChatSandboxSettings(response?: HandleUpdateChatSandboxSettingsResponse | HttpResponseResolver<never, UpdateChatSandboxSettingsData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.put<never, UpdateChatSandboxSettingsData['body']>(`${options?.baseUrl ?? '*'}/api/chat/sandbox`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
         }
         if (options?.responseFallback === 'passthrough') {
             return;
@@ -3047,6 +2838,33 @@ export function handleSetChatPersonaListing(response?: HandleSetChatPersonaListi
     }, options);
 }
 
+export type HandleListChatAssistantsResponse = {
+    body: ListChatAssistantsResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/chat/assistants` operation.
+ */
+export function handleListChatAssistants(response?: HandleListChatAssistantsResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/chat/assistants`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
 export type HandleListChatPersonaPinsResponse = {
     body: ListChatPersonaPinsResponses[200];
     status?: 200;
@@ -3337,114 +3155,6 @@ export function handleSetChatModelDefault(response?: HandleSetChatModelDefaultRe
     }, options);
 }
 
-export type HandleClearChatMemoryResponse = {
-    body: ClearChatMemoryResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `DELETE /api/chat/memory` operation.
- */
-export function handleClearChatMemory(response?: HandleClearChatMemoryResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.delete<never, never>(`${options?.baseUrl ?? '*'}/api/chat/memory`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleGetChatMemoryResponse = {
-    body: GetChatMemoryResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `GET /api/chat/memory` operation.
- */
-export function handleGetChatMemory(response?: HandleGetChatMemoryResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/chat/memory`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleSaveChatMemoryResponse = {
-    body: SaveChatMemoryResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `PUT /api/chat/memory` operation.
- */
-export function handleSaveChatMemory(response?: HandleSaveChatMemoryResponse | HttpResponseResolver<never, SaveChatMemoryData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.put<never, SaveChatMemoryData['body']>(`${options?.baseUrl ?? '*'}/api/chat/memory`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleSetChatMemoryEnabledResponse = {
-    body: SetChatMemoryEnabledResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `PUT /api/chat/memory/enabled` operation.
- */
-export function handleSetChatMemoryEnabled(response?: HandleSetChatMemoryEnabledResponse | HttpResponseResolver<never, SetChatMemoryEnabledData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.put<never, SetChatMemoryEnabledData['body']>(`${options?.baseUrl ?? '*'}/api/chat/memory/enabled`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
 export type HandleUnstarChatLibraryEntryResponse = {
     body: UnstarChatLibraryEntryResponses[204];
     status?: 204;
@@ -3500,6 +3210,60 @@ export function handleStarChatLibraryEntry(response?: HandleStarChatLibraryEntry
         const body = response?.body;
         if (body !== undefined) {
             return new HttpResponse(body, { status: response?.status ?? 204 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleGetChatSandboxSettingsResponse = {
+    body: GetChatSandboxSettingsResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/chat/sandbox` operation.
+ */
+export function handleGetChatSandboxSettings(response?: HandleGetChatSandboxSettingsResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/chat/sandbox`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleUpdateChatSandboxSettingsResponse = {
+    body: UpdateChatSandboxSettingsResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/chat/sandbox` operation.
+ */
+export function handleUpdateChatSandboxSettings(response?: HandleUpdateChatSandboxSettingsResponse | HttpResponseResolver<never, UpdateChatSandboxSettingsData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<never, UpdateChatSandboxSettingsData['body']>(`${options?.baseUrl ?? '*'}/api/chat/sandbox`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
         }
         if (options?.responseFallback === 'passthrough') {
             return;
@@ -3707,229 +3471,6 @@ export function handleUpdateChannelTransport(response?: HandleUpdateChannelTrans
     return http.put<{
         channelId: string;
     }, UpdateChannelTransportData['body']>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/transport`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleReplaceChannelSecretResponse = {
-    body: ReplaceChannelSecretResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `PUT /api/channels/{channelId}/secret` operation.
- */
-export function handleReplaceChannelSecret(response?: HandleReplaceChannelSecretResponse | HttpResponseResolver<{
-    channelId: string;
-}, ReplaceChannelSecretData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.put<{
-        channelId: string;
-    }, ReplaceChannelSecretData['body']>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/secret`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleUpdateChannelPublicResponse = {
-    body: UpdateChannelPublicResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `PUT /api/channels/{channelId}/public` operation.
- */
-export function handleUpdateChannelPublic(response?: HandleUpdateChannelPublicResponse | HttpResponseResolver<{
-    channelId: string;
-}, UpdateChannelPublicData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.put<{
-        channelId: string;
-    }, UpdateChannelPublicData['body']>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/public`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleBindChannelAssistantResponse = {
-    body: BindChannelAssistantResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `PUT /api/channels/{channelId}/persona` operation.
- */
-export function handleBindChannelAssistant(response?: HandleBindChannelAssistantResponse | HttpResponseResolver<{
-    channelId: string;
-}, BindChannelAssistantData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.put<{
-        channelId: string;
-    }, BindChannelAssistantData['body']>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/persona`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleBindChannelGroupAssistantResponse = {
-    body: BindChannelGroupAssistantResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `PUT /api/channels/{channelId}/groups/{groupId}/persona` operation.
- */
-export function handleBindChannelGroupAssistant(response?: HandleBindChannelGroupAssistantResponse | HttpResponseResolver<{
-    channelId: string;
-    groupId: string;
-}, BindChannelGroupAssistantData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.put<{
-        channelId: string;
-        groupId: string;
-    }, BindChannelGroupAssistantData['body']>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/groups/:groupId/persona`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleAllowChannelGroupResponse = {
-    body: AllowChannelGroupResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `PUT /api/channels/{channelId}/groups/{groupId}/permission` operation.
- */
-export function handleAllowChannelGroup(response?: HandleAllowChannelGroupResponse | HttpResponseResolver<{
-    channelId: string;
-    groupId: string;
-}, AllowChannelGroupData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.put<{
-        channelId: string;
-        groupId: string;
-    }, AllowChannelGroupData['body']>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/groups/:groupId/permission`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleLabelChannelGroupResponse = {
-    body: LabelChannelGroupResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `PUT /api/channels/{channelId}/groups/{groupId}/label` operation.
- */
-export function handleLabelChannelGroup(response?: HandleLabelChannelGroupResponse | HttpResponseResolver<{
-    channelId: string;
-    groupId: string;
-}, LabelChannelGroupData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.put<{
-        channelId: string;
-        groupId: string;
-    }, LabelChannelGroupData['body']>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/groups/:groupId/label`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleUpdateChannelEnabledResponse = {
-    body: UpdateChannelEnabledResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `PUT /api/channels/{channelId}/enabled` operation.
- */
-export function handleUpdateChannelEnabled(response?: HandleUpdateChannelEnabledResponse | HttpResponseResolver<{
-    channelId: string;
-}, UpdateChannelEnabledData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.put<{
-        channelId: string;
-    }, UpdateChannelEnabledData['body']>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/enabled`, info => {
         if (typeof response === 'function') {
             return response(info);
         }
@@ -4352,68 +3893,6 @@ export function handleAssignSourceManager(response?: HandleAssignSourceManagerRe
     }, options);
 }
 
-export type HandleSynchronizeLarkSourceResponse = {
-    body: SynchronizeLarkSourceResponses[202];
-    status?: 202;
-};
-
-/**
- * Handler for the `POST /api/sources/{sourceId}/lark/sync` operation.
- */
-export function handleSynchronizeLarkSource(response?: HandleSynchronizeLarkSourceResponse | HttpResponseResolver<{
-    sourceId: string;
-}, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.post<{
-        sourceId: string;
-    }, never>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/lark/sync`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 202 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleUpdateLarkPauseResponse = {
-    body: UpdateLarkPauseResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `POST /api/sources/{sourceId}/lark/pause` operation.
- */
-export function handleUpdateLarkPause(response?: HandleUpdateLarkPauseResponse | HttpResponseResolver<{
-    sourceId: string;
-}, UpdateLarkPauseData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.post<{
-        sourceId: string;
-    }, UpdateLarkPauseData['body']>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/lark/pause`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
 export type HandleRemoveSourceItemResponse = {
     body: RemoveSourceItemResponses[202];
     status?: 202;
@@ -4707,33 +4186,6 @@ export type HandleCreateSharePointSourceResponse = {
  */
 export function handleCreateSharePointSource(response?: HandleCreateSharePointSourceResponse | HttpResponseResolver<never, CreateSharePointSourceData['body']>, options?: RequestHandlerOptions): HttpHandler {
     return http.post<never, CreateSharePointSourceData['body']>(`${options?.baseUrl ?? '*'}/api/sources/sharepoint`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 202 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleCreateLarkSourceResponse = {
-    body: CreateLarkSourceResponses[202];
-    status?: 202;
-};
-
-/**
- * Handler for the `POST /api/sources/lark` operation.
- */
-export function handleCreateLarkSource(response?: HandleCreateLarkSourceResponse | HttpResponseResolver<never, CreateLarkSourceData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.post<never, CreateLarkSourceData['body']>(`${options?.baseUrl ?? '*'}/api/sources/lark`, info => {
         if (typeof response === 'function') {
             return response(info);
         }
@@ -6593,91 +6045,6 @@ export function handleTestSharePointCredential(response?: HandleTestSharePointCr
     }, options);
 }
 
-export type HandleListLarkCredentialsResponse = {
-    body: ListLarkCredentialsResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `GET /api/credentials/lark` operation.
- */
-export function handleListLarkCredentials(response?: HandleListLarkCredentialsResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/credentials/lark`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleCreateLarkCredentialResponse = {
-    body: CreateLarkCredentialResponses[201];
-    status?: 201;
-};
-
-/**
- * Handler for the `POST /api/credentials/lark` operation.
- */
-export function handleCreateLarkCredential(response?: HandleCreateLarkCredentialResponse | HttpResponseResolver<never, CreateLarkCredentialData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.post<never, CreateLarkCredentialData['body']>(`${options?.baseUrl ?? '*'}/api/credentials/lark`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 201 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleTestLarkCredentialResponse = {
-    body: TestLarkCredentialResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `POST /api/credentials/lark/{credentialId}/test` operation.
- */
-export function handleTestLarkCredential(response?: HandleTestLarkCredentialResponse | HttpResponseResolver<{
-    credentialId: string;
-}, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.post<{
-        credentialId: string;
-    }, never>(`${options?.baseUrl ?? '*'}/api/credentials/lark/:credentialId/test`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
 export type HandleRevokeGoogleDriveCredentialResponse = {
     body: RevokeGoogleDriveCredentialResponses[204];
     status?: 204;
@@ -8506,75 +7873,6 @@ export function handleCreateDocumentSet(response?: HandleCreateDocumentSetRespon
     }, options);
 }
 
-export type HandleGetChannelPairingResponse = {
-    body: GetChannelPairingResponses[200];
-    status?: 200;
-};
-
-type ToResponseUnion<T> = {
-    [K in Extract<keyof T, number>]: {
-        status: K;
-        body: T[K];
-    };
-}[Extract<keyof T, number>];
-
-/**
- * Handler for the `GET /api/channels/{channelId}/pairing` operation.
- */
-export function handleGetChannelPairing(response?: HandleGetChannelPairingResponse | ToResponseUnion<GetChannelPairingResponses> | HttpResponseResolver<{
-    channelId: string;
-}, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.get<{
-        channelId: string;
-    }, never>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/pairing`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleRelinkChannelResponse = {
-    body: RelinkChannelResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `POST /api/channels/{channelId}/pairing` operation.
- */
-export function handleRelinkChannel(response?: HandleRelinkChannelResponse | HttpResponseResolver<{
-    channelId: string;
-}, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.post<{
-        channelId: string;
-    }, never>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/pairing`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
 export type HandleCreateZaloChannelResponse = {
     body: CreateZaloChannelResponses[201];
     status?: 201;
@@ -8618,141 +7916,6 @@ export function handleTestZaloChannelBot(response?: HandleTestZaloChannelBotResp
         const body = response?.body;
         if (body !== undefined) {
             return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleCreateWhatsAppChannelResponse = {
-    body: CreateWhatsAppChannelResponses[201];
-    status?: 201;
-};
-
-/**
- * Handler for the `POST /api/channels/whatsapp` operation.
- */
-export function handleCreateWhatsAppChannel(response?: HandleCreateWhatsAppChannelResponse | HttpResponseResolver<never, CreateWhatsAppChannelData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.post<never, CreateWhatsAppChannelData['body']>(`${options?.baseUrl ?? '*'}/api/channels/whatsapp`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 201 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleCreateLarkChannelResponse = {
-    body: CreateLarkChannelResponses[201];
-    status?: 201;
-};
-
-/**
- * Handler for the `POST /api/channels/lark` operation.
- */
-export function handleCreateLarkChannel(response?: HandleCreateLarkChannelResponse | HttpResponseResolver<never, CreateLarkChannelData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.post<never, CreateLarkChannelData['body']>(`${options?.baseUrl ?? '*'}/api/channels/lark`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 201 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleTestLarkChannelAppResponse = {
-    body: TestLarkChannelAppResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `POST /api/channels/lark/test` operation.
- */
-export function handleTestLarkChannelApp(response?: HandleTestLarkChannelAppResponse | HttpResponseResolver<never, TestLarkChannelAppData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.post<never, TestLarkChannelAppData['body']>(`${options?.baseUrl ?? '*'}/api/channels/lark/test`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleListChannelLinksResponse = {
-    body: ListChannelLinksResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `GET /api/channel-links` operation.
- */
-export function handleListChannelLinks(response?: HandleListChannelLinksResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/channel-links`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleCreateChannelLinkCodeResponse = {
-    body: CreateChannelLinkCodeResponses[201];
-    status?: 201;
-};
-
-/**
- * Handler for the `POST /api/channel-links` operation.
- */
-export function handleCreateChannelLinkCode(response?: HandleCreateChannelLinkCodeResponse | HttpResponseResolver<never, CreateChannelLinkCodeData['body']>, options?: RequestHandlerOptions): HttpHandler {
-    return http.post<never, CreateChannelLinkCodeData['body']>(`${options?.baseUrl ?? '*'}/api/channel-links`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 201 });
         }
         if (options?.responseFallback === 'passthrough') {
             return;
@@ -8986,6 +8149,33 @@ export function handleListUsers(response?: HandleListUsersResponse | HttpRespons
     }, options);
 }
 
+export type HandleListSourcePageResponse = {
+    body: ListSourcePageResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/sources/page` operation.
+ */
+export function handleListSourcePage(response?: HandleListSourcePageResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/sources/page`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
 export type HandleListSourcesResponse = {
     body: ListSourcesResponses[200];
     status?: 200;
@@ -9186,68 +8376,6 @@ export function handleListSourceRunErrors(response?: HandleListSourceRunErrorsRe
         sourceId: string;
         runId: string;
     }, never>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/runs/:runId/errors`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleGetLarkConfigurationResponse = {
-    body: GetLarkConfigurationResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `GET /api/sources/{sourceId}/lark` operation.
- */
-export function handleGetLarkConfiguration(response?: HandleGetLarkConfigurationResponse | HttpResponseResolver<{
-    sourceId: string;
-}, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.get<{
-        sourceId: string;
-    }, never>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/lark`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleGetLarkRootsResponse = {
-    body: GetLarkRootsResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `GET /api/sources/{sourceId}/lark/roots` operation.
- */
-export function handleGetLarkRoots(response?: HandleGetLarkRootsResponse | HttpResponseResolver<{
-    sourceId: string;
-}, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.get<{
-        sourceId: string;
-    }, never>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/lark/roots`, info => {
         if (typeof response === 'function') {
             return response(info);
         }
@@ -9492,95 +8620,6 @@ export type HandleGetSharePointSelectionPolicyResponse = {
  */
 export function handleGetSharePointSelectionPolicy(response?: HandleGetSharePointSelectionPolicyResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
     return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/sources/sharepoint/selection-policy`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleListSourcePageResponse = {
-    body: ListSourcePageResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `GET /api/sources/page` operation.
- */
-export function handleListSourcePage(response?: HandleListSourcePageResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/sources/page`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleGetLarkSelectionRequestResponse = {
-    body: GetLarkSelectionRequestResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `GET /api/sources/lark/selection-requests/{requestId}` operation.
- */
-export function handleGetLarkSelectionRequest(response?: HandleGetLarkSelectionRequestResponse | HttpResponseResolver<{
-    requestId: string;
-}, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.get<{
-        requestId: string;
-    }, never>(`${options?.baseUrl ?? '*'}/api/sources/lark/selection-requests/:requestId`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleListLarkSpacesResponse = {
-    body: ListLarkSpacesResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `GET /api/sources/lark/credentials/{credentialId}/spaces` operation.
- */
-export function handleListLarkSpaces(response?: HandleListLarkSpacesResponse | HttpResponseResolver<{
-    credentialId: string;
-}, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.get<{
-        credentialId: string;
-    }, never>(`${options?.baseUrl ?? '*'}/api/sources/lark/credentials/:credentialId/spaces`, info => {
         if (typeof response === 'function') {
             return response(info);
         }
@@ -9867,6 +8906,13 @@ export type HandleReadSearchDocumentOriginalResponse = {
     body: ReadSearchDocumentOriginalResponses[200];
     status?: 200;
 };
+
+type ToResponseUnion<T> = {
+    [K in Extract<keyof T, number>]: {
+        status: K;
+        body: T[K];
+    };
+}[Extract<keyof T, number>];
 
 /**
  * Handler for the `GET /api/search/documents/{documentId}/original` operation.
@@ -10889,16 +9935,16 @@ export function handleSearchChatSessions(response?: HandleSearchChatSessionsResp
     }, options);
 }
 
-export type HandleGetChatSandboxHealthResponse = {
-    body: GetChatSandboxHealthResponses[200];
+export type HandlePreviewChatRetentionResponse = {
+    body: PreviewChatRetentionResponses[200];
     status?: 200;
 };
 
 /**
- * Handler for the `GET /api/chat/sandbox/health` operation.
+ * Handler for the `GET /api/chat/retention/preview` operation.
  */
-export function handleGetChatSandboxHealth(response?: HandleGetChatSandboxHealthResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/chat/sandbox/health`, info => {
+export function handlePreviewChatRetention(response?: HandlePreviewChatRetentionResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/chat/retention/preview`, info => {
         if (typeof response === 'function') {
             return response(info);
         }
@@ -10916,16 +9962,97 @@ export function handleGetChatSandboxHealth(response?: HandleGetChatSandboxHealth
     }, options);
 }
 
-export type HandlePreviewChatRetentionResponse = {
-    body: PreviewChatRetentionResponses[200];
+export type HandleClearChatMemoryResponse = {
+    body: ClearChatMemoryResponses[200];
     status?: 200;
 };
 
 /**
- * Handler for the `GET /api/chat/retention/preview` operation.
+ * Handler for the `DELETE /api/chat/memory` operation.
  */
-export function handlePreviewChatRetention(response?: HandlePreviewChatRetentionResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/chat/retention/preview`, info => {
+export function handleClearChatMemory(response?: HandleClearChatMemoryResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.delete<never, never>(`${options?.baseUrl ?? '*'}/api/chat/memory`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleGetChatMemoryResponse = {
+    body: GetChatMemoryResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/chat/memory` operation.
+ */
+export function handleGetChatMemory(response?: HandleGetChatMemoryResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/chat/memory`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleSaveChatMemoryResponse = {
+    body: SaveChatMemoryResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/chat/memory` operation.
+ */
+export function handleSaveChatMemory(response?: HandleSaveChatMemoryResponse | HttpResponseResolver<never, SaveChatMemoryData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<never, SaveChatMemoryData['body']>(`${options?.baseUrl ?? '*'}/api/chat/memory`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleSetChatMemoryEnabledResponse = {
+    body: SetChatMemoryEnabledResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/chat/memory/enabled` operation.
+ */
+export function handleSetChatMemoryEnabled(response?: HandleSetChatMemoryEnabledResponse | HttpResponseResolver<never, SetChatMemoryEnabledData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<never, SetChatMemoryEnabledData['body']>(`${options?.baseUrl ?? '*'}/api/chat/memory/enabled`, info => {
         if (typeof response === 'function') {
             return response(info);
         }
@@ -11519,6 +10646,33 @@ export function handleDownloadChatLibraryArchive(response?: HandleDownloadChatLi
         const body = response?.body;
         if (body !== undefined) {
             return new HttpResponse(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleGetChatSandboxHealthResponse = {
+    body: GetChatSandboxHealthResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/chat/sandbox/health` operation.
+ */
+export function handleGetChatSandboxHealth(response?: HandleGetChatSandboxHealthResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/chat/sandbox/health`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
         }
         if (options?.responseFallback === 'passthrough') {
             return;
@@ -12304,91 +11458,6 @@ export function handleReadChatDocumentOriginal(response?: HandleReadChatDocument
     }, options);
 }
 
-export type HandleListChatAssistantsResponse = {
-    body: ListChatAssistantsResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `GET /api/chat/assistants` operation.
- */
-export function handleListChatAssistants(response?: HandleListChatAssistantsResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/chat/assistants`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleListChannelsResponse = {
-    body: ListChannelsResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `GET /api/channels` operation.
- */
-export function handleListChannels(response?: HandleListChannelsResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/channels`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
-export type HandleListChannelGroupsResponse = {
-    body: ListChannelGroupsResponses[200];
-    status?: 200;
-};
-
-/**
- * Handler for the `GET /api/channels/{channelId}/groups` operation.
- */
-export function handleListChannelGroups(response?: HandleListChannelGroupsResponse | HttpResponseResolver<{
-    channelId: string;
-}, never>, options?: RequestHandlerOptions): HttpHandler {
-    return http.get<{
-        channelId: string;
-    }, never>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/groups`, info => {
-        if (typeof response === 'function') {
-            return response(info);
-        }
-        const body = response?.body;
-        if (body !== undefined) {
-            return HttpResponse.json(body, { status: response?.status ?? 200 });
-        }
-        if (options?.responseFallback === 'passthrough') {
-            return;
-        }
-        return new Response('Not Implemented', {
-            status: 501,
-            statusText: 'Not Implemented'
-        });
-    }, options);
-}
-
 export type HandleExportAuditEventsResponse = {
     body: ExportAuditEventsResponses[200];
     status?: 200;
@@ -12948,6 +12017,883 @@ export function handleDeleteChatFileArtifact(response?: HandleDeleteChatFileArti
     }, options);
 }
 
+export type HandleListLarkCredentialsResponse = {
+    body: ListLarkCredentialsResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/credentials/lark` operation.
+ */
+export function handleListLarkCredentials(response?: HandleListLarkCredentialsResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/credentials/lark`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleCreateLarkCredentialResponse = {
+    body: CreateLarkCredentialResponses[201];
+    status?: 201;
+};
+
+/**
+ * Handler for the `POST /api/credentials/lark` operation.
+ */
+export function handleCreateLarkCredential(response?: HandleCreateLarkCredentialResponse | HttpResponseResolver<never, CreateLarkCredentialData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<never, CreateLarkCredentialData['body']>(`${options?.baseUrl ?? '*'}/api/credentials/lark`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 201 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleDeleteLarkCredentialResponse = {
+    body: DeleteLarkCredentialResponses[204];
+    status?: 204;
+};
+
+/**
+ * Handler for the `DELETE /api/credentials/lark/{credentialId}` operation.
+ */
+export function handleDeleteLarkCredential(response?: HandleDeleteLarkCredentialResponse | HttpResponseResolver<{
+    credentialId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.delete<{
+        credentialId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/credentials/lark/:credentialId`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return new HttpResponse(body, { status: response?.status ?? 204 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleRenameLarkCredentialResponse = {
+    body: RenameLarkCredentialResponses[204];
+    status?: 204;
+};
+
+/**
+ * Handler for the `PUT /api/credentials/lark/{credentialId}` operation.
+ */
+export function handleRenameLarkCredential(response?: HandleRenameLarkCredentialResponse | HttpResponseResolver<{
+    credentialId: string;
+}, RenameLarkCredentialData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        credentialId: string;
+    }, RenameLarkCredentialData['body']>(`${options?.baseUrl ?? '*'}/api/credentials/lark/:credentialId`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return new HttpResponse(body, { status: response?.status ?? 204 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleReplaceLarkCredentialSecretResponse = {
+    body: ReplaceLarkCredentialSecretResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/credentials/lark/{credentialId}/secret` operation.
+ */
+export function handleReplaceLarkCredentialSecret(response?: HandleReplaceLarkCredentialSecretResponse | HttpResponseResolver<{
+    credentialId: string;
+}, ReplaceLarkCredentialSecretData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        credentialId: string;
+    }, ReplaceLarkCredentialSecretData['body']>(`${options?.baseUrl ?? '*'}/api/credentials/lark/:credentialId/secret`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleTestLarkCredentialResponse = {
+    body: TestLarkCredentialResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `POST /api/credentials/lark/{credentialId}/test` operation.
+ */
+export function handleTestLarkCredential(response?: HandleTestLarkCredentialResponse | HttpResponseResolver<{
+    credentialId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<{
+        credentialId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/credentials/lark/:credentialId/test`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleCreateLarkSourceResponse = {
+    body: CreateLarkSourceResponses[202];
+    status?: 202;
+};
+
+/**
+ * Handler for the `POST /api/sources/lark` operation.
+ */
+export function handleCreateLarkSource(response?: HandleCreateLarkSourceResponse | HttpResponseResolver<never, CreateLarkSourceData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<never, CreateLarkSourceData['body']>(`${options?.baseUrl ?? '*'}/api/sources/lark`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 202 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleGetLarkConfigurationResponse = {
+    body: GetLarkConfigurationResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/sources/{sourceId}/lark` operation.
+ */
+export function handleGetLarkConfiguration(response?: HandleGetLarkConfigurationResponse | HttpResponseResolver<{
+    sourceId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<{
+        sourceId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/lark`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleGetLarkSelectionRequestResponse = {
+    body: GetLarkSelectionRequestResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/sources/lark/selection-requests/{requestId}` operation.
+ */
+export function handleGetLarkSelectionRequest(response?: HandleGetLarkSelectionRequestResponse | HttpResponseResolver<{
+    requestId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<{
+        requestId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/sources/lark/selection-requests/:requestId`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleReplaceLarkScopeResponse = {
+    body: ReplaceLarkScopeResponses[202];
+    status?: 202;
+};
+
+/**
+ * Handler for the `PUT /api/sources/{sourceId}/lark/scope` operation.
+ */
+export function handleReplaceLarkScope(response?: HandleReplaceLarkScopeResponse | HttpResponseResolver<{
+    sourceId: string;
+}, ReplaceLarkScopeData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        sourceId: string;
+    }, ReplaceLarkScopeData['body']>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/lark/scope`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 202 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleUpdateLarkScheduleResponse = {
+    body: UpdateLarkScheduleResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/sources/{sourceId}/lark/schedule` operation.
+ */
+export function handleUpdateLarkSchedule(response?: HandleUpdateLarkScheduleResponse | HttpResponseResolver<{
+    sourceId: string;
+}, UpdateLarkScheduleData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        sourceId: string;
+    }, UpdateLarkScheduleData['body']>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/lark/schedule`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleUpdateLarkPauseResponse = {
+    body: UpdateLarkPauseResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `POST /api/sources/{sourceId}/lark/pause` operation.
+ */
+export function handleUpdateLarkPause(response?: HandleUpdateLarkPauseResponse | HttpResponseResolver<{
+    sourceId: string;
+}, UpdateLarkPauseData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<{
+        sourceId: string;
+    }, UpdateLarkPauseData['body']>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/lark/pause`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleSynchronizeLarkSourceResponse = {
+    body: SynchronizeLarkSourceResponses[202];
+    status?: 202;
+};
+
+/**
+ * Handler for the `POST /api/sources/{sourceId}/lark/sync` operation.
+ */
+export function handleSynchronizeLarkSource(response?: HandleSynchronizeLarkSourceResponse | HttpResponseResolver<{
+    sourceId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<{
+        sourceId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/lark/sync`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 202 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleGetLarkRootsResponse = {
+    body: GetLarkRootsResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/sources/{sourceId}/lark/roots` operation.
+ */
+export function handleGetLarkRoots(response?: HandleGetLarkRootsResponse | HttpResponseResolver<{
+    sourceId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<{
+        sourceId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/sources/:sourceId/lark/roots`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleListLarkSpacesResponse = {
+    body: ListLarkSpacesResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/sources/lark/credentials/{credentialId}/spaces` operation.
+ */
+export function handleListLarkSpaces(response?: HandleListLarkSpacesResponse | HttpResponseResolver<{
+    credentialId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<{
+        credentialId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/sources/lark/credentials/:credentialId/spaces`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleReplaceChannelSecretResponse = {
+    body: ReplaceChannelSecretResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/channels/{channelId}/secret` operation.
+ */
+export function handleReplaceChannelSecret(response?: HandleReplaceChannelSecretResponse | HttpResponseResolver<{
+    channelId: string;
+}, ReplaceChannelSecretData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        channelId: string;
+    }, ReplaceChannelSecretData['body']>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/secret`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleUpdateChannelPublicResponse = {
+    body: UpdateChannelPublicResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/channels/{channelId}/public` operation.
+ */
+export function handleUpdateChannelPublic(response?: HandleUpdateChannelPublicResponse | HttpResponseResolver<{
+    channelId: string;
+}, UpdateChannelPublicData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        channelId: string;
+    }, UpdateChannelPublicData['body']>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/public`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleBindChannelAssistantResponse = {
+    body: BindChannelAssistantResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/channels/{channelId}/persona` operation.
+ */
+export function handleBindChannelAssistant(response?: HandleBindChannelAssistantResponse | HttpResponseResolver<{
+    channelId: string;
+}, BindChannelAssistantData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        channelId: string;
+    }, BindChannelAssistantData['body']>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/persona`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleBindChannelGroupAssistantResponse = {
+    body: BindChannelGroupAssistantResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/channels/{channelId}/groups/{groupId}/persona` operation.
+ */
+export function handleBindChannelGroupAssistant(response?: HandleBindChannelGroupAssistantResponse | HttpResponseResolver<{
+    channelId: string;
+    groupId: string;
+}, BindChannelGroupAssistantData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        channelId: string;
+        groupId: string;
+    }, BindChannelGroupAssistantData['body']>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/groups/:groupId/persona`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleLabelChannelGroupResponse = {
+    body: LabelChannelGroupResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/channels/{channelId}/groups/{groupId}/label` operation.
+ */
+export function handleLabelChannelGroup(response?: HandleLabelChannelGroupResponse | HttpResponseResolver<{
+    channelId: string;
+    groupId: string;
+}, LabelChannelGroupData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        channelId: string;
+        groupId: string;
+    }, LabelChannelGroupData['body']>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/groups/:groupId/label`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleAllowChannelGroupResponse = {
+    body: AllowChannelGroupResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/channels/{channelId}/groups/{groupId}/permission` operation.
+ */
+export function handleAllowChannelGroup(response?: HandleAllowChannelGroupResponse | HttpResponseResolver<{
+    channelId: string;
+    groupId: string;
+}, AllowChannelGroupData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        channelId: string;
+        groupId: string;
+    }, AllowChannelGroupData['body']>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/groups/:groupId/permission`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleUpdateChannelEnabledResponse = {
+    body: UpdateChannelEnabledResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/channels/{channelId}/enabled` operation.
+ */
+export function handleUpdateChannelEnabled(response?: HandleUpdateChannelEnabledResponse | HttpResponseResolver<{
+    channelId: string;
+}, UpdateChannelEnabledData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        channelId: string;
+    }, UpdateChannelEnabledData['body']>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/enabled`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleCreateLarkChannelResponse = {
+    body: CreateLarkChannelResponses[201];
+    status?: 201;
+};
+
+/**
+ * Handler for the `POST /api/channels/lark` operation.
+ */
+export function handleCreateLarkChannel(response?: HandleCreateLarkChannelResponse | HttpResponseResolver<never, CreateLarkChannelData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<never, CreateLarkChannelData['body']>(`${options?.baseUrl ?? '*'}/api/channels/lark`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 201 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleTestLarkChannelAppResponse = {
+    body: TestLarkChannelAppResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `POST /api/channels/lark/test` operation.
+ */
+export function handleTestLarkChannelApp(response?: HandleTestLarkChannelAppResponse | HttpResponseResolver<never, TestLarkChannelAppData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<never, TestLarkChannelAppData['body']>(`${options?.baseUrl ?? '*'}/api/channels/lark/test`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleListChannelsResponse = {
+    body: ListChannelsResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/channels` operation.
+ */
+export function handleListChannels(response?: HandleListChannelsResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/channels`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleListChannelGroupsResponse = {
+    body: ListChannelGroupsResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/channels/{channelId}/groups` operation.
+ */
+export function handleListChannelGroups(response?: HandleListChannelGroupsResponse | HttpResponseResolver<{
+    channelId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<{
+        channelId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/groups`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleCreateWhatsAppChannelResponse = {
+    body: CreateWhatsAppChannelResponses[201];
+    status?: 201;
+};
+
+/**
+ * Handler for the `POST /api/channels/whatsapp` operation.
+ */
+export function handleCreateWhatsAppChannel(response?: HandleCreateWhatsAppChannelResponse | HttpResponseResolver<never, CreateWhatsAppChannelData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<never, CreateWhatsAppChannelData['body']>(`${options?.baseUrl ?? '*'}/api/channels/whatsapp`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 201 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleGetChannelPairingResponse = {
+    body: GetChannelPairingResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/channels/{channelId}/pairing` operation.
+ */
+export function handleGetChannelPairing(response?: HandleGetChannelPairingResponse | ToResponseUnion<GetChannelPairingResponses> | HttpResponseResolver<{
+    channelId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<{
+        channelId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/pairing`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleRelinkChannelResponse = {
+    body: RelinkChannelResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `POST /api/channels/{channelId}/pairing` operation.
+ */
+export function handleRelinkChannel(response?: HandleRelinkChannelResponse | HttpResponseResolver<{
+    channelId: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<{
+        channelId: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/channels/:channelId/pairing`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
 export type HandleDeleteChannelResponse = {
     body: DeleteChannelResponses[204];
     status?: 204;
@@ -13012,6 +12958,60 @@ export function handleForgetChannelGroup(response?: HandleForgetChannelGroupResp
     }, options);
 }
 
+export type HandleListChannelLinksResponse = {
+    body: ListChannelLinksResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/channel-links` operation.
+ */
+export function handleListChannelLinks(response?: HandleListChannelLinksResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/channel-links`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleCreateChannelLinkCodeResponse = {
+    body: CreateChannelLinkCodeResponses[201];
+    status?: 201;
+};
+
+/**
+ * Handler for the `POST /api/channel-links` operation.
+ */
+export function handleCreateChannelLinkCode(response?: HandleCreateChannelLinkCodeResponse | HttpResponseResolver<never, CreateChannelLinkCodeData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.post<never, CreateChannelLinkCodeData['body']>(`${options?.baseUrl ?? '*'}/api/channel-links`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 201 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
 export type HandleDeleteChannelLinkResponse = {
     body: DeleteChannelLinkResponses[204];
     status?: 204;
@@ -13053,14 +13053,6 @@ export type MswHandlerFactories = {
      */
     updateSharePointSchedule: typeof handleUpdateSharePointSchedule;
     /**
-     * Handler for the `PUT /api/sources/{sourceId}/lark/scope` operation.
-     */
-    replaceLarkScope: typeof handleReplaceLarkScope;
-    /**
-     * Handler for the `PUT /api/sources/{sourceId}/lark/schedule` operation.
-     */
-    updateLarkSchedule: typeof handleUpdateLarkSchedule;
-    /**
      * Handler for the `PUT /api/sources/{sourceId}/google-drive/schedule` operation.
      */
     updateGoogleDriveSchedule: typeof handleUpdateGoogleDriveSchedule;
@@ -13097,6 +13089,10 @@ export type MswHandlerFactories = {
      */
     updateMeeting: typeof handleUpdateMeeting;
     /**
+     * Handler for the `PUT /api/meetings/{meetingId}/utterances/{utteranceId}/speaker` operation.
+     */
+    setMeetingLineSpeaker: typeof handleSetMeetingLineSpeaker;
+    /**
      * Handler for the `DELETE /api/meetings/{meetingId}/utterances/{utteranceId}/star` operation.
      */
     unstarMeetingUtterance: typeof handleUnstarMeetingUtterance;
@@ -13104,10 +13100,6 @@ export type MswHandlerFactories = {
      * Handler for the `PUT /api/meetings/{meetingId}/utterances/{utteranceId}/star` operation.
      */
     starMeetingUtterance: typeof handleStarMeetingUtterance;
-    /**
-     * Handler for the `PUT /api/meetings/{meetingId}/utterances/{utteranceId}/speaker` operation.
-     */
-    setMeetingLineSpeaker: typeof handleSetMeetingLineSpeaker;
     /**
      * Handler for the `PUT /api/meetings/{meetingId}/speakers/{track}/{label}` operation.
      */
@@ -13157,10 +13149,6 @@ export type MswHandlerFactories = {
      */
     updateMcpServer: typeof handleUpdateMcpServer;
     /**
-     * Handler for the `PUT /api/mcp/servers/{serverId}/tools/{toolId}/policy` operation.
-     */
-    setMcpServerToolPolicy: typeof handleSetMcpServerToolPolicy;
-    /**
      * Handler for the `DELETE /api/mcp/servers/{serverId}/tools/policy` operation.
      */
     resetMcpServerToolPolicies: typeof handleResetMcpServerToolPolicies;
@@ -13168,6 +13156,10 @@ export type MswHandlerFactories = {
      * Handler for the `PUT /api/mcp/servers/{serverId}/tools/policy` operation.
      */
     setMcpServerToolGroupPolicy: typeof handleSetMcpServerToolGroupPolicy;
+    /**
+     * Handler for the `PUT /api/mcp/servers/{serverId}/tools/{toolId}/policy` operation.
+     */
+    setMcpServerToolPolicy: typeof handleSetMcpServerToolPolicy;
     /**
      * Handler for the `DELETE /api/mcp/servers/{serverId}/oauth/clients/{clientId}` operation.
      */
@@ -13220,18 +13212,6 @@ export type MswHandlerFactories = {
      * Handler for the `PUT /api/credentials/sharepoint/{credentialId}/authentication` operation.
      */
     replaceSharePointCredentialAuthentication: typeof handleReplaceSharePointCredentialAuthentication;
-    /**
-     * Handler for the `DELETE /api/credentials/lark/{credentialId}` operation.
-     */
-    deleteLarkCredential: typeof handleDeleteLarkCredential;
-    /**
-     * Handler for the `PUT /api/credentials/lark/{credentialId}` operation.
-     */
-    renameLarkCredential: typeof handleRenameLarkCredential;
-    /**
-     * Handler for the `PUT /api/credentials/lark/{credentialId}/secret` operation.
-     */
-    replaceLarkCredentialSecret: typeof handleReplaceLarkCredentialSecret;
     /**
      * Handler for the `PUT /api/credentials/google-drive/{credentialId}/service-account` operation.
      */
@@ -13289,13 +13269,13 @@ export type MswHandlerFactories = {
      */
     saveChatGuardrails: typeof handleSaveChatGuardrails;
     /**
-     * Handler for the `PUT /api/chat/settings/grounded` operation.
-     */
-    saveChatGrounded: typeof handleSaveChatGrounded;
-    /**
      * Handler for the `PUT /api/chat/settings/follow-ups` operation.
      */
     saveChatFollowUps: typeof handleSaveChatFollowUps;
+    /**
+     * Handler for the `PUT /api/chat/settings/grounded` operation.
+     */
+    saveChatGrounded: typeof handleSaveChatGrounded;
     /**
      * Handler for the `POST /api/chat/sessions/{sessionId}/title` operation.
      */
@@ -13340,14 +13320,6 @@ export type MswHandlerFactories = {
      * Handler for the `PUT /api/chat/sessions/{sessionId}/branch` operation.
      */
     selectChatBranch: typeof handleSelectChatBranch;
-    /**
-     * Handler for the `GET /api/chat/sandbox` operation.
-     */
-    getChatSandboxSettings: typeof handleGetChatSandboxSettings;
-    /**
-     * Handler for the `PUT /api/chat/sandbox` operation.
-     */
-    updateChatSandboxSettings: typeof handleUpdateChatSandboxSettings;
     /**
      * Handler for the `GET /api/chat/retention` operation.
      */
@@ -13445,6 +13417,10 @@ export type MswHandlerFactories = {
      */
     setChatPersonaListing: typeof handleSetChatPersonaListing;
     /**
+     * Handler for the `GET /api/chat/assistants` operation.
+     */
+    listChatAssistants: typeof handleListChatAssistants;
+    /**
      * Handler for the `GET /api/chat/persona-pins` operation.
      */
     listChatPersonaPins: typeof handleListChatPersonaPins;
@@ -13485,22 +13461,6 @@ export type MswHandlerFactories = {
      */
     setChatModelDefault: typeof handleSetChatModelDefault;
     /**
-     * Handler for the `DELETE /api/chat/memory` operation.
-     */
-    clearChatMemory: typeof handleClearChatMemory;
-    /**
-     * Handler for the `GET /api/chat/memory` operation.
-     */
-    getChatMemory: typeof handleGetChatMemory;
-    /**
-     * Handler for the `PUT /api/chat/memory` operation.
-     */
-    saveChatMemory: typeof handleSaveChatMemory;
-    /**
-     * Handler for the `PUT /api/chat/memory/enabled` operation.
-     */
-    setChatMemoryEnabled: typeof handleSetChatMemoryEnabled;
-    /**
      * Handler for the `DELETE /api/chat/library/entries/{kind}/{id}/star` operation.
      */
     unstarChatLibraryEntry: typeof handleUnstarChatLibraryEntry;
@@ -13508,6 +13468,14 @@ export type MswHandlerFactories = {
      * Handler for the `PUT /api/chat/library/entries/{kind}/{id}/star` operation.
      */
     starChatLibraryEntry: typeof handleStarChatLibraryEntry;
+    /**
+     * Handler for the `GET /api/chat/sandbox` operation.
+     */
+    getChatSandboxSettings: typeof handleGetChatSandboxSettings;
+    /**
+     * Handler for the `PUT /api/chat/sandbox` operation.
+     */
+    updateChatSandboxSettings: typeof handleUpdateChatSandboxSettings;
     /**
      * Handler for the `PUT /api/chat/images/selection` operation.
      */
@@ -13536,34 +13504,6 @@ export type MswHandlerFactories = {
      * Handler for the `PUT /api/channels/{channelId}/transport` operation.
      */
     updateChannelTransport: typeof handleUpdateChannelTransport;
-    /**
-     * Handler for the `PUT /api/channels/{channelId}/secret` operation.
-     */
-    replaceChannelSecret: typeof handleReplaceChannelSecret;
-    /**
-     * Handler for the `PUT /api/channels/{channelId}/public` operation.
-     */
-    updateChannelPublic: typeof handleUpdateChannelPublic;
-    /**
-     * Handler for the `PUT /api/channels/{channelId}/persona` operation.
-     */
-    bindChannelAssistant: typeof handleBindChannelAssistant;
-    /**
-     * Handler for the `PUT /api/channels/{channelId}/groups/{groupId}/persona` operation.
-     */
-    bindChannelGroupAssistant: typeof handleBindChannelGroupAssistant;
-    /**
-     * Handler for the `PUT /api/channels/{channelId}/groups/{groupId}/permission` operation.
-     */
-    allowChannelGroup: typeof handleAllowChannelGroup;
-    /**
-     * Handler for the `PUT /api/channels/{channelId}/groups/{groupId}/label` operation.
-     */
-    labelChannelGroup: typeof handleLabelChannelGroup;
-    /**
-     * Handler for the `PUT /api/channels/{channelId}/enabled` operation.
-     */
-    updateChannelEnabled: typeof handleUpdateChannelEnabled;
     /**
      * Handler for the `DELETE /api/ai-costs/limits/{limitId}` operation.
      */
@@ -13617,14 +13557,6 @@ export type MswHandlerFactories = {
      */
     assignSourceManager: typeof handleAssignSourceManager;
     /**
-     * Handler for the `POST /api/sources/{sourceId}/lark/sync` operation.
-     */
-    synchronizeLarkSource: typeof handleSynchronizeLarkSource;
-    /**
-     * Handler for the `POST /api/sources/{sourceId}/lark/pause` operation.
-     */
-    updateLarkPause: typeof handleUpdateLarkPause;
-    /**
      * Handler for the `POST /api/sources/{sourceId}/items/{itemId}/remove` operation.
      */
     removeSourceItem: typeof handleRemoveSourceItem;
@@ -13664,10 +13596,6 @@ export type MswHandlerFactories = {
      * Handler for the `POST /api/sources/sharepoint` operation.
      */
     createSharePointSource: typeof handleCreateSharePointSource;
-    /**
-     * Handler for the `POST /api/sources/lark` operation.
-     */
-    createLarkSource: typeof handleCreateLarkSource;
     /**
      * Handler for the `POST /api/sources/google-drive` operation.
      */
@@ -13917,18 +13845,6 @@ export type MswHandlerFactories = {
      */
     testSharePointCredential: typeof handleTestSharePointCredential;
     /**
-     * Handler for the `GET /api/credentials/lark` operation.
-     */
-    listLarkCredentials: typeof handleListLarkCredentials;
-    /**
-     * Handler for the `POST /api/credentials/lark` operation.
-     */
-    createLarkCredential: typeof handleCreateLarkCredential;
-    /**
-     * Handler for the `POST /api/credentials/lark/{credentialId}/test` operation.
-     */
-    testLarkCredential: typeof handleTestLarkCredential;
-    /**
      * Handler for the `POST /api/credentials/google-drive/{credentialId}/revoke` operation.
      */
     revokeGoogleDriveCredential: typeof handleRevokeGoogleDriveCredential;
@@ -14177,14 +14093,6 @@ export type MswHandlerFactories = {
      */
     createDocumentSet: typeof handleCreateDocumentSet;
     /**
-     * Handler for the `GET /api/channels/{channelId}/pairing` operation.
-     */
-    getChannelPairing: typeof handleGetChannelPairing;
-    /**
-     * Handler for the `POST /api/channels/{channelId}/pairing` operation.
-     */
-    relinkChannel: typeof handleRelinkChannel;
-    /**
      * Handler for the `POST /api/channels/zalo` operation.
      */
     createZaloChannel: typeof handleCreateZaloChannel;
@@ -14192,26 +14100,6 @@ export type MswHandlerFactories = {
      * Handler for the `POST /api/channels/zalo/test` operation.
      */
     testZaloChannelBot: typeof handleTestZaloChannelBot;
-    /**
-     * Handler for the `POST /api/channels/whatsapp` operation.
-     */
-    createWhatsAppChannel: typeof handleCreateWhatsAppChannel;
-    /**
-     * Handler for the `POST /api/channels/lark` operation.
-     */
-    createLarkChannel: typeof handleCreateLarkChannel;
-    /**
-     * Handler for the `POST /api/channels/lark/test` operation.
-     */
-    testLarkChannelApp: typeof handleTestLarkChannelApp;
-    /**
-     * Handler for the `GET /api/channel-links` operation.
-     */
-    listChannelLinks: typeof handleListChannelLinks;
-    /**
-     * Handler for the `POST /api/channel-links` operation.
-     */
-    createChannelLinkCode: typeof handleCreateChannelLinkCode;
     /**
      * Handler for the `GET /api/ai-costs/reports` operation.
      */
@@ -14245,6 +14133,10 @@ export type MswHandlerFactories = {
      */
     listUsers: typeof handleListUsers;
     /**
+     * Handler for the `GET /api/sources/page` operation.
+     */
+    listSourcePage: typeof handleListSourcePage;
+    /**
      * Handler for the `GET /api/sources` operation.
      */
     listSources: typeof handleListSources;
@@ -14272,14 +14164,6 @@ export type MswHandlerFactories = {
      * Handler for the `GET /api/sources/{sourceId}/runs/{runId}/errors` operation.
      */
     listSourceRunErrors: typeof handleListSourceRunErrors;
-    /**
-     * Handler for the `GET /api/sources/{sourceId}/lark` operation.
-     */
-    getLarkConfiguration: typeof handleGetLarkConfiguration;
-    /**
-     * Handler for the `GET /api/sources/{sourceId}/lark/roots` operation.
-     */
-    getLarkRoots: typeof handleGetLarkRoots;
     /**
      * Handler for the `GET /api/sources/{sourceId}/items` operation.
      */
@@ -14312,18 +14196,6 @@ export type MswHandlerFactories = {
      * Handler for the `GET /api/sources/sharepoint/selection-policy` operation.
      */
     getSharePointSelectionPolicy: typeof handleGetSharePointSelectionPolicy;
-    /**
-     * Handler for the `GET /api/sources/page` operation.
-     */
-    listSourcePage: typeof handleListSourcePage;
-    /**
-     * Handler for the `GET /api/sources/lark/selection-requests/{requestId}` operation.
-     */
-    getLarkSelectionRequest: typeof handleGetLarkSelectionRequest;
-    /**
-     * Handler for the `GET /api/sources/lark/credentials/{credentialId}/spaces` operation.
-     */
-    listLarkSpaces: typeof handleListLarkSpaces;
     /**
      * Handler for the `GET /api/sources/group-options` operation.
      */
@@ -14505,13 +14377,25 @@ export type MswHandlerFactories = {
      */
     searchChatSessions: typeof handleSearchChatSessions;
     /**
-     * Handler for the `GET /api/chat/sandbox/health` operation.
-     */
-    getChatSandboxHealth: typeof handleGetChatSandboxHealth;
-    /**
      * Handler for the `GET /api/chat/retention/preview` operation.
      */
     previewChatRetention: typeof handlePreviewChatRetention;
+    /**
+     * Handler for the `DELETE /api/chat/memory` operation.
+     */
+    clearChatMemory: typeof handleClearChatMemory;
+    /**
+     * Handler for the `GET /api/chat/memory` operation.
+     */
+    getChatMemory: typeof handleGetChatMemory;
+    /**
+     * Handler for the `PUT /api/chat/memory` operation.
+     */
+    saveChatMemory: typeof handleSaveChatMemory;
+    /**
+     * Handler for the `PUT /api/chat/memory/enabled` operation.
+     */
+    setChatMemoryEnabled: typeof handleSetChatMemoryEnabled;
     /**
      * Handler for the `GET /api/chat/provider-adapters` operation.
      */
@@ -14596,6 +14480,10 @@ export type MswHandlerFactories = {
      * Handler for the `GET /api/chat/library/archives/{archiveId}/content` operation.
      */
     downloadChatLibraryArchive: typeof handleDownloadChatLibraryArchive;
+    /**
+     * Handler for the `GET /api/chat/sandbox/health` operation.
+     */
+    getChatSandboxHealth: typeof handleGetChatSandboxHealth;
     /**
      * Handler for the `GET /api/chat/images` operation.
      */
@@ -14701,18 +14589,6 @@ export type MswHandlerFactories = {
      */
     readChatDocumentOriginal: typeof handleReadChatDocumentOriginal;
     /**
-     * Handler for the `GET /api/chat/assistants` operation.
-     */
-    listChatAssistants: typeof handleListChatAssistants;
-    /**
-     * Handler for the `GET /api/channels` operation.
-     */
-    listChannels: typeof handleListChannels;
-    /**
-     * Handler for the `GET /api/channels/{channelId}/groups` operation.
-     */
-    listChannelGroups: typeof handleListChannelGroups;
-    /**
      * Handler for the `GET /api/audit/export` operation.
      */
     exportAuditEvents: typeof handleExportAuditEvents;
@@ -14789,6 +14665,122 @@ export type MswHandlerFactories = {
      */
     deleteChatFileArtifact: typeof handleDeleteChatFileArtifact;
     /**
+     * Handler for the `GET /api/credentials/lark` operation.
+     */
+    listLarkCredentials: typeof handleListLarkCredentials;
+    /**
+     * Handler for the `POST /api/credentials/lark` operation.
+     */
+    createLarkCredential: typeof handleCreateLarkCredential;
+    /**
+     * Handler for the `DELETE /api/credentials/lark/{credentialId}` operation.
+     */
+    deleteLarkCredential: typeof handleDeleteLarkCredential;
+    /**
+     * Handler for the `PUT /api/credentials/lark/{credentialId}` operation.
+     */
+    renameLarkCredential: typeof handleRenameLarkCredential;
+    /**
+     * Handler for the `PUT /api/credentials/lark/{credentialId}/secret` operation.
+     */
+    replaceLarkCredentialSecret: typeof handleReplaceLarkCredentialSecret;
+    /**
+     * Handler for the `POST /api/credentials/lark/{credentialId}/test` operation.
+     */
+    testLarkCredential: typeof handleTestLarkCredential;
+    /**
+     * Handler for the `POST /api/sources/lark` operation.
+     */
+    createLarkSource: typeof handleCreateLarkSource;
+    /**
+     * Handler for the `GET /api/sources/{sourceId}/lark` operation.
+     */
+    getLarkConfiguration: typeof handleGetLarkConfiguration;
+    /**
+     * Handler for the `GET /api/sources/lark/selection-requests/{requestId}` operation.
+     */
+    getLarkSelectionRequest: typeof handleGetLarkSelectionRequest;
+    /**
+     * Handler for the `PUT /api/sources/{sourceId}/lark/scope` operation.
+     */
+    replaceLarkScope: typeof handleReplaceLarkScope;
+    /**
+     * Handler for the `PUT /api/sources/{sourceId}/lark/schedule` operation.
+     */
+    updateLarkSchedule: typeof handleUpdateLarkSchedule;
+    /**
+     * Handler for the `POST /api/sources/{sourceId}/lark/pause` operation.
+     */
+    updateLarkPause: typeof handleUpdateLarkPause;
+    /**
+     * Handler for the `POST /api/sources/{sourceId}/lark/sync` operation.
+     */
+    synchronizeLarkSource: typeof handleSynchronizeLarkSource;
+    /**
+     * Handler for the `GET /api/sources/{sourceId}/lark/roots` operation.
+     */
+    getLarkRoots: typeof handleGetLarkRoots;
+    /**
+     * Handler for the `GET /api/sources/lark/credentials/{credentialId}/spaces` operation.
+     */
+    listLarkSpaces: typeof handleListLarkSpaces;
+    /**
+     * Handler for the `PUT /api/channels/{channelId}/secret` operation.
+     */
+    replaceChannelSecret: typeof handleReplaceChannelSecret;
+    /**
+     * Handler for the `PUT /api/channels/{channelId}/public` operation.
+     */
+    updateChannelPublic: typeof handleUpdateChannelPublic;
+    /**
+     * Handler for the `PUT /api/channels/{channelId}/persona` operation.
+     */
+    bindChannelAssistant: typeof handleBindChannelAssistant;
+    /**
+     * Handler for the `PUT /api/channels/{channelId}/groups/{groupId}/persona` operation.
+     */
+    bindChannelGroupAssistant: typeof handleBindChannelGroupAssistant;
+    /**
+     * Handler for the `PUT /api/channels/{channelId}/groups/{groupId}/label` operation.
+     */
+    labelChannelGroup: typeof handleLabelChannelGroup;
+    /**
+     * Handler for the `PUT /api/channels/{channelId}/groups/{groupId}/permission` operation.
+     */
+    allowChannelGroup: typeof handleAllowChannelGroup;
+    /**
+     * Handler for the `PUT /api/channels/{channelId}/enabled` operation.
+     */
+    updateChannelEnabled: typeof handleUpdateChannelEnabled;
+    /**
+     * Handler for the `POST /api/channels/lark` operation.
+     */
+    createLarkChannel: typeof handleCreateLarkChannel;
+    /**
+     * Handler for the `POST /api/channels/lark/test` operation.
+     */
+    testLarkChannelApp: typeof handleTestLarkChannelApp;
+    /**
+     * Handler for the `GET /api/channels` operation.
+     */
+    listChannels: typeof handleListChannels;
+    /**
+     * Handler for the `GET /api/channels/{channelId}/groups` operation.
+     */
+    listChannelGroups: typeof handleListChannelGroups;
+    /**
+     * Handler for the `POST /api/channels/whatsapp` operation.
+     */
+    createWhatsAppChannel: typeof handleCreateWhatsAppChannel;
+    /**
+     * Handler for the `GET /api/channels/{channelId}/pairing` operation.
+     */
+    getChannelPairing: typeof handleGetChannelPairing;
+    /**
+     * Handler for the `POST /api/channels/{channelId}/pairing` operation.
+     */
+    relinkChannel: typeof handleRelinkChannel;
+    /**
      * Handler for the `DELETE /api/channels/{channelId}` operation.
      */
     deleteChannel: typeof handleDeleteChannel;
@@ -14796,6 +14788,14 @@ export type MswHandlerFactories = {
      * Handler for the `DELETE /api/channels/{channelId}/groups/{groupId}` operation.
      */
     forgetChannelGroup: typeof handleForgetChannelGroup;
+    /**
+     * Handler for the `GET /api/channel-links` operation.
+     */
+    listChannelLinks: typeof handleListChannelLinks;
+    /**
+     * Handler for the `POST /api/channel-links` operation.
+     */
+    createChannelLinkCode: typeof handleCreateChannelLinkCode;
     /**
      * Handler for the `DELETE /api/channel-links/{connectionId}` operation.
      */
@@ -14819,8 +14819,6 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
     const pick: CreateMswHandlersResult['pick'] = {
         replaceSharePointScope: wrap(handleReplaceSharePointScope),
         updateSharePointSchedule: wrap(handleUpdateSharePointSchedule),
-        replaceLarkScope: wrap(handleReplaceLarkScope),
-        updateLarkSchedule: wrap(handleUpdateLarkSchedule),
         updateGoogleDriveSchedule: wrap(handleUpdateGoogleDriveSchedule),
         replaceGoogleDriveRoots: wrap(handleReplaceGoogleDriveRoots),
         deleteEmbeddingProvider: wrap(handleDeleteEmbeddingProvider),
@@ -14830,9 +14828,9 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         deleteMeeting: wrap(handleDeleteMeeting),
         getMeeting: wrap(handleGetMeeting),
         updateMeeting: wrap(handleUpdateMeeting),
+        setMeetingLineSpeaker: wrap(handleSetMeetingLineSpeaker),
         unstarMeetingUtterance: wrap(handleUnstarMeetingUtterance),
         starMeetingUtterance: wrap(handleStarMeetingUtterance),
-        setMeetingLineSpeaker: wrap(handleSetMeetingLineSpeaker),
         nameMeetingSpeaker: wrap(handleNameMeetingSpeaker),
         shareMeeting: wrap(handleShareMeeting),
         updateMeetingNotes: wrap(handleUpdateMeetingNotes),
@@ -14845,9 +14843,9 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         deleteMcpServer: wrap(handleDeleteMcpServer),
         getMcpServer: wrap(handleGetMcpServer),
         updateMcpServer: wrap(handleUpdateMcpServer),
-        setMcpServerToolPolicy: wrap(handleSetMcpServerToolPolicy),
         resetMcpServerToolPolicies: wrap(handleResetMcpServerToolPolicies),
         setMcpServerToolGroupPolicy: wrap(handleSetMcpServerToolGroupPolicy),
+        setMcpServerToolPolicy: wrap(handleSetMcpServerToolPolicy),
         deleteMcpServerOAuthClient: wrap(handleDeleteMcpServerOAuthClient),
         updateMcpServerOAuthClient: wrap(handleUpdateMcpServerOAuthClient),
         getMcpEndpointSettings: wrap(handleGetMcpEndpointSettings),
@@ -14861,9 +14859,6 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         deleteSharePointCredential: wrap(handleDeleteSharePointCredential),
         renameSharePointCredential: wrap(handleRenameSharePointCredential),
         replaceSharePointCredentialAuthentication: wrap(handleReplaceSharePointCredentialAuthentication),
-        deleteLarkCredential: wrap(handleDeleteLarkCredential),
-        renameLarkCredential: wrap(handleRenameLarkCredential),
-        replaceLarkCredentialSecret: wrap(handleReplaceLarkCredentialSecret),
         replaceGoogleDriveServiceAccount: wrap(handleReplaceGoogleDriveServiceAccount),
         selectChatWebProvider: wrap(handleSelectChatWebProvider),
         saveChatWebConnection: wrap(handleSaveChatWebConnection),
@@ -14878,8 +14873,8 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         saveChatHistoryVisibility: wrap(handleSaveChatHistoryVisibility),
         getChatGuardrails: wrap(handleGetChatGuardrails),
         saveChatGuardrails: wrap(handleSaveChatGuardrails),
-        saveChatGrounded: wrap(handleSaveChatGrounded),
         saveChatFollowUps: wrap(handleSaveChatFollowUps),
+        saveChatGrounded: wrap(handleSaveChatGrounded),
         generateChatTitle: wrap(handleGenerateChatTitle),
         renameChatSession: wrap(handleRenameChatSession),
         getChatSharing: wrap(handleGetChatSharing),
@@ -14891,8 +14886,6 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         removeChatFeedback: wrap(handleRemoveChatFeedback),
         setChatFeedback: wrap(handleSetChatFeedback),
         selectChatBranch: wrap(handleSelectChatBranch),
-        getChatSandboxSettings: wrap(handleGetChatSandboxSettings),
-        updateChatSandboxSettings: wrap(handleUpdateChatSandboxSettings),
         getChatRetention: wrap(handleGetChatRetention),
         saveChatRetention: wrap(handleSaveChatRetention),
         deleteChatProvider: wrap(handleDeleteChatProvider),
@@ -14917,6 +14910,7 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         getPersonaModel: wrap(handleGetPersonaModel),
         setPersonaModel: wrap(handleSetPersonaModel),
         setChatPersonaListing: wrap(handleSetChatPersonaListing),
+        listChatAssistants: wrap(handleListChatAssistants),
         listChatPersonaPins: wrap(handleListChatPersonaPins),
         replaceChatPersonaPins: wrap(handleReplaceChatPersonaPins),
         reorderChatPersonas: wrap(handleReorderChatPersonas),
@@ -14927,12 +14921,10 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         setChatModelFlow: wrap(handleSetChatModelFlow),
         getChatModelDefault: wrap(handleGetChatModelDefault),
         setChatModelDefault: wrap(handleSetChatModelDefault),
-        clearChatMemory: wrap(handleClearChatMemory),
-        getChatMemory: wrap(handleGetChatMemory),
-        saveChatMemory: wrap(handleSaveChatMemory),
-        setChatMemoryEnabled: wrap(handleSetChatMemoryEnabled),
         unstarChatLibraryEntry: wrap(handleUnstarChatLibraryEntry),
         starChatLibraryEntry: wrap(handleStarChatLibraryEntry),
+        getChatSandboxSettings: wrap(handleGetChatSandboxSettings),
+        updateChatSandboxSettings: wrap(handleUpdateChatSandboxSettings),
         selectChatImageProvider: wrap(handleSelectChatImageProvider),
         saveChatImageConnection: wrap(handleSaveChatImageConnection),
         deleteDocumentSet: wrap(handleDeleteDocumentSet),
@@ -14940,13 +14932,6 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         updateDocumentSet: wrap(handleUpdateDocumentSet),
         shareDocumentSet: wrap(handleShareDocumentSet),
         updateChannelTransport: wrap(handleUpdateChannelTransport),
-        replaceChannelSecret: wrap(handleReplaceChannelSecret),
-        updateChannelPublic: wrap(handleUpdateChannelPublic),
-        bindChannelAssistant: wrap(handleBindChannelAssistant),
-        bindChannelGroupAssistant: wrap(handleBindChannelGroupAssistant),
-        allowChannelGroup: wrap(handleAllowChannelGroup),
-        labelChannelGroup: wrap(handleLabelChannelGroup),
-        updateChannelEnabled: wrap(handleUpdateChannelEnabled),
         deleteAiUsageLimit: wrap(handleDeleteAiUsageLimit),
         updateAiUsageLimit: wrap(handleUpdateAiUsageLimit),
         replaceUserGroups: wrap(handleReplaceUserGroups),
@@ -14960,8 +14945,6 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         renameSource: wrap(handleRenameSource),
         pauseSource: wrap(handlePauseSource),
         assignSourceManager: wrap(handleAssignSourceManager),
-        synchronizeLarkSource: wrap(handleSynchronizeLarkSource),
-        updateLarkPause: wrap(handleUpdateLarkPause),
         removeSourceItem: wrap(handleRemoveSourceItem),
         reindexSourceItem: wrap(handleReindexSourceItem),
         listSourceGroups: wrap(handleListSourceGroups),
@@ -14972,7 +14955,6 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         deleteSource: wrap(handleDeleteSource),
         updateSourceAccess: wrap(handleUpdateSourceAccess),
         createSharePointSource: wrap(handleCreateSharePointSource),
-        createLarkSource: wrap(handleCreateLarkSource),
         createGoogleDriveSource: wrap(handleCreateGoogleDriveSource),
         createFileSource: wrap(handleCreateFileSource),
         searchDocuments: wrap(handleSearchDocuments),
@@ -15035,9 +15017,6 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         listSharePointCredentials: wrap(handleListSharePointCredentials),
         createSharePointCredential: wrap(handleCreateSharePointCredential),
         testSharePointCredential: wrap(handleTestSharePointCredential),
-        listLarkCredentials: wrap(handleListLarkCredentials),
-        createLarkCredential: wrap(handleCreateLarkCredential),
-        testLarkCredential: wrap(handleTestLarkCredential),
         revokeGoogleDriveCredential: wrap(handleRevokeGoogleDriveCredential),
         createGoogleDriveServiceAccount: wrap(handleCreateGoogleDriveServiceAccount),
         startGoogleDriveAuthorization: wrap(handleStartGoogleDriveAuthorization),
@@ -15100,15 +15079,8 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         requestChatExport: wrap(handleRequestChatExport),
         listDocumentSets: wrap(handleListDocumentSets),
         createDocumentSet: wrap(handleCreateDocumentSet),
-        getChannelPairing: wrap(handleGetChannelPairing),
-        relinkChannel: wrap(handleRelinkChannel),
         createZaloChannel: wrap(handleCreateZaloChannel),
         testZaloChannelBot: wrap(handleTestZaloChannelBot),
-        createWhatsAppChannel: wrap(handleCreateWhatsAppChannel),
-        createLarkChannel: wrap(handleCreateLarkChannel),
-        testLarkChannelApp: wrap(handleTestLarkChannelApp),
-        listChannelLinks: wrap(handleListChannelLinks),
-        createChannelLinkCode: wrap(handleCreateChannelLinkCode),
         listUsageReports: wrap(handleListUsageReports),
         requestUsageReport: wrap(handleRequestUsageReport),
         listAiUsageLimits: wrap(handleListAiUsageLimits),
@@ -15117,6 +15089,7 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         updateChatVoiceSettings: wrap(handleUpdateChatVoiceSettings),
         changeChatLibraryFile: wrap(handleChangeChatLibraryFile),
         listUsers: wrap(handleListUsers),
+        listSourcePage: wrap(handleListSourcePage),
         listSources: wrap(handleListSources),
         getSource: wrap(handleGetSource),
         getSharePointConfiguration: wrap(handleGetSharePointConfiguration),
@@ -15124,8 +15097,6 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         listSourceRuns: wrap(handleListSourceRuns),
         getSourceRun: wrap(handleGetSourceRun),
         listSourceRunErrors: wrap(handleListSourceRunErrors),
-        getLarkConfiguration: wrap(handleGetLarkConfiguration),
-        getLarkRoots: wrap(handleGetLarkRoots),
         listSourceItems: wrap(handleListSourceItems),
         listSourceIndexAttempts: wrap(handleListSourceIndexAttempts),
         getGoogleDriveConfiguration: wrap(handleGetGoogleDriveConfiguration),
@@ -15134,9 +15105,6 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         getGoogleDriveSelectionDraft: wrap(handleGetGoogleDriveSelectionDraft),
         getSharePointSelectionRequest: wrap(handleGetSharePointSelectionRequest),
         getSharePointSelectionPolicy: wrap(handleGetSharePointSelectionPolicy),
-        listSourcePage: wrap(handleListSourcePage),
-        getLarkSelectionRequest: wrap(handleGetLarkSelectionRequest),
-        listLarkSpaces: wrap(handleListLarkSpaces),
         listSourceGroupOptions: wrap(handleListSourceGroupOptions),
         getGoogleDriveSelectionRequest: wrap(handleGetGoogleDriveSelectionRequest),
         getGoogleDriveSelectionPolicy: wrap(handleGetGoogleDriveSelectionPolicy),
@@ -15182,8 +15150,11 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         getChatFeedback: wrap(handleGetChatFeedback),
         getChatBranches: wrap(handleGetChatBranches),
         searchChatSessions: wrap(handleSearchChatSessions),
-        getChatSandboxHealth: wrap(handleGetChatSandboxHealth),
         previewChatRetention: wrap(handlePreviewChatRetention),
+        clearChatMemory: wrap(handleClearChatMemory),
+        getChatMemory: wrap(handleGetChatMemory),
+        saveChatMemory: wrap(handleSaveChatMemory),
+        setChatMemoryEnabled: wrap(handleSetChatMemoryEnabled),
         listChatProviderAdapters: wrap(handleListChatProviderAdapters),
         listChatPersonaModels: wrap(handleListChatPersonaModels),
         listAssistantChannels: wrap(handleListAssistantChannels),
@@ -15205,6 +15176,7 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         listChatLibraryDocumentSources: wrap(handleListChatLibraryDocumentSources),
         getChatLibraryArchive: wrap(handleGetChatLibraryArchive),
         downloadChatLibraryArchive: wrap(handleDownloadChatLibraryArchive),
+        getChatSandboxHealth: wrap(handleGetChatSandboxHealth),
         getChatImageAvailability: wrap(handleGetChatImageAvailability),
         listChatImageProviders: wrap(handleListChatImageProviders),
         listChatImageConnections: wrap(handleListChatImageConnections),
@@ -15231,9 +15203,6 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         readChatDocumentPassages: wrap(handleReadChatDocumentPassages),
         readChatDocumentSpreadsheet: wrap(handleReadChatDocumentSpreadsheet),
         readChatDocumentOriginal: wrap(handleReadChatDocumentOriginal),
-        listChatAssistants: wrap(handleListChatAssistants),
-        listChannels: wrap(handleListChannels),
-        listChannelGroups: wrap(handleListChannelGroups),
         exportAuditEvents: wrap(handleExportAuditEvents),
         listAuditEvents: wrap(handleListAuditEvents),
         getAuditEvent: wrap(handleGetAuditEvent),
@@ -15253,8 +15222,39 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         leaveChatPersona: wrap(handleLeaveChatPersona),
         deleteChatImageArtifact: wrap(handleDeleteChatImageArtifact),
         deleteChatFileArtifact: wrap(handleDeleteChatFileArtifact),
+        listLarkCredentials: wrap(handleListLarkCredentials),
+        createLarkCredential: wrap(handleCreateLarkCredential),
+        deleteLarkCredential: wrap(handleDeleteLarkCredential),
+        renameLarkCredential: wrap(handleRenameLarkCredential),
+        replaceLarkCredentialSecret: wrap(handleReplaceLarkCredentialSecret),
+        testLarkCredential: wrap(handleTestLarkCredential),
+        createLarkSource: wrap(handleCreateLarkSource),
+        getLarkConfiguration: wrap(handleGetLarkConfiguration),
+        getLarkSelectionRequest: wrap(handleGetLarkSelectionRequest),
+        replaceLarkScope: wrap(handleReplaceLarkScope),
+        updateLarkSchedule: wrap(handleUpdateLarkSchedule),
+        updateLarkPause: wrap(handleUpdateLarkPause),
+        synchronizeLarkSource: wrap(handleSynchronizeLarkSource),
+        getLarkRoots: wrap(handleGetLarkRoots),
+        listLarkSpaces: wrap(handleListLarkSpaces),
+        replaceChannelSecret: wrap(handleReplaceChannelSecret),
+        updateChannelPublic: wrap(handleUpdateChannelPublic),
+        bindChannelAssistant: wrap(handleBindChannelAssistant),
+        bindChannelGroupAssistant: wrap(handleBindChannelGroupAssistant),
+        labelChannelGroup: wrap(handleLabelChannelGroup),
+        allowChannelGroup: wrap(handleAllowChannelGroup),
+        updateChannelEnabled: wrap(handleUpdateChannelEnabled),
+        createLarkChannel: wrap(handleCreateLarkChannel),
+        testLarkChannelApp: wrap(handleTestLarkChannelApp),
+        listChannels: wrap(handleListChannels),
+        listChannelGroups: wrap(handleListChannelGroups),
+        createWhatsAppChannel: wrap(handleCreateWhatsAppChannel),
+        getChannelPairing: wrap(handleGetChannelPairing),
+        relinkChannel: wrap(handleRelinkChannel),
         deleteChannel: wrap(handleDeleteChannel),
         forgetChannelGroup: wrap(handleForgetChannelGroup),
+        listChannelLinks: wrap(handleListChannelLinks),
+        createChannelLinkCode: wrap(handleCreateChannelLinkCode),
         deleteChannelLink: wrap(handleDeleteChannelLink)
     };
     const all: CreateMswHandlersResult['all'] = (options = {}) => {
@@ -15293,8 +15293,8 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.createSystemOneConnection, overrides.createSystemOneConnection),
             invoke(pick.testSystemOneConnection, overrides.testSystemOneConnection),
             invoke(pick.testChatImageConnection, overrides.testChatImageConnection),
-            invoke(pick.listLarkSpaces, overrides.listLarkSpaces),
             invoke(pick.downloadChatLibraryArchive, overrides.downloadChatLibraryArchive),
+            invoke(pick.listLarkSpaces, overrides.listLarkSpaces),
             invoke(pick.resetMcpServerToolPolicies, overrides.resetMcpServerToolPolicies),
             invoke(pick.setMcpServerToolGroupPolicy, overrides.setMcpServerToolGroupPolicy),
             invoke(pick.refreshMcpServerTools, overrides.refreshMcpServerTools),
@@ -15310,12 +15310,9 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.discoverGoogleDriveLinkedDocuments, overrides.discoverGoogleDriveLinkedDocuments),
             invoke(pick.removeMeetingMinutesItem, overrides.removeMeetingMinutesItem),
             invoke(pick.editMeetingMinutesItem, overrides.editMeetingMinutesItem),
+            invoke(pick.setMeetingLineSpeaker, overrides.setMeetingLineSpeaker),
             invoke(pick.unstarMeetingUtterance, overrides.unstarMeetingUtterance),
             invoke(pick.starMeetingUtterance, overrides.starMeetingUtterance),
-            invoke(pick.setMeetingLineSpeaker, overrides.setMeetingLineSpeaker),
-            invoke(pick.bindChannelGroupAssistant, overrides.bindChannelGroupAssistant),
-            invoke(pick.allowChannelGroup, overrides.allowChannelGroup),
-            invoke(pick.labelChannelGroup, overrides.labelChannelGroup),
             invoke(pick.finalizeSourceUpload, overrides.finalizeSourceUpload),
             invoke(pick.removeSourceItem, overrides.removeSourceItem),
             invoke(pick.reindexSourceItem, overrides.reindexSourceItem),
@@ -15328,6 +15325,9 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.removeGroupManager, overrides.removeGroupManager),
             invoke(pick.assignGroupManager, overrides.assignGroupManager),
             invoke(pick.listSourceRunErrors, overrides.listSourceRunErrors),
+            invoke(pick.bindChannelGroupAssistant, overrides.bindChannelGroupAssistant),
+            invoke(pick.labelChannelGroup, overrides.labelChannelGroup),
+            invoke(pick.allowChannelGroup, overrides.allowChannelGroup),
             invoke(pick.nameMeetingSpeaker, overrides.nameMeetingSpeaker),
             invoke(pick.switchSearchFutureGeneration, overrides.switchSearchFutureGeneration),
             invoke(pick.emptyChatLibraryTrash, overrides.emptyChatLibraryTrash),
@@ -15344,12 +15344,11 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.updatePublicChatPromptShortcut, overrides.updatePublicChatPromptShortcut),
             invoke(pick.saveChatImageConnection, overrides.saveChatImageConnection),
             invoke(pick.getSharePointSelectionRequest, overrides.getSharePointSelectionRequest),
-            invoke(pick.getLarkSelectionRequest, overrides.getLarkSelectionRequest),
             invoke(pick.getGoogleDriveSelectionRequest, overrides.getGoogleDriveSelectionRequest),
             invoke(pick.getChatLibraryArchive, overrides.getChatLibraryArchive),
+            invoke(pick.getLarkSelectionRequest, overrides.getLarkSelectionRequest),
             invoke(pick.saveMcpConnectionApiKey, overrides.saveMcpConnectionApiKey),
             invoke(pick.replaceSharePointCredentialAuthentication, overrides.replaceSharePointCredentialAuthentication),
-            invoke(pick.replaceLarkCredentialSecret, overrides.replaceLarkCredentialSecret),
             invoke(pick.replaceGoogleDriveServiceAccount, overrides.replaceGoogleDriveServiceAccount),
             invoke(pick.generateChatTitle, overrides.generateChatTitle),
             invoke(pick.renameChatSession, overrides.renameChatSession),
@@ -15369,7 +15368,6 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.testOcrConnection, overrides.testOcrConnection),
             invoke(pick.startMcpConnectionAuthorization, overrides.startMcpConnectionAuthorization),
             invoke(pick.testSharePointCredential, overrides.testSharePointCredential),
-            invoke(pick.testLarkCredential, overrides.testLarkCredential),
             invoke(pick.revokeGoogleDriveCredential, overrides.revokeGoogleDriveCredential),
             invoke(pick.unarchiveChatSession, overrides.unarchiveChatSession),
             invoke(pick.getChatHistory, overrides.getChatHistory),
@@ -15409,11 +15407,11 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.readChatDocumentOriginal, overrides.readChatDocumentOriginal),
             invoke(pick.downloadUsageReport, overrides.downloadUsageReport),
             invoke(pick.disconnectMcpConnection, overrides.disconnectMcpConnection),
+            invoke(pick.replaceLarkCredentialSecret, overrides.replaceLarkCredentialSecret),
+            invoke(pick.testLarkCredential, overrides.testLarkCredential),
             invoke(pick.changeChatLibraryFile, overrides.changeChatLibraryFile),
             invoke(pick.replaceSharePointScope, overrides.replaceSharePointScope),
             invoke(pick.updateSharePointSchedule, overrides.updateSharePointSchedule),
-            invoke(pick.replaceLarkScope, overrides.replaceLarkScope),
-            invoke(pick.updateLarkSchedule, overrides.updateLarkSchedule),
             invoke(pick.updateGoogleDriveSchedule, overrides.updateGoogleDriveSchedule),
             invoke(pick.replaceGoogleDriveRoots, overrides.replaceGoogleDriveRoots),
             invoke(pick.editMeetingMinutesSummary, overrides.editMeetingMinutesSummary),
@@ -15421,8 +15419,6 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.saveMeetingMinutesHeading, overrides.saveMeetingMinutesHeading),
             invoke(pick.synchronizeSharePointSource, overrides.synchronizeSharePointSource),
             invoke(pick.updateSharePointPause, overrides.updateSharePointPause),
-            invoke(pick.synchronizeLarkSource, overrides.synchronizeLarkSource),
-            invoke(pick.updateLarkPause, overrides.updateLarkPause),
             invoke(pick.synchronizeGoogleDriveSource, overrides.synchronizeGoogleDriveSource),
             invoke(pick.updateGoogleDrivePause, overrides.updateGoogleDrivePause),
             invoke(pick.finalizeMeetingRecording, overrides.finalizeMeetingRecording),
@@ -15431,10 +15427,14 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.revertAllMeetingCorrections, overrides.revertAllMeetingCorrections),
             invoke(pick.acceptAllMeetingCorrections, overrides.acceptAllMeetingCorrections),
             invoke(pick.getSharePointRoots, overrides.getSharePointRoots),
-            invoke(pick.getLarkRoots, overrides.getLarkRoots),
             invoke(pick.getGoogleDriveSelection, overrides.getGoogleDriveSelection),
             invoke(pick.getGoogleDriveSelectionTree, overrides.getGoogleDriveSelectionTree),
             invoke(pick.getGoogleDriveSelectionDraft, overrides.getGoogleDriveSelectionDraft),
+            invoke(pick.replaceLarkScope, overrides.replaceLarkScope),
+            invoke(pick.updateLarkSchedule, overrides.updateLarkSchedule),
+            invoke(pick.updateLarkPause, overrides.updateLarkPause),
+            invoke(pick.synchronizeLarkSource, overrides.synchronizeLarkSource),
+            invoke(pick.getLarkRoots, overrides.getLarkRoots),
             invoke(pick.markMeetingMinutesItem, overrides.markMeetingMinutesItem),
             invoke(pick.getSourceRun, overrides.getSourceRun),
             invoke(pick.removeMeetingBookmark, overrides.removeMeetingBookmark),
@@ -15445,12 +15445,11 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.saveChatHistoryVisibility, overrides.saveChatHistoryVisibility),
             invoke(pick.getChatGuardrails, overrides.getChatGuardrails),
             invoke(pick.saveChatGuardrails, overrides.saveChatGuardrails),
-            invoke(pick.saveChatGrounded, overrides.saveChatGrounded),
             invoke(pick.saveChatFollowUps, overrides.saveChatFollowUps),
+            invoke(pick.saveChatGrounded, overrides.saveChatGrounded),
             invoke(pick.getChatPromptShortcutPreferences, overrides.getChatPromptShortcutPreferences),
             invoke(pick.setChatPromptShortcutPreferences, overrides.setChatPromptShortcutPreferences),
             invoke(pick.reorderChatProjects, overrides.reorderChatProjects),
-            invoke(pick.setChatMemoryEnabled, overrides.setChatMemoryEnabled),
             invoke(pick.selectChatImageProvider, overrides.selectChatImageProvider),
             invoke(pick.cancelSearchFutureGeneration, overrides.cancelSearchFutureGeneration),
             invoke(pick.createSearchFutureGeneration, overrides.createSearchFutureGeneration),
@@ -15470,7 +15469,6 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.requestChatLibraryArchive, overrides.requestChatLibraryArchive),
             invoke(pick.initiateChatFileUpload, overrides.initiateChatFileUpload),
             invoke(pick.testZaloChannelBot, overrides.testZaloChannelBot),
-            invoke(pick.testLarkChannelApp, overrides.testLarkChannelApp),
             invoke(pick.getChatVoiceSettings, overrides.getChatVoiceSettings),
             invoke(pick.updateChatVoiceSettings, overrides.updateChatVoiceSettings),
             invoke(pick.getSharePointSelectionPolicy, overrides.getSharePointSelectionPolicy),
@@ -15484,8 +15482,8 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.listSystemOneTypes, overrides.listSystemOneTypes),
             invoke(pick.listSystemOneConnections, overrides.listSystemOneConnections),
             invoke(pick.searchChatSessions, overrides.searchChatSessions),
-            invoke(pick.getChatSandboxHealth, overrides.getChatSandboxHealth),
             invoke(pick.previewChatRetention, overrides.previewChatRetention),
+            invoke(pick.setChatMemoryEnabled, overrides.setChatMemoryEnabled),
             invoke(pick.listChatPersonaSources, overrides.listChatPersonaSources),
             invoke(pick.listChatPersonasForAdministration, overrides.listChatPersonasForAdministration),
             invoke(pick.getChatLibraryUsage, overrides.getChatLibraryUsage),
@@ -15496,11 +15494,13 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.searchChatLibraryContent, overrides.searchChatLibraryContent),
             invoke(pick.listChatLibraryRecent, overrides.listChatLibraryRecent),
             invoke(pick.listChatLibraryDocuments, overrides.listChatLibraryDocuments),
+            invoke(pick.getChatSandboxHealth, overrides.getChatSandboxHealth),
             invoke(pick.listChatImageProviders, overrides.listChatImageProviders),
             invoke(pick.listChatImageConnections, overrides.listChatImageConnections),
             invoke(pick.exportChatHistory, overrides.exportChatHistory),
             invoke(pick.getChatFilePolicy, overrides.getChatFilePolicy),
             invoke(pick.getMyAiUsageStanding, overrides.getMyAiUsageStanding),
+            invoke(pick.testLarkChannelApp, overrides.testLarkChannelApp),
             invoke(pick.deleteEmbeddingProvider, overrides.deleteEmbeddingProvider),
             invoke(pick.updateEmbeddingProvider, overrides.updateEmbeddingProvider),
             invoke(pick.saveOcrConnection, overrides.saveOcrConnection),
@@ -15509,8 +15509,6 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.updateMcpServer, overrides.updateMcpServer),
             invoke(pick.deleteSharePointCredential, overrides.deleteSharePointCredential),
             invoke(pick.renameSharePointCredential, overrides.renameSharePointCredential),
-            invoke(pick.deleteLarkCredential, overrides.deleteLarkCredential),
-            invoke(pick.renameLarkCredential, overrides.renameLarkCredential),
             invoke(pick.deleteChatProvider, overrides.deleteChatProvider),
             invoke(pick.updateChatProvider, overrides.updateChatProvider),
             invoke(pick.deleteChatPromptShortcut, overrides.deleteChatPromptShortcut),
@@ -15544,13 +15542,11 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.deleteGoogleDriveCredential, overrides.deleteGoogleDriveCredential),
             invoke(pick.deleteChatImageArtifact, overrides.deleteChatImageArtifact),
             invoke(pick.deleteChatFileArtifact, overrides.deleteChatFileArtifact),
+            invoke(pick.deleteLarkCredential, overrides.deleteLarkCredential),
+            invoke(pick.renameLarkCredential, overrides.renameLarkCredential),
             invoke(pick.shareMeeting, overrides.shareMeeting),
             invoke(pick.updateMeetingNotes, overrides.updateMeetingNotes),
             invoke(pick.updateChannelTransport, overrides.updateChannelTransport),
-            invoke(pick.replaceChannelSecret, overrides.replaceChannelSecret),
-            invoke(pick.updateChannelPublic, overrides.updateChannelPublic),
-            invoke(pick.bindChannelAssistant, overrides.bindChannelAssistant),
-            invoke(pick.updateChannelEnabled, overrides.updateChannelEnabled),
             invoke(pick.replaceUserGroups, overrides.replaceUserGroups),
             invoke(pick.deactivateUser, overrides.deactivateUser),
             invoke(pick.activateUser, overrides.activateUser),
@@ -15578,39 +15574,40 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.addGroupMembers, overrides.addGroupMembers),
             invoke(pick.deleteGroup, overrides.deleteGroup),
             invoke(pick.replaceGroupCapabilities, overrides.replaceGroupCapabilities),
-            invoke(pick.getChannelPairing, overrides.getChannelPairing),
-            invoke(pick.relinkChannel, overrides.relinkChannel),
             invoke(pick.getSharePointConfiguration, overrides.getSharePointConfiguration),
             invoke(pick.listSourceRuns, overrides.listSourceRuns),
-            invoke(pick.getLarkConfiguration, overrides.getLarkConfiguration),
             invoke(pick.listSourceItems, overrides.listSourceItems),
             invoke(pick.listSourceIndexAttempts, overrides.listSourceIndexAttempts),
             invoke(pick.getGoogleDriveConfiguration, overrides.getGoogleDriveConfiguration),
             invoke(pick.exportMeetingTranscript, overrides.exportMeetingTranscript),
             invoke(pick.listGroupSources, overrides.listGroupSources),
             invoke(pick.listGroupCandidates, overrides.listGroupCandidates),
+            invoke(pick.getLarkConfiguration, overrides.getLarkConfiguration),
+            invoke(pick.replaceChannelSecret, overrides.replaceChannelSecret),
+            invoke(pick.updateChannelPublic, overrides.updateChannelPublic),
+            invoke(pick.bindChannelAssistant, overrides.bindChannelAssistant),
+            invoke(pick.updateChannelEnabled, overrides.updateChannelEnabled),
             invoke(pick.listChannelGroups, overrides.listChannelGroups),
+            invoke(pick.getChannelPairing, overrides.getChannelPairing),
+            invoke(pick.relinkChannel, overrides.relinkChannel),
             invoke(pick.selectOcrProvider, overrides.selectOcrProvider),
             invoke(pick.getMcpEndpointSettings, overrides.getMcpEndpointSettings),
             invoke(pick.updateMcpEndpointSettings, overrides.updateMcpEndpointSettings),
             invoke(pick.getChatSettings, overrides.getChatSettings),
             invoke(pick.saveChatSettings, overrides.saveChatSettings),
-            invoke(pick.getChatSandboxSettings, overrides.getChatSandboxSettings),
-            invoke(pick.updateChatSandboxSettings, overrides.updateChatSandboxSettings),
             invoke(pick.getChatRetention, overrides.getChatRetention),
             invoke(pick.saveChatRetention, overrides.saveChatRetention),
             invoke(pick.getChatPreferences, overrides.getChatPreferences),
             invoke(pick.saveChatPreferences, overrides.saveChatPreferences),
+            invoke(pick.listChatAssistants, overrides.listChatAssistants),
             invoke(pick.listChatPersonaPins, overrides.listChatPersonaPins),
             invoke(pick.replaceChatPersonaPins, overrides.replaceChatPersonaPins),
             invoke(pick.reorderChatPersonas, overrides.reorderChatPersonas),
             invoke(pick.getChatModelDefault, overrides.getChatModelDefault),
             invoke(pick.setChatModelDefault, overrides.setChatModelDefault),
-            invoke(pick.clearChatMemory, overrides.clearChatMemory),
-            invoke(pick.getChatMemory, overrides.getChatMemory),
-            invoke(pick.saveChatMemory, overrides.saveChatMemory),
+            invoke(pick.getChatSandboxSettings, overrides.getChatSandboxSettings),
+            invoke(pick.updateChatSandboxSettings, overrides.updateChatSandboxSettings),
             invoke(pick.createSharePointSource, overrides.createSharePointSource),
-            invoke(pick.createLarkSource, overrides.createLarkSource),
             invoke(pick.createGoogleDriveSource, overrides.createGoogleDriveSource),
             invoke(pick.createFileSource, overrides.createFileSource),
             invoke(pick.listEmbeddingProviders, overrides.listEmbeddingProviders),
@@ -15620,8 +15617,6 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.discoverIdentityProvider, overrides.discoverIdentityProvider),
             invoke(pick.listSharePointCredentials, overrides.listSharePointCredentials),
             invoke(pick.createSharePointCredential, overrides.createSharePointCredential),
-            invoke(pick.listLarkCredentials, overrides.listLarkCredentials),
-            invoke(pick.createLarkCredential, overrides.createLarkCredential),
             invoke(pick.deleteAllChatSessions, overrides.deleteAllChatSessions),
             invoke(pick.listChatSessions, overrides.listChatSessions),
             invoke(pick.createChatSession, overrides.createChatSession),
@@ -15640,8 +15635,6 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.listDocumentSets, overrides.listDocumentSets),
             invoke(pick.createDocumentSet, overrides.createDocumentSet),
             invoke(pick.createZaloChannel, overrides.createZaloChannel),
-            invoke(pick.createWhatsAppChannel, overrides.createWhatsAppChannel),
-            invoke(pick.createLarkChannel, overrides.createLarkChannel),
             invoke(pick.listUsageReports, overrides.listUsageReports),
             invoke(pick.requestUsageReport, overrides.requestUsageReport),
             invoke(pick.listAiUsageLimits, overrides.listAiUsageLimits),
@@ -15664,6 +15657,9 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.listGoogleDriveCredentials, overrides.listGoogleDriveCredentials),
             invoke(pick.getChatWebAvailability, overrides.getChatWebAvailability),
             invoke(pick.getChatVoiceAvailability, overrides.getChatVoiceAvailability),
+            invoke(pick.clearChatMemory, overrides.clearChatMemory),
+            invoke(pick.getChatMemory, overrides.getChatMemory),
+            invoke(pick.saveChatMemory, overrides.saveChatMemory),
             invoke(pick.listChatProviderAdapters, overrides.listChatProviderAdapters),
             invoke(pick.listAvailableChatModels, overrides.listAvailableChatModels),
             invoke(pick.listChatModelPersonas, overrides.listChatModelPersonas),
@@ -15673,7 +15669,6 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.listChatHistory, overrides.listChatHistory),
             invoke(pick.listChatGroupOptions, overrides.listChatGroupOptions),
             invoke(pick.listChatFiles, overrides.listChatFiles),
-            invoke(pick.listChatAssistants, overrides.listChatAssistants),
             invoke(pick.exportAuditEvents, overrides.exportAuditEvents),
             invoke(pick.listAuditEvents, overrides.listAuditEvents),
             invoke(pick.getAuditCatalog, overrides.getAuditCatalog),
@@ -15682,6 +15677,11 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.getAiCostDetail, overrides.getAiCostDetail),
             invoke(pick.listAiCostDays, overrides.listAiCostDays),
             invoke(pick.listAiCostBreakdown, overrides.listAiCostBreakdown),
+            invoke(pick.listLarkCredentials, overrides.listLarkCredentials),
+            invoke(pick.createLarkCredential, overrides.createLarkCredential),
+            invoke(pick.createLarkSource, overrides.createLarkSource),
+            invoke(pick.createLarkChannel, overrides.createLarkChannel),
+            invoke(pick.createWhatsAppChannel, overrides.createWhatsAppChannel),
             invoke(pick.deleteMeeting, overrides.deleteMeeting),
             invoke(pick.getMeeting, overrides.getMeeting),
             invoke(pick.updateMeeting, overrides.updateMeeting),
@@ -15701,11 +15701,11 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.createIdentityProvider, overrides.createIdentityProvider),
             invoke(pick.listGroups, overrides.listGroups),
             invoke(pick.createGroup, overrides.createGroup),
-            invoke(pick.listChannelLinks, overrides.listChannelLinks),
-            invoke(pick.createChannelLinkCode, overrides.createChannelLinkCode),
             invoke(pick.listUsers, overrides.listUsers),
             invoke(pick.listSources, overrides.listSources),
-            invoke(pick.listChannels, overrides.listChannels)
+            invoke(pick.listChannels, overrides.listChannels),
+            invoke(pick.listChannelLinks, overrides.listChannelLinks),
+            invoke(pick.createChannelLinkCode, overrides.createChannelLinkCode)
         ];
     };
     return { all, pick };
