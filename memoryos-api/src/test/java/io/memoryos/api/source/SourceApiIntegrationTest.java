@@ -20,6 +20,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.jayway.jsonpath.JsonPath;
 import com.sun.net.httpserver.HttpServer;
 import io.memoryos.connector.ConnectorSyncPort;
 import io.memoryos.connector.CredentialId;
@@ -35,7 +36,6 @@ import io.memoryos.api.security.ActorAuthenticationToken;
 import io.memoryos.connector.ConnectorCleanupPort;
 import io.memoryos.connector.ConnectorIndexingPort;
 import io.memoryos.connector.SourceDocumentAccessResolver;
-import com.jayway.jsonpath.JsonPath;
 import io.memoryos.connector.SourceManagementService;
 import io.memoryos.connector.SourceSelectionProcessor;
 import io.memoryos.document.DocumentCommandPort;
