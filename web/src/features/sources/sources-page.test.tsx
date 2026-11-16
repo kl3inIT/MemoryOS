@@ -109,13 +109,14 @@ it("pages through the address, and returns to the first page when a filter chang
   const requests: URL[] = [];
   const router = await renderPage("/admin?page=0", requests);
 
-  expect(screen.getByText("Showing 1–20 of 34")).toBeInTheDocument();
+  expect(screen.getByText("Showing 1–20 of 34 · 120 documents")).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Next" }));
   await waitFor(() => expect(router.state.location.search).toMatchObject({ page: 1 }));
 
-  await user.click(screen.getByRole("button", { name: "Failed 0" }));
+  const chips = screen.getByRole("group", { name: "Filter sources by status" });
+  await user.click(within(chips).getByRole("button", { name: /Active/ }));
   await waitFor(() =>
-    expect(router.state.location.search).toMatchObject({ status: "FAILED", page: 0 }),
+    expect(router.state.location.search).toMatchObject({ status: "ACTIVE", page: 0 }),
   );
   expect(within(screen.getByRole("table")).getByText("Handbooks")).toBeInTheDocument();
 });

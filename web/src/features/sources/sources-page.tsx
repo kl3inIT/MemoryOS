@@ -195,7 +195,6 @@ function AdminSourceList({ page, search }: { page: SourcePage; search: SourcesSe
       sources={page.items}
       totals={{
         total: counts.total,
-        failed: counts.failed,
         documents: counts.documents,
         byStatus: {
           NOT_STARTED: counts.notStarted,

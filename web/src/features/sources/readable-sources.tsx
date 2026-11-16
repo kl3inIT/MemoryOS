@@ -90,7 +90,6 @@ export function ReadableSources({
       sources={shown}
       totals={{
         total: sources.data.length,
-        failed: byStatus.FAILED ?? 0,
         documents: sources.data.reduce((sum, source) => sum + source.readableDocuments, 0),
         byStatus,
       }}

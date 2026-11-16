@@ -13,7 +13,7 @@ const handbooks: SourceListItem = {
   lastSucceededAt: "2026-09-20T08:00:00Z",
 };
 
-const noTotals: SourceListTotals = { total: 0, failed: 0, documents: 0, byStatus: {} };
+const noTotals: SourceListTotals = { total: 0, documents: 0, byStatus: {} };
 
 function renderList(
   sources: SourceListItem[],
@@ -25,7 +25,6 @@ function renderList(
       sources={sources}
       totals={{
         ...noTotals,
-        failed: sources.filter((source) => source.status === "FAILED").length,
       }}
       search=""
       onSearch={() => {}}
@@ -128,7 +127,7 @@ it("pages the rows it is given and reports the range", async () => {
     />,
   );
 
-  expect(screen.getByText("Showing 21–34 of 34")).toBeInTheDocument();
+  expect(screen.getByText("Showing 21–34 of 34 · 0 documents")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
   await user.click(screen.getByRole("button", { name: "Previous" }));
   expect(onPage).toHaveBeenLastCalledWith(0);
@@ -140,7 +139,7 @@ it("filters by status from the chips that hold Sources", async () => {
   render(
     <SourceList
       sources={[handbooks]}
-      totals={{ total: 3, failed: 0, documents: 0, byStatus: { ACTIVE: 2, INDEXING: 1 } }}
+      totals={{ total: 3, documents: 0, byStatus: { ACTIVE: 2, INDEXING: 1 } }}
       search=""
       onSearch={() => {}}
       filters={noSourceFilters}
@@ -155,35 +154,6 @@ it("filters by status from the chips that hold Sources", async () => {
   expect(within(chips).queryByRole("button", { name: /Failed/ })).not.toBeInTheDocument();
   await user.click(within(chips).getByRole("button", { name: /Indexing/ }));
   expect(onFilters).toHaveBeenLastCalledWith({ ...noSourceFilters, status: "INDEXING" });
-});
-
-it("filters the list to its failed Sources from the failed figure, and back", async () => {
-  const user = userEvent.setup();
-  const onFilters = vi.fn();
-  const failed = { ...handbooks, id: "20000000-0000-4000-8000-000000000004", status: "FAILED" };
-  const { rerender } = renderList([handbooks, failed], noSourceFilters, onFilters);
-
-  const tile = screen.getByRole("button", { name: "Failed 1" });
-  expect(tile).toHaveAttribute("aria-pressed", "false");
-  await user.click(tile);
-  expect(onFilters).toHaveBeenLastCalledWith({ ...noSourceFilters, status: "FAILED" });
-
-  rerender(
-    <SourceList
-      sources={[handbooks, failed]}
-      totals={{ ...noTotals, failed: 1 }}
-      search=""
-      onSearch={() => {}}
-      filters={{ ...noSourceFilters, status: "FAILED" }}
-      onFilters={onFilters}
-      documents={() => 0}
-      documentsLabel="Total docs"
-      renderName={(source) => <span>{source.name}</span>}
-    />,
-  );
-  expect(tile).toHaveAttribute("aria-pressed", "true");
-  await user.click(tile);
-  expect(onFilters).toHaveBeenLastCalledWith(noSourceFilters);
 });
 
 it("searches through the shared field", async () => {

@@ -1,11 +1,10 @@
-import { formatUiDay, formatUiMoment, formatUiRelative, uiLocale } from "@/i18n/format";
+import { formatUiDay, formatUiMoment, formatUiRelative } from "@/i18n/format";
 import { useAppTranslation, type AppTranslate } from "@/i18n/use-app-translation";
-import { Files, FileText, FilterX, ListFilter, Plug, TriangleAlert } from "lucide-react";
+import { Files, FilterX, ListFilter } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { FilterChips } from "@/components/composites/filter-chips";
 import { SearchField } from "@/components/composites/search-field";
 import { TooltipIconButton } from "@/components/composites/tooltip-icon-button";
-import { StatStrip, StatTile, StatToggleTile } from "@/components/composites/stat-strip";
 import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
 import {
@@ -62,7 +61,6 @@ export type SourceListItem = {
 /** The figures the stat strip and the status chips show; the page that owns the list counts them. */
 export type SourceListTotals = {
   total: number;
-  failed: number;
   documents: number;
   /** How many Sources hold each status; the chips list the statuses that hold any. */
   byStatus: Readonly<Record<string, number>>;
@@ -128,7 +126,6 @@ export function SourceList<T extends SourceListItem>({
   );
   const columns = renderAction ? 5 : 4;
   const row = { documents, renderName, renderAccess, renderAction };
-  const showingFailed = filters.status === "FAILED";
   const statusChips = sourceStatusOptions
     .filter((option) => !statuses || statuses.includes(option.value))
     .filter((option) => (totals.byStatus[option.value] ?? 0) > 0 || option.value === filters.status)
@@ -141,34 +138,9 @@ export function SourceList<T extends SourceListItem>({
   return (
     <>
       {/*
-        What an administrator acts on: how many Sources there are, which ones failed, and what they hold. The
-        failed tile filters the list to them, as the Users counts filter theirs; its figure turns red only when
-        a Source has failed.
+        No stat strip: the status counts beside the search already say how many Sources failed and filter to
+        them, and the total and the documents close the table, as Onyx's list counts its connectors under it.
       */}
-      <StatStrip columns={3}>
-        <StatTile
-          icon={<Plug />}
-          iconClass="text-chart-1"
-          label={ui("Total sources")}
-          value={totals.total.toLocaleString(uiLocale())}
-        />
-        <StatToggleTile
-          icon={<TriangleAlert />}
-          iconClass="text-status-danger-content"
-          label={ui("Failed")}
-          value={totals.failed.toLocaleString(uiLocale())}
-          tone={totals.failed > 0 ? "danger" : undefined}
-          selected={showingFailed}
-          onToggle={() => onFilters({ ...filters, status: showingFailed ? "" : "FAILED" })}
-        />
-        <StatTile
-          icon={<FileText />}
-          iconClass="text-chart-2"
-          label={documentsLabel}
-          value={totals.documents.toLocaleString(uiLocale())}
-        />
-      </StatStrip>
-
       {/* One control row, as Onyx's list has: the search, the status counts that filter, then the other filters. */}
       <div className="flex flex-wrap items-center gap-2">
         <SearchField
@@ -245,13 +217,19 @@ export function SourceList<T extends SourceListItem>({
             ) : null}
           </TableBody>
         </Table>
-        {pager && pager.totalItems > 0 ? <SourcePager pager={pager} /> : null}
+        {pager && pager.totalItems > 0 ? (
+          <SourcePager pager={pager} documents={totals.documents} />
+        ) : !pager && sources.length > 0 ? (
+          <p className="border-t border-border-subtle px-4 py-3 font-secondary-body text-content-muted tabular-nums">
+            {sourcesOf(ui, sources.length)} · {documentsOf(ui, totals.documents)}
+          </p>
+        ) : null}
       </div>
     </>
   );
 }
 
-function SourcePager({ pager }: { pager: SourceListPager }) {
+function SourcePager({ pager, documents }: { pager: SourceListPager; documents: number }) {
   const ui = useAppTranslation();
   const first = pager.page * pager.size + 1;
   const last = Math.min((pager.page + 1) * pager.size, pager.totalItems);
@@ -261,11 +239,11 @@ function SourcePager({ pager }: { pager: SourceListPager }) {
       label={ui("Source pages")}
       page={pager.page}
       totalPages={pager.totalPages}
-      summary={ui("Showing {{first}}–{{last}} of {{total}}", {
+      summary={`${ui("Showing {{first}}–{{last}} of {{total}}", {
         first,
         last,
         total: pager.totalItems,
-      })}
+      })} · ${documentsOf(ui, documents)}`}
       previousDisabled={pager.page <= 0}
       nextDisabled={pager.page + 1 >= pager.totalPages}
       onPrevious={() => pager.onPage(pager.page - 1)}
@@ -415,6 +393,11 @@ function SourceRow<T extends SourceListItem>({ source, row }: { source: T; row: 
       ) : null}
     </TableRow>
   );
+}
+
+/** "1 source", "2 sources", as `documentsOf` counts documents. */
+function sourcesOf(ui: AppTranslate, count: number) {
+  return count === 1 ? ui("1 source") : ui("{{count}} sources", { count });
 }
 
 /** "1 document", "2 documents": each count has its own sentence, so a translation is never stitched together. */
