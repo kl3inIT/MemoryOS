@@ -126,7 +126,7 @@ export function SourceList<T extends SourceListItem>({
   const [filtersOpen, setFiltersOpen] = useState(
     () => filters.status !== "" || filters.provider !== "" || filters.access !== "",
   );
-  const columns = renderAction ? 6 : 5;
+  const columns = renderAction ? 5 : 4;
   const row = { documents, renderName, renderAccess, renderAction };
   const showingFailed = filters.status === "FAILED";
   const statusChips = sourceStatusOptions
@@ -169,6 +169,7 @@ export function SourceList<T extends SourceListItem>({
         />
       </StatStrip>
 
+      {/* One control row, as Onyx's list has: the search, the status counts that filter, then the other filters. */}
       <div className="flex flex-wrap items-center gap-2">
         <SearchField
           value={search}
@@ -176,6 +177,14 @@ export function SourceList<T extends SourceListItem>({
           label={ui("Search sources")}
           className="min-w-40 flex-1"
         />
+        {statusChips.length > 0 ? (
+          <FilterChips
+            label={ui("Filter sources by status")}
+            chips={statusChips}
+            value={filters.status || undefined}
+            onChange={(status) => onFilters({ ...filters, status: status ?? "" })}
+          />
+        ) : null}
         <TooltipIconButton
           prominence="secondary"
           aria-label={ui("Filter sources")}
@@ -189,15 +198,6 @@ export function SourceList<T extends SourceListItem>({
 
       {filtersOpen ? (
         <SourceFilterFields value={filters} statuses={statuses} onChange={onFilters} />
-      ) : null}
-
-      {statusChips.length > 0 ? (
-        <FilterChips
-          label={ui("Filter sources by status")}
-          chips={statusChips}
-          value={filters.status || undefined}
-          onChange={(status) => onFilters({ ...filters, status: status ?? "" })}
-        />
       ) : null}
 
       {/*
@@ -214,10 +214,7 @@ export function SourceList<T extends SourceListItem>({
               <TableHead scope="col" className="px-4">
                 {ui("Name")}
               </TableHead>
-              <TableHead scope="col" className="hidden w-44 px-4 whitespace-nowrap @4xl:table-cell">
-                {ui("Last indexed")}
-              </TableHead>
-              <TableHead scope="col" className="w-px px-2 whitespace-nowrap @4xl:w-48 @4xl:px-4">
+              <TableHead scope="col" className="w-px px-2 whitespace-nowrap @4xl:w-64 @4xl:px-4">
                 {ui("Status")}
               </TableHead>
               <TableHead scope="col" className="hidden w-64 px-4 whitespace-nowrap @4xl:table-cell">
@@ -402,11 +399,6 @@ function SourceRow<T extends SourceListItem>({ source, row }: { source: T; row: 
           </div>
         </div>
       </TableCell>
-      <TableCell className="hidden px-4 @4xl:table-cell">
-        <span className="font-secondary-body text-content-muted">
-          {source.lastSucceededAt ? <LastIndexed value={source.lastSucceededAt} /> : "-"}
-        </span>
-      </TableCell>
       <TableCell className="px-2 py-2.5 @4xl:px-4">
         <SourceStatusBadge status={source.status} />
         <SourceStatusLine source={source} />
@@ -430,13 +422,23 @@ function documentsOf(ui: AppTranslate, count: number) {
   return count === 1 ? ui("1 document") : ui("{{count}} documents", { count });
 }
 
-/** Under the status: why the last run failed, that work is running, or how long ago it last succeeded. */
+/**
+ * Under the status: why a failed Source failed, that work is running, or how long ago it last succeeded. The
+ * reason keeps to one line with the whole message on hover, so a long one does not stretch its row; a Source that
+ * did not fail keeps its time even when one of its files left an error code.
+ */
 function SourceStatusLine({ source }: { source: SourceListItem }) {
   const ui = useAppTranslation();
-  const className = "mt-0.5 block max-w-48 font-secondary-body text-content-muted";
+  const className = "mt-0.5 block max-w-60 truncate font-secondary-body text-content-muted";
 
-  if (source.errorCode)
-    return <span className={className}>{ui(sourceStatusMessage(source.errorCode))}</span>;
+  if (source.status === "FAILED" && source.errorCode) {
+    const reason = ui(sourceStatusMessage(source.errorCode));
+    return (
+      <span className={className} title={reason}>
+        {reason}
+      </span>
+    );
+  }
   if (source.pendingWork) return <span className={className}>{ui("Still working")}</span>;
   if (!source.lastSucceededAt) return null;
   const date = new Date(source.lastSucceededAt);
