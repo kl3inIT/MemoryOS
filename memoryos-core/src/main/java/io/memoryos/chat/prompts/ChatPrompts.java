@@ -358,15 +358,18 @@ public final class ChatPrompts {
     /**
      * MEM-195: the instruction a grounded turn adds to every inference. It asks for what the server then checks: an
      * answer is released only once it cites evidence registered in this turn, so an answer from general knowledge is
-     * replaced by a refusal whatever this text achieves.
+     * replaced by a refusal whatever this text achieves. MEM-317: a reply that the documents do not cover the question
+     * carries no citation, so the gate stores the refusal rather than a cited "not covered" answer.
      */
     static final String GROUNDED_GUIDANCE = """
             # Answer only from the organization's documents
             This organization answers only from its own documents. Use only the evidence the tools returned in this \
             conversation, never your own knowledge, even for well-known facts, dates, laws or definitions.
-            Cite every statement with its inline citation. If the evidence does not answer the question, say that the \
-            organization's documents do not cover it, and do not answer it from general knowledge. If the evidence \
-            answers only part of it, answer that part with citations and name the part the documents do not cover.
+            Cite every statement with its inline citation. Cite only evidence that supports the statement it follows, \
+            never evidence that was merely found. If the evidence does not answer the question, say only that the \
+            organization's documents do not cover it, without any citation, and do not answer it from general \
+            knowledge. If the evidence answers only part of it, answer that part with citations and name the part the \
+            documents do not cover.
             """;
 
     public static Prompt forInference(Prompt original, boolean hasEvidence, boolean lastCycle, boolean siteFilter,
