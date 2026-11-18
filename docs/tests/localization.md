@@ -4,7 +4,7 @@
 - Language hints: `ChatLanguagePromptTest` and `ChatTurnSetupTest` cover precedence and per-turn snapshots.
 - Catalogs: `catalog.test.ts`, `app-translation.test.tsx`, `check:i18n` cover keys/placeholders, HTML language, registry/provider copy, nested errors, inert filenames and locale formatting.
 - Settings, session, Users, ConfirmDialog, Chat dialog and problem tests preserve drafts/DOM on language changes and transient failures, without duplicate writes or raw diagnostics.
-- Not found: `account-not-found.test.tsx` covers a direct load in the account language and the Vietnamese default for a visitor who is not signed in.
+- Not found: `__root.test.tsx` covers a direct load in the account language and the Vietnamese default for a visitor who is not signed in.
 - Existing browser suites assert selected account locale; public invitation screens default to Vietnamese. Renderer cases cover English desktop/Vietnamese mobile, draft/focus and reload.
 - Production CSP: built assets must show Shiki colored tokens without WASM/eval allowances, Mermaid images and inert model strings under checked-in CSP. A local fixture is not live-provider/staging acceptance.
 

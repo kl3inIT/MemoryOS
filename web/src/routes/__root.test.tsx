@@ -1,7 +1,6 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import {
   createMemoryHistory,
-  createRootRoute,
   createRoute,
   createRouter,
   RouterProvider,
@@ -13,7 +12,7 @@ import { handleGetCurrentIdentity } from "@/lib/hey-api/msw.gen";
 import type { CurrentIdentity } from "@/lib/hey-api/types.gen";
 import { createMemoryOsQueryClient } from "@/lib/query-client";
 import { server } from "@/test/msw";
-import { AccountNotFound } from "./account-not-found";
+import { Route as rootRoute } from "./__root";
 
 const ENGLISH_MEMBER: CurrentIdentity = {
   actorId: "97c41cb9-55ae-4a52-94ab-7aad59be91e5",
@@ -26,17 +25,18 @@ const ENGLISH_MEMBER: CurrentIdentity = {
 };
 
 async function openUnknownAddress() {
-  const rootRoute = createRootRoute({ notFoundComponent: AccountNotFound });
+  const queryClient = createMemoryOsQueryClient();
   const router = createRouter({
     routeTree: rootRoute.addChildren([
       createRoute({ getParentRoute: () => rootRoute, path: "/", component: () => null }),
     ]),
+    context: { queryClient },
     history: createMemoryHistory({ initialEntries: ["/no-such-page"] }),
     notFoundMode: "root",
   });
   await router.load();
   render(
-    <QueryClientProvider client={createMemoryOsQueryClient()}>
+    <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
   );
