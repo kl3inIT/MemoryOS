@@ -604,7 +604,8 @@ kind, topic and session. A conversational message in grounded mode is answered a
 
 **The answer.** A grounded turn's first inference offers only `search_knowledge` and requires a tool call
 (`ModelBinding.requireTool`, the Onyx `forced_tool_id` equivalent). Every inference carries an instruction to answer
-from the returned evidence only.
+from the returned evidence only, to cite only evidence that supports the statement, and to leave uncited a reply
+that the documents do not cover the question, so that reply ends as the `uncited` refusal (MEM-317).
 
 **The citation gate.** Answer text passes through `CitationGate` before it is stored or streamed:
 - A grounded turn holds all text until the first inline `[n]` naming evidence registered in this turn, then releases
