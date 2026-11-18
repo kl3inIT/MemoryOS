@@ -1413,8 +1413,8 @@ Object.assign(englishUi, {
   "Processing paused because this organization is inactive. Contact an administrator.":
     "Đã tạm dừng xử lý vì tổ chức không hoạt động. Liên hệ quản trị viên.",
   "This file type could not be extracted.": "Không trích xuất được loại tệp này.",
-  "Password-protected files cannot be indexed.":
-    "Không thể lập chỉ mục tệp được bảo vệ bằng mật khẩu.",
+  "Password-protected files cannot be indexed. Remove the password, then upload the file again.":
+    "Không thể lập chỉ mục tệp được bảo vệ bằng mật khẩu. Hãy gỡ mật khẩu rồi tải tệp lên lại.",
   "The file could not be read. Check the file and upload it again.":
     "Không đọc được tệp. Kiểm tra tệp rồi tải lên lại.",
   "File extraction took too long. Try indexing the file again.":

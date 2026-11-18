@@ -26,7 +26,8 @@ const statusMessages = {
   SOURCE_TENANT_INACTIVE:
     "Processing paused because this organization is inactive. Contact an administrator.",
   SOURCE_EXTRACTION_UNSUPPORTED: "This file type could not be extracted.",
-  SOURCE_EXTRACTION_ENCRYPTED: "Password-protected files cannot be indexed.",
+  SOURCE_EXTRACTION_ENCRYPTED:
+    "Password-protected files cannot be indexed. Remove the password, then upload the file again.",
   SOURCE_EXTRACTION_MALFORMED: "The file could not be read. Check the file and upload it again.",
   SOURCE_EXTRACTION_TIMEOUT: "File extraction took too long. Try indexing the file again.",
   SOURCE_EXTRACTION_CONNECTION_FAILED:

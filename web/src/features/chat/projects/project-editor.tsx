@@ -1,5 +1,5 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { useRef, type Ref } from "react";
+import { useRef, useState, type Ref, type RefObject } from "react";
 import { revalidateLogic, useStore } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
@@ -33,15 +33,20 @@ import { withRequestTimeout } from "@/lib/api";
  * Creates a Project (name and icon) or edits one (name, icon and instructions) in a dialog. A created
  * Project opens its page, unless the caller passes `onCreated` to decide what follows; the dialog is
  * already closed by then, so `onCreated` reports its own failures.
+ *
+ * The dialog has no trigger of its own, so on close it returns focus to the control that had it when the
+ * dialog opened, or to `restoreFocusRef` when that control is gone by then, such as a menu item.
  */
 export function ProjectEditor({
   project,
   onClose,
   onCreated,
+  restoreFocusRef,
 }: {
   project?: Project;
   onClose: () => void;
   onCreated?: (project: Project) => void | Promise<void>;
+  restoreFocusRef?: RefObject<HTMLElement | null>;
 }) {
   const ui = useAppTranslation();
   const { t: errorText } = useTranslation("errors");
@@ -51,6 +56,10 @@ export function ProjectEditor({
   const problemErrors = useProblemErrors();
   const problemMessage = useProblemMessage();
   const nameInput = useRef<HTMLInputElement>(null);
+  // Read while rendering the first time, before the dialog moves focus into itself.
+  const [opener] = useState(() =>
+    document.activeElement instanceof HTMLElement ? document.activeElement : null,
+  );
   const create = useMutation(withRequestTimeout(createChatProjectMutation()));
   const update = useMutation(withRequestTimeout(updateChatProjectMutation()));
   // The generated request schema with the rules this editor adds.
@@ -116,6 +125,14 @@ export function ProjectEditor({
         onOpenAutoFocus={(event) => {
           event.preventDefault();
           nameInput.current?.focus();
+        }}
+        onCloseAutoFocus={(event) => {
+          const target = [opener, restoreFocusRef?.current].find(
+            (element) => element?.isConnected && element !== document.body,
+          );
+          if (!target) return;
+          event.preventDefault();
+          target.focus();
         }}
       >
         <form

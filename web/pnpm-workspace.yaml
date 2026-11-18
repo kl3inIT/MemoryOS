@@ -19,6 +19,11 @@ auditConfig:
     # It is reached only through the shadcn CLI (fast-glob > micromatch), run by developers on their own patterns;
     # the browser bundle and the nginx image carry no Node. Remove this once braces 3.0.4 is published.
     - GHSA-vfj7-8cjw-p6xm
+    # picomatch <=4.0.7 can backtrack for long on a pattern with repeated extglobs, and no patched release exists
+    # (2026-11-18, latest 4.0.7). It is reached only through build tools (Vite, tinyglobby, the shadcn CLI) run on
+    # the repository's own patterns; no production dependency needs it and the browser bundle carries none.
+    # Remove this once picomatch 4.0.8 is published.
+    - GHSA-fc5q-39xc-vjpf
 minimumReleaseAgeExclude:
   - "@ai-sdk/gateway@4.0.128"
   - "@ai-sdk/mcp@2.0.86"
