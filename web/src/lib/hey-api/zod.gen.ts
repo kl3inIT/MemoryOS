@@ -1696,6 +1696,22 @@ export const zSourcePermissions = z.object({
     removeItems: z.boolean()
 });
 
+/**
+ * Every source the actor may read, whatever the search and filters of the page.
+ */
+export const zSourceCounts = z.object({
+    total: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    notStarted: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    indexing: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    active: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    failed: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    paused: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    pausing: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    deleting: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    documents: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    pendingWork: z.boolean()
+});
+
 export const zSourceSummary = z.object({
     id: z.uuid(),
     name: z.string(),
@@ -1713,6 +1729,15 @@ export const zSourceSummary = z.object({
     managerActorId: z.uuid().nullable(),
     managerName: z.string().nullable(),
     permissions: zSourcePermissions
+});
+
+export const zSourcePage = z.object({
+    items: z.array(zSourceSummary),
+    page: z.int().gte(0).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    size: z.int().gte(1).lte(100),
+    totalItems: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    totalPages: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    counts: zSourceCounts
 });
 
 export const zRenameSourceRequest = z.object({
@@ -7326,6 +7351,37 @@ export const zListUsersQuery = z.object({
  * A bounded page of current memberships and eligible pending invitations
  */
 export const zListUsersResponse = zUserPage;
+
+export const zListSourcePageQuery = z.object({
+    search: z.string().min(0).max(200).nullish(),
+    status: z.enum([
+        'NOT_STARTED',
+        'INDEXING',
+        'ACTIVE',
+        'FAILED',
+        'PAUSED',
+        'PAUSING',
+        'DELETING'
+    ]).optional(),
+    type: z.enum([
+        'FILE',
+        'GOOGLE_DRIVE',
+        'SHAREPOINT',
+        'LARK'
+    ]).optional(),
+    access: z.enum([
+        'PUBLIC',
+        'PRIVATE',
+        'SYNC'
+    ]).optional(),
+    page: z.int().gte(0).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).optional().default(0),
+    size: z.int().gte(1).lte(100).optional().default(20)
+});
+
+/**
+ * OK
+ */
+export const zListSourcePageResponse = zSourcePage;
 
 /**
  * OK

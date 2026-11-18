@@ -1295,6 +1295,8 @@ Object.assign(englishUi, {
   "{{v1}} group, {{v2}} sources, {{v3}} documents": "Nhóm {{v1}}, {{v2}} nguồn, {{v3}} tài liệu",
   "Total sources": "Tổng số nguồn",
   "1 document": "1 tài liệu",
+  "1 source": "1 nguồn",
+  "{{count}} sources": "{{count}} nguồn",
   "{{count}} documents": "{{count}} tài liệu",
   "Total docs": "Tổng tài liệu",
   "Documents you can read": "Tài liệu bạn đọc được",
@@ -2882,4 +2884,7 @@ Object.assign(englishUi, {
     "Quyền đọc tài liệu theo các nhóm MemoryOS của Nguồn này, không theo chia sẻ trên Lark.",
   "Whoever the document is shared with in Lark can read it.":
     "Ai được chia sẻ tài liệu trên Lark thì đọc được.",
+  "Still working": "Đang xử lý",
+  "Filter sources by status": "Lọc nguồn theo trạng thái",
+  "Source pages": "Các trang nguồn",
 });

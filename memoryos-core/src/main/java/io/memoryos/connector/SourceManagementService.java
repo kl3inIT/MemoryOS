@@ -23,6 +23,8 @@ public interface SourceManagementService {
 
     List<SourceSummary> listSources(ActorId actorId);
 
+    SourcePage listSourcePage(ActorId actorId, SourcePageQuery query);
+
     SourceSummary getSource(ActorId actorId, SourceId sourceId);
 
     SourceItemPage listItems(ActorId actorId, SourceId sourceId, @Nullable String cursor, int size);

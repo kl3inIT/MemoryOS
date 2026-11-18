@@ -1,21 +1,10 @@
-import { formatUiDay, formatUiMoment, uiLocale } from "@/i18n/format";
+import { formatUiDay, formatUiMoment, formatUiRelative } from "@/i18n/format";
 import { useAppTranslation, type AppTranslate } from "@/i18n/use-app-translation";
-import {
-  ChevronDown,
-  ChevronRight,
-  ChevronsDownUp,
-  ChevronsUpDown,
-  Files,
-  FileText,
-  FilterX,
-  ListFilter,
-  Plug,
-  TriangleAlert,
-} from "lucide-react";
-import { useMemo, useState, type ReactNode } from "react";
+import { Files, FilterX, ListFilter } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { FilterChips } from "@/components/composites/filter-chips";
 import { SearchField } from "@/components/composites/search-field";
 import { TooltipIconButton } from "@/components/composites/tooltip-icon-button";
-import { StatStrip, StatTile, StatToggleTile } from "@/components/composites/stat-strip";
 import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
 import {
@@ -26,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { TablePagination } from "@/components/ui/table-pagination";
 import {
   Table,
   TableBody,
@@ -40,6 +30,7 @@ import {
   findSourceProvider,
   sourceProviders,
 } from "@/features/sources/shared/source-provider-catalog";
+import { sourceStatusMessage } from "@/features/sources/shared/source-errors";
 import { SourceAccess, SourceStatusBadge } from "@/features/sources/shared/source-status-badge";
 import {
   sourceAccessOptions,
@@ -59,16 +50,41 @@ export type SourceListItem = {
   status: string;
   access: SourceSummary["access"];
   lastSucceededAt: string | null;
+  /** Who answers for the Source; a list that does not know leaves it out. */
+  managerName?: string | null;
+  /** Why the last run failed, as the server's code. */
+  errorCode?: string | null;
+  /** Whether work on the Source is running or waiting. */
+  pendingWork?: boolean;
+};
+
+/** The figures the stat strip and the status chips show; the page that owns the list counts them. */
+export type SourceListTotals = {
+  total: number;
+  documents: number;
+  /** How many Sources hold each status; the chips list the statuses that hold any. */
+  byStatus: Readonly<Record<string, number>>;
+};
+
+/** The place of the rows in a list the server cuts into pages; `page` counts from 0. */
+export type SourceListPager = {
+  page: number;
+  size: number;
+  totalItems: number;
+  totalPages: number;
+  onPage: (next: number) => void;
 };
 
 /**
- * The Sources grouped by provider, as the Sources page lists them: their totals, a search, the status, provider
- * and access filters, and one table section per provider. The administration page and a member's library both
- * show it; each says what a row's document count means and where its name and action lead. The search and the
- * filters belong to the page that shows the list, so a page that keeps them in its address can.
+ * The Sources as the Sources page lists them: their totals, a search, the status, provider and access filters
+ * and one flat table. The administration page and a member's library both show it; each owns what its rows are
+ * (searched, filtered and paged where it likes) and says what a row's document count means and where its name
+ * and action lead. The search and the filters belong to the page that shows the list, so a page that keeps them
+ * in its address can.
  */
 export function SourceList<T extends SourceListItem>({
   sources,
+  totals,
   search,
   onSearch,
   filters,
@@ -79,8 +95,11 @@ export function SourceList<T extends SourceListItem>({
   renderName,
   renderAccess,
   renderAction,
+  pager,
 }: {
+  /** The rows to show, already narrowed by the search and the filters. */
   sources: readonly T[];
+  totals: SourceListTotals;
   search: string;
   onSearch: (next: string) => void;
   filters: SourceFilters;
@@ -97,79 +116,32 @@ export function SourceList<T extends SourceListItem>({
   renderAccess?: (source: T) => ReactNode;
   /** The row's action; a list without one has no action column. */
   renderAction?: (source: T) => ReactNode;
+  /** Present when the rows are one page of a longer list. */
+  pager?: SourceListPager;
 }) {
   const ui = useAppTranslation();
 
   const [filtersOpen, setFiltersOpen] = useState(
     () => filters.status !== "" || filters.provider !== "" || filters.access !== "",
   );
-  const [collapsedTypes, setCollapsedTypes] = useState<Set<string>>(() => new Set());
-  const filteredSources = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return sources.filter((source) => {
-      const providerName = ui(findSourceProvider(source.type)?.name ?? source.type);
-      return (
-        (!query ||
-          source.name.toLowerCase().includes(query) ||
-          providerName.toLowerCase().includes(query)) &&
-        (!filters.status || source.status === filters.status) &&
-        (!filters.provider || source.type === filters.provider) &&
-        (!filters.access || source.access === filters.access)
-      );
-    });
-  }, [filters, search, sources, ui]);
-  const groups = useMemo(() => groupSources(filteredSources), [filteredSources]);
-  const hasExpandedGroups = groups.some((group) => !collapsedTypes.has(group.type));
-  const columns = renderAction ? 6 : 5;
+  const columns = renderAction ? 5 : 4;
   const row = { documents, renderName, renderAccess, renderAction };
-  const failedCount = sources.filter((source) => source.status === "FAILED").length;
-  const showingFailed = filters.status === "FAILED";
-  const documentCount = sources.reduce((total, source) => total + documents(source), 0);
-
-  function toggle(type: string) {
-    setCollapsedTypes((current) => {
-      const next = new Set(current);
-      if (next.has(type)) next.delete(type);
-      else next.add(type);
-      return next;
-    });
-  }
-
-  function toggleAll() {
-    setCollapsedTypes(hasExpandedGroups ? new Set(groups.map((group) => group.type)) : new Set());
-  }
+  const statusChips = sourceStatusOptions
+    .filter((option) => !statuses || statuses.includes(option.value))
+    .filter((option) => (totals.byStatus[option.value] ?? 0) > 0 || option.value === filters.status)
+    .map((option) => ({
+      value: option.value,
+      label: ui(option.label),
+      count: totals.byStatus[option.value] ?? 0,
+    }));
 
   return (
     <>
       {/*
-        What an administrator acts on: how many Sources there are, which ones failed, and what they hold. The
-        failed tile filters the list to them, as the Users counts filter theirs; its figure turns red only when
-        a Source has failed.
+        No stat strip: the status counts beside the search already say how many Sources failed and filter to
+        them, and the total and the documents close the table, as Onyx's list counts its connectors under it.
       */}
-      <StatStrip columns={3}>
-        <StatTile
-          icon={<Plug />}
-          iconClass="text-chart-1"
-          label={ui("Total sources")}
-          value={sources.length.toLocaleString(uiLocale())}
-        />
-        <StatToggleTile
-          icon={<TriangleAlert />}
-          iconClass="text-status-danger-content"
-          label={ui("Failed")}
-          value={failedCount.toLocaleString(uiLocale())}
-          tone={failedCount > 0 ? "danger" : undefined}
-          selected={showingFailed}
-          onToggle={() => onFilters({ ...filters, status: showingFailed ? "" : "FAILED" })}
-        />
-        <StatTile
-          icon={<FileText />}
-          iconClass="text-chart-2"
-          label={documentsLabel}
-          value={documentCount.toLocaleString(uiLocale())}
-        />
-      </StatStrip>
-
+      {/* One control row, as Onyx's list has: the search, the status counts that filter, then the other filters. */}
       <div className="flex flex-wrap items-center gap-2">
         <SearchField
           value={search}
@@ -177,13 +149,17 @@ export function SourceList<T extends SourceListItem>({
           label={ui("Search sources")}
           className="min-w-40 flex-1"
         />
-        <TooltipIconButton
-          prominence="secondary"
-          aria-label={hasExpandedGroups ? ui("Collapse all") : ui("Expand all")}
-          onClick={toggleAll}
-        >
-          {hasExpandedGroups ? <ChevronsDownUp /> : <ChevronsUpDown />}
-        </TooltipIconButton>
+        {statusChips.length > 0 ? (
+          <FilterChips
+            label={ui("Filter sources by status")}
+            // The status chips stand as tall as the search field and the filter button beside them, so the
+            // control row keeps one height.
+            className="[&>button]:h-9"
+            chips={statusChips}
+            value={filters.status || undefined}
+            onChange={(status) => onFilters({ ...filters, status: status ?? "" })}
+          />
+        ) : null}
         <TooltipIconButton
           prominence="secondary"
           aria-label={ui("Filter sources")}
@@ -213,10 +189,7 @@ export function SourceList<T extends SourceListItem>({
               <TableHead scope="col" className="px-4">
                 {ui("Name")}
               </TableHead>
-              <TableHead scope="col" className="hidden w-44 px-4 whitespace-nowrap @4xl:table-cell">
-                {ui("Last indexed")}
-              </TableHead>
-              <TableHead scope="col" className="w-px px-2 whitespace-nowrap @4xl:w-48 @4xl:px-4">
+              <TableHead scope="col" className="w-px px-2 whitespace-nowrap @4xl:w-64 @4xl:px-4">
                 {ui("Status")}
               </TableHead>
               <TableHead scope="col" className="hidden w-64 px-4 whitespace-nowrap @4xl:table-cell">
@@ -232,18 +205,11 @@ export function SourceList<T extends SourceListItem>({
               ) : null}
             </TableRow>
           </TableHeader>
-          {groups.map((group) => (
-            <SourceGroupBody
-              key={group.type}
-              group={group}
-              columns={columns}
-              collapsed={collapsedTypes.has(group.type)}
-              onToggle={() => toggle(group.type)}
-              row={row}
-            />
-          ))}
-          {groups.length === 0 ? (
-            <TableBody>
+          <TableBody>
+            {sources.map((source) => (
+              <SourceRow key={source.id} source={source} row={row} />
+            ))}
+            {sources.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={columns} className="px-4 py-12 text-center">
                   <span className="text-sm text-content-muted">
@@ -251,11 +217,41 @@ export function SourceList<T extends SourceListItem>({
                   </span>
                 </TableCell>
               </TableRow>
-            </TableBody>
-          ) : null}
+            ) : null}
+          </TableBody>
         </Table>
+        {pager && pager.totalItems > 0 ? (
+          <SourcePager pager={pager} documents={totals.documents} />
+        ) : !pager && sources.length > 0 ? (
+          <p className="border-t border-border-subtle px-4 py-3 font-secondary-body text-content-muted tabular-nums">
+            {sourcesOf(ui, sources.length)} · {documentsOf(ui, totals.documents)}
+          </p>
+        ) : null}
       </div>
     </>
+  );
+}
+
+function SourcePager({ pager, documents }: { pager: SourceListPager; documents: number }) {
+  const ui = useAppTranslation();
+  const first = pager.page * pager.size + 1;
+  const last = Math.min((pager.page + 1) * pager.size, pager.totalItems);
+
+  return (
+    <TablePagination
+      label={ui("Source pages")}
+      page={pager.page}
+      totalPages={pager.totalPages}
+      summary={`${ui("Showing {{first}}–{{last}} of {{total}}", {
+        first,
+        last,
+        total: pager.totalItems,
+      })} · ${documentsOf(ui, documents)}`}
+      previousDisabled={pager.page <= 0}
+      nextDisabled={pager.page + 1 >= pager.totalPages}
+      onPrevious={() => pager.onPage(pager.page - 1)}
+      onNext={() => pager.onPage(pager.page + 1)}
+    />
   );
 }
 
@@ -341,11 +337,6 @@ function SourceFilterFields({
   );
 }
 
-type SourceGroup<T> = {
-  type: string;
-  sources: T[];
-};
-
 /** How a list renders its rows: the count it shows and where a row leads. */
 type RowRendering<T> = {
   documents: (source: T) => number;
@@ -354,92 +345,44 @@ type RowRendering<T> = {
   renderAction?: (source: T) => ReactNode;
 };
 
-function SourceGroupBody<T extends SourceListItem>({
-  group,
-  columns,
-  collapsed,
-  onToggle,
-  row,
-}: {
-  group: SourceGroup<T>;
-  columns: number;
-  collapsed: boolean;
-  onToggle: () => void;
-  row: RowRendering<T>;
-}) {
-  const ui = useAppTranslation();
-
-  const provider = findSourceProvider(group.type);
-  const ProviderIcon = provider?.icon ?? Files;
-  const providerName = ui(provider?.name ?? group.type);
-  const documentCount = group.sources.reduce((total, source) => total + row.documents(source), 0);
-
-  return (
-    <TableBody>
-      {/* The whole row toggles its group; the provider's button stays the keyboard's way to it. */}
-      <TableRow
-        className="h-12 cursor-pointer"
-        onClick={(event) => {
-          if (!(event.target as Element).closest("button, a")) onToggle();
-        }}
-      >
-        <TableHead scope="rowgroup" colSpan={columns} className="px-4">
-          <button
-            type="button"
-            aria-expanded={!collapsed}
-            aria-label={ui("{{v1}} group, {{v2}} sources, {{v3}} documents", {
-              v1: providerName,
-              v2: group.sources.length,
-              v3: documentCount,
-            })}
-            onClick={onToggle}
-            className="flex shrink-0 items-center gap-2 text-left focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none"
-          >
-            {collapsed ? (
-              <ChevronRight className="size-4 text-content-secondary" aria-hidden="true" />
-            ) : (
-              <ChevronDown className="size-4 text-content-secondary" aria-hidden="true" />
-            )}
-            <ProviderIcon className="size-4 text-content-secondary" aria-hidden="true" />
-            <span className="font-main-ui-action text-content-primary">{providerName}</span>
-          </button>
-        </TableHead>
-      </TableRow>
-      {!collapsed
-        ? failuresFirst(group.sources).map((source) => (
-            <SourceRow key={source.id} source={source} row={row} />
-          ))
-        : null}
-    </TableBody>
-  );
-}
-
 function SourceRow<T extends SourceListItem>({ source, row }: { source: T; row: RowRendering<T> }) {
   const ui = useAppTranslation();
   const documents = row.documents(source);
+  const ProviderIcon = findSourceProvider(source.type)?.icon ?? Files;
 
   return (
     <TableRow id={`source-${source.id}`} className="h-15">
       <TableCell className="px-4 py-2.5">
-        {row.renderName(source)}
-        <span className="mt-0.5 block font-secondary-body text-content-muted @4xl:hidden">
-          {ui(sourceAccessPresentation[source.access].label)} · {documentsOf(ui, documents)}
-          {source.lastSucceededAt ? (
-            <>
-              {" · "}
-              <LastIndexed value={source.lastSucceededAt} />
-            </>
-          ) : null}
-        </span>
-        {row.renderAccess ? <span className="@4xl:hidden">{row.renderAccess(source)}</span> : null}
-      </TableCell>
-      <TableCell className="hidden px-4 @4xl:table-cell">
-        <span className="font-secondary-body text-content-muted">
-          {source.lastSucceededAt ? <LastIndexed value={source.lastSucceededAt} /> : "-"}
-        </span>
+        <div className="flex items-start gap-3">
+          <ProviderIcon
+            className="mt-0.5 size-4 shrink-0 text-content-secondary"
+            aria-hidden="true"
+          />
+          <div className="min-w-0 flex-1">
+            {row.renderName(source)}
+            {source.managerName ? (
+              <span className="block truncate font-secondary-body text-content-muted">
+                {ui("Responsible manager: {{v1}}", { v1: source.managerName })}
+              </span>
+            ) : null}
+            <span className="mt-0.5 block font-secondary-body text-content-muted @4xl:hidden">
+              {ui(sourceAccessPresentation[source.access].label)} · {documentsOf(ui, documents)}
+              {source.lastSucceededAt ? (
+                <>
+                  {" · "}
+                  <LastIndexed value={source.lastSucceededAt} />
+                </>
+              ) : null}
+            </span>
+            {row.renderAccess ? (
+              <span className="@4xl:hidden">{row.renderAccess(source)}</span>
+            ) : null}
+          </div>
+        </div>
       </TableCell>
       <TableCell className="px-2 py-2.5 @4xl:px-4">
         <SourceStatusBadge status={source.status} />
+        <SourceStatusLine source={source} />
       </TableCell>
       <TableCell className="hidden px-4 @4xl:table-cell">
         <SourceAccess access={source.access} />
@@ -455,27 +398,43 @@ function SourceRow<T extends SourceListItem>({ source, row }: { source: T; row: 
   );
 }
 
+/** "1 source", "2 sources", as `documentsOf` counts documents. */
+function sourcesOf(ui: AppTranslate, count: number) {
+  return count === 1 ? ui("1 source") : ui("{{count}} sources", { count });
+}
+
 /** "1 document", "2 documents": each count has its own sentence, so a translation is never stitched together. */
 function documentsOf(ui: AppTranslate, count: number) {
   return count === 1 ? ui("1 document") : ui("{{count}} documents", { count });
 }
 
-/** A failed Source is what an administrator opens the list for, so it leads its group. */
-function failuresFirst<T extends SourceListItem>(sources: T[]): T[] {
-  return [
-    ...sources.filter((source) => source.status === "FAILED"),
-    ...sources.filter((source) => source.status !== "FAILED"),
-  ];
-}
+/**
+ * Under the status, as Onyx writes it: why a failed Source failed, that work is running, or how long ago an
+ * active Source last succeeded. The reason keeps to one line with the whole message on hover; a Source that
+ * did not fail keeps its time even when one of its files left an error code.
+ */
+function SourceStatusLine({ source }: { source: SourceListItem }) {
+  const ui = useAppTranslation();
+  const className = "mt-0.5 block max-w-60 truncate font-secondary-body text-content-muted";
 
-function groupSources<T extends SourceListItem>(sources: T[]): SourceGroup<T>[] {
-  const groups = new Map<string, T[]>();
-  for (const source of sources) {
-    const group = groups.get(source.type);
-    if (group) group.push(source);
-    else groups.set(source.type, [source]);
+  if (source.status === "FAILED" && source.errorCode) {
+    const reason = ui(sourceStatusMessage(source.errorCode));
+    return (
+      <span className={className} title={reason}>
+        {reason}
+      </span>
+    );
   }
-  return Array.from(groups, ([type, groupedSources]) => ({ type, sources: groupedSources }));
+  if (source.pendingWork) return <span className={className}>{ui("Still working")}</span>;
+  // As Onyx's list, a time stands only under an indexed (active) Source: under "Scheduled" a bare date would read
+  // as the day it is scheduled for.
+  if (source.status !== "ACTIVE" || !source.lastSucceededAt) return null;
+  const date = new Date(source.lastSucceededAt);
+  return (
+    <time dateTime={source.lastSucceededAt} title={formatUiMoment(date)} className={className}>
+      {formatUiRelative(source.lastSucceededAt) ?? formatUiDay(date)}
+    </time>
+  );
 }
 
 function LastIndexed({ value }: { value: string }) {

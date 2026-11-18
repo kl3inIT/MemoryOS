@@ -1,3 +1,4 @@
+import { invalidateSourceLists } from "@/features/sources/shared/invalidate-source-lists";
 import { appText, type AppCopy } from "@/i18n/app-text";
 import { replaceEqualDeep, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -15,7 +16,6 @@ import {
   listGoogleDriveCredentialsOptions,
   listGoogleDriveCredentialsQueryKey,
   listSourceItemsQueryKey,
-  listSourcesQueryKey,
   updateGoogleDrivePauseMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { GetGoogleDriveConfigurationResponse, SourceSummary } from "@/lib/hey-api/types.gen";
@@ -202,7 +202,7 @@ export function useGoogleDrivePanel({
         },
         { throwOnError },
       ),
-      queryClient.invalidateQueries({ queryKey: listSourcesQueryKey() }, { throwOnError }),
+      invalidateSourceLists(queryClient, { throwOnError }),
       queryClient.invalidateQueries(
         { queryKey: listGoogleDriveCredentialsQueryKey() },
         { throwOnError },

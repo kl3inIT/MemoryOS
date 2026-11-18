@@ -20,6 +20,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.jayway.jsonpath.JsonPath;
 import com.sun.net.httpserver.HttpServer;
 import io.memoryos.connector.ConnectorSyncPort;
 import io.memoryos.connector.CredentialId;
@@ -1411,6 +1412,29 @@ class SourceApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.id == '%s')]".formatted(managedSourceId)).exists())
                 .andExpect(jsonPath("$[?(@.id == '%s')]".formatted(hiddenSourceId)).doesNotExist());
+        int readable = JsonPath.<List<Object>>read(
+                mockMvc.perform(get("/api/sources").with(authentication(manager))).andReturn()
+                        .getResponse().getContentAsString(), "$").size();
+        mockMvc.perform(get("/api/sources/page").param("size", "50").with(authentication(manager)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[?(@.id == '%s')]".formatted(managedSourceId)).exists())
+                .andExpect(jsonPath("$.items[?(@.id == '%s')]".formatted(hiddenSourceId)).doesNotExist())
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(50))
+                .andExpect(jsonPath("$.totalItems").value(readable))
+                .andExpect(jsonPath("$.counts.total").value(readable))
+                .andExpect(jsonPath("$.counts.documents").isNumber())
+                .andExpect(jsonPath("$.counts.pendingWork").isBoolean());
+        mockMvc.perform(get("/api/sources/page").param("search", "no such source").with(authentication(manager)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isEmpty())
+                .andExpect(jsonPath("$.totalItems").value(0))
+                .andExpect(jsonPath("$.counts.total").value(readable));
+        for (String[] invalid : new String[][] {{"size", "0"}, {"size", "101"}, {"page", "-1"},
+                {"status", "NOPE"}, {"search", "x".repeat(201)}}) {
+            mockMvc.perform(get("/api/sources/page").param(invalid[0], invalid[1]).with(authentication(manager)))
+                    .andExpect(status().isBadRequest());
+        }
         mockMvc.perform(get("/api/sources/{sourceId}", managedSourceId).with(authentication(manager)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.permissions.edit").value(true))

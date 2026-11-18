@@ -2,6 +2,19 @@
 
 This matrix combines historical upstream and local evidence. Focused checks for the merge with main `3e4e318` are recorded in [Basic Access merge verification](../increments/completed/basic-access-capabilities/verification.md#main-refresh-to-3e4e318), not a full-suite or live-provider acceptance claim. Current schema has 48 migrations: published main V1–V42 stay unchanged, while historical local Basic/scoped-source V37–V42 map to V43–V48. Existing databases with old feature V37–V42 must not run the merged layout until deliberate data-preserving history/schema reconciliation; no automatic reset or Flyway repair is authorized.
 
+## Source list in pages — 2026-11-16
+
+| Contract | Evidence | Result |
+| --- | --- | --- |
+| A page holds only Sources the actor may read, ordered FAILED, then INDEXING and PAUSING, then the rest by name and id; search, status, type and access filter it; pages do not overlap; counts cover the unfiltered readable set | `PostgresSourceLifecycleTest.sourcePageOrdersFiltersPagesAndCountsOnlyWhatTheActorMayRead` | Pass |
+| `GET /api/sources/page` answers a scoped manager with their readable Sources, `totalItems` and `counts.total` equal to `GET /api/sources`; a search that matches nothing keeps the counts; `size` 0 or 101, `page` −1, an unknown status and a 201-character search are `400` | `SourceApiIntegrationTest` (scoped manager case) | Pass |
+| The committed contract lists `/api/sources/page`, `SourcePage` and `SourceCounts` | `OpenApiContractTest` | Pass |
+| Rows are flat with the provider icon and manager; the status line shows the failure reason, *Still working* or the relative time under ACTIVE only; the pager reports the range; status chips filter | `source-list.test.tsx` (5 cases) | Pass |
+| The page reads search, filters and `page` from the address, pages through it and returns to the first page on a filter change | `sources-page.test.tsx` (2 cases) | Pass |
+| Gates | `ModulithArchitectureTest`, `CoreDependencyRulesTest`; web i18n, knip, lint, format, typecheck and 209 unit files (1207 tests) | Pass |
+
+Not covered: an INDEXING or PAUSING Source in the rank test, and `pnpm check:routes` (the production build) locally.
+
 ## MEM-245 Lark connector — 2026-10-12
 
 Automated proof against real PostgreSQL with Lark replaced by doubles, and by a local HTTP server answering with recorded and scrubbed answers of the test tenant for the gateway. The live run on staging is in the increment's [verification](../increments/completed/mem-245-lark-connector/verification.md).

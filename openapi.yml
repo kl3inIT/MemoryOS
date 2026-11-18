@@ -15335,6 +15335,90 @@ paths:
       security:
       - browserSession: []
       - bearerAuth: []
+  /api/sources/page:
+    get:
+      tags:
+      - Sources
+      summary: List a page of Tenant sources
+      description: "Failed sources first, then indexing and pausing, then the rest\
+        \ by name. The counts cover every source the actor may read, whatever the\
+        \ search and filters."
+      operationId: listSourcePage
+      parameters:
+      - name: search
+        in: query
+        required: false
+        schema:
+          type:
+          - string
+          - "null"
+          maxLength: 200
+          minLength: 0
+      - name: status
+        in: query
+        required: false
+        schema:
+          type:
+          - string
+          - "null"
+          enum:
+          - NOT_STARTED
+          - INDEXING
+          - ACTIVE
+          - FAILED
+          - PAUSED
+          - PAUSING
+          - DELETING
+      - name: type
+        in: query
+        required: false
+        schema:
+          type:
+          - string
+          - "null"
+          enum:
+          - FILE
+          - GOOGLE_DRIVE
+          - SHAREPOINT
+          - LARK
+      - name: access
+        in: query
+        required: false
+        schema:
+          type:
+          - string
+          - "null"
+          enum:
+          - PUBLIC
+          - PRIVATE
+          - SYNC
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+          minimum: 0
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+          maximum: 100
+          minimum: 1
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourcePage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/sources:
     get:
       tags:
@@ -28865,6 +28949,97 @@ components:
       - manageConfiguration
       - publish
       - removeItems
+    SourceCounts:
+      type: object
+      additionalProperties: false
+      description: "Every source the actor may read, whatever the search and filters\
+        \ of the page."
+      properties:
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+        notStarted:
+          type: integer
+          format: int64
+          minimum: 0
+        indexing:
+          type: integer
+          format: int64
+          minimum: 0
+        active:
+          type: integer
+          format: int64
+          minimum: 0
+        failed:
+          type: integer
+          format: int64
+          minimum: 0
+        paused:
+          type: integer
+          format: int64
+          minimum: 0
+        pausing:
+          type: integer
+          format: int64
+          minimum: 0
+        deleting:
+          type: integer
+          format: int64
+          minimum: 0
+        documents:
+          type: integer
+          format: int64
+          description: Documents across those sources.
+          minimum: 0
+        pendingWork:
+          type: boolean
+          description: Whether any of those sources has pending work.
+      required:
+      - active
+      - deleting
+      - documents
+      - failed
+      - indexing
+      - notStarted
+      - paused
+      - pausing
+      - pendingWork
+      - total
+    SourcePage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SourceSummary"
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          maximum: 100
+          minimum: 1
+        totalItems:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int64
+          minimum: 0
+        counts:
+          $ref: "#/components/schemas/SourceCounts"
+      required:
+      - counts
+      - items
+      - page
+      - size
+      - totalItems
+      - totalPages
     SourceSummary:
       type: object
       additionalProperties: false

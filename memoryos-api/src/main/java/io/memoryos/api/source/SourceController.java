@@ -7,24 +7,32 @@ import io.memoryos.api.source.contract.RenameSourceRequest;
 import io.memoryos.api.source.contract.UpdateSourceAccessRequest;
 import io.memoryos.api.source.contract.InitiateSourceUploadRequest;
 import io.memoryos.api.source.contract.SourceItemPageResponse;
+import io.memoryos.api.source.contract.SourcePageResponse;
 import io.memoryos.api.source.contract.SourceOperationResponse;
 import io.memoryos.api.source.contract.SourceOperationPageResponse;
 import io.memoryos.api.source.contract.SourceSummaryResponse;
 import io.memoryos.api.source.contract.SourceUploadAuthorizationResponse;
 import io.memoryos.api.source.contract.SourceUploadReceiptResponse;
+import io.memoryos.connector.SourceAccess;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.connector.SourceManagementService;
+import io.memoryos.connector.SourcePageQuery;
+import io.memoryos.connector.SourceStatus;
+import io.memoryos.connector.SourceType;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.IdentityContext;
 import io.memoryos.objectstorage.ObjectUploadId;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.UUID;
 
@@ -118,6 +126,32 @@ final class SourceController {
         return sources.listSources(identityContext.actorId()).stream()
                 .map(SourceSummaryResponse::from)
                 .toList();
+    }
+
+    @Operation(
+            operationId = "listSourcePage",
+            summary = "List a page of Tenant sources",
+            description = "Failed sources first, then indexing and pausing, then the rest by name. The counts cover "
+                    + "every source the actor may read, whatever the search and filters."
+    )
+    @GetMapping("/page")
+    SourcePageResponse listSourcePage(
+            @CurrentActor IdentityContext identityContext,
+            @Size(max = SourcePageQuery.MAX_SEARCH_LENGTH)
+            @RequestParam(required = false) @Nullable String search,
+            @RequestParam(required = false) @Nullable SourceStatus status,
+            @RequestParam(required = false) @Nullable SourceType type,
+            @RequestParam(required = false) @Nullable SourceAccess access,
+            @Parameter(schema = @Schema(type = "integer", format = "int32", defaultValue = "0", minimum = "0"))
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @Parameter(schema = @Schema(type = "integer", format = "int32", defaultValue = "20",
+                    minimum = "1", maximum = "100"))
+            @RequestParam(defaultValue = "20") @Min(1) @Max(SourcePageQuery.MAX_SIZE) int size
+    ) {
+        return SourcePageResponse.from(sources.listSourcePage(
+                identityContext.actorId(),
+                new SourcePageQuery(search, status, type, access, page, size)
+        ));
     }
 
     @Operation(operationId = "getSource", summary = "Get one source summary")

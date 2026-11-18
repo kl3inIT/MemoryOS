@@ -1,3 +1,4 @@
+import { invalidateSourceLists } from "@/features/sources/shared/invalidate-source-lists";
 import { appText, type AppCopy } from "@/i18n/app-text";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLayoutEffect, useRef, useState } from "react";
@@ -6,7 +7,6 @@ import {
   getSourceOptions,
   getSourceQueryKey,
   listSourceItemsQueryKey,
-  listSourcesQueryKey,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { can } from "@/lib/resource-permissions";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
@@ -63,7 +63,7 @@ export function useSourceDetail(sourceId: string) {
   async function refresh(resetFiles = false) {
     const filesKey = listSourceItemsQueryKey({ path: { sourceId } });
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: listSourcesQueryKey() }),
+      invalidateSourceLists(queryClient),
       queryClient.invalidateQueries({ queryKey: getSourceQueryKey({ path: { sourceId } }) }),
       queryClient.invalidateQueries({
         queryKey: filesKey,

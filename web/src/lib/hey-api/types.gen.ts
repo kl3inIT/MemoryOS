@@ -1858,6 +1858,37 @@ export type SourcePermissions = {
     removeItems: boolean;
 };
 
+/**
+ * Every source the actor may read, whatever the search and filters of the page.
+ */
+export type SourceCounts = {
+    total: number;
+    notStarted: number;
+    indexing: number;
+    active: number;
+    failed: number;
+    paused: number;
+    pausing: number;
+    deleting: number;
+    /**
+     * Documents across those sources.
+     */
+    documents: number;
+    /**
+     * Whether any of those sources has pending work.
+     */
+    pendingWork: boolean;
+};
+
+export type SourcePage = {
+    items: Array<SourceSummary>;
+    page: number;
+    size: number;
+    totalItems: number;
+    totalPages: number;
+    counts: SourceCounts;
+};
+
 export type SourceSummary = {
     id: string;
     name: string;
@@ -15551,6 +15582,29 @@ export type ListUsersResponses = {
 };
 
 export type ListUsersResponse = ListUsersResponses[keyof ListUsersResponses];
+
+export type ListSourcePageData = {
+    body?: never;
+    path?: never;
+    query?: {
+        search?: string | null;
+        status?: 'NOT_STARTED' | 'INDEXING' | 'ACTIVE' | 'FAILED' | 'PAUSED' | 'PAUSING' | 'DELETING';
+        type?: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT' | 'LARK';
+        access?: 'PUBLIC' | 'PRIVATE' | 'SYNC';
+        page?: number;
+        size?: number;
+    };
+    url: '/api/sources/page';
+};
+
+export type ListSourcePageResponses = {
+    /**
+     * OK
+     */
+    200: SourcePage;
+};
+
+export type ListSourcePageResponse = ListSourcePageResponses[keyof ListSourcePageResponses];
 
 export type ListSourcesData = {
     body?: never;

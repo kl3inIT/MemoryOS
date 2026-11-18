@@ -1,3 +1,4 @@
+import { invalidateSourceLists } from "@/features/sources/shared/invalidate-source-lists";
 import { appText, type AppCopy } from "@/i18n/app-text";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLayoutEffect, useRef, useState } from "react";
@@ -9,7 +10,6 @@ import {
   getSharePointSelectionPolicyOptions,
   getSharePointSelectionRequestOptions,
   listSharePointCredentialsOptions,
-  listSourcesQueryKey,
   replaceSharePointScopeMutation,
   synchronizeSharePointSourceMutation,
   updateSharePointPauseMutation,
@@ -124,7 +124,7 @@ export function useSharePointPanel({
     await Promise.all([
       configurationQuery.refetch(),
       roots.refetch(),
-      queryClient.invalidateQueries({ queryKey: listSourcesQueryKey() }),
+      invalidateSourceLists(queryClient),
     ]);
   }
 

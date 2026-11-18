@@ -1,3 +1,4 @@
+import { invalidateSourceLists } from "@/features/sources/shared/invalidate-source-lists";
 import { appText } from "@/i18n/app-text";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLayoutEffect, useRef, useState } from "react";
@@ -8,7 +9,6 @@ import {
   getGoogleDriveConfigurationQueryKey,
   getSourceQueryKey,
   listGoogleDriveCredentialsQueryKey,
-  listSourcesQueryKey,
   revokeGoogleDriveCredentialMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { startGoogleDriveAuthorization } from "@/lib/hey-api/sdk.gen";
@@ -189,7 +189,7 @@ export function useGoogleDriveConnection({
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: configurationKey }),
       queryClient.invalidateQueries({ queryKey: getSourceQueryKey({ path: { sourceId } }) }),
-      queryClient.invalidateQueries({ queryKey: listSourcesQueryKey() }),
+      invalidateSourceLists(queryClient),
       queryClient.invalidateQueries({ queryKey: listGoogleDriveCredentialsQueryKey() }),
     ]);
   }

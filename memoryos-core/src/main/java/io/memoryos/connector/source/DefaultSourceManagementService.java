@@ -15,6 +15,8 @@ import io.memoryos.connector.SourceOperationPage;
 import io.memoryos.connector.SourceOperationType;
 import io.memoryos.connector.SourceOperationView;
 import io.memoryos.connector.SourceStatus;
+import io.memoryos.connector.SourcePage;
+import io.memoryos.connector.SourcePageQuery;
 import io.memoryos.connector.SourceSummary;
 import io.memoryos.connector.SourceType;
 import io.memoryos.connector.SourceUploadReceipt;
@@ -181,6 +183,22 @@ public class DefaultSourceManagementService implements SourceManagementService {
         return queries.list(
                 permissions.tenantId(),
                 requiredActorId,
+                permissions.globalRead(),
+                permissions.globalManage(),
+                permissions.globalDelete()
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SourcePage listSourcePage(ActorId actorId, SourcePageQuery query) {
+        ActorId requiredActorId = requireActorId(actorId);
+        Objects.requireNonNull(query, "query must not be null");
+        SourceReadAuthority permissions = readPermissions(requiredActorId);
+        return queries.page(
+                permissions.tenantId(),
+                requiredActorId,
+                query,
                 permissions.globalRead(),
                 permissions.globalManage(),
                 permissions.globalDelete()

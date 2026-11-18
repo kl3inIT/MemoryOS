@@ -1,12 +1,10 @@
+import { invalidateSourceLists } from "@/features/sources/shared/invalidate-source-lists";
 import { appText, type AppCopy } from "@/i18n/app-text";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useActionNotifications } from "@/components/ui/action-notifications";
-import {
-  createFileSourceMutation,
-  listSourcesQueryKey,
-} from "@/lib/hey-api/@tanstack/react-query.gen";
+import { createFileSourceMutation } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { DirectUploadError } from "@/lib/direct-upload";
 import { sourceMutationError } from "@/features/sources/shared/source-errors";
 import {
@@ -117,7 +115,7 @@ export function useFileSourceCreation({
         });
         targetId = created.id;
         setSourceId(targetId);
-        void queryClient.invalidateQueries({ queryKey: listSourcesQueryKey() });
+        void invalidateSourceLists(queryClient);
       }
       stage = "upload";
       let receipt = ownPending;
@@ -142,7 +140,7 @@ export function useFileSourceCreation({
       }
       accepted = true;
       setUploadAccepted(true);
-      await queryClient.invalidateQueries({ queryKey: listSourcesQueryKey() });
+      await invalidateSourceLists(queryClient);
       controller.signal.throwIfAborted();
       const [onlyFile, ...otherFiles] = files;
       notify({

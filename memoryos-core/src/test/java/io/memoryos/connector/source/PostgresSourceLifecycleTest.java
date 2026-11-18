@@ -31,7 +31,10 @@ import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemView;
 import io.memoryos.connector.SourceManagementService;
 import io.memoryos.connector.SourceOperationType;
+import io.memoryos.connector.SourcePage;
+import io.memoryos.connector.SourcePageQuery;
 import io.memoryos.connector.SourceStatus;
+import io.memoryos.connector.SourceType;
 import io.memoryos.connector.SourceUploadReceipt;
 import io.memoryos.connector.sync.DefaultConnectorCleanupService;
 import io.memoryos.connector.sync.persistence.JdbcCleanupAttemptRepository;
@@ -619,6 +622,74 @@ class PostgresSourceLifecycleTest {
                 SourceException.class,
                 () -> service.getOperation(manager, managedUpload.operation().id())
         );
+    }
+
+    @Test
+    void sourcePageOrdersFiltersPagesAndCountsOnlyWhatTheActorMayRead() {
+        GroupId managedGroupId = new GroupId(UUID.randomUUID());
+        ActorId manager = addScopedManager(managedGroupId);
+        var bravo = service.createFileSource(owner, "bravo", List.of(), SourceAccess.PUBLIC);
+        var alpha = service.createFileSource(owner, "Alpha", List.of(), SourceAccess.PRIVATE);
+        var broken = service.createFileSource(owner, "Zulu 100%", List.of(), SourceAccess.PRIVATE);
+        var paused = service.createFileSource(owner, "delta", List.of(), SourceAccess.PUBLIC);
+        service.createFileSource(manager, "Managed", List.of(managedGroupId), SourceAccess.PRIVATE);
+        jdbcClient.sql("UPDATE connector_credential_pairs SET sync_error_code='SOURCE_FAILED' WHERE id=:id")
+                .param("id", broken.id().value()).update();
+        jdbcClient.sql("UPDATE connector_credential_pairs SET status='PAUSED', document_count=7 WHERE id=:id")
+                .param("id", paused.id().value()).update();
+        jdbcClient.sql("""
+                UPDATE connectors SET connector_type='GOOGLE_DRIVE'
+                WHERE id=(SELECT connector_id FROM connector_credential_pairs WHERE id=:id)
+                """).param("id", paused.id().value()).update();
+
+        SourcePage all = service.listSourcePage(owner, new SourcePageQuery(null, null, null, null, 0, 20));
+        assertThat(all.items()).extracting(SourceSummary::name)
+                .containsExactly("Zulu 100%", "Alpha", "bravo", "delta", "Managed");
+        assertEquals(5, all.totalItems());
+        assertEquals(1, all.totalPages());
+        assertEquals(5, all.counts().total());
+        assertEquals(1, all.counts().failed());
+        assertEquals(1, all.counts().paused());
+        assertEquals(7, all.counts().documents());
+        assertFalse(all.counts().pendingWork());
+
+        SourcePage second = service.listSourcePage(owner, new SourcePageQuery(null, null, null, null, 1, 2));
+        assertThat(second.items()).extracting(SourceSummary::name).containsExactly("bravo", "delta");
+        assertEquals(3, second.totalPages());
+        SourcePage last = service.listSourcePage(owner, new SourcePageQuery(null, null, null, null, 2, 2));
+        assertThat(last.items()).extracting(SourceSummary::name).containsExactly("Managed");
+        SourcePage past = service.listSourcePage(owner, new SourcePageQuery(null, null, null, null, 9, 2));
+        assertThat(past.items()).isEmpty();
+        assertEquals(5, past.totalItems());
+        assertEquals(3, past.totalPages());
+
+        SourcePage searched = service.listSourcePage(owner, new SourcePageQuery(" ALPH ", null, null, null, 0, 20));
+        assertThat(searched.items()).extracting(SourceSummary::id).containsExactly(alpha.id());
+        assertThat(service.listSourcePage(owner, new SourcePageQuery("100%", null, null, null, 0, 20)).items())
+                .extracting(SourceSummary::id).containsExactly(broken.id());
+        assertThat(service.listSourcePage(owner, new SourcePageQuery("%", null, null, null, 0, 20)).items())
+                .extracting(SourceSummary::id).containsExactly(broken.id());
+        assertThat(service.listSourcePage(owner,
+                new SourcePageQuery(null, SourceStatus.FAILED, null, null, 0, 20)).items())
+                .extracting(SourceSummary::id).containsExactly(broken.id());
+        assertThat(service.listSourcePage(owner,
+                new SourcePageQuery(null, null, SourceType.GOOGLE_DRIVE, null, 0, 20)).items())
+                .extracting(SourceSummary::id).containsExactly(paused.id());
+        SourcePage publicOnly = service.listSourcePage(owner,
+                new SourcePageQuery(null, null, SourceType.FILE, SourceAccess.PUBLIC, 0, 20));
+        assertThat(publicOnly.items()).extracting(SourceSummary::id).containsExactly(bravo.id());
+        // Counts ignore the search and the filters.
+        assertEquals(all.counts(), searched.counts());
+        assertEquals(all.counts(), publicOnly.counts());
+
+        SourcePage scoped = service.listSourcePage(manager, new SourcePageQuery(null, null, null, null, 0, 20));
+        // The manager reads the PUBLIC Sources and their own, never the private Sources of the owner.
+        assertThat(scoped.items()).extracting(SourceSummary::name).containsExactly("bravo", "delta", "Managed");
+        assertEquals(3, scoped.totalItems());
+        assertEquals(3, scoped.counts().total());
+        assertEquals(0, scoped.counts().failed());
+        assertEquals(1, scoped.counts().paused());
+        assertEquals(7, scoped.counts().documents());
     }
 
     @Test
