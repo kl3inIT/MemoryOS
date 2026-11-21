@@ -75,7 +75,7 @@ step 2; the code moved without a change of behavior.
 
 ## Follow-ups done the same night
 
-- [x] Staging OCR reads scans with the catalog model `codex-subscription/gpt-6-luna` through the Hypomnema provider (connection test passed); PaddleOCR-VL is kept but inactive. Production has no chat provider or indexed document yet, so its OCR selection is unchanged.
+- [x] Staging OCR reads scans with the catalog model `codex-subscription/gpt-6-luna` through the Hypomnema provider (connection test passed); PaddleOCR-VL is kept but inactive. Production had no chat provider; it now has the Hypomnema provider (gateway key `memoryos-production`) with `codex-subscription/gpt-6-luna` as the Tenant default model, model OCR selected (test passed), and Code Interpreter enabled. An owner walk on 2026-11-22 got a grounded "no documents yet" Chat answer and a CSV from `run_python`. Neither environment now needs the GPU serving node for embeddings or OCR.
 - [x] The public landing (PR #943) no longer names the former customer; `vadan.app` runs `ghcr.io/kl3init/memoryos-landing@sha256:b6680ab2…` on the staging host (previous reference in `/apps/memoryos/.env.landing.previous`). The host started the site from `/apps/memoryos/infrastructure/deployment/compose.landing.yaml` with `/apps/memoryos/.env.landing`, not the layout `docs/runbooks/landing.md` describes.
 - [x] `ChatTurnServiceTest.theAssistantsServersThePersonCannotSelectAreOpenedAndOnlyConnectableOnesGetACard` failed once on main (220bf111) and passed on rerun: a flaky stream assertion, not caused by the cleanup.
 
