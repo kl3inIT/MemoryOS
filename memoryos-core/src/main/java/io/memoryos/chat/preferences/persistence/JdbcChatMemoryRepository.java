@@ -66,8 +66,8 @@ public class JdbcChatMemoryRepository {
 
     /**
      * Whether a turn in this conversation may read and write the owner's memory: switched on, not temporary, and held
-     * in the web app. A conversation held in a channel (MEM-246) can be a group chat, where the owner's memory must
-     * neither show nor be written from what others say.
+     * in the web app. A conversation the chat bots held before their removal (MEM-246) can be a group chat, where the
+     * owner's memory must neither show nor be written from what others say.
      */
     public boolean usableIn(UUID tenant, UUID actor, UUID session) {
         return jdbc.sql("""

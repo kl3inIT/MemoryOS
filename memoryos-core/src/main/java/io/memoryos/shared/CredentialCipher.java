@@ -13,7 +13,7 @@ import javax.crypto.spec.SecretKeySpec;
 import org.jspecify.annotations.NonNull;
 
 /**
- * AES-GCM envelope shared by every stored secret kind: connector credentials and channel bots. The credential kind belongs to the additional
+ * AES-GCM envelope shared by every stored secret kind, such as connector credentials. The credential kind belongs to the additional
  * authenticated data, so an envelope of one kind never decrypts under another kind's key.
  */
 public final class CredentialCipher {

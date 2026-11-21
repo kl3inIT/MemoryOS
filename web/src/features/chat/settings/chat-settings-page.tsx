@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { MessageSquare } from "lucide-react";
 import { PersonalPromptShortcuts } from "@/features/agents/prompt-shortcuts";
 import { VoiceSettingsSection } from "@/features/voice/voice-settings-section";
@@ -10,11 +9,8 @@ import { ChatMemorySection } from "./chat-memory-section";
 import { ChatRetentionSection } from "./chat-retention-section";
 import { ChatPreferencesSections } from "./chat-preferences-sections";
 
-/**
- * Onyx "Chat Preferences": how Chat behaves for this member (MEM-145). `channelLinks` is the chat bots' part, which
- * the route composes because `chat` does not import `channels`.
- */
-export function ChatSettingsPage({ channelLinks }: { channelLinks?: ReactNode }) {
+/** Onyx "Chat Preferences": how Chat behaves for this member (MEM-145). */
+export function ChatSettingsPage() {
   const ui = useAppTranslation();
   return (
     <SettingsLayout>
@@ -25,7 +21,6 @@ export function ChatSettingsPage({ channelLinks }: { channelLinks?: ReactNode })
       />
       <ChatPreferencesSections />
       <ChatMemorySection />
-      {channelLinks}
       <ChatArchiveSection />
       <ChatRetentionSection />
       <ChatExportSection />

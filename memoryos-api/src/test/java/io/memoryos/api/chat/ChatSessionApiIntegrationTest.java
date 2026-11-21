@@ -1424,7 +1424,7 @@ class ChatSessionApiIntegrationTest {
         jdbc.sql("UPDATE chat_session SET temporary = TRUE WHERE id = :id").param("id", id).update();
         assertFalse(memories.usableIn(tenant, owner, id));
         jdbc.sql("UPDATE chat_session SET temporary = FALSE WHERE id = :id").param("id", id).update();
-        // A conversation held in a channel can be a group chat: the owner's memory stays out of it.
+        // A conversation a chat bot held (removed, ADR 0032) can be a group chat: the owner's memory stays out of it.
         jdbc.sql("UPDATE chat_session SET surface = 'CHANNEL' WHERE id = :id").param("id", id).update();
         assertFalse(memories.usableIn(tenant, owner, id));
         jdbc.sql("UPDATE chat_session SET surface = 'WEB' WHERE id = :id").param("id", id).update();
@@ -3531,29 +3531,6 @@ class ChatSessionApiIntegrationTest {
         mockMvc.perform(get("/api/chat/preferences").with(authentication(actor)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.defaultModelId").doesNotExist())
                 .andExpect(jsonPath("$.workRole").value("Kế toán trưởng"));
-    }
-
-    @Test
-    void aMemberChoosesTheAssistantOfTheirDirectMessagesToBotsAmongThoseTheyMayUse() throws Exception {
-        grantCapability("AGENTS_CREATE");
-        String mine = Json.mapper().readTree(mockMvc.perform(post("/api/chat/personas").with(authentication(actor)).with(csrf())
-                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("""
-                                {"name":"Thư ký","description":"","instructions":"Mail","starterPrompts":[],"sourceIds":[],"tools":[]}
-                                """))
-                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("id").asText();
-        var body = Json.mapper().createObjectNode().put("workRole", "").put("personalPreferences", "").put("autoScroll", true)
-                .put("channelPersonaId", mine);
-        mockMvc.perform(put("/api/chat/preferences").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
-                        .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.channelPersonaId").value(mine));
-        // Another member may not use it, so it is refused for them.
-        mockMvc.perform(put("/api/chat/preferences").with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF", "1")
-                        .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
-                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("CHAT_INVALID_REQUEST"));
-        // Deleted later: the choice is no longer offered back.
-        jdbc.sql("UPDATE persona SET deleted_at = now() WHERE id = :id").param("id", UUID.fromString(mine)).update();
-        mockMvc.perform(get("/api/chat/preferences").with(authentication(actor)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.channelPersonaId").doesNotExist());
     }
 
     @Test
@@ -6336,7 +6313,7 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
-    void anMcpServerOpensThroughChosenAssistantsAloneAndToPublicBotsOnlyWithASharedConnection() throws Exception {
+    void anMcpServerOpensThroughChosenAssistantsAlone() throws Exception {
         grantCapability("MCP_MANAGE");
         grantCapability("AGENTS_CREATE");
         UUID chosen = UUID.fromString(Json.mapper().readTree(mockMvc.perform(post("/api/chat/personas")
@@ -6348,18 +6325,16 @@ class ChatSessionApiIntegrationTest {
         var required = Map.of("Authorization", "Bearer fixture-mcp-key", "X-Fixture", "static-header-secret");
         try (var fixture = McpFixtureServer.start(required)) {
             var body = mcpServerBody("open" + (System.nanoTime() % 100000), fixture.url());
-            body.put("tenantWide", false).put("publicBots", true).putArray("personaIds").add(chosen.toString());
+            body.put("tenantWide", false).putArray("personaIds").add(chosen.toString());
             var created = Json.mapper().readTree(mockMvc.perform(post("/api/mcp/servers").with(authentication(actor)).with(csrf())
                     .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(body.toString()))
                     .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
             String serverId = created.path("id").asText();
             assertEquals(chosen.toString(), created.path("personaIds").get(0).asText());
-            assertTrue(created.path("publicBots").asBoolean());
-            // The assistant shows the server it uses without attaching it, and that a public bot may use it.
+            // The assistant shows the server it uses without attaching it.
             var view = Json.mapper().readTree(mockMvc.perform(get("/api/chat/personas/" + chosen).with(authentication(actor)))
                     .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
             assertEquals(serverId, view.path("openMcpServers").get(0).path("id").asText());
-            assertEquals(serverId, view.path("publicBotMcpServers").get(0).path("id").asText());
             assertTrue(view.path("mcpServers").isEmpty());
 
             // Nobody selects it in the composer, and no other assistant attaches it.
@@ -6374,16 +6349,11 @@ class ChatSessionApiIntegrationTest {
                             .contentType(MediaType.APPLICATION_JSON).content(other.toString()))
                     .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("CHAT_INVALID_REQUEST"));
 
-            // One kind of access at a time, and a public bot cannot use anyone's personal connection.
+            // One kind of access at a time.
             var both = mcpServerBody("both" + (System.nanoTime() % 100000), fixture.url());
             both.putArray("personaIds").add(chosen.toString());
             mockMvc.perform(post("/api/mcp/servers").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
                             .contentType(MediaType.APPLICATION_JSON).content(both.toString()))
-                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MCP_INVALID"));
-            var personal = mcpServerBody("mine" + (System.nanoTime() % 100000), fixture.url());
-            personal.put("authPerformer", "PER_USER").put("publicBots", true).putObject("sharedApiKey").put("action", "KEEP");
-            mockMvc.perform(post("/api/mcp/servers").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
-                            .contentType(MediaType.APPLICATION_JSON).content(personal.toString()))
                     .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MCP_INVALID"));
         }
     }

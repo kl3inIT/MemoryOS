@@ -328,18 +328,11 @@ public final class ChatTurnService implements AutoCloseable {
     /**
      * A replayed or newly registered turn; {@code run} is null when nothing remains to start. {@code attachedMcp} are
      * the assistant's MCP servers the turn reports when the person cannot use them (MEM-273); {@code openMcp} those
-     * open through the assistant alone, and {@code surface} where the turn is asked (MEM-299).
+     * open through the assistant alone (MEM-299).
      */
     private record Admission(Accepted accepted, @Nullable Active run, boolean opensMcp, List<UUID> attachedMcp,
-                             Set<UUID> openMcp, McpTurnService.Surface surface) {
-        Admission(Accepted accepted) { this(accepted, null, false, List.of(), Set.of(), McpTurnService.Surface.WEB); }
-    }
-
-    /** Where a turn is asked, for its MCP servers (MEM-299): a group and a public bot run as the bot's account. */
-    private static McpTurnService.Surface surface(@Nullable ChatChannel channel) {
-        if (channel == null) return McpTurnService.Surface.WEB;
-        if (channel.publicBot()) return McpTurnService.Surface.PUBLIC_BOT;
-        return channel.group() ? McpTurnService.Surface.BOT_CHANNEL : McpTurnService.Surface.MEMBER_CHANNEL;
+                             Set<UUID> openMcp) {
+        Admission(Accepted accepted) { this(accepted, null, false, List.of(), Set.of()); }
     }
 
     /**
@@ -355,7 +348,7 @@ public final class ChatTurnService implements AutoCloseable {
             // A Stop that arrives meanwhile cancels the run; execution then settles it without calling the model.
             if (admission.opensMcp()) {
                 var tools = Objects.requireNonNull(mcp).open(actor, command.mcpServerIds(), admission.attachedMcp(),
-                        admission.openMcp(), admission.surface());
+                        admission.openMcp());
                 tools.approvals((binding, callId, arguments) ->
                         awaitApproval(run, binding, callId, arguments, tools.alwaysAllowable(binding)));
                 run.setup = run.setup.withMcp(tools);
@@ -365,8 +358,7 @@ public final class ChatTurnService implements AutoCloseable {
                                 server.reason() == McpTurnTools.Unavailable.Reason.NOT_CONNECTED
                                         ? ChatActivity.UnavailableApp.Reason.NOT_CONNECTED
                                         : ChatActivity.UnavailableApp.Reason.REAUTH_REQUIRED)).toList();
-                // A channel has no Connect card; the model tells the person where to connect instead (MEM-299).
-                if (!connectable.isEmpty() && admission.surface() == McpTurnService.Surface.WEB) {
+                if (!connectable.isEmpty()) {
                     run.recorder.unavailableApps(connectable);
                     streams.unavailableApps(run.setup.assistantMessageId(), connectable);
                 }
@@ -397,7 +389,7 @@ public final class ChatTurnService implements AutoCloseable {
         if (command.deepResearch() && (settings == null || !settings.read(actor).deepResearchEnabled()))
             throw ChatException.researchUnavailable();
         // Onyx attaches tools to the agent: a command may only use tools the session agent allows.
-        var agent = draft == null ? persistence.agent(actor, session, command.channel() != null)
+        var agent = draft == null ? persistence.agent(actor, session)
                 : draftAgent(actor, session, draft);
         // MEM-280: the builder checks the draft as the test chat does, then runs as itself, never as the assistant.
         BuilderAdmission building = builder ? builderAdmission(actor, session, Objects.requireNonNull(draft), agent) : null;
@@ -485,8 +477,7 @@ public final class ChatTurnService implements AutoCloseable {
             boolean selectsMcp = !command.mcpServerIds().isEmpty() && !command.deepResearch();
             if (selectsMcp && (!binding.toolCalling() || mcp == null)) throw ChatException.providerUnavailable();
             // MEM-273: the composer offers only servers the person can use, so the assistant's others are resolved here to
-            // tell the model and the person. In a channel they are all the turn's servers (MEM-299). Deep research uses
-            // no MCP server.
+            // tell the model and the person. Deep research uses no MCP server.
             List<UUID> attachedMcp = !command.deepResearch() && binding.toolCalling()
                     && mcp != null && tools.mcpServerIds() != null ? List.copyOf(tools.mcpServerIds()) : List.of();
             boolean opensMcp = selectsMcp || !attachedMcp.isEmpty();
@@ -503,8 +494,7 @@ public final class ChatTurnService implements AutoCloseable {
             streams.open(setup.assistantMessageId());
             active.put(setup.assistantMessageId(), run);
             transferred = true;
-            return new Admission(accepted(reserved), run, opensMcp, attachedMcp, Set.copyOf(tools.mcpOpenThrough()),
-                    surface(command.channel()));
+            return new Admission(accepted(reserved), run, opensMcp, attachedMcp, Set.copyOf(tools.mcpOpenThrough()));
         } catch (RuntimeException failure) {
             if (!transferred) {
                 // Setup errors still own a reserved row; finish it without starting the model.

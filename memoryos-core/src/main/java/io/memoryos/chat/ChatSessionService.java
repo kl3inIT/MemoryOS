@@ -16,26 +16,6 @@ public interface ChatSessionService {
      */
     ChatSession create(ActorId actor, String title, boolean temporary);
 
-    /** A conversation held in a channel: kept like any other, and listed in the web's sidebar and search by none. */
-    ChatSession createInChannel(ActorId actor, String title);
-
-    /**
-     * A conversation held in a channel, asked through the bot {@code connection} in the group chat {@code groupChat}
-     * (null for a direct message), with the assistant they answer with ({@link #channelPersona}). While the bot and the
-     * group still resolve to that assistant, questions asked through the bot may use it even if the owner may not
-     * elsewhere; the documents a turn reads are still the owner's own (MEM-273). One started through a public bot
-     * ({@code publicBot}) reads the assistant's attachments only (MEM-298).
-     */
-    ChatSession createInChannel(ActorId actor, String title, UUID connection, @Nullable String groupChat,
-                                boolean publicBot);
-
-    /**
-     * The assistant the bot {@code connection} answers with in the group chat {@code groupChat} (null for a direct
-     * message): the group's own live assistant, else the live custom assistant the bot is bound to, else the Tenant's
-     * built-in assistant ({@link ChatChannelBindings}). A direct message to a bot that is not public ({@code publicBot})
-     * answers with the assistant the member chose for their direct messages, while they may use it (MEM-299).
-     */
-    UUID channelPersona(ActorId actor, UUID connection, @Nullable String groupChat, boolean publicBot);
     /** {@code archived} lists the conversations the owner archived instead of the ones on the sidebar. */
     default List<ChatSession> list(ActorId actor, boolean archived, int offset, int limit) {
         return list(actor, archived, null, offset, limit);
@@ -63,10 +43,4 @@ public interface ChatSessionService {
     List<ChatBranch> branches(ActorId actor, UUID sessionId);
     void selectBranch(ActorId actor, UUID sessionId, UUID messageId, @Nullable UUID expectedChildId);
     List<ChatMessage> history(ActorId actor, UUID sessionId, @Nullable UUID after, int limit);
-
-    /**
-     * The last message of the selected branch, which the next question continues; the root of a conversation
-     * nobody has written in. A caller that holds no transcript, such as a channel, asks for it before it sends.
-     */
-    UUID leaf(ActorId actor, UUID sessionId);
 }

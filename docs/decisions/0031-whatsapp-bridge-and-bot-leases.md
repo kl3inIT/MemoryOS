@@ -4,7 +4,8 @@ Date: 2026-10-19
 
 ## Status
 
-Accepted on 2026-10-19 with the [MEM-283 design](../increments/active/mem-283-whatsapp-bot/design.md) and implemented
+Superseded by [ADR 0032](0032-no-chat-bots-in-the-capstone-scope.md) on 2026-11-22, when the owner removed the chat
+bots from MemoryOS. Accepted on 2026-10-19 with the [MEM-283 design](../increments/superseded/mem-283-whatsapp-bot/design.md) and implemented
 in the same change. Extends [ADR 0028](0028-chat-channels-in-their-own-process.md), whose single channels process it
 lets become several.
 

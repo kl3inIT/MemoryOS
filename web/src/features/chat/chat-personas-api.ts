@@ -71,7 +71,6 @@ export function personaOf({
   pinned = false,
   deletedAt,
   openMcpServers,
-  publicBotMcpServers,
 }: PersonaView) {
   if (id === undefined || revision === undefined) {
     throw new TypeError("An agent view carries its id and revision.");
@@ -135,9 +134,8 @@ export function personaOf({
     grounded,
     pinned,
     deletedAt: deletedAt ?? null,
-    // MEM-299: servers open through this assistant alone, and those of its servers a public bot uses.
+    // MEM-299: servers open through this assistant alone.
     openMcpServers: namedRefsOf(openMcpServers),
-    publicBotMcpServers: namedRefsOf(publicBotMcpServers),
   };
 }
 export type Persona = ReturnType<typeof personaOf>;

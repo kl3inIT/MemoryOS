@@ -22,7 +22,7 @@ flock --nonblock 9 || { echo "Another $environment operation owns the lock" >&2;
 
 # Release images in images.env order. The sandbox server starts a conversation's sandbox from sandbox-computer on
 # the host daemon, so it is pulled and verified here but is not a Compose service.
-images=(api worker web keycloak channels sandbox sandbox-computer)
+images=(api worker web keycloak sandbox sandbox-computer)
 
 image_key() {
   local key=${1//-/_}
@@ -49,8 +49,9 @@ has_keycloak() {
   grep -q "^$(image_key keycloak)=" "$1"
 }
 
-# MEM-246: the chat bots' process runs where the target's Compose files define it, from a release that carries its
-# image; production defines none until the bot is accepted, and a release accepted before it has no image.
+# MEM-246: the chat bots' process runs where the target's Compose files define it, from a runtime that carries its
+# image. A runtime accepted on staging from MEM-246 until ADR 0032 has it; a release no longer does, and a rollback to
+# such a runtime starts it again from that runtime's Compose files. Production never defined it.
 # The services are read whole before they are searched: under pipefail, grep -q leaving a pipe early makes Compose
 # die of SIGPIPE, and the answer would then turn on timing.
 has_channels() {
@@ -120,6 +121,16 @@ rollout() {
     if [[ -n "$left" ]]; then
       # shellcheck disable=SC2086
       docker stop --time 65 $left > /dev/null && docker rm $left > /dev/null
+    fi
+  fi
+  # ADR 0032: likewise a runtime without the chat bots' process takes down the one a runtime before it left.
+  if ! has_channels; then
+    local bots
+    bots=$(docker ps --all --quiet --filter label=com.docker.compose.project=memoryos \
+      --filter label=com.docker.compose.service=channels)
+    if [[ -n "$bots" ]]; then
+      # shellcheck disable=SC2086
+      docker stop --time 45 $bots > /dev/null && docker rm $bots > /dev/null
     fi
   fi
 }
@@ -338,15 +349,11 @@ if [[ "$mode" == deploy ]]; then
   trap 'rm -f -- "$DOCKER_CONFIG/config.json"; rmdir -- "$DOCKER_CONFIG"' EXIT
   docker login ghcr.io --username "${4:?registry user}" --password-stdin
   compose pull api worker web sandbox
-  if has_channels; then compose pull channels; fi
   if has_keycloak "$tx/candidate.env"; then compose pull keycloak; fi
   docker pull --quiet "$(image_reference sandbox-computer "$tx/candidate.env")" > /dev/null
   for component in "${images[@]}"; do
     reference=$(image_reference "$component" "$tx/candidate.env")
     [[ -n "$reference" ]] || continue
-    # A release names the chat bots' image everywhere, but only an environment that defines the service pulls it:
-    # production's 2026-10-18 promotion stopped here on an image it never pulled (MEM-246).
-    if [[ "$component" == channels ]] && ! has_channels; then continue; fi
     docker image inspect "$reference" | jq --exit-status --arg sha "${release:0:40}" '
       .[0].Config.Labels["org.opencontainers.image.revision"] == $sha
     ' > /dev/null

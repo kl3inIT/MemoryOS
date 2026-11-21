@@ -86,7 +86,7 @@ describe("conversation history", () => {
   });
 
   it.each<[string, Record<string, unknown>, string]>([
-    ["marks a conversation held in a channel", { surface: "CHANNEL" }, "Bot"],
+    ["marks a conversation a chat bot held", { surface: "CHANNEL" }, "Bot"],
     ["marks a conversation its owner deleted, which is still listed", { deleted: true }, "Deleted"],
     [
       "names the asker as hidden when the organization hides who asked",

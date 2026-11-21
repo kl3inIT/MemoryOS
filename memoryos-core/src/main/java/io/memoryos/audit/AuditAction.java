@@ -90,15 +90,6 @@ public enum AuditAction {
     CREDENTIAL_UPDATE("credential.update", AuditEventClass.API_ACTIVITY, "provider", "change"),
     CREDENTIAL_DELETE("credential.delete", AuditEventClass.API_ACTIVITY, "provider"),
 
-    // The Tenant's chat bots (MEM-246).
-    CHANNEL_CREATE("channel.create", AuditEventClass.API_ACTIVITY, "provider", "app"),
-    CHANNEL_UPDATE("channel.update", AuditEventClass.API_ACTIVITY, "change", "group"),
-    CHANNEL_DELETE("channel.delete", AuditEventClass.API_ACTIVITY, "provider"),
-    /** A member linked their account on a bot's platform (MEM-263); the record names the member and the bot only. */
-    CHANNEL_ACCOUNT_LINK("channel.account_link", AuditEventClass.ACCOUNT_CHANGE),
-    /** A member removed the link of their account on a bot's platform. */
-    CHANNEL_ACCOUNT_UNLINK("channel.account_unlink", AuditEventClass.ACCOUNT_CHANGE),
-
     // What a Tenant may spend on AI (MEM-123).
     AI_LIMIT_CREATE("ai_limit.create", AuditEventClass.API_ACTIVITY, "scope", "group", "after"),
     AI_LIMIT_UPDATE("ai_limit.update", AuditEventClass.API_ACTIVITY, "scope", "group", "before", "after"),

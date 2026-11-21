@@ -2,7 +2,6 @@ package io.memoryos.worker;
 
 import io.memoryos.ai.ocr.OcrWorkerComponents;
 import io.memoryos.audit.AuditWorkerComponents;
-import io.memoryos.channel.ChannelWorkerComponents;
 import io.memoryos.chat.ChatWorkerComponents;
 import io.memoryos.connector.ConnectorWorkerComponents;
 import io.memoryos.document.DocumentWorkerComponents;
@@ -26,7 +25,6 @@ import org.springframework.context.annotation.Import;
 @SpringBootApplication
 @Import({
         AuditWorkerComponents.class,
-        ChannelWorkerComponents.class,
         ChatWorkerComponents.class,
         ConnectorWorkerComponents.class,
         DocumentWorkerComponents.class,

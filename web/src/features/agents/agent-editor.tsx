@@ -27,7 +27,6 @@ import {
   OpeningSection,
   ToolsSection,
 } from "./agent-editor-sections";
-import { AgentChannelsPanel } from "./agent-channels-panel";
 import { AgentSharePanel } from "./agent-share-panel";
 import {
   useAgentChoices,
@@ -82,16 +81,14 @@ export function AgentEditorPage({ agentId, ...tabs }: { agentId: string } & TabP
 }
 
 /**
- * The editor of one assistant: Cấu hình, saved with the header's Lưu without leaving the page, then Kênh and Chia sẻ,
- * which save each change at once (LobeHub `AgentProfileTabs`). The built-in assistant has no Kênh: a bot bound to
- * nothing answers with it. The tab is kept in the address.
+ * The editor of one assistant: Cấu hình, saved with the header's Lưu without leaving the page, then Chia sẻ, which
+ * saves each change at once (LobeHub `AgentProfileTabs`). The tab is kept in the address.
  */
 function AgentEditor({ agent, tab, onTabChange }: { agent: Persona } & TabProps) {
   const ui = useAppTranslation();
   const revision = useAgentRevision(agent);
   const choices = useAgentChoices(agent);
   const { form, dirty, saved, editable, blocker } = useAgentForm(agent, revision);
-  const shown = agent.builtin && tab === "channels" ? "config" : tab;
   const status = !editable
     ? ui("Chỉ xem")
     : dirty
@@ -116,12 +113,12 @@ function AgentEditor({ agent, tab, onTabChange }: { agent: Persona } & TabProps)
               {status}
             </span>
             {/* Kênh and Chia sẻ save on change; Hủy and Lưu belong to the configuration form alone. */}
-            {shown === "config" && (
+            {tab === "config" && (
               <Button asChild size="sm" prominence="secondary">
                 <Link to="/agents">{editable ? ui("Hủy") : ui("Đóng")}</Link>
               </Button>
             )}
-            {editable && shown === "config" && (
+            {editable && tab === "config" && (
               <form.Subscribe selector={(state) => state.values.name.trim() !== ""}>
                 {(named) => {
                   const reason = !named
@@ -163,7 +160,7 @@ function AgentEditor({ agent, tab, onTabChange }: { agent: Persona } & TabProps)
       />
       <div className="flex h-full min-h-0 flex-col">
         <Tabs
-          value={shown}
+          value={tab}
           onValueChange={(value) => onTabChange(value as AgentEditorTab)}
           className="min-h-0 flex-1"
         >
@@ -172,11 +169,6 @@ function AgentEditor({ agent, tab, onTabChange }: { agent: Persona } & TabProps)
               <TabsTrigger value="config" className="flex-none">
                 {ui("Cấu hình")}
               </TabsTrigger>
-              {!agent.builtin && (
-                <TabsTrigger value="channels" className="flex-none">
-                  {ui("Kênh")}
-                </TabsTrigger>
-              )}
               <TabsTrigger value="share" className="flex-none">
                 {ui("Chia sẻ")}
               </TabsTrigger>
@@ -208,13 +200,6 @@ function AgentEditor({ agent, tab, onTabChange }: { agent: Persona } & TabProps)
               </form>
             </ConfigLayout>
           </TabsContent>
-          {!agent.builtin && (
-            <TabsContent value="channels" className="relative min-h-0 flex-1 overflow-y-auto">
-              <div className="max-w-3xl px-(--page-gutter) pt-6 pb-24">
-                <AgentChannelsPanel agent={agent} />
-              </div>
-            </TabsContent>
-          )}
           <TabsContent value="share" className="relative min-h-0 flex-1 overflow-y-auto">
             <div className="max-w-3xl px-(--page-gutter) pt-6 pb-24">
               <AgentSharePanel agent={agent} choices={choices} revision={revision} />

@@ -24,8 +24,7 @@ class OpenSandboxDependencyRulesTest {
                         "io.memoryos.chat..",
                         "io.memoryos.integration.google..",
                         "io.memoryos.integration.lark..",
-                        "io.memoryos.integration.microsoft..",
-                        "io.memoryos.integration.zalo.."
+                        "io.memoryos.integration.microsoft.."
                 )
                 .because("the sandbox runtime implements the sandbox capability's contract and nothing else (ADR 0027, ADR 0029)")
                 .check(classes);

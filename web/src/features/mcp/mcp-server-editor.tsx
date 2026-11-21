@@ -28,7 +28,6 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Switch } from "@/components/ui/switch";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
   listChatPersonasOptions,
@@ -95,7 +94,6 @@ function serverSchema(editing: boolean) {
       access: z.enum(["ALL", "GROUPS", "ASSISTANTS"]),
       groupIds: z.array(z.string()),
       personaIds: z.array(z.string()),
-      publicBots: z.boolean(),
     })
     .refine((draft) => draft.access !== "GROUPS" || draft.groupIds.length > 0, {
       path: ["groupIds"],
@@ -150,13 +148,7 @@ function serverInput(draft: ServerDraft, editing: boolean): McpServerInput {
     tenantWide: draft.access === "ALL",
     groupIds: draft.access === "GROUPS" ? draft.groupIds : [],
     personaIds: draft.access === "ASSISTANTS" ? draft.personaIds : [],
-    // Nobody connects as a bot, so only a shared connection or none can serve a public bot (MEM-299).
-    publicBots: sharedConnection(draft) && draft.publicBots,
   };
-}
-
-function sharedConnection(draft: Pick<ServerDraft, "authType" | "performer">): boolean {
-  return draft.authType === "NONE" || draft.performer === "ADMIN";
 }
 
 function useServerForm(
@@ -193,7 +185,6 @@ function useServerForm(
           : "GROUPS",
     groupIds: server?.groupIds ?? [],
     personaIds: server?.personaIds ?? [],
-    publicBots: server?.publicBots ?? false,
   };
   return useAppForm({
     defaultValues,
@@ -447,20 +438,6 @@ function AccessFields({ form, values }: { form: ServerForm; values: ServerDraft 
                 <FieldDescription>{ui("Chưa có trợ lý nào.")}</FieldDescription>
               ) : null}
             </div>
-          )}
-        </form.AppField>
-      ) : null}
-      {sharedConnection(values) ? (
-        <form.AppField name="publicBots">
-          {(field) => (
-            <Field orientation="horizontal">
-              <Switch
-                id="mcp-public-bots"
-                checked={field.state.value}
-                onCheckedChange={(checked) => field.handleChange(checked)}
-              />
-              <FieldLabel htmlFor="mcp-public-bots">{ui("Cho bot công khai dùng")}</FieldLabel>
-            </Field>
           )}
         </form.AppField>
       ) : null}

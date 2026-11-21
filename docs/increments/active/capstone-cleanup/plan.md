@@ -10,15 +10,21 @@ merge; none turns on auto-merge.
 
 ## 1. Remove the chat bots
 
-- [ ] Delete `memoryos-channels`, core `io.memoryos.channel`, `memoryos-integration-zalo`,
+Done 2026-11-22 in one pull request ([ADR 0032](../../../decisions/0032-no-chat-bots-in-the-capstone-scope.md)).
+
+- [x] Delete `memoryos-channels`, core `io.memoryos.channel`, `memoryos-integration-zalo`,
       `memoryos-integration-whatsapp` (with the bridge) and the Lark bot classes; keep the Lark connector.
-- [ ] Remove channel use from `chat`, the Worker, `api` and `web` (agents channels panel, chat settings, audit and
-      Group copy, `admin.channels` routes).
-- [ ] Migration dropping the channel tables and the two `chat` channel columns.
-- [ ] Deployment: `channels` services, secrets, images and CI jobs.
-- [ ] Documents: `ARCHITECTURE.md`, specs, test matrices, runbook, roadmap, increments `mem-246-lark-bot` and
-      `mem-283-whatsapp-bot`; a new ADR superseding ADR 0028 and 0031.
-- [ ] Regenerate `openapi.yml` and the web client; `clean check` and `pnpm --dir web check` green.
+- [x] Remove channel use from `chat`, the Worker, `api` and `web` (agents channels panel, chat settings, audit and
+      Group copy, `admin.channels` routes). It also took out what only the bots reached: the public-bot reading mode
+      (whole Sources, through `connector` and `retrieval`), the MCP `publicBots` switch, IAM's `ServiceAccounts` and
+      `MemberLookup`, and `ChatSessionService.leaf`.
+- [x] Migration V202 dropping the channel tables and the `chat` channel columns ([data effect](design.md#data-effect-of-v202)).
+- [x] Deployment: `channels` services, secrets, images and CI jobs; `deploy.sh` still restores the process on a
+      rollback to a staging runtime from before, and removes the one such a runtime left.
+- [x] Documents: `ARCHITECTURE.md`, specs, test matrices, runbooks, roadmap, increments `mem-246-lark-bot` and
+      `mem-283-whatsapp-bot` (moved to `superseded/`), the Lark delivery of `mem-265-chat-schedules`; ADR 0032
+      superseding ADR 0028 and 0031.
+- [x] Regenerate `openapi.yml` and the web client; `clean check` and `pnpm --dir web check` in CI.
 
 ## 2. Code execution back to the interpreter
 

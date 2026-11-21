@@ -26,7 +26,6 @@ class ModulithArchitectureTest {
             "shared",
             "voice",
             "library",
-            "channel",
             "sandbox"
     );
 
