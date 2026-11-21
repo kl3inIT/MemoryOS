@@ -45,6 +45,11 @@ Rules on the table:
 - **Declared details.** Each action also declares the detail fields it may carry. A call site that sets any other
   field fails, so a secret cannot reach the record by mistake.
 - **Secrets.** Never stored as values. A changed key is recorded as `credentialChange: KEEP | REPLACE | REMOVE`.
+- **Historical actions.** An action of a removed feature stays in the catalog: its recorded events read, filter and
+  export like any other, and nothing records it again (`AuditAction.historical()`; `AuditRecord` refuses it). The
+  chat bots' actions are historical since their removal ([ADR 0032](../decisions/0032-no-chat-bots-in-the-capstone-scope.md)):
+  `channel.create`, `channel.update`, `channel.delete` (API activity), `channel.account_link` and
+  `channel.account_unlink` (account change).
 
 | Class | Actions |
 | --- | --- |
@@ -99,7 +104,7 @@ Every read requires `AUDIT_READ`. It is an ordinary grant given through a Group,
 | --- | --- |
 | `GET /api/audit/events` | A page of `AuditEvent`, newest first, keyed by an opaque `(occurred_at, id)` cursor. Optional filters: `from`, `to` (at most 366 days apart), `q` (actor name or e-mail, resource name; `%` and `_` are literal), `eventClass`, `action`, `outcome`, `actorId`, `resourceType`, `resourceId`. `size` is 1–100, default 50 |
 | `GET /api/audit/events/{eventId}` | One event of the Tenant |
-| `GET /api/audit/catalog` | Every action value with its class |
+| `GET /api/audit/catalog` | Every action value with its class, historical ones included |
 | `GET /api/audit/export` | The filtered events as CSV, at most 50,000 rows, with a UTF-8 byte-order mark and formula prefixes neutralized. The export is itself recorded as `audit.export` with its row count, outside the read, so an export that breaks
   halfway is still recorded, with the rows it had written and the outcome `FAILURE` |
 
