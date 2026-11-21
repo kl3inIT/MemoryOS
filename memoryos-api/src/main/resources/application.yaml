@@ -143,8 +143,6 @@ logging:
   level:
     Embabel: OFF
     com.embabel: OFF
-    # MEM-270: the OpenSandbox SDK logs every connect and renewal at INFO, several lines a tool call.
-    com.alibaba.opensandbox: WARN
 
 server:
   forward-headers-strategy: framework
@@ -195,19 +193,14 @@ memoryos:
       # Bounds the Redis replay buffer, not the model.
       max-answer-characters: 1000000
       mcp-call-timeout: 60s
+    interpreter:
+      # Empty: Code Interpreter is absent. Staging sets both through Compose and the launcher.
+      base-url: ${MEMORYOS_INTERPRETER_BASE_URL:}
+      api-key: ${MEMORYOS_INTERPRETER_API_KEY:}
     storage:
       # How much one person's file library may hold; 0 means no limit. The deployment sets it, not an
       # administrator: 512 MiB by default, changed by the environment and read when the API starts.
       library-bytes: ${MEMORYOS_CHAT_STORAGE_LIBRARY_BYTES:536870912}
-  # MEM-270: the Chat sandbox. Empty: the deployment has no sandbox. Compose and the launcher set them.
-  sandbox:
-    computer-image: ${MEMORYOS_SANDBOX_COMPUTER_IMAGE:}
-    max-running: ${MEMORYOS_SANDBOX_MAX_RUNNING:3}
-    # The only domains a sandbox reaches: PyPI, so a command can `uv pip install` (Onyx Craft, ChatGPT); empty denies all.
-    allowed-domains: ${MEMORYOS_SANDBOX_ALLOWED_DOMAINS:pypi.org,files.pythonhosted.org}
-    opensandbox:
-      endpoint: ${MEMORYOS_SANDBOX_ENDPOINT:}
-      api-key: ${MEMORYOS_SANDBOX_API_KEY:}
   identity:
     audience: ${MEMORYOS_IDENTITY_AUDIENCE}
     jit:

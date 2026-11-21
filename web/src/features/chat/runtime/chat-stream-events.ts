@@ -34,8 +34,6 @@ export const codeSchema = eventSchema.extend({
   output: z.string().max(MAX_OUTPUT_CHARACTERS).nullish(),
   stream: z.enum(["stdout", "stderr"]).nullish(),
   files: z.array(generatedFileSchema).max(25).default([]),
-  /** MEM-270: a sandbox command's title, from the model's description, on its running stage. */
-  title: z.string().max(200).nullish(),
 });
 /**
  * A tool call that waits for the person's approval, then the same call with the decision (MEM-253). It carries the
@@ -118,7 +116,6 @@ export function applyCodeEvent(
   run: z.infer<typeof codeSchema>,
 ) {
   const previous = codeRuns[run.toolCallId] ?? {
-    title: undefined,
     code: "",
     stdout: "",
     stderr: "",
@@ -132,7 +129,6 @@ export function applyCodeEvent(
     codeRuns: {
       ...codeRuns,
       [run.toolCallId]: {
-        title: run.stage === "RUNNING" ? (run.title ?? undefined) : previous.title,
         code: run.stage === "RUNNING" ? (run.code ?? "") : previous.code,
         stdout: onStderr ? previous.stdout : previous.stdout + delta,
         stderr: onStderr ? previous.stderr + delta : previous.stderr,

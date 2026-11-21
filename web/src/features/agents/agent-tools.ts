@@ -22,11 +22,10 @@ export function useToolNames(): Record<AgentTool, { label: string; hint: string 
       label: ui("Tạo ảnh"),
       hint: ui("Tạo và chỉnh sửa ảnh khi người dùng yêu cầu."),
     },
-    // MEM-270: one switch for the Sandbox group (run_python and the sandbox tools); "Sandbox" stays English.
     code_interpreter: {
-      label: ui("Sandbox"),
+      label: ui("Chạy Python"),
       hint: ui(
-        "Chạy lệnh, sửa tệp, chạy Python và tạo tệp trong Sandbox riêng của hội thoại khi quản trị viên bật.",
+        "Tính toán, xử lý tệp và vẽ biểu đồ bằng Python khi quản trị viên bật Code Interpreter.",
       ),
     },
   };

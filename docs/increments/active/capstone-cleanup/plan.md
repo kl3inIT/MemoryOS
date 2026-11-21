@@ -28,16 +28,25 @@ Done 2026-11-22 in one pull request ([ADR 0032](../../../decisions/0032-no-chat-
 
 ## 2. Code execution back to the interpreter
 
-- [ ] Restore the interpreter client and its wiring removed by MEM-271 (`16e0d64b`, `c8091538`, release removal
+Done 2026-11-22 ([ADR 0033](../../../decisions/0033-code-execution-through-memoryos-interpreter-again.md)), in one pull
+request with step 3.
+
+- [x] Restore the interpreter client and its wiring removed by MEM-271 (`16e0d64b`, `c8091538`, release removal
       `e718147e`, production switch `6feb1223`), adapted to the current `chat` code; `run_python` and the
-      presentation preview call `memoryos-interpreter` again.
-- [ ] Delete core `io.memoryos.sandbox`, `SandboxTools`, `memoryos-sandbox`, `memoryos-integration-opensandbox`,
-      the `admin.sandbox` page and the sandbox API.
-- [ ] Migration dropping the sandbox tables.
-- [ ] Deployment: remove `sandbox` and `sandbox-control`; build, publish and deploy `memoryos-interpreter`.
-- [ ] Documents: chat spec (code interpreter), `ARCHITECTURE.md`, remove `docs/specs/sandbox.md`; a new ADR
-      superseding ADR 0029.
-- [ ] Gates green; `RunPythonToolTest` and the interpreter client tests pass.
+      presentation preview call `memoryos-interpreter` again. The Code Interpreter page (`/admin/code-interpreter`,
+      `/api/chat/interpreter`) holds the Tenant switch and the health check again.
+- [x] Delete core `io.memoryos.sandbox`, `SandboxTools`, `memoryos-sandbox`, `memoryos-integration-opensandbox`,
+      the `admin.sandbox` page and the sandbox API; also the streamed object write only workspace archives used and
+      the code event's command title.
+- [x] Migration V203 dropping the sandbox tables and the Worker's sandbox sweep ([data effect](design.md#data-effect-of-v203)).
+- [x] Deployment: remove `sandbox` and `sandbox-control`; build, publish and deploy `memoryos-interpreter`;
+      `deploy.sh` still restores the sandbox server on a rollback to a runtime from before, and removes the one such
+      a runtime left; `tools/interpreter-eval` runs on the executor again.
+- [x] Documents: chat spec (code interpreter), `ARCHITECTURE.md`, remove `docs/specs/sandbox.md` and
+      `docs/tests/sandbox.md`, test matrices, CI/CD runbook (interpreter runtime, sandbox removal), roadmap,
+      `mem-270-chat-sandbox` and `mem-271-run-python-sandbox` moved to `superseded/`; ADR 0033 superseding ADR 0029.
+- [x] Gates: `RunPythonToolTest`, `InterpreterClientTest` and `PresentationPreviewServiceTest` pass; `clean check`
+      and `pnpm --dir web check` in CI.
 
 ## 3. Four modules again
 

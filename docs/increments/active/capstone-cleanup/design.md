@@ -85,6 +85,23 @@ drop the bots' data:
 - **Rollback.** The release before cannot run on the new schema (it reads the dropped columns), so going back past
   V202 is a database restore.
 
+### Data effect of V203
+
+Per [ADR 0018](../../../decisions/0018-schema-changes-preserve-data.md), with the owner's decision of 2026-11-22 to
+remove the Chat sandbox:
+
+- **Lost on purpose.** Each conversation's sandbox record (`sandbox_workspaces`, V179) and the record of its
+  `/workspace` archives (`sandbox_workspace_archives`, V184), and the Worker's scheduled task
+  `memoryos-sandbox-reconciliation-v1`. A conversation's next `run_python` starts in a fresh executor without the
+  files earlier calls left in its workspace.
+- **Kept.** Every file a sandbox run or `publish_file` handed to a person: they are generated-file artifacts
+  (`chat_file_artifact`, V71) and stay in the answers and the library. The Tenant's Code Interpreter switch
+  (`chat_interpreter_setting`, V71) governs `run_python` again.
+- **Left in the object store.** The archives' bytes, under `raw/<tenant>/<id>` keys only the dropped table named. The
+  release lists them before the migration and deletes them once accepted ([runbook](../../../runbooks/ci-cd.md#sandbox-removal)).
+- **Rollback.** The release before cannot run on the new schema (it reads the dropped tables), so going back past
+  V203 is a database restore.
+
 ## Verification
 
 - `./gradlew clean check` green, including `ModulithArchitectureTest`, `CoreDependencyRulesTest`,

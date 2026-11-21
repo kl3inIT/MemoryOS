@@ -108,7 +108,7 @@ final class ChatEventStream {
             case CodeRun progress -> {
                 var run = progress.code();
                 yield new CodeEvent(assistant, sequence, run.toolCallId(), run.stage(), run.code(), run.output(), run.files(),
-                        run.stream(), run.title());
+                        run.stream());
             }
             case TurnWaiting turn -> new WaitingEvent(assistant, sequence, turn.waiting());
             case McpUnavailable unavailable -> new McpUnavailableEvent(assistant, sequence, unavailable.apps());

@@ -22,17 +22,11 @@ class Runtime:
 
 
 RUNTIMES = {
-    # Retired by MEM-271; its source moved from interpreter/ to memoryos-interpreter/.
+    # MEM-110, and again since ADR 0033; its source moved from interpreter/ to memoryos-interpreter/ in MEM-271.
     "interpreter": Runtime(
         ("memoryos-interpreter/executor/sitecustomize.py", "interpreter/executor/sitecustomize.py"),
         "/opt/executor-venv/lib/python3.14/site-packages/sitecustomize.py",
         ".",
-    ),
-    # MEM-271: the conversation's sandbox, with the attachments under attachments/.
-    "sandbox": Runtime(
-        ("memoryos-sandbox/computer/sitecustomize.py",),
-        "/opt/sandbox-venv/lib/python3.14/site-packages/sitecustomize.py",
-        "attachments",
     ),
 }
 
@@ -65,6 +59,6 @@ def guidance(java: str) -> str:
     return textwrap.dedent(block).strip()
 
 
-def arm(ref: str, runtime: str = "sandbox") -> tuple[str, str]:
+def arm(ref: str, runtime: str = "interpreter") -> tuple[str, str]:
     """The run_python guidance and the runtime's sitecustomize at a ref."""
     return guidance(read(ref, PROMPTS)), sitecustomize(ref, runtime)

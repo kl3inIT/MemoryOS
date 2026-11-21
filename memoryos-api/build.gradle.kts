@@ -17,7 +17,6 @@ dependencies {
     implementation(project(":memoryos-core"))
     implementation(libs.commons.csv)
     implementation(project(":memoryos-integration-lark"))
-    runtimeOnly(project(":memoryos-integration-opensandbox"))
     implementation(project(":memoryos-integration-google"))
     implementation(project(":memoryos-integration-microsoft"))
     implementation(project(":memoryos-extraction"))

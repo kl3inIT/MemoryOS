@@ -4539,117 +4539,6 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
-  /api/chat/sandbox:
-    get:
-      tags:
-      - Chat Sandbox
-      summary: "Read whether the Sandbox is configured and enabled for the Tenant,\
-        \ and its allowed domains"
-      operationId: getChatSandboxSettings
-      responses:
-        "400":
-          description: Invalid Sandbox setting
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Tenant unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Sandbox setting changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Sandbox is not configured
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: Sandbox setting
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SandboxSettingsResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-    put:
-      tags:
-      - Chat Sandbox
-      summary: Enable or disable the Sandbox for the Tenant
-      operationId: updateChatSandboxSettings
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SandboxSettingsRequest"
-        required: true
-      responses:
-        "400":
-          description: Invalid Sandbox setting
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Tenant unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Sandbox setting changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Sandbox is not configured
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: Saved Sandbox setting
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SandboxSettingsResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
   /api/chat/retention:
     get:
       tags:
@@ -6986,6 +6875,116 @@ paths:
                 $ref: "#/components/schemas/ApiProblem"
         "204":
           description: Not starred
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/interpreter:
+    get:
+      tags:
+      - Chat Interpreter
+      summary: Read whether Code Interpreter is configured and enabled for the Tenant
+      operationId: getChatInterpreterSettings
+      responses:
+        "400":
+          description: Invalid Code Interpreter setting
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Code Interpreter setting changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Code Interpreter is not configured
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Code Interpreter setting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterpreterSettingsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    put:
+      tags:
+      - Chat Interpreter
+      summary: Enable or disable Code Interpreter for the Tenant
+      operationId: updateChatInterpreterSettings
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InterpreterSettingsRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Code Interpreter setting
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Code Interpreter setting changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Code Interpreter is not configured
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved Code Interpreter setting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterpreterSettingsResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -18904,54 +18903,6 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
-  /api/chat/sandbox/health:
-    get:
-      tags:
-      - Chat Sandbox
-      summary: Check the sandbox runtime
-      operationId: getChatSandboxHealth
-      responses:
-        "400":
-          description: Invalid Sandbox setting
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Tenant unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Sandbox setting changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Sandbox is not configured
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: Live sandbox runtime health
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SandboxHealthResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
   /api/chat/retention/preview:
     get:
       tags:
@@ -20231,6 +20182,54 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/interpreter/health:
+    get:
+      tags:
+      - Chat Interpreter
+      summary: Check the Code Interpreter service without the cache
+      operationId: getChatInterpreterHealth
+      responses:
+        "400":
+          description: Invalid Code Interpreter setting
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Code Interpreter setting changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Code Interpreter is not configured
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Live Code Interpreter service health
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterpreterHealthResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/images:
     get:
       tags:
@@ -21361,7 +21360,7 @@ paths:
       tags:
       - Chat
       summary: "Read a PDF rendering of an owner-private generated presentation, converted\
-        \ in a short-lived sandbox on first request"
+        \ in the interpreter on first request"
       operationId: getChatFileArtifactPdfPreview
       parameters:
       - name: artifactId
@@ -21379,7 +21378,7 @@ paths:
                 type: string
                 format: binary
         "429":
-          description: Every short-lived sandbox is in use
+          description: The interpreter is busy
           content:
             application/problem+json:
               schema:
@@ -25737,40 +25736,6 @@ components:
           format: uuid
       required:
       - messageId
-    SandboxSettingsRequest:
-      type: object
-      properties:
-        enabled:
-          type: boolean
-        revision:
-          type: integer
-          format: int64
-          minimum: 0
-      required:
-      - enabled
-      - revision
-    SandboxSettingsResponse:
-      type: object
-      properties:
-        configured:
-          type: boolean
-          description: Whether this deployment has a sandbox
-        enabled:
-          type: boolean
-        revision:
-          type: integer
-          format: int64
-        allowedDomains:
-          type: array
-          description: "The only domains a sandbox may reach, set by the deployment;\
-            \ empty denies all egress"
-          items:
-            type: string
-      required:
-      - allowedDomains
-      - configured
-      - enabled
-      - revision
     ChatRetentionInput:
       type: object
       properties:
@@ -26701,6 +26666,33 @@ components:
           type: boolean
       required:
       - enabled
+    InterpreterSettingsRequest:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - enabled
+      - revision
+    InterpreterSettingsResponse:
+      type: object
+      properties:
+        configured:
+          type: boolean
+          description: Whether this deployment has a Code Interpreter service
+        enabled:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+      required:
+      - configured
+      - enabled
+      - revision
     ImageSelectionRequest:
       type: object
       properties:
@@ -32458,11 +32450,6 @@ components:
           enum:
           - stdout
           - stderr
-        title:
-          type:
-          - string
-          - "null"
-          description: "A sandbox command's title, on its running stage"
       required:
       - assistantMessageId
       - code
@@ -32471,7 +32458,6 @@ components:
       - sequence
       - stage
       - stream
-      - title
       - toolCallId
     GeneratedFile:
       type: object
@@ -32768,19 +32754,6 @@ components:
       required:
       - hasMore
       - items
-    SandboxHealthResponse:
-      type: object
-      properties:
-        connected:
-          type: boolean
-        error:
-          type: string
-        version:
-          type: string
-      required:
-      - connected
-      - error
-      - version
     ChatRetentionPreview:
       type: object
       properties:
@@ -33377,6 +33350,19 @@ components:
       - id
       - name
       - type
+    InterpreterHealthResponse:
+      type: object
+      properties:
+        connected:
+          type: boolean
+        error:
+          type: string
+        version:
+          type: string
+      required:
+      - connected
+      - error
+      - version
     ImageAvailabilityResponse:
       type: object
       properties:

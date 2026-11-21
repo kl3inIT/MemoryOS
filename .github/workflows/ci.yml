@@ -42,11 +42,11 @@ jobs:
       backend: ${{ steps.scope.outputs.backend }}
       web: ${{ steps.scope.outputs.web }}
       landing: ${{ steps.scope.outputs.landing }}
-      sandbox: ${{ steps.scope.outputs.sandbox }}
+      interpreter: ${{ steps.scope.outputs.interpreter }}
       tree: ${{ steps.scope.outputs.tree }}
       backend_verified: ${{ steps.verified.outputs.backend }}
       web_verified: ${{ steps.verified.outputs.web }}
-      sandbox_verified: ${{ steps.verified.outputs.sandbox }}
+      interpreter_verified: ${{ steps.verified.outputs.interpreter }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -63,7 +63,7 @@ jobs:
           backend=true
           web=true
           landing=true
-          sandbox=true
+          interpreter=true
           # Main pushes build and publish every area. A pull request selects areas from its merge
           # commit, whose first parent is the base branch tip; unknown paths or an empty diff select all.
           if [[ "$EVENT_NAME" == pull_request ]]; then
@@ -72,14 +72,14 @@ jobs:
               backend=false
               web=false
               landing=false
-              sandbox=false
+              interpreter=false
               for path in "${changed[@]}"; do
                 # Mirror paths-ignore: only root-level Markdown is documentation; nested .md can be source.
                 if [[ "$path" != */* && "$path" == *.md ]]; then
                   continue
                 fi
                 case "$path" in
-                  docs/*|tools/visual-paradigm-mcp/*|memoryos-interpreter/*)
+                  docs/*|tools/visual-paradigm-mcp/*)
                     ;;
                   openapi.yml)
                     backend=true
@@ -92,8 +92,8 @@ jobs:
                   build-logic/*|memoryos-core/*|memoryos-integration-*/*|memoryos-extraction/*|memoryos-api/*|memoryos-worker/*|gradle/*|build.gradle.kts|settings.gradle.kts|gradle.properties|gradlew|gradlew.bat|Dockerfile|infrastructure/*)
                     backend=true
                     ;;
-                  memoryos-sandbox/*)
-                    sandbox=true
+                  memoryos-interpreter/*)
+                    interpreter=true
                     ;;
                   web/*)
                     web=true
@@ -105,15 +105,15 @@ jobs:
                     backend=true
                     web=true
                     landing=true
-                    sandbox=true
+                    interpreter=true
                     ;;
                 esac
               done
             fi
           fi
-          printf 'backend=%s\nweb=%s\nlanding=%s\nsandbox=%s\n' "$backend" "$web" "$landing" "$sandbox" >> "$GITHUB_OUTPUT"
+          printf 'backend=%s\nweb=%s\nlanding=%s\ninterpreter=%s\n' "$backend" "$web" "$landing" "$interpreter" >> "$GITHUB_OUTPUT"
           printf 'tree=%s\n' "$(git rev-parse 'HEAD^{tree}')" >> "$GITHUB_OUTPUT"
-          printf 'Verification areas: backend=%s web=%s landing=%s sandbox=%s\n' "$backend" "$web" "$landing" "$sandbox" >> "$GITHUB_STEP_SUMMARY"
+          printf 'Verification areas: backend=%s web=%s landing=%s interpreter=%s\n' "$backend" "$web" "$landing" "$interpreter" >> "$GITHUB_STEP_SUMMARY"
 
       # A main commit whose tree a same-repository pull request run already verified does not run those tests
       # again; its images are still built, because their revision label names the main commit (ADR 0021). A fork's
@@ -146,7 +146,7 @@ jobs:
             return 1
           }
           if run=$(areas); then
-            for area in backend web sandbox; do
+            for area in backend web interpreter; do
               verified=false
               if grep -qx "$area=true" "$RUNNER_TEMP/verified/areas"; then verified=true; fi
               printf '%s=%s\n' "$area" "$verified" >> "$GITHUB_OUTPUT"
@@ -192,8 +192,8 @@ jobs:
           MEMORYOS_API_IMAGE: memoryos-api:config-check
           MEMORYOS_WORKER_IMAGE: memoryos-worker:config-check
           MEMORYOS_WEB_IMAGE: memoryos-web:config-check
-          MEMORYOS_SANDBOX_IMAGE: memoryos-sandbox:config-check
-          MEMORYOS_SANDBOX_COMPUTER_IMAGE: memoryos-sandbox-computer:config-check
+          MEMORYOS_INTERPRETER_IMAGE: memoryos-interpreter:config-check
+          MEMORYOS_INTERPRETER_EXECUTOR_IMAGE: memoryos-interpreter-executor:config-check
           MEMORYOS_KEYCLOAK_IMAGE: memoryos-keycloak:config-check
           MEMORYOS_POSTGRES_ADMIN_PASSWORD: config-check-only
           MEMORYOS_DATABASE_PASSWORD: config-check-only
@@ -258,7 +258,7 @@ jobs:
             tasks: ':memoryos-api:check'
           - leg: integrations-worker
             tasks: >-
-              :memoryos-integration-lark:check :memoryos-integration-google:check :memoryos-integration-microsoft:check :memoryos-integration-opensandbox:check :memoryos-extraction:check :memoryos-worker:check
+              :memoryos-integration-lark:check :memoryos-integration-google:check :memoryos-integration-microsoft:check :memoryos-extraction:check :memoryos-worker:check
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -575,11 +575,10 @@ jobs:
           compression-level: 1
           retention-days: 2
 
-  # MEM-270: the OpenSandbox server with MemoryOS's configuration, and the computer image every conversation's sandbox
-  # starts from. The smoke test proves the tools the design lists are in the computer image.
-  sandbox:
+  # MEM-110: the memoryos-interpreter service and the executor image each run_python call starts from.
+  interpreter:
     needs: changes
-    if: ${{ needs.changes.outputs.sandbox == 'true' }}
+    if: ${{ needs.changes.outputs.interpreter == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     permissions:
@@ -587,15 +586,32 @@ jobs:
       packages: write # Push the verified images to GHCR on a main push; no pull request step pushes.
     outputs:
       images: ${{ steps.push.outputs.images }}
+    defaults:
+      run:
+        working-directory: memoryos-interpreter/service
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
+      - name: Set up uv
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: memoryos-interpreter/service/uv.lock
+
       - name: Resolve image metadata
         id: meta
         run: printf 'build-date=%s\n' "$(git show -s --format=%cI HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Verify interpreter service
+        if: ${{ needs.changes.outputs.interpreter_verified != 'true' }}
+        run: |
+          uv sync --frozen
+          uv run ruff check .
+          uv run ruff format --check .
+          uv run mypy .
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
@@ -607,88 +623,66 @@ jobs:
           REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
 
-      - name: Build computer image
+      # Integration and e2e tests start real executor containers from this image on the runner's daemon.
+      - name: Build executor image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
-          context: memoryos-sandbox/computer
-          tags: memoryos-sandbox-computer:sha-${{ github.sha }}
+          context: memoryos-interpreter/executor
+          tags: |
+            ghcr.io/kl3init/memoryos-interpreter-executor:latest
+            memoryos-interpreter-executor:sha-${{ github.sha }}
           load: true
           provenance: false
           sbom: false
           build-args: |
             VCS_REF=${{ github.sha }}
             BUILD_DATE=${{ steps.meta.outputs.build-date }}
-          cache-from: type=registry,ref=ghcr.io/kl3init/memoryos-sandbox-computer:buildcache
-          cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/kl3init/memoryos-sandbox-computer:buildcache,mode=max,ignore-error=true' || '' }}
+          cache-from: type=registry,ref=ghcr.io/kl3init/memoryos-interpreter-executor:buildcache
+          cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/kl3init/memoryos-interpreter-executor:buildcache,mode=max,ignore-error=true' || '' }}
 
-      - name: Check the computer image's tools
-        if: ${{ needs.changes.outputs.sandbox_verified != 'true' }}
-        run: |
-          docker run --rm --user 1000 "memoryos-sandbox-computer:sha-$GITHUB_SHA" bash -euo pipefail -c '
-            [[ "$(id -un)" == sandbox && "$PWD" == /workspace && -w /workspace ]]
-            for tool in bash git jq rg fd file 7z bc pandoc soffice tesseract convert ffmpeg node python3 sqlite3 \
-                qpdf pdftotext recalc-xlsx check-docx pptx-to-pdf uv; do
-              command -v "$tool" > /dev/null || { echo "missing $tool" >&2; exit 1; }
-            done
-            # The helpers start from their shebang, which names the virtual environment of the image.
-            for helper in recalc-xlsx check-docx pptx-to-pdf; do
-              interpreter=$(sed -n "1s/^#!//p" "$(command -v "$helper")")
-              [[ -x "$interpreter" ]] || { echo "$helper starts $interpreter, which is missing" >&2; exit 1; }
-            done
-            tesseract --list-langs 2>/dev/null | grep -qx vie
-            node -e "require(\"pptxgenjs\")"
-            python3 -c "import duckdb, matplotlib, openpyxl, pandas, plotly, pypdfium2, pytesseract, xlsxwriter"
-            # The command user owns the venv, so uv pip install can add a package to it.
-            [[ -w "$VIRTUAL_ENV/lib/python3.14/site-packages" && -w "$VIRTUAL_ENV/bin" ]]
-          '
+      - name: Run integration tests
+        if: ${{ needs.changes.outputs.interpreter_verified != 'true' }}
+        run: uv run pytest tests/integration_tests --tb=short
 
-      # run_python's stack and office tools, run in the image as a sandbox runs them (MEM-271).
-      - name: Test the computer image
-        if: ${{ needs.changes.outputs.sandbox_verified != 'true' }}
-        env:
-          IMAGE: memoryos-sandbox-computer:sha-${{ github.sha }}
-        run: python3 -m unittest discover -s memoryos-sandbox/computer/tests -v
-
-      - name: Build server image
+      - name: Build service image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
-          context: memoryos-sandbox/server
-          tags: memoryos-sandbox:sha-${{ github.sha }}
+          context: memoryos-interpreter/service
+          tags: |
+            memoryos-interpreter:ci
+            memoryos-interpreter:sha-${{ github.sha }}
           load: true
           provenance: false
           sbom: false
           build-args: |
             VCS_REF=${{ github.sha }}
             BUILD_DATE=${{ steps.meta.outputs.build-date }}
+          cache-from: type=registry,ref=ghcr.io/kl3init/memoryos-interpreter:buildcache
+          cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/kl3init/memoryos-interpreter:buildcache,mode=max,ignore-error=true' || '' }}
 
-      # The server must start with the key from a file, on a read-only root, and refuse a request without the key.
-      - name: Start the server as Compose runs it
-        if: ${{ needs.changes.outputs.sandbox_verified != 'true' }}
+      # test_concurrent_execute.py sends 5 requests at once; the default limit of 4 would reject one.
+      - name: Run e2e tests against the service container
+        if: ${{ needs.changes.outputs.interpreter_verified != 'true' }}
         run: |
-          key_dir=$(mktemp -d)
-          openssl rand -hex 32 > "$key_dir/api-key.txt"
-          docker run --detach --name memoryos-sandbox-ci --publish 127.0.0.1:8090:8090 --read-only \
-            --tmpfs /tmp --tmpfs /root --user root --cap-drop ALL --cap-add DAC_OVERRIDE \
-            --volume /var/run/docker.sock:/var/run/docker.sock --volume "$key_dir:/run/secrets:ro" \
-            --env SANDBOX_API_KEY_FILE=/run/secrets/api-key.txt "memoryos-sandbox:sha-$GITHUB_SHA"
+          docker run --detach --name memoryos-interpreter-ci --publish 127.0.0.1:8000:8000 \
+            --user root --volume /var/run/docker.sock:/var/run/docker.sock \
+            --env MAX_CONCURRENT_EXECUTIONS=5 --env ALLOW_UNAUTHENTICATED=true memoryos-interpreter:ci
           for _ in {1..30}; do
-            curl --silent --fail http://127.0.0.1:8090/health && break
+            curl --silent --fail http://127.0.0.1:8000/health && break
             sleep 2
           done
-          curl --silent --fail http://127.0.0.1:8090/health
-          status=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8090/v1/sandboxes)
-          [[ "$status" == 401 || "$status" == 403 ]] || { echo "Unauthenticated request answered $status" >&2; exit 1; }
+          uv run pytest tests/e2e --tb=short
 
-      - name: Show server logs on failure
+      - name: Show service logs on failure
         if: ${{ failure() }}
-        run: docker logs memoryos-sandbox-ci || true
+        run: docker logs memoryos-interpreter-ci || true
 
-      - name: Push verified sandbox images to GHCR
+      - name: Push verified interpreter images to GHCR
         id: push
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: ./.github/actions/push-release-images
         with:
-          components: sandbox sandbox-computer
+          components: interpreter interpreter-executor
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Remove registry credentials
@@ -845,7 +839,7 @@ jobs:
   gate:
     name: CI Gate
     if: ${{ always() }}
-    needs: [changes, infrastructure, backend, frontend-check, frontend, frontend-preview, frontend-image, backend-images, landing, sandbox, secrets, migrations]
+    needs: [changes, infrastructure, backend, frontend-check, frontend, frontend-preview, frontend-image, backend-images, landing, interpreter, secrets, migrations]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
@@ -863,14 +857,14 @@ jobs:
                 if $area[name] != "true" then ok(tests + images; "skipped")
                 elif $area[name + "_verified"] == "true" then ok(tests; "skipped") and ok(images; "success")
                 else ok(tests + images; "success") end;
-            ($jobs | keys) == ["backend", "backend-images", "changes", "frontend", "frontend-check", "frontend-image", "frontend-preview", "infrastructure", "landing", "migrations", "sandbox", "secrets"]
+            ($jobs | keys) == ["backend", "backend-images", "changes", "frontend", "frontend-check", "frontend-image", "frontend-preview", "infrastructure", "interpreter", "landing", "migrations", "secrets"]
             and $jobs.changes.result == "success"
             and $jobs.secrets.result == "success"
             and $jobs.migrations.result == "success"
             and selected("backend"; ["infrastructure", "backend"]; ["backend-images"])
             and selected("web"; ["frontend-check", "frontend", "frontend-preview"]; ["frontend-image"])
             and selected("landing"; []; ["landing"])
-            and selected("sandbox"; []; ["sandbox"])
+            and selected("interpreter"; []; ["interpreter"])
           ' <<< "$RESULTS"
 
       # A main commit with this exact tree can reuse these results instead of running the tests again.
@@ -880,7 +874,7 @@ jobs:
           AREAS: ${{ toJSON(needs.changes.outputs) }}
         run: |
           mkdir -p verified
-          jq --raw-output '"backend=\(.backend)\nweb=\(.web)\nlanding=\(.landing)\nsandbox=\(.sandbox)"' <<< "$AREAS" > verified/areas
+          jq --raw-output '"backend=\(.backend)\nweb=\(.web)\nlanding=\(.landing)\ninterpreter=\(.interpreter)"' <<< "$AREAS" > verified/areas
 
       - name: Preserve the verified tree for main
         if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
@@ -899,10 +893,10 @@ jobs:
     if: >-
       ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main'
       && needs.gate.result == 'success' && needs.backend-images.result == 'success'
-      && needs.frontend-image.result == 'success' && needs.sandbox.result == 'success' }}
+      && needs.frontend-image.result == 'success' && needs.interpreter.result == 'success' }}
     # The image jobs already pushed what they verified; this job only names those digests as a release, and only
     # after CI Gate. A tag in GHCR without this job's artifact is not deployable.
-    needs: [gate, backend-images, frontend-image, sandbox]
+    needs: [gate, backend-images, frontend-image, interpreter]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -921,10 +915,10 @@ jobs:
           IMAGES: |
             ${{ needs.backend-images.outputs.images }}
             ${{ needs.frontend-image.outputs.images }}
-            ${{ needs.sandbox.outputs.images }}
+            ${{ needs.interpreter.outputs.images }}
         run: |
           mkdir release
-          for component in api worker web keycloak sandbox sandbox-computer; do
+          for component in api worker web interpreter interpreter-executor keycloak; do
             # Compose rejects a hyphen in an environment key.
             key=${component//-/_}
             key="MEMORYOS_${key^^}_IMAGE"

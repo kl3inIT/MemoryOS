@@ -44,7 +44,8 @@ updates:
 
   - package-ecosystem: uv
     directories:
-      - /memoryos-sandbox/computer
+      - /memoryos-interpreter/service
+      - /memoryos-interpreter/executor
     schedule:
       interval: weekly
       day: monday
@@ -64,8 +65,8 @@ updates:
       - /
       - /web
       - /landing
-      - /memoryos-sandbox/computer
-      - /memoryos-sandbox/server
+      - /memoryos-interpreter/service
+      - /memoryos-interpreter/executor
       - /infrastructure/keycloak
       - /infrastructure/deployment/ocr
     schedule:

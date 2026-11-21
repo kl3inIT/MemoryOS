@@ -18,7 +18,7 @@ flowchart LR
     API --> OS[(OpenSearch)]
     API --> LLM[Configured model and embedding providers]
     API --> RS[(Redis Streams)]
-    API --> SANDBOX[Chat sandbox: OpenSandbox]
+    API --> INTERP[Code interpreter]
 
     PG --> RELAY[Worker db-scheduler relay]
     RELAY --> RS
@@ -66,7 +66,6 @@ flowchart TB
     MEET[meeting]
     USAGE[usage]
     AUD[audit]
-    SBX[sandbox]
     SHARED[shared kernel]
 
     MCP --> IAM
@@ -93,8 +92,6 @@ flowchart TB
     CHAT --> OBJ
     CHAT --> DOC
     CHAT --> USAGE
-    CHAT --> SBX
-    SBX --> OBJ
     LIB --> IAM
     LIB --> OBJ
     LIB --> CON
@@ -143,7 +140,6 @@ flowchart TB
     WORKER --> RET
     WORKER --> LIB
     WORKER --> CHAT
-    WORKER --> SBX
     WORKER --> USAGE
     WORKER --> AI
     WORKER --> MCP
@@ -154,9 +150,8 @@ Arrows show allowed use of public capability contracts: a capability's arrows ar
 
 | Gradle module | Responsibility |
 | --- | --- |
-| `memoryos-core` | Fifteen capability implementations, the `shared` kernel of identifier types and technical utilities, and their public contracts; no dependency on an integration, on extraction or on a deployable |
+| `memoryos-core` | Fourteen capability implementations, the `shared` kernel of identifier types and technical utilities, and their public contracts; no dependency on an integration, on extraction or on a deployable |
 | `memoryos-integration-lark`, `-google`, `-microsoft` | One module a platform, holding everything that calls it (`io.memoryos.integration.<platform>`): Lark through the official `oapi-sdk` on a transport of the JDK client, Google Drive through Google's API clients on a guarded `google-http-client` with the account consent protocol the API's callback uses, SharePoint through the Microsoft Graph SDK on a guarded OkHttp client. Each depends only on public `core` APIs and on no other platform ([ADR 0027](docs/decisions/0027-integrations-by-platform-and-memoryos-module-names.md)) |
-| `memoryos-integration-opensandbox` | The Chat sandbox's runtime (`io.memoryos.integration.opensandbox`): `OpenSandboxRuntime` implements `sandbox.SandboxRuntime` through the official OpenSandbox SDK, every call after creation through the server's proxy ([ADR 0029](docs/decisions/0029-chat-sandbox-through-opensandbox.md)) |
 | `memoryos-extraction` | Bounded content extraction (`io.memoryos.ingestion.extraction`): Tika, Docling, the OCR adapters and the spreadsheet readers; a provider's snapshot is read by the reader its integration registers for that input format, so extraction names no platform |
 | `memoryos-api` | HTTP, security, migrations and interactive Chat composition |
 | `memoryos-worker` | Redis/db-scheduler composition and durable background work |
@@ -177,7 +172,6 @@ Arrows show allowed use of public capability contracts: a capability's arrows ar
 | `voice` | Tenant voice connections, batch and live transcription and speech synthesis; audio is never stored | [MEM-91 design](docs/increments/completed/mem-91-chat-voice/design.md) |
 | `mcp` | Tenant-registered remote MCP servers, their OAuth clients, tool snapshots, sealed credentials and the Streamable HTTP client; the MemoryOS MCP endpoint's switch, the apps trusted to connect to it (projected to Keycloak) and its activity log | [MEM-112 design](docs/increments/completed/mem-112-chat-mcp-client/design.md) · [MemoryOS MCP endpoint](docs/specs/mcp-endpoint.md) |
 | `meeting` | Owner-private meetings: live track recording or an uploaded recording through `voice`, stored utterances, speaker names and notes, leased minutes written by the API from the transcript through `ai`, minutes published to the owner's file library, and the library's `MeetingShelf` port listing the meetings a person may read; audio is never stored, and an uploaded recording is deleted once it has been transcribed | [Meetings](docs/specs/meeting.md) |
-| `sandbox` | One runtime sandbox a Chat conversation (MEM-270): its `sandbox_workspaces` row, found or started under the row's lock, renewed on every use, replaced when gone or past four hours, a deployment-wide running bound, its `/workspace` archived in Object Storage after each turn that used it and restored into the next sandbox, and the Worker's reconciliation | [Sandbox](docs/specs/sandbox.md) |
 | `usage` | Daily AI usage ledger for every AI flow, the AI costs report, and usage reports (a period's CSV and PDF export, built by the Worker and stored through `objectstorage`) | [AI usage and costs](docs/specs/ai-usage.md) |
 
 **Provider families.** Where an administrator or the deployment chooses among interchangeable protocols, each provider is one adapter class behind a registry ([ADR 0019](docs/decisions/0019-provider-families-use-adapters-behind-a-registry.md)): `WebAdapterRegistry` (eight Web providers in `chat.web.adapter`), `ImageAdapterRegistry` (two in `chat.image.adapter`), `VoiceAdapterRegistry` (five in `voice`, beside its package-private provider clients) and `ai.ProviderAdapterRegistry` (chat models, an open family keyed by the adapter's string type). The closed registries hold exactly one adapter per provider enum constant and fail startup on a missing or duplicate one; the enum is identity only, and what a provider needs, suggests and offers is a capabilities record from its adapter. Each family's client owns transport, bounds and one observation per provider call. `shared.Tokenizers` holds the process's one O200K and one CL100K token counter. Connectors still dispatch on `SourceType` until MEM-118.
@@ -254,7 +248,7 @@ Custom agents (Personas) are Chat-owned, Tenant-scoped configurations Onyx calls
 
 Deep research is the one Chat mode where MemoryOS owns the inference loop: `ResearchExecutor` runs clarification, plan, orchestrator cycles, up to three parallel research agents and the final report as single guarded `streamInference` calls, executing agent tools directly and merging agent citations into the turn sources. It runs in the same turn, lease, Stop scope and budget as other answers; see the [Deep research contract](docs/specs/chat.md#deep-research).
 
-Code Interpreter (`run_python`) runs `python3` in the conversation's sandbox from the same tool loop, beside the Sandbox tools (MEM-271), so its files stay in the conversation's workspace; a presentation preview converts in a short-lived sandbox of no conversation. What a run writes or changes is copied into Object Storage as owner-authorized Chat artifacts. The `memoryos-interpreter` service vendored from Onyx python-sandbox that ran it before is kept as source under `memoryos-interpreter/` and is neither built nor deployed. See the [Chat contract](docs/specs/chat.md#code-interpreter) and the [sandbox contract](docs/specs/sandbox.md).
+Code Interpreter (`run_python`) calls the separate `memoryos-interpreter` service from the same tool loop, as it did before the Chat sandbox of MEM-270 and MEM-271 ([ADR 0033](docs/decisions/0033-code-execution-through-memoryos-interpreter-again.md)). The service is vendored from Onyx python-sandbox under `memoryos-interpreter/`. It is reachable only on the internal network with a shared API key, and it starts a disposable, network-less executor container per run; a presentation preview converts in it too. Generated files are copied into Object Storage as owner-authorized Chat artifacts. See the [Chat contract](docs/specs/chat.md#code-interpreter) and the [interpreter runtime](docs/runbooks/ci-cd.md#interpreter-runtime).
 
 Private Chat files reuse Object Storage, Document extraction and passage readers while remaining Chat-owned and owner-authorized. General Search excludes private file chunks. Sharing exposes allowed transcript descriptors without granting access to underlying private bytes or passages.
 
@@ -341,7 +335,7 @@ flowchart TB
     API --> MINIO
     API --> REDIS[(Redis)]
     API --> OPENSEARCH[(OpenSearch)]
-    API --> SANDBOX[Chat sandbox: OpenSandbox]
+    API --> INTERP[Code interpreter]
     WORKER[Worker] --> PG
     WORKER --> REDIS
     WORKER --> MINIO
@@ -352,9 +346,9 @@ flowchart TB
     WORKER --> OTEL
 ```
 
-Base Compose owns PostgreSQL, MinIO, Keycloak, TLS Redis, Docling, the Chat sandbox server (OpenSandbox, [ADR 0029](docs/decisions/0029-chat-sandbox-through-opensandbox.md)), API, worker and web; OpenSearch comes from a separate `compose.search.<environment>.yaml`. Production's GPU services run on a second node from `compose.serving.yaml`, published on its private address and admitted to the application node alone by a `DOCKER-USER` rule; the production deployment rolls that node out first. Staging adds protected inspection and observability surfaces; production exposes none of them. API and worker images remain distinct, use bounded resources and report readiness for their owned dependencies. Exact deployment, recovery and evidence boundaries are in the [CI/CD runbook](docs/runbooks/ci-cd.md) and [delivery matrix](docs/tests/delivery.md).
+Base Compose owns PostgreSQL, MinIO, Keycloak, TLS Redis, Docling, the code interpreter, API, worker and web; OpenSearch comes from a separate `compose.search.<environment>.yaml`. Production's GPU services run on a second node from `compose.serving.yaml`, published on its private address and admitted to the application node alone by a `DOCKER-USER` rule; the production deployment rolls that node out first. Staging adds protected inspection and observability surfaces; production exposes none of them. API and worker images remain distinct, use bounded resources and report readiness for their owned dependencies. Exact deployment, recovery and evidence boundaries are in the [CI/CD runbook](docs/runbooks/ci-cd.md) and [delivery matrix](docs/tests/delivery.md).
 
-The deployment is an explicit overlay contract. `compose.base.yaml` owns PostgreSQL, private MinIO with a durable volume, one-shot bucket/policy/sentinel bootstrap, shared Keycloak, TLS Redis, Docling, the sandbox server, API, worker, and web. The Keycloak service receives the versioned MemoryOS theme through one read-only repository bind mount; production theme and template caches stay enabled. MinIO receives distinct least-privilege API and worker identities from mounted secret files; its browser CORS allowlist and the web `connect-src` are configured to exact origins. The API signs against a browser-reachable endpoint but inspects through the internal service endpoint. `compose.staging.yaml` adds Mailpit, read-only PostgreSQL/Redis inspectors, native MinIO Console OIDC, and file-backed inspection secrets. pgweb and Redis Insight remain behind separate OAuth2 Proxies on loopback ports `18026` and `18027`; MinIO's container-only port `9001` is reached through a dedicated HTTPS proxy host and receives no host binding. `compose.production.yaml` adds production profiles and no inspection exposure or MinIO OIDC configuration. API and worker remain separate image targets; worker starts after API and Redis health, exposes datasource/Redis/db-scheduler/object-storage readiness internally, and runs with bounded resources and shutdown.
+The deployment is an explicit overlay contract. `compose.base.yaml` owns PostgreSQL, private MinIO with a durable volume, one-shot bucket/policy/sentinel bootstrap, shared Keycloak, TLS Redis, Docling, the code interpreter, API, worker, and web. The Keycloak service receives the versioned MemoryOS theme through one read-only repository bind mount; production theme and template caches stay enabled. MinIO receives distinct least-privilege API and worker identities from mounted secret files; its browser CORS allowlist and the web `connect-src` are configured to exact origins. The API signs against a browser-reachable endpoint but inspects through the internal service endpoint. `compose.staging.yaml` adds Mailpit, read-only PostgreSQL/Redis inspectors, native MinIO Console OIDC, and file-backed inspection secrets. pgweb and Redis Insight remain behind separate OAuth2 Proxies on loopback ports `18026` and `18027`; MinIO's container-only port `9001` is reached through a dedicated HTTPS proxy host and receives no host binding. `compose.production.yaml` adds production profiles and no inspection exposure or MinIO OIDC configuration. API and worker remain separate image targets; worker starts after API and Redis health, exposes datasource/Redis/db-scheduler/object-storage readiness internally, and runs with bounded resources and shutdown.
 
 Structured logs, metrics and traces flow through OpenTelemetry to the independently operated LGTM stack. Telemetry carries correlation and operation-origin identifiers but never changes authorization, durable claims or acknowledgement semantics. See the [observability policy](docs/guidelines/observability.md).
 

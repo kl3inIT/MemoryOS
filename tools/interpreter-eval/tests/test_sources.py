@@ -20,19 +20,16 @@ class GuidanceTest(unittest.TestCase):
         prompt, site = arm(WORKTREE)
         self.assertTrue(prompt.startswith("## run_python"))
         self.assertIn('private static final String RUN_PYTHON_GUIDANCE = """', read(WORKTREE, PROMPTS))
-        self.assertEqual(site, read(WORKTREE, "memoryos-sandbox/computer/sitecustomize.py"))
-        self.assertIn("capture_open_figures", site)
-
-    def test_reads_the_retired_interpreter_where_a_ref_has_it(self):
-        _, site = arm(WORKTREE, "interpreter")
         self.assertEqual(site, read(WORKTREE, "memoryos-interpreter/executor/sitecustomize.py"))
         self.assertIn("MPLCONFIGDIR", site)
+
+    def test_reads_the_interpreter_under_its_older_path_where_a_ref_has_it(self):
+        _, site = arm(WORKTREE, "interpreter")
         # A ref from before MEM-271 has it under interpreter/; the newest path is tried first.
         self.assertEqual(site, sitecustomize(WORKTREE, "interpreter"))
 
     def test_tells_the_model_where_each_runtime_keeps_the_files(self):
         self.assertTrue(harness(RUNTIMES["interpreter"]).endswith("in the current directory."))
-        self.assertTrue(harness(RUNTIMES["sandbox"]).endswith("in `attachments/`."))
 
 
 if __name__ == "__main__":
