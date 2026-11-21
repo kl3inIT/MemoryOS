@@ -26,14 +26,14 @@ class SpokenTextTest {
     void anUncertainTokenIsMarkedWhereItIsRead() {
         var text = new SpokenText();
         text.append("Chốt ", 0.95);
-        text.append("Tasco ", 0.42);
+        text.append("Alpha ", 0.42);
         text.append("quý 4.", 0.9);
 
         String said = text.said();
-        assertEquals("Chốt Tasco quý 4.", said);
+        assertEquals("Chốt Alpha quý 4.", said);
         var spans = text.spans();
         assertEquals(1, spans.size());
-        assertEquals("Tasco", marked(said, spans.getFirst()), "the mark covers the word, not the space before it");
+        assertEquals("Alpha", marked(said, spans.getFirst()), "the mark covers the word, not the space before it");
         assertEquals(0.42, spans.getFirst().confidence(), 0.001);
     }
 

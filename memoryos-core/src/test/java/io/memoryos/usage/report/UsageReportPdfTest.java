@@ -27,7 +27,7 @@ class UsageReportPdfTest {
             assertTrue(doc.getNumberOfPages() >= 2, "cover and sections");
             String text = new PDFTextStripper().getText(doc);
             assertTrue(text.contains("Báo cáo sử dụng AI"), text);
-            assertTrue(text.contains("Công ty Cổ phần Tasco"));
+            assertTrue(text.contains("Công ty Mẫu"));
             assertTrue(text.contains("Trần Thu Hà"));
             assertTrue(text.contains("Nguyễn Đức Quân"), "idle member listed");
             assertTrue(text.contains("Chi phí theo Group"));
@@ -41,7 +41,7 @@ class UsageReportPdfTest {
     }
 
     @Test void anEmptyPeriodIsOnePageThatSaysSo() throws Exception {
-        var data = UsageReportData.builder("Tasco", FROM, TO).build(List.of());
+        var data = UsageReportData.builder("Sample", FROM, TO).build(List.of());
         try (var doc = Loader.loadPDF(UsageReportPdf.render(data))) {
             assertEquals(1, doc.getNumberOfPages());
             assertTrue(new PDFTextStripper().getText(doc).contains("Không có usage nào được ghi nhận trong kỳ này."));
@@ -49,7 +49,7 @@ class UsageReportPdfTest {
     }
 
     @Test void foldsTheTailIntoOtherButNeverASingleRow() {
-        var builder = UsageReportData.builder("Tasco", FROM, TO);
+        var builder = UsageReportData.builder("Sample", FROM, TO);
         for (int i = 0; i < 9; i++) builder.add(row(FROM, UUID.randomUUID(), "Người " + i, List.of(), "model-" + i, "EXTERNAL", "0.0" + (i + 1)));
         var nine = builder.build(List.of());
         assertEquals(9, nine.byModel().size(), "one leftover keeps its name");
@@ -69,7 +69,7 @@ class UsageReportPdfTest {
 
     static UsageReportData populated() {
         UUID ha = UUID.randomUUID(), minh = UUID.randomUUID(), le = UUID.randomUUID(), quan = UUID.randomUUID();
-        var builder = UsageReportData.builder("Công ty Cổ phần Tasco", FROM, TO);
+        var builder = UsageReportData.builder("Công ty Mẫu", FROM, TO);
         var rows = new ArrayList<ExportRow>();
         for (int day = 0; day < 30; day++) {
             var date = FROM.plusDays(day);
@@ -81,14 +81,14 @@ class UsageReportPdfTest {
         }
         rows.forEach(builder::add);
         return builder.build(List.of(
-                new Member(ha, "ha@tasco.vn", "Trần Thu Hà", "ACTIVE", List.of("Pháp chế")),
-                new Member(minh, "minh@tasco.vn", "Phạm Văn Minh", "ACTIVE", List.of("Kế toán", "Pháp chế")),
-                new Member(quan, "quan@tasco.vn", "Nguyễn Đức Quân", "ACTIVE", List.of()),
-                new Member(UUID.randomUUID(), "cu@tasco.vn", "Người đã nghỉ", "INACTIVE", List.of())));
+                new Member(ha, "ha@example.test", "Trần Thu Hà", "ACTIVE", List.of("Pháp chế")),
+                new Member(minh, "minh@example.test", "Phạm Văn Minh", "ACTIVE", List.of("Kế toán", "Pháp chế")),
+                new Member(quan, "quan@example.test", "Nguyễn Đức Quân", "ACTIVE", List.of()),
+                new Member(UUID.randomUUID(), "cu@example.test", "Người đã nghỉ", "INACTIVE", List.of())));
     }
 
     static ExportRow row(LocalDate day, UUID actor, String name, List<String> groups, String model, String boundary, String cost) {
-        return new ExportRow(day, actor, name.toLowerCase().replace(' ', '.') + "@tasco.vn", name, groups, "CHAT", "OpenAI", model,
+        return new ExportRow(day, actor, name.toLowerCase().replace(' ', '.') + "@example.test", name, groups, "CHAT", "OpenAI", model,
                 boundary, 12, 1, 24_000, 3_500, 1_200, 0, BigDecimal.ZERO, new BigDecimal(cost));
     }
 

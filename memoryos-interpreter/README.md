@@ -17,20 +17,26 @@ Requires Docker and [uv](https://docs.astral.sh/uv/).
 ```bash
 docker build -t ghcr.io/kl3init/memoryos-interpreter-executor:latest memoryos-interpreter/executor
 
-cd memoryos-interpreter/service
-uv sync --frozen
-uv run ruff check . && uv run ruff format --check . && uv run mypy .
-uv run pytest tests/integration_tests
+(
+  cd memoryos-interpreter/service
+  uv sync --frozen
+  uv run ruff check . && uv run ruff format --check . && uv run mypy .
+  uv run pytest tests/integration_tests
+)
 ```
 
-Run the service against the local Docker daemon (Docker-out-of-Docker):
+From the repository root, generate a local API key with OpenSSL and run the service against the local Docker daemon
+(Docker-out-of-Docker).
 
 ```bash
 docker build -t memoryos-interpreter:local memoryos-interpreter/service
+interpreter_api_key=$(openssl rand -hex 32)
 docker run --rm -p 127.0.0.1:8000:8000 --user root \
+  -e "API_KEY=$interpreter_api_key" \
   -v /var/run/docker.sock:/var/run/docker.sock \
   memoryos-interpreter:local
-curl -s http://127.0.0.1:8000/health
 ```
 
-The service has no authentication yet. Never publish its port beyond loopback or a private network.
+Check readiness from another terminal with `curl -fsS http://127.0.0.1:8000/health`. The health endpoint stays open
+for probes. Send the generated key in the `X-Api-Key` header on every `/v1` request. Keep the port on loopback or a
+private network.

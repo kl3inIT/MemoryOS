@@ -56,7 +56,7 @@ class DefaultIdentityProviderAdministrationTest {
     private static final TenantId TENANT = new TenantId(UUID.fromString(
             "10000000-0000-0000-0000-000000000095"));
     private static final String ISSUER = "https://keycloak.example/realms/memoryos";
-    private static final String UPSTREAM_ISSUER = "https://sso.example/realms/tasco";
+    private static final String UPSTREAM_ISSUER = "https://sso.example/realms/sample";
     private static final DiscoveredOidcProvider DISCOVERED = new DiscoveredOidcProvider(
             UPSTREAM_ISSUER,
             UPSTREAM_ISSUER + "/protocol/openid-connect/auth",
@@ -93,7 +93,7 @@ class DefaultIdentityProviderAdministrationTest {
                 jpa.transactionManager()
         );
         admin = bootstrapper.bootstrap(new InitialTenantBootstrapRequest(
-                TENANT, new ExternalIdentity(ISSUER, "owner"), "tasco", "Tasco", "TEST-MEM-95"
+                TENANT, new ExternalIdentity(ISSUER, "owner"), "sample", "Sample", "TEST-MEM-95"
         )).ownerActorId();
         allowlist = new JitAllowlistRepository(jdbc);
         gateway = new FakeGateway();
@@ -115,17 +115,17 @@ class DefaultIdentityProviderAdministrationTest {
     @Test
     void createsOidcProviderWithDiscoveredEndpointsAndOptionalJitGrant() {
         var view = administration.create(admin, new IdentityProviderCommand(
-                "tasco", "Tasco SSO", UPSTREAM_ISSUER, "memoryos-broker", "s3cret", true
+                "sample", "Sample SSO", UPSTREAM_ISSUER, "memoryos-broker", "s3cret", true
         ));
 
-        assertEquals("tasco", view.alias());
-        assertEquals("Tasco SSO", view.displayName());
+        assertEquals("sample", view.alias());
+        assertEquals("Sample SSO", view.displayName());
         assertEquals(UPSTREAM_ISSUER, view.issuer());
         assertEquals("memoryos-broker", view.clientId());
         assertTrue(view.enabled());
         assertTrue(view.jitAllowed());
 
-        var stored = gateway.providers.get("tasco");
+        var stored = gateway.providers.get("sample");
         assertEquals("oidc", stored.getProviderId());
         assertEquals(DISCOVERED.authorizationUrl(), stored.getConfig().get("authorizationUrl"));
         assertEquals(DISCOVERED.jwksUrl(), stored.getConfig().get("jwksUrl"));
@@ -137,12 +137,12 @@ class DefaultIdentityProviderAdministrationTest {
         assertEquals("IMPORT", stored.getConfig().get("syncMode"));
         assertEquals(DISCOVERED.logoutUrl(), stored.getConfig().get("logoutUrl"));
         assertEquals("true", stored.getConfig().get("backchannelSupported"));
-        assertTrue(allowlist.allowedAliases().contains("tasco"));
+        assertTrue(allowlist.allowedAliases().contains("sample"));
     }
 
     @Test
     void updateSyncsBackchannelLogoutWithTheLogoutUrl() {
-        gateway.providers.put("tasco", oidcProvider("tasco", Map.of(
+        gateway.providers.put("sample", oidcProvider("sample", Map.of(
                 "issuer", UPSTREAM_ISSUER,
                 "logoutUrl", DISCOVERED.logoutUrl(),
                 "clientId", "memoryos-broker"
@@ -153,71 +153,71 @@ class DefaultIdentityProviderAdministrationTest {
                 "clientId", "memoryos-broker"
         )));
 
-        administration.update(admin, "tasco", new IdentityProviderUpdate(
-                null, "Tasco SSO", null, "memoryos-broker", null, true, false
+        administration.update(admin, "sample", new IdentityProviderUpdate(
+                null, "Sample SSO", null, "memoryos-broker", null, true, false
         ));
         administration.update(admin, "partner", new IdentityProviderUpdate(
                 null, "Partner SSO", null, "memoryos-broker", null, true, false
         ));
 
-        assertEquals("true", gateway.providers.get("tasco").getConfig().get("backchannelSupported"));
+        assertEquals("true", gateway.providers.get("sample").getConfig().get("backchannelSupported"));
         assertNull(gateway.providers.get("partner").getConfig().get("backchannelSupported"));
-        assertEquals("openid email profile", gateway.providers.get("tasco").getConfig().get("defaultScope"));
+        assertEquals("openid email profile", gateway.providers.get("sample").getConfig().get("defaultScope"));
         assertEquals("openid email profile", gateway.providers.get("partner").getConfig().get("defaultScope"));
     }
 
     @Test
     void createWithoutJitLeavesTheAllowlistUntouched() {
         administration.create(admin, new IdentityProviderCommand(
-                "tasco", "Tasco SSO", UPSTREAM_ISSUER, "memoryos-broker", "s3cret", false
+                "sample", "Sample SSO", UPSTREAM_ISSUER, "memoryos-broker", "s3cret", false
         ));
-        assertFalse(allowlist.allowedAliases().contains("tasco"));
+        assertFalse(allowlist.allowedAliases().contains("sample"));
     }
 
     @Test
     void updateKeepsStoredSecretWhenNullAndSyncsJitFlag() {
         administration.create(admin, new IdentityProviderCommand(
-                "tasco", "Tasco SSO", UPSTREAM_ISSUER, "memoryos-broker", "s3cret", true
+                "sample", "Sample SSO", UPSTREAM_ISSUER, "memoryos-broker", "s3cret", true
         ));
 
-        var view = administration.update(admin, "tasco", new IdentityProviderUpdate(
-                null, "Tasco Renamed", null, "memoryos-broker-2", null, false, false
+        var view = administration.update(admin, "sample", new IdentityProviderUpdate(
+                null, "Sample Renamed", null, "memoryos-broker-2", null, false, false
         ));
 
-        assertEquals("Tasco Renamed", view.displayName());
+        assertEquals("Sample Renamed", view.displayName());
         assertFalse(view.enabled());
         assertFalse(view.jitAllowed());
-        assertEquals("s3cret", gateway.providers.get("tasco").getConfig().get("clientSecret"));
-        assertEquals("memoryos-broker-2", gateway.providers.get("tasco").getConfig().get("clientId"));
-        assertEquals("openid email profile", gateway.providers.get("tasco").getConfig().get("defaultScope"));
-        assertFalse(allowlist.allowedAliases().contains("tasco"));
+        assertEquals("s3cret", gateway.providers.get("sample").getConfig().get("clientSecret"));
+        assertEquals("memoryos-broker-2", gateway.providers.get("sample").getConfig().get("clientId"));
+        assertEquals("openid email profile", gateway.providers.get("sample").getConfig().get("defaultScope"));
+        assertFalse(allowlist.allowedAliases().contains("sample"));
     }
 
     @Test
     void updateReplacesSecretWhenProvided() {
         administration.create(admin, new IdentityProviderCommand(
-                "tasco", "Tasco SSO", UPSTREAM_ISSUER, "memoryos-broker", "s3cret", false
+                "sample", "Sample SSO", UPSTREAM_ISSUER, "memoryos-broker", "s3cret", false
         ));
-        administration.update(admin, "tasco", new IdentityProviderUpdate(
-                null, "Tasco SSO", null, "memoryos-broker", "rotated", true, false
+        administration.update(admin, "sample", new IdentityProviderUpdate(
+                null, "Sample SSO", null, "memoryos-broker", "rotated", true, false
         ));
-        assertEquals("rotated", gateway.providers.get("tasco").getConfig().get("clientSecret"));
+        assertEquals("rotated", gateway.providers.get("sample").getConfig().get("clientSecret"));
     }
 
     @Test
     void deleteRemovesProviderAndJitAlias() {
         administration.create(admin, new IdentityProviderCommand(
-                "tasco", "Tasco SSO", UPSTREAM_ISSUER, "memoryos-broker", "s3cret", true
+                "sample", "Sample SSO", UPSTREAM_ISSUER, "memoryos-broker", "s3cret", true
         ));
-        administration.delete(admin, "tasco");
-        assertFalse(gateway.providers.containsKey("tasco"));
-        assertFalse(allowlist.allowedAliases().contains("tasco"));
+        administration.delete(admin, "sample");
+        assertFalse(gateway.providers.containsKey("sample"));
+        assertFalse(allowlist.allowedAliases().contains("sample"));
     }
 
     @Test
     void listFiltersToOidcProvidersAndReportsJitState() {
         administration.create(admin, new IdentityProviderCommand(
-                "tasco", "Tasco SSO", UPSTREAM_ISSUER, "memoryos-broker", "s3cret", true
+                "sample", "Sample SSO", UPSTREAM_ISSUER, "memoryos-broker", "s3cret", true
         ));
         var saml = new IdentityProviderRepresentation();
         saml.setAlias("corp-saml");
@@ -228,7 +228,7 @@ class DefaultIdentityProviderAdministrationTest {
 
         var views = administration.list(admin);
         assertEquals(1, views.size());
-        assertEquals("tasco", views.getFirst().alias());
+        assertEquals("sample", views.getFirst().alias());
         assertTrue(views.getFirst().jitAllowed());
     }
 
@@ -248,10 +248,10 @@ class DefaultIdentityProviderAdministrationTest {
                 () -> administration.list(outsider),
                 () -> administration.discover(outsider, UPSTREAM_ISSUER),
                 () -> administration.create(outsider, new IdentityProviderCommand(
-                        "tasco", "Tasco", UPSTREAM_ISSUER, "c", "s", false)),
-                () -> administration.update(outsider, "tasco", new IdentityProviderUpdate(
-                        null, "Tasco", null, "c", null, true, false)),
-                () -> administration.delete(outsider, "tasco")
+                        "sample", "Sample", UPSTREAM_ISSUER, "c", "s", false)),
+                () -> administration.update(outsider, "sample", new IdentityProviderUpdate(
+                        null, "Sample", null, "c", null, true, false)),
+                () -> administration.delete(outsider, "sample")
         )) {
             var exception = assertThrows(IamException.class, call::run);
             assertEquals(IamFailureReason.ACCESS_DENIED.code(), exception.code());

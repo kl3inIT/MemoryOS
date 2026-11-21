@@ -35,8 +35,8 @@ class AiCostQueriesTest {
         queries = new AiCostQueries(jdbc);
         jdbc.sql("ALTER TABLE tenants DROP CONSTRAINT uq_tenants_deployment_slot").update();
         tenant = tenant();
-        ha = actor("Trần Thu Hà", "ha@tasco.vn");
-        quan = actor(null, "quan@tasco.vn");
+        ha = actor("Trần Thu Hà", "ha@example.test");
+        quan = actor(null, "quan@example.test");
         legal = UUID.randomUUID();
         jdbc.sql("INSERT INTO iam_groups(tenant_id, id, name) VALUES (:tenant, :id, 'Pháp chế')").param("tenant", tenant).param("id", legal).update();
         jdbc.sql("INSERT INTO iam_group_memberships(tenant_id, group_id, actor_id) VALUES (:tenant, :group, :actor)")
@@ -90,8 +90,8 @@ class AiCostQueriesTest {
     @Test void breakdownsRankByCostAndLabelPeopleGroupsModelsFlowsAndProviders() {
         var people = queries.breakdown(scope(null, false, null, null), AiCostDimension.ACTOR, 10);
         assertEquals("Trần Thu Hà", people.getFirst().label());
-        assertEquals("ha@tasco.vn", people.getFirst().detail());
-        assertTrue(people.stream().anyMatch(row -> row.label().equals("quan@tasco.vn") && row.unknownCostCalls() == 1));
+        assertEquals("ha@example.test", people.getFirst().detail());
+        assertTrue(people.stream().anyMatch(row -> row.label().equals("quan@example.test") && row.unknownCostCalls() == 1));
         assertTrue(people.stream().anyMatch(row -> row.key().equals("SYSTEM")));
         var groups = queries.breakdown(scope(null, false, null, null), AiCostDimension.GROUP, 10);
         assertEquals(1, groups.size());

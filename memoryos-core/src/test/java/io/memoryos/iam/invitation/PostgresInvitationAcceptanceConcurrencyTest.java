@@ -91,8 +91,8 @@ class PostgresInvitationAcceptanceConcurrencyTest {
             ActorId owner = bootstrapper.bootstrap(new InitialTenantBootstrapRequest(
                     tenantId,
                     new ExternalIdentity("https://keycloak.example/realms/memoryos", "owner"),
-                    "tasco",
-                    "Tasco",
+                    "sample",
+                    "Sample",
                     "TEST-MEM-36-CONCURRENCY"
             )).ownerActorId();
             var authorization = new DefaultIamAuthorization(

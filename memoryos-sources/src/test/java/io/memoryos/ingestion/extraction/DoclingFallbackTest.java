@@ -84,7 +84,7 @@ class DoclingFallbackTest {
     @Test
     void aScanKeepsDoclingsFailureRatherThanPublishingItsMargins() throws Exception {
         // Three pages with a signature on one of them: text, but nowhere near a text layer. This is
-        // the Tasco shape, where 254 of 260 pages carry no text at all.
+        // the shape of the sample financial reports, where 254 of 260 pages carry no text at all.
         docling(unreachable());
         try (var extractor = extractor()) {
             var error = assertThrows(ExtractionException.class,

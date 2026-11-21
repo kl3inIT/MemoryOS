@@ -47,8 +47,8 @@ class ChatHistoryServiceTest {
         tenant = UUID.randomUUID();
         jdbc.sql("INSERT INTO tenants(id,slug,display_name,status,bootstrap_reference) VALUES(:id,:slug,'History','ACTIVE',:reference)")
                 .param("id", tenant).param("slug", tenant.toString()).param("reference", tenant.toString()).update();
-        asker = person("Trần Thu Hà", "ha@tasco.vn");
-        reader = person("Nguyễn Văn An", "an@tasco.vn");
+        asker = person("Trần Thu Hà", "ha@example.test");
+        reader = person("Nguyễn Văn An", "an@example.test");
         persona = UUID.randomUUID();
         jdbc.sql("INSERT INTO persona(id,tenant_id,name,instructions,builtin_key) VALUES(:id,:tenant,'Default','','default')")
                 .param("id", persona).param("tenant", tenant).update();
@@ -67,7 +67,7 @@ class ChatHistoryServiceTest {
         assertEquals(1, page.items().size());
         var entry = page.items().getFirst();
         assertEquals("Trần Thu Hà", entry.person());
-        assertEquals("ha@tasco.vn", entry.email());
+        assertEquals("ha@example.test", entry.email());
         assertEquals("Tôi còn bao nhiêu ngày phép?", entry.question());
         assertEquals("Bạn còn 5 ngày.", entry.answer());
         assertEquals(ChatHistoryFeedback.POSITIVE, entry.feedback());
@@ -113,7 +113,7 @@ class ChatHistoryServiceTest {
         assertEquals(List.of("USER", "ASSISTANT"),
                 transcript.messages().stream().map(ChatHistoryMessage::role).toList());
         var answer = transcript.messages().get(1);
-        assertEquals(List.of("Hợp đồng Tasco 2026"), answer.citations(), "a citation is named, never opened here");
+        assertEquals(List.of("Hợp đồng Sample 2026"), answer.citations(), "a citation is named, never opened here");
         assertEquals(Boolean.FALSE, answer.positive());
     }
 
@@ -221,7 +221,7 @@ class ChatHistoryServiceTest {
         message(session, root, null, "ROOT", "", null, null, null, null);
         message(session, user, root, "USER", question, null, null, UUID.randomUUID(), assistant);
         message(session, assistant, user, "ASSISTANT", answer, "gpt-5.1",
-                "[{\"citationId\":1,\"title\":\"Hợp đồng Tasco 2026\",\"startOrdinal\":0,\"endOrdinal\":0,"
+                "[{\"citationId\":1,\"title\":\"Hợp đồng Sample 2026\",\"startOrdinal\":0,\"endOrdinal\":0,"
                         + "\"provenance\":[],\"sourceTypes\":[]}]", null, null);
         jdbc.sql("UPDATE chat_message SET latest_child_message_id = :child WHERE id = :id")
                 .param("child", user).param("id", root).update();

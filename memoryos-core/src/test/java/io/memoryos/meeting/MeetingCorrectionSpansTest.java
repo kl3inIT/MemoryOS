@@ -14,12 +14,12 @@ import org.junit.jupiter.api.Test;
 class MeetingCorrectionSpansTest {
     @Test
     void marksAfterTheChangeMoveWithIt() {
-        String before = "Nó ra tiếng Tát cô rồi.";
-        String after = before.substring(0, 12) + "Tasco" + before.substring(18);
+        String before = "Nó ra tiếng Anh fa rồi.";
+        String after = before.substring(0, 12) + "Alpha" + before.substring(18);
         var marks = List.of(new Meeting.Span(3, 5, 0.4), new Meeting.Span(12, 18, 0.3),
                 new Meeting.Span(19, 22, 0.5));
 
-        var moved = MeetingCorrectionService.shifted(marks, 12, 18, "Tasco".length());
+        var moved = MeetingCorrectionService.shifted(marks, 12, 18, "Alpha".length());
 
         assertEquals(2, moved.size(), "the mark that covered the replaced words describes nothing now");
         assertEquals("ra", before.substring(moved.getFirst().start(), moved.getFirst().end()),

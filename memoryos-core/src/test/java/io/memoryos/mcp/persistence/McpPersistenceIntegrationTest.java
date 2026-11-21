@@ -69,17 +69,17 @@ class McpPersistenceIntegrationTest {
     @Test
     void storesAServerWithSeveralOAuthClientsToolsAndPerUserCredentials() {
         UUID server = UUID.randomUUID();
-        UUID tascoAuto = UUID.randomUUID();
-        UUID tascoLand = UUID.randomUUID();
+        UUID autoClient = UUID.randomUUID();
+        UUID landClient = UUID.randomUUID();
         inTx(() -> {
             servers.saveAndFlush(oauthServer(server, tenant, "drive", Set.of(group)));
-            clients.saveAndFlush(client(tascoAuto, tenant, server, "Tasco Auto"));
-            clients.saveAndFlush(client(tascoLand, tenant, server, "Tasco Land"));
+            clients.saveAndFlush(client(autoClient, tenant, server, "Sample Auto"));
+            clients.saveAndFlush(client(landClient, tenant, server, "Sample Land"));
             var tool = new McpServerToolEntity(UUID.randomUUID(), tenant, server, "search_files");
             tool.snapshot("Search files", "Search Drive files", "{\"type\": \"object\"}", "{\"readOnlyHint\": true}", true, NOW);
             tool.policy(McpToolPolicy.ASK, true);
             tools.saveAndFlush(tool);
-            credentials.saveAndFlush(credential(tenant, server, actor, tascoLand));
+            credentials.saveAndFlush(credential(tenant, server, actor, landClient));
         });
 
         inTx(() -> {
@@ -91,14 +91,14 @@ class McpPersistenceIntegrationTest {
             assertEquals(McpServerStatus.CREATED, stored.status());
             assertEquals(Set.of(group), stored.groupIds());
             assertTrue(servers.existsByTenantIdAndSlug(tenant, "drive"));
-            assertEquals(List.of("Tasco Auto", "Tasco Land"), clients.findByTenantIdAndServerIdOrderByLabelAsc(tenant, server)
+            assertEquals(List.of("Sample Auto", "Sample Land"), clients.findByTenantIdAndServerIdOrderByLabelAsc(tenant, server)
                     .stream().map(McpOAuthClientEntity::label).toList());
             var tool = tools.findByTenantIdAndServerIdOrderByNameAsc(tenant, server).getFirst();
             assertEquals(McpToolPolicy.ASK, tool.policy());
             assertTrue(tool.policyCustomized() && tool.readOnly());
             assertEquals(1, tools.countByTenantIdAndServerIdAndPolicyNot(tenant, server, McpToolPolicy.OFF));
             var credential = credentials.findByTenantIdAndServerIdAndOwnerActorId(tenant, server, actor).orElseThrow();
-            assertEquals(tascoLand, credential.oauthClientId());
+            assertEquals(landClient, credential.oauthClientId());
             assertEquals(McpCredentialStatus.ACTIVE, credential.status());
             assertTrue(credentials.findByTenantIdAndServerIdAndOwnerActorIdIsNull(tenant, server).isEmpty());
             assertTrue(servers.findByTenantIdAndId(tenant(), server).isEmpty());
@@ -131,8 +131,8 @@ class McpPersistenceIntegrationTest {
         inTx(() -> {
             servers.saveAndFlush(oauthServer(server, tenant, "drive", Set.of()));
             servers.saveAndFlush(oauthServer(otherServer, tenant, "gmail", Set.of()));
-            clients.saveAndFlush(client(client, tenant, server, "Tasco"));
-            clients.saveAndFlush(client(otherClient, tenant, otherServer, "Tasco"));
+            clients.saveAndFlush(client(client, tenant, server, "Sample"));
+            clients.saveAndFlush(client(otherClient, tenant, otherServer, "Sample"));
             credentials.saveAndFlush(credential(tenant, server, actor, client));
             credentials.saveAndFlush(credential(tenant, server, null, client));
         });
@@ -141,7 +141,7 @@ class McpPersistenceIntegrationTest {
         assertRejected(() -> credentials.saveAndFlush(credential(tenant, server, null, client)));
         UUID secondActor = actor();
         assertRejected(() -> credentials.saveAndFlush(credential(tenant, server, secondActor, otherClient)));
-        assertRejected(() -> clients.saveAndFlush(client(UUID.randomUUID(), tenant, server, "Tasco")));
+        assertRejected(() -> clients.saveAndFlush(client(UUID.randomUUID(), tenant, server, "Sample")));
 
         inTx(() -> servers.deleteById(server));
         inTx(() -> {
