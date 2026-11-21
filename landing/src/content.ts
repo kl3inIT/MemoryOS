@@ -1,5 +1,4 @@
 import genaiFundLogo from "@/assets/logos/genai-fund.png";
-import tascoLogo from "@/assets/logos/tasco.png";
 import vadanLogo from "@/assets/logos/vadan.png";
 
 /*
@@ -80,11 +79,6 @@ type TrustSignal = Entry & {
 };
 
 const trustSignals: readonly TrustSignal[] = [
-  {
-    title: "Trusted by Tasco",
-    description: "Our first enterprise design partner brings MemoryOS to its leaders and managers.",
-    logo: { src: tascoLogo, label: "Tasco" },
-  },
   {
     title: "Backed by GenAI Fund",
     description: "Vadan builds MemoryOS with backing from GenAI Fund.",
@@ -328,10 +322,6 @@ const faq: SectionIntro & { items: readonly { question: string; answer: string }
       question: "Which sources can we connect?",
       answer:
         "Google Workspace, Microsoft 365, Slack, Confluence, Notion, Jira, Salesforce, HubSpot, GitHub, cloud storage, email, databases and REST APIs, plus file uploads. MemoryOS indexes every common document format, including scanned files.",
-    },
-    {
-      question: "Who uses MemoryOS today?",
-      answer: "Tasco is our first enterprise design partner. Vadan is backed by GenAI Fund.",
     },
     {
       question: "How do we start?",
