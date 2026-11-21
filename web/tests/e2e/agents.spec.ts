@@ -19,7 +19,7 @@ function identity(capabilities: string[]) {
     actorId: me,
     authorizationVersion: 1,
     uiLanguage: "vi",
-    tenant: { displayName: "Tasco", role: "MEMBER" },
+    tenant: { displayName: "Công ty Mẫu", role: "MEMBER" },
     capabilities: ["SYSTEM_BASIC", "SEARCH_READ", "CHAT_READ", "CHAT_WRITE", ...capabilities],
     scopedCapabilities: [],
   };
@@ -46,10 +46,10 @@ function agent(overrides: Record<string, unknown>) {
     tools: ["search"],
     mcpServers: [],
     fileIds: [],
-    avatarSeed: "tasco",
+    avatarSeed: "sample",
     hasAvatar: false,
     labels: [],
-    owner: { actor: { actorId: me, name: "Đạt Phan", email: "dat@tasco.vn" }, group: null },
+    owner: { actor: { actorId: me, name: "Đạt Phan", email: "dat@example.test" }, group: null },
     vacant: false,
     userShares: [],
     groupShares: [],
@@ -123,7 +123,7 @@ async function mockAgents(page: Page, capabilities: string[], initial: ReturnTyp
           {
             actorId: "70000000-0000-4000-8000-000000000040",
             name: "Nguyễn Thị Thảo",
-            email: "thao@tasco.vn",
+            email: "thao@example.test",
           },
         ],
         groups: [{ id: board, name: "Ban điều hành" }],
@@ -181,7 +181,7 @@ async function mockAgents(page: Page, capabilities: string[], initial: ReturnTyp
         id: "70000000-0000-4000-8000-000000000098",
         templateKey: undefined,
         listed: false,
-        owner: { actor: { actorId: me, name: "Đạt Phan", email: "dat@tasco.vn" }, group: null },
+        owner: { actor: { actorId: me, name: "Đạt Phan", email: "dat@example.test" }, group: null },
         permissions: {
           edit: true,
           share: true,
@@ -237,7 +237,7 @@ async function mockAgents(page: Page, capabilities: string[], initial: ReturnTyp
   return state;
 }
 
-const tascoAgents = () => [
+const sampleAgents = () => [
   agent({
     id: kpi,
     name: "OKR/KPI hằng tháng",
@@ -250,7 +250,7 @@ const tascoAgents = () => [
       actor: {
         actorId: "70000000-0000-4000-8000-000000000041",
         name: "Lê Thu Hà",
-        email: "ha@tasco.vn",
+        email: "ha@example.test",
       },
       group: null,
     },
@@ -299,7 +299,7 @@ const tascoAgents = () => [
         person: {
           actorId: "70000000-0000-4000-8000-000000000040",
           name: "Nguyễn Thị Thảo",
-          email: "thao@tasco.vn",
+          email: "thao@example.test",
         },
         permission: "VIEWER",
       },
@@ -319,7 +319,7 @@ const moreAgents = () => [
       actor: {
         actorId: "70000000-0000-4000-8000-000000000042",
         name: "Trần Minh Quân",
-        email: "quan@tasco.vn",
+        email: "quan@example.test",
       },
       group: null,
     },
@@ -346,7 +346,7 @@ const moreAgents = () => [
       actor: {
         actorId: "70000000-0000-4000-8000-000000000041",
         name: "Lê Thu Hà",
-        email: "ha@tasco.vn",
+        email: "ha@example.test",
       },
       group: null,
     },
@@ -357,7 +357,7 @@ const moreAgents = () => [
 test("browses, filters and pins agents with visibility and owners at desktop and mobile widths", async ({
   page,
 }) => {
-  await mockAgents(page, ["AGENTS_CREATE"], [...tascoAgents(), ...moreAgents()]);
+  await mockAgents(page, ["AGENTS_CREATE"], [...sampleAgents(), ...moreAgents()]);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/assistants");
   await expect(page).toHaveURL(/\/agents$/);
@@ -447,7 +447,7 @@ test("lists MemoryOS's templates by their maker, copies one into an own assistan
   const state = await mockAgents(
     page,
     ["AGENTS_CREATE"],
-    [...memoryosAgents(true), ...tascoAgents()],
+    [...memoryosAgents(true), ...sampleAgents()],
   );
   await page.goto("/agents");
   const cards = page.getByRole("article");
@@ -508,7 +508,7 @@ test("offers a member only a private copy of a template", async ({ page }) => {
 test("shows the full snapshot to a use-only reader without edit or share controls", async ({
   page,
 }) => {
-  await mockAgents(page, [], tascoAgents());
+  await mockAgents(page, [], sampleAgents());
   await page.goto("/agents");
   await expect(page.getByRole("button", { name: "Tạo trợ lý" })).toBeDisabled();
   const card = page.getByRole("article").filter({ hasText: "OKR/KPI hằng tháng" });
@@ -529,7 +529,7 @@ test("shows the full snapshot to a use-only reader without edit or share control
 test("creates an agent from the short dialog, configures it in place and shares from its tab", async ({
   page,
 }) => {
-  const state = await mockAgents(page, ["AGENTS_CREATE"], tascoAgents());
+  const state = await mockAgents(page, ["AGENTS_CREATE"], sampleAgents());
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/agents");
   await page.getByRole("button", { name: "Tạo trợ lý" }).click();
@@ -619,7 +619,7 @@ test("creates an agent from the short dialog, configures it in place and shares 
 test("edits an agent in place, saving only changes and guarding unsaved edits", async ({
   page,
 }) => {
-  const state = await mockAgents(page, ["AGENTS_CREATE"], tascoAgents());
+  const state = await mockAgents(page, ["AGENTS_CREATE"], sampleAgents());
   await page.goto(`/agents/${hr}/edit`);
   const save = page.getByRole("button", { name: "Lưu", exact: true });
   await expect(page.getByLabel("Tên trợ lý", { exact: true })).toHaveValue("Chính sách nhân sự");
@@ -676,7 +676,7 @@ test("edits an agent in place, saving only changes and guarding unsaved edits", 
 });
 
 test("tests the unsaved assistant beside the editor without saving it", async ({ page }) => {
-  const state = await mockAgents(page, ["AGENTS_CREATE"], tascoAgents());
+  const state = await mockAgents(page, ["AGENTS_CREATE"], sampleAgents());
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`/agents/${hr}/edit`);
   const chat = page.getByRole("region", { name: "Chat thử" });
@@ -718,7 +718,7 @@ test("tests the unsaved assistant beside the editor without saving it", async ({
 test("builds a new assistant from its description with the Agent Builder, then undoes a change", async ({
   page,
 }) => {
-  const state = await mockAgents(page, ["AGENTS_CREATE"], tascoAgents());
+  const state = await mockAgents(page, ["AGENTS_CREATE"], sampleAgents());
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/agents");
   await page.getByRole("button", { name: "Tạo trợ lý" }).click();
@@ -778,7 +778,7 @@ test("builds a new assistant from its description with the Agent Builder, then u
 });
 
 test("manages prompt shortcuts inline and inserts them from /", async ({ page }) => {
-  await mockAgents(page, ["AGENTS_CREATE"], tascoAgents());
+  await mockAgents(page, ["AGENTS_CREATE"], sampleAgents());
   const shortcuts = [
     {
       id: "70000000-0000-4000-8000-000000000061",
@@ -847,7 +847,7 @@ test("manages prompt shortcuts inline and inserts them from /", async ({ page })
 test("reorders and unpins sidebar agents and features agents from administration", async ({
   page,
 }) => {
-  const pinned = tascoAgents().map((item) => ({ ...item, pinned: true }));
+  const pinned = sampleAgents().map((item) => ({ ...item, pinned: true }));
   const state = await mockAgents(page, ["AGENTS_CREATE", "AGENTS_MANAGE"], pinned);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/agents");
@@ -877,7 +877,7 @@ test("reorders and unpins sidebar agents and features agents from administration
 });
 
 test("sends a starter prompt from the agent's detail view into a new topic", async ({ page }) => {
-  await mockAgents(page, [], tascoAgents());
+  await mockAgents(page, [], sampleAgents());
   await page.goto(`/agents?agent=${kpi}`);
   const viewer = page.getByRole("dialog", { name: "OKR/KPI hằng tháng" });
   await viewer.getByRole("button", { name: "Xếp loại KPI tháng 8 của các đơn vị" }).click();
@@ -891,7 +891,7 @@ test.describe("on a phone", () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 
   test("keeps a card's actions clear of its name and description", async ({ page }) => {
-    await mockAgents(page, ["AGENTS_CREATE"], tascoAgents());
+    await mockAgents(page, ["AGENTS_CREATE"], sampleAgents());
     await page.goto("/agents");
     const card = page.getByRole("article").filter({ hasText: "Chính sách nhân sự" });
     const edit = card.getByRole("button", { name: "Sửa Chính sách nhân sự" });
@@ -910,7 +910,7 @@ test.describe("on a phone", () => {
 });
 
 test("the editor keeps the shell header in view and Lưu says why it is off", async ({ page }) => {
-  await mockAgents(page, ["AGENTS_CREATE"], tascoAgents());
+  await mockAgents(page, ["AGENTS_CREATE"], sampleAgents());
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`/agents/${hr}/edit`);
   await expect(page.getByRole("region", { name: "Chat thử" })).toBeVisible();
@@ -940,7 +940,7 @@ test("the editor keeps the shell header in view and Lưu says why it is off", as
 });
 
 test("opens the test chat's sources over it instead of beside it", async ({ page }) => {
-  await mockAgents(page, ["AGENTS_CREATE"], tascoAgents());
+  await mockAgents(page, ["AGENTS_CREATE"], sampleAgents());
   await page.setViewportSize({ width: 1440, height: 900 });
   // The fixture server answers a "grounded" conversation with one cited source.
   await page.route("**/api/chat/sessions", async (route) => {
@@ -969,7 +969,7 @@ test("opens the test chat's sources over it instead of beside it", async ({ page
 test("uploads a file from the editor, attaches it once ready and says where the assistant searches", async ({
   page,
 }) => {
-  const state = await mockAgents(page, ["AGENTS_CREATE"], tascoAgents());
+  const state = await mockAgents(page, ["AGENTS_CREATE"], sampleAgents());
   const uploaded = {
     id: "70000000-0000-4000-8000-000000000060",
     filename: "Quy trình kê khai.pdf",

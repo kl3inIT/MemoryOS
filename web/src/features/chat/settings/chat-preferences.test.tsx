@@ -24,7 +24,7 @@ const saved = {
   temperatureDefault: null,
   reasoningEffortDefault: "MEDIUM" as const,
   displayName: "Trần Thu Hà",
-  email: "ha.tt@tasco.vn",
+  email: "ha.tt@example.test",
 };
 const model = (id: string, providerName: string, displayName: string) => ({
   id,
@@ -50,7 +50,7 @@ const session: ApplicationSession = {
   displayName: null,
   authorizationVersion: 1,
   uiLanguage: "en",
-  tenant: { displayName: "Tasco", role: "MEMBER" },
+  tenant: { displayName: "Công ty Mẫu", role: "MEMBER" },
   capabilities: ["CHAT_READ", "CHAT_WRITE"],
   scopedCapabilities: [],
 };
@@ -127,7 +127,7 @@ describe("personal Chat preferences", () => {
   it("shows the sign-in profile read-only and saves the work role on leaving the field", async () => {
     const puts = mount(<ProfileSection />);
     expect(await screen.findByText("Trần Thu Hà")).toBeVisible();
-    expect(screen.getByText("ha.tt@tasco.vn")).toBeVisible();
+    expect(screen.getByText("ha.tt@example.test")).toBeVisible();
     const role = screen.getByLabelText("Work Role");
     await waitFor(() => expect(role).toHaveValue("Kế toán trưởng"));
     fireEvent.change(role, { target: { value: "  Giám đốc tài chính " } });

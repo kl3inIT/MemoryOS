@@ -3,12 +3,12 @@ import { expect, test } from "@playwright/test";
 
 /**
  * The login theme against Keycloak's own markup: a centred card under the MemoryOS wordmark, with
- * the Tenant's identity provider offered below the form.
+ * configured identity providers offered below the form.
  *
  * The page is rendered from the stylesheet this repository ships and the markup keycloak.v2
  * produces, so the test exercises the theme rather than a running server. What it holds is what
  * the theme promises — the card is centred, the header carries the MemoryOS wordmark, and the
- * Tenant's provider button carries the Tenant's own. How the card looks inside is the designer's, and is not frozen here. The page
+ * provider button shows the configured display name and icon. The page
  * does scroll a little on a 900-pixel viewport, because the centring rule adds its padding to a
  * full-viewport minimum height; that is the design's to decide, so no test holds it either way.
  */
@@ -83,9 +83,9 @@ function keycloakMarkup(options: { pageId?: string; title?: string } = {}) {
                 </div>
                 <div id="kc-social-providers">
                   <ul class="pf-v5-c-login__main-body pf-v5-u-pl-0 pf-v5-u-pr-0 pf-v5-u-pb-lg">
-                    <li class="pf-v5-u-pb-sm"><a id="social-tasco" aria-label="Đăng nhập bằng" href="#"
+                    <li class="pf-v5-u-pb-sm"><a id="social-example" aria-label="Sign in with Example" href="#"
                         class="pf-v5-c-button pf-m-tertiary pf-m-block pf-v5-u-display-flex pf-v5-u-align-items-center pf-v5-u-justify-content-space-between">
-                      <img src="default.svg" aria-hidden="true" alt=""><span class="pf-v5-u-m-auto">Đăng nhập bằng</span>
+                      <img src="default.svg" aria-hidden="true" alt=""><span class="pf-v5-u-m-auto">Sign in with Example</span>
                     </a></li>
                   </ul>
                 </div>
@@ -117,21 +117,13 @@ test("centres the card under the MemoryOS wordmark", async ({ page }) => {
   expect(layout.headerImage).toContain("memoryos-wordmark.svg");
 });
 
-test("keeps the identity provider button on one line with its wordmark", async ({ page }) => {
+test("shows the configured provider name and icon on a phone", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.setContent(keycloakMarkup());
 
-  const button = page.locator("#social-tasco");
-  await expect(button).toBeVisible();
-  // The provider's own icon, an image since Keycloak 26.8, is replaced by the wordmark that follows the button's text.
-  const marks = await page.evaluate(() => {
-    const element = document.querySelector("#social-tasco")!;
-    const icon = getComputedStyle(element.querySelector("img")!);
-    const after = getComputedStyle(element.querySelector("span")!, "::after");
-    return { iconDisplay: icon.display, afterMask: after.maskImage || after.webkitMaskImage };
-  });
-  expect(marks.iconDisplay).toBe("none");
-  expect(marks.afterMask).toContain("tasco-logo.png");
+  const button = page.getByRole("link", { name: "Sign in with Example" });
+  await expect(button.getByText("Sign in with Example")).toBeVisible();
+  await expect(button.locator("img")).toBeVisible();
 });
 
 test("keeps the language caret inside the menu it opens, centred on the label", async ({

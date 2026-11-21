@@ -8,7 +8,7 @@ async function stub(page: Page, configured = true) {
         actorId: "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1",
         authorizationVersion: 1,
         uiLanguage: "vi",
-        tenant: { displayName: "Tasco", role: "MEMBER" },
+        tenant: { displayName: "Công ty Mẫu", role: "MEMBER" },
         capabilities: ["MODELS_MANAGE"],
         scopedCapabilities: [],
       },

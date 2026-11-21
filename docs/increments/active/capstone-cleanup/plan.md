@@ -71,3 +71,9 @@ step 2; the code moved without a change of behavior.
 - [ ] Deploy to staging and run the verification walk in [design.md](design.md#verification).
 - [ ] `pg_dump` production, then deploy to production with the owner's approval.
 - [ ] Move this increment to `completed/` and reconcile the roadmap.
+
+## Web branding (separate pull request)
+
+- [x] Mask the MemoryOS wordmark and compact mark in the web shell and shared account states.
+- [x] Use the configured provider labels and icons in the login theme and neutral examples in the web app.
+- [ ] Review the desktop and phone screenshots in both themes and verify the web CI gate.

@@ -36,7 +36,7 @@ const SESSION: ApplicationSession = {
   displayName: null,
   authorizationVersion: 1,
   uiLanguage: "en",
-  tenant: { displayName: "Tasco", role: "OWNER" },
+  tenant: { displayName: "Công ty Mẫu", role: "OWNER" },
   capabilities: ["SYSTEM_BASIC", "MODELS_MANAGE"],
   scopedCapabilities: [],
 };

@@ -27,7 +27,7 @@ const event = (overrides: Partial<AuditEvent>): AuditEvent => ({
   outcome: "SUCCESS",
   actorId: "10000000-0000-4000-8000-000000000001",
   actorLabel: "Trần Thu Hà",
-  actorEmail: "ha@tasco.vn",
+  actorEmail: "ha@example.test",
   resourceType: "LLM_PROVIDER",
   resourceId: "20000000-0000-4000-8000-000000000001",
   resourceLabel: "OpenAI",

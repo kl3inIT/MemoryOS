@@ -14,7 +14,7 @@ function identity(capabilities: string[]) {
     actorId: me,
     authorizationVersion: 1,
     uiLanguage: "vi",
-    tenant: { displayName: "Tasco", role: "MEMBER" },
+    tenant: { displayName: "Công ty Mẫu", role: "MEMBER" },
     capabilities: ["SYSTEM_BASIC", "CHAT_READ", "CHAT_WRITE", ...capabilities],
     scopedCapabilities: [],
   };

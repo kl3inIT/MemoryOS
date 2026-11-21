@@ -39,7 +39,7 @@ const gateway: ChatReportedModels = {
       source: "provider",
     },
     {
-      modelName: "tasco-internal-7b",
+      modelName: "sample-internal-7b",
       contextWindow: 32000,
       maxOutputTokens: null,
       capabilities: { toolCalling: true, vision: false, reasoning: false, structuredOutput: false },
@@ -53,7 +53,7 @@ const manager: CurrentIdentity = {
   actorId: "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1",
   authorizationVersion: 1,
   uiLanguage: "vi",
-  tenant: { displayName: "Tasco", role: "MEMBER" },
+  tenant: { displayName: "Công ty Mẫu", role: "MEMBER" },
   capabilities: ["MODELS_MANAGE"],
   scopedCapabilities: [],
 };
@@ -212,12 +212,12 @@ for (const [label, width, scheme] of [
     // A model nobody publishes specs for is selectable, with its window marked as a default.
     await expect(
       creation
-        .getByRole("row", { name: /tasco-internal-7b/ })
+        .getByRole("row", { name: /sample-internal-7b/ })
         .getByText("Mặc định")
         .first(),
     ).toBeVisible();
     await creation
-      .getByRole("row", { name: /tasco-internal-7b/ })
+      .getByRole("row", { name: /sample-internal-7b/ })
       .getByRole("checkbox")
       .check();
     await shot(page, `${label}-new-provider-models`);

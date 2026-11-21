@@ -277,29 +277,6 @@
   filter: none;
 }
 
-/* Tasco: the logo follows the display name configured in Keycloak (for example "Đăng nhập với").
-   It sits inline on the text baseline at cap height so it lines up with the letters, painted in the
-   button text colour (dark at rest, white on hover). Keyed to the `tasco` identity-provider alias;
-   other providers keep the default icon and their display name. Keycloak 26.8 draws that icon as an
-   image rather than an inline SVG. */
-#social-tasco > svg,
-#social-tasco > img,
-#social-tasco > picture {
-  display: none;
-}
-
-#social-tasco > span::after {
-  display: inline-block;
-  height: 0.7em;
-  aspect-ratio: 859 / 125;
-  margin-inline-start: 0.4em;
-  background-color: currentColor;
-  vertical-align: baseline;
-  content: "";
-  -webkit-mask: url("../img/tasco-logo.png") center / contain no-repeat;
-  mask: url("../img/tasco-logo.png") center / contain no-repeat;
-}
-
 /* Language: Keycloak offers it in the header; it sits small under the card instead, the way Google
    places it, so the card keeps only the wordmark and the title. */
 .pf-v5-c-login__container {

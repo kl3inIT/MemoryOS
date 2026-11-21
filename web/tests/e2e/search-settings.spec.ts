@@ -11,7 +11,7 @@ const manager: CurrentIdentity = {
   actorId: "4f7d2c1e-9a3b-4e5f-8c6d-7b8a9c0d1e2f",
   authorizationVersion: 1,
   uiLanguage: "vi",
-  tenant: { displayName: "Tasco", role: "MEMBER" },
+  tenant: { displayName: "Công ty Mẫu", role: "MEMBER" },
   capabilities: ["MODELS_MANAGE"],
   scopedCapabilities: [],
 };

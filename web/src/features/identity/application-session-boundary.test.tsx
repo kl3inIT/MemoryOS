@@ -26,7 +26,7 @@ const OWNER_SESSION: CurrentIdentity = {
   authorizationVersion: 1,
   uiLanguage: "en",
   tenant: {
-    displayName: "Tasco",
+    displayName: "Công ty Mẫu",
     role: "OWNER",
   },
   capabilities: [

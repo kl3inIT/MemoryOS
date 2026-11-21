@@ -9,7 +9,7 @@ const OWNER_SESSION = {
   authorizationVersion: 1,
   uiLanguage: "en",
   tenant: {
-    displayName: "Tasco",
+    displayName: "Công ty Mẫu",
     role: "OWNER",
   },
   capabilities: [
@@ -859,7 +859,7 @@ test("shows the recipient invitation landing and recovery states", async ({ page
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        tenantDisplayName: "Tasco",
+        tenantDisplayName: "Công ty Mẫu",
         expiresAt: "2026-08-24T10:00:00Z",
         continueUrl: "/invite/continue",
       }),
@@ -867,7 +867,7 @@ test("shows the recipient invitation landing and recovery states", async ({ page
   });
 
   await page.goto("/invitation");
-  await expect(page.getByRole("heading", { name: "Tham gia Tasco" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Tham gia Công ty Mẫu" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Tiếp tục đăng nhập" })).toHaveAttribute(
     "href",
     "/invite/continue",

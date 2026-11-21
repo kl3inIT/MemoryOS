@@ -23,7 +23,7 @@ const OWNER_SESSION: ApplicationSession = {
   displayName: null,
   authorizationVersion: 1,
   uiLanguage: "en",
-  tenant: { displayName: "Tasco", role: "OWNER" },
+  tenant: { displayName: "Công ty Mẫu", role: "OWNER" },
   capabilities: ["SYSTEM_BASIC", "SOURCES_READ", "AGENTS_CREATE"],
   scopedCapabilities: [],
 };
