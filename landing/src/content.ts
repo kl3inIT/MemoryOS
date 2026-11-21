@@ -1,5 +1,4 @@
 import genaiFundLogo from "@/assets/logos/genai-fund.png";
-import tascoLogo from "@/assets/logos/tasco.png";
 import vadanLogo from "@/assets/logos/vadan.png";
 
 /*
@@ -80,11 +79,6 @@ type TrustSignal = Entry & {
 };
 
 const trustSignals: readonly TrustSignal[] = [
-  {
-    title: "Trusted by Tasco",
-    description: "Our first enterprise design partner brings MemoryOS to its leaders and managers.",
-    logo: { src: tascoLogo, label: "Tasco" },
-  },
   {
     title: "Backed by GenAI Fund",
     description: "Vadan builds MemoryOS with backing from GenAI Fund.",
@@ -331,7 +325,8 @@ const faq: SectionIntro & { items: readonly { question: string; answer: string }
     },
     {
       question: "Who uses MemoryOS today?",
-      answer: "Tasco is our first enterprise design partner. Vadan is backed by GenAI Fund.",
+      answer:
+        "MemoryOS is currently used in a university capstone project. Vadan is backed by GenAI Fund.",
     },
     {
       question: "How do we start?",

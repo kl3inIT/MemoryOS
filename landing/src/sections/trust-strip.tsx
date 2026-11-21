@@ -3,16 +3,12 @@ import { trustSignals } from "@/content";
 function TrustStrip() {
   return (
     <section
-      aria-label="Design partner and backing"
+      aria-label="Funding and backing"
       className="border-y border-border-subtle bg-surface-raised px-[var(--page-gutter)]"
     >
-      <ul className="mx-auto grid max-w-[var(--page-width-wide)] divide-y divide-border-subtle sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+      <ul className="mx-auto flex max-w-[var(--page-width-wide)] justify-center">
         {trustSignals.map(({ title, description, logo }) => (
-          <li
-            key={title}
-            className="flex items-center gap-5 py-6 sm:gap-6 sm:py-8 sm:pr-8 sm:not-first:pl-8"
-          >
-            {/* A fixed box with `contain` balances a wide wordmark against a compact one. */}
+          <li key={title} className="flex items-center gap-5 py-6 sm:gap-6 sm:py-8">
             <span
               role="img"
               aria-label={logo.label}
