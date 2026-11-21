@@ -6,7 +6,7 @@ merge; none turns on auto-merge.
 
 ## 0. Archive (owner's session)
 
-- [ ] Tag `archive/pre-capstone-cleanup` on `main` and push the tag.
+- [x] Tag `archive/pre-capstone-cleanup` on `main` (6829bd3e) and push the tag.
 
 ## 1. Remove the chat bots
 
@@ -68,12 +68,12 @@ step 2; the code moved without a change of behavior.
 
 ## 4. Release (owner's session)
 
-- [ ] Deploy to staging and run the verification walk in [design.md](design.md#verification).
-- [ ] `pg_dump` production, then deploy to production with the owner's approval.
+- [x] Deploy to staging and run the verification walk in [design.md](design.md#verification). 2026-11-22: staging runs 0c9fb92d (V203, `memoryos-interpreter` healthy, no `channels` or `sandbox` container). A Playwright walk as an administrator opened all 35 pages (`/admin/channels` and `/admin/sandbox` now 404); as a member, Search returned 23 results, a Chat answer cited `hax-bctn-2025.pdf`, and `run_python` returned a CSV through the interpreter, with no failed API call or console error. Before V203 the staging database was dumped and the 23 sandbox archive keys listed (`~/capstone-cleanup/` on the staging host); the 23 objects were then deleted. The staging chat provider got a new Hypomnema gateway key (`memoryos-staging`) after the old one was revoked on 2026-11-19, and the dev realm's `tasco` identity provider was disabled.
+- [ ] `pg_dump` production, then deploy to production with the owner's approval. Before it: confirm `/apps/memoryos/secrets/interpreter/api-key.txt` (the directory exists, root-only), list `SELECT object_key FROM sandbox_workspace_archives`; after acceptance delete those objects and any `sandbox-*` containers ([runbook](../../../runbooks/ci-cd.md#sandbox-removal)), and disable or rename the production realm's former-customer identity provider.
 - [ ] Move this increment to `completed/` and reconcile the roadmap.
 
 ## Web branding (separate pull request)
 
 - [x] Mask the MemoryOS wordmark and compact mark in the web shell and shared account states.
 - [x] Use the configured provider labels and icons in the login theme and neutral examples in the web app.
-- [ ] Review the desktop and phone screenshots in both themes and verify the web CI gate.
+- [x] Review the desktop and phone screenshots in both themes and verify the web CI gate (PR #936).
