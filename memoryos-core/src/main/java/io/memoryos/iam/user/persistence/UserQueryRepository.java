@@ -145,29 +145,6 @@ public class UserQueryRepository {
                 .list();
     }
 
-    /** At most two active people whose verified e-mail is the normalized one: the caller needs "exactly one". */
-    public List<ActorId> activeMembersByVerifiedEmail(TenantId tenantId, String normalizedEmail) {
-        return jdbcClient.sql("""
-                        SELECT membership.actor_id
-                        FROM actor_profiles profile
-                        JOIN tenant_memberships membership
-                          ON membership.actor_id = profile.actor_id
-                         AND membership.tenant_id = :tenantId
-                         AND membership.status = 'ACTIVE'
-                        JOIN actors actor
-                          ON actor.id = profile.actor_id
-                         AND actor.account_type = 'STANDARD'
-                        WHERE profile.email_verified
-                          AND profile.email IS NOT NULL
-                          AND LOWER(BTRIM(profile.email)) = :email
-                        ORDER BY membership.actor_id
-                        FETCH FIRST 2 ROWS ONLY
-                        """)
-                .param("tenantId", tenantId.value())
-                .param("email", normalizedEmail)
-                .query((row, ignored) -> new ActorId(row.getObject("actor_id", UUID.class)))
-                .list();
-    }
 
     public UserPage findPage(TenantId tenantId, UserQuery query, Instant now) {
         Objects.requireNonNull(tenantId, "tenantId must not be null");

@@ -25,7 +25,6 @@ const saved = (overrides: Partial<McpServerView> = {}): McpServerView => ({
   tenantWide: true,
   groupIds: [],
   personaIds: [],
-  publicBots: false,
   status: "CREATED",
   lastRefreshedAt: null,
   toolCount: 0,
@@ -157,18 +156,11 @@ it("opens a shared server through chosen assistants alone and to public bots", a
   await userEvent.click(await screen.findByRole("checkbox", { name: "CSKH" }));
   // The built-in assistant reaches every server anyone may use, so it is not offered.
   expect(screen.queryByRole("checkbox", { name: "MemoryOS" })).not.toBeInTheDocument();
-  await userEvent.click(screen.getByRole("switch", { name: "Cho bot công khai dùng" }));
   await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
   await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
   expect(onSave.mock.lastCall?.[0]).toMatchObject({
     tenantWide: false,
     groupIds: [],
     personaIds: ["p1"],
-    publicBots: true,
   });
-});
-
-it("offers public bots nothing on a server each person connects", () => {
-  edit(saved({ authPerformer: "PER_USER" }));
-  expect(screen.queryByRole("switch", { name: "Cho bot công khai dùng" })).not.toBeInTheDocument();
 });

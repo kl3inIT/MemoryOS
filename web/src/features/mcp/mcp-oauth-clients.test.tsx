@@ -39,7 +39,6 @@ const server = (overrides: Partial<McpServerView> = {}): McpServerView => ({
   tenantWide: true,
   groupIds: [],
   personaIds: [],
-  publicBots: false,
   status: "CREATED",
   lastRefreshedAt: null,
   toolCount: 0,

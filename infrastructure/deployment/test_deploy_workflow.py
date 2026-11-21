@@ -75,11 +75,13 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
             self.assertNotRegex(line, r"\|\s*grep\s+-[a-zA-Z]*q", f"deploy.sh:{number}")
         self.assertIn('services=$(compose config --services)\n  grep -qx channels <<< "$services"', SCRIPT)
 
-    def test_an_environment_without_the_bots_does_not_check_their_image(self):
-        deploy = SCRIPT.split('if [[ "$mode" == deploy ]]', 1)[1].split('elif [[ "$mode" == rollback ]]', 1)[0]
-        self.assertIn("if has_channels; then compose pull channels; fi", deploy)
-        check = deploy.split("if has_channels; then compose pull channels; fi", 1)[1].split("database_size=", 1)[0]
-        self.assertLess(check.index('[[ "$component" == channels ]] && ! has_channels'), check.index("docker image inspect"))
+    def test_a_release_without_the_bots_takes_down_the_process_an_earlier_runtime_left(self):
+        # ADR 0032: a release carries no chat bots' image; the staging runtime before it ran their process.
+        self.assertNotIn("channels", SCRIPT.split("images=(", 1)[1].split(")", 1)[0])
+        rollout = SCRIPT.split("rollout() {", 1)[1].split("\n}\n", 1)[0]
+        removal = rollout.split("if ! has_channels; then", 1)[1]
+        self.assertIn("--filter label=com.docker.compose.service=channels", removal)
+        self.assertIn("docker rm $bots", removal)
 
     def test_a_failure_reports_its_line_and_command(self):
         # The trap is set before the first assertion so no refusal is silent.
@@ -156,11 +158,11 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
 
     def test_the_release_names_its_images_once(self):
         publish = CI_WORKFLOW.split("name: Publish verified release", 1)[1].split("publish-landing:", 1)[0]
-        self.assertIn("for component in api worker web keycloak channels sandbox sandbox-computer; do", publish)
+        self.assertIn("for component in api worker web keycloak sandbox sandbox-computer; do", publish)
         # Compose rejects a hyphen in an environment key.
         self.assertIn("key=${component//-/_}", publish)
         self.assertIn("key=${component//-/_}", PUSH_ACTION)
-        self.assertIn("images=(api worker web keycloak channels sandbox sandbox-computer)", SCRIPT)
+        self.assertIn("images=(api worker web keycloak sandbox sandbox-computer)", SCRIPT)
         # images.env holds one line per image plus the release; the count follows the list.
         self.assertIn('[[ $(wc -l < "$tx/images.env") == $(( ${#images[@]} + 1 )) ]]', SCRIPT)
         self.assertNotIn('== 7 ]]', SCRIPT)

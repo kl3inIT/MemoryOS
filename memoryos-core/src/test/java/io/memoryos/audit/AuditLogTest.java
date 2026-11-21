@@ -103,6 +103,30 @@ class AuditLogTest {
         assertEquals(2, ((Number) newest.details().get("rows")).intValue());
     }
 
+    @Test void theChatBotsRecordedEventsStillFilterAndExportAndNothingRecordsTheirActionsAgain() {
+        // ADR 0032: the bots are gone, and the events they recorded stay in the append-only stream.
+        jdbc.sql("""
+                INSERT INTO audit_event(id, tenant_id, occurred_at, action, event_class, outcome, resource_type, resource_label)
+                VALUES (:id, :tenant, :at, 'channel.create', 'API_ACTIVITY', 'SUCCESS', 'CHANNEL', 'Bot Lark')
+                """).param("id", UUID.randomUUID()).param("tenant", tenant.value())
+                .param("at", Timestamp.from(Instant.now().minus(Duration.ofDays(30)))).update();
+        record(tenant, AuditAction.GROUP_CREATE, "Kế toán");
+        var bots = new AuditLog.Query(null, null, null, null, "channel.create", null, null, null, null);
+        var page = log.page(reader, bots, null, 50).items();
+        assertEquals(1, page.size());
+        assertEquals("Bot Lark", page.getFirst().resourceLabel());
+        var exported = new ArrayList<AuditLog.Event>();
+        assertEquals(1, log.export(reader, bots, exported::add));
+        assertEquals("channel.create", exported.getFirst().action());
+        for (String historical : new String[]{"channel.create", "channel.update", "channel.delete", "channel.account_link",
+                "channel.account_unlink"}) {
+            var action = AuditAction.of(historical).orElseThrow();
+            assertTrue(action.historical(), historical);
+            assertThrows(IllegalArgumentException.class, () -> AuditRecord.of(action, tenant));
+        }
+        assertFalse(AuditAction.GROUP_CREATE.historical());
+    }
+
     @Test void retentionDeletesOnlyExpiredEvents() {
         record(tenant, AuditAction.GROUP_CREATE, "Cũ");
         record(tenant, AuditAction.GROUP_CREATE, "Mới");

@@ -50,48 +50,14 @@ public class DefaultChatSessionService implements ChatSessionService {
         return create(actor, title, temporary, ChatSurface.WEB);
     }
 
-    @Override
-    @Transactional
-    public ChatSession createInChannel(ActorId actor, String title) {
-        return create(actor, title, false, ChatSurface.CHANNEL, null, null, false);
-    }
-
-    @Override
-    @Transactional
-    public ChatSession createInChannel(ActorId actor, String title, UUID connection, @Nullable String groupChat,
-                                       boolean publicBot) {
-        return create(actor, title, false, ChatSurface.CHANNEL, connection, groupChat, publicBot);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public UUID channelPersona(ActorId actor, UUID connection, @Nullable String groupChat, boolean publicBot) {
-        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
-        return persona(tenant, actor, connection, groupChat, publicBot).orElseThrow(ChatException::unavailable);
-    }
-
-    /** The bot's assistant in the chat, or the member's own for their direct message to a bot that is not public. */
-    private Optional<UUID> persona(TenantId tenant, ActorId actor, UUID connection, @Nullable String groupChat,
-                                   boolean publicBot) {
-        boolean own = groupChat == null && !publicBot;
-        return chats.channelPersona(tenant, connection, groupChat, own ? actor : null,
-                own && authorization.effectiveCapabilities(actor).contains(IamCapability.AGENTS_MANAGE));
-    }
-
     private ChatSession create(ActorId actor, String title, boolean temporary, ChatSurface surface) {
-        return create(actor, title, temporary, surface, null, null, false);
-    }
-
-    private ChatSession create(ActorId actor, String title, boolean temporary, ChatSurface surface,
-                               @Nullable UUID connection, @Nullable String groupChat, boolean publicBot) {
         if (title == null || title.isBlank() || title.length() > 200) {
             throw ChatException.invalid("Title must contain 1 to 200 characters.");
         }
         authorization.require(actor, IamCapability.CHAT_WRITE, false);
         var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();
-        var personaId = (connection != null ? persona(tenant, actor, connection, groupChat, publicBot)
-                : chats.defaultPersona(tenant)).orElseThrow(ChatException::unavailable);
-        return chats.create(tenant, actor, personaId, title.strip(), temporary, surface, connection, groupChat, publicBot);
+        var personaId = chats.defaultPersona(tenant).orElseThrow(ChatException::unavailable);
+        return chats.create(tenant, actor, personaId, title.strip(), temporary, surface);
     }
 
     @Override
@@ -142,13 +108,6 @@ public class DefaultChatSessionService implements ChatSessionService {
         var session = chats.findOwned(tenant(actor), actor, sessionId, false).orElseThrow(ChatException::unavailable);
         // The repository validates that the cursor belongs to the selected branch.
         return chats.history(session, after, limit);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public UUID leaf(ActorId actor, UUID sessionId) {
-        var session = chats.findOwned(tenant(actor), actor, sessionId, false).orElseThrow(ChatException::unavailable);
-        return chats.leaf(session);
     }
 
     /** Every read of the actor's own conversations requires CHAT_READ; rename, branch selection and deletion need ownership only. */

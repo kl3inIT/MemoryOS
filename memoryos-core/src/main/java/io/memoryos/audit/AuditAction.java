@@ -13,6 +13,9 @@ import java.util.Set;
  * <p>Each action declares the fields its {@code details} may carry. Onyx passes a free-form {@code extra} map and
  * relies on every call site to keep secrets out of it; here a field the action did not declare is rejected, so a
  * mistake at one call site cannot put a provider key into the record.
+ *
+ * <p>A historical action belongs to a feature MemoryOS no longer has. Its recorded events still read, filter and export,
+ * and the catalog still lists it; nothing records it again ({@link AuditRecord#of} refuses it).
  */
 public enum AuditAction {
     // Authentication.
@@ -90,14 +93,14 @@ public enum AuditAction {
     CREDENTIAL_UPDATE("credential.update", AuditEventClass.API_ACTIVITY, "provider", "change"),
     CREDENTIAL_DELETE("credential.delete", AuditEventClass.API_ACTIVITY, "provider"),
 
-    // The Tenant's chat bots (MEM-246).
-    CHANNEL_CREATE("channel.create", AuditEventClass.API_ACTIVITY, "provider", "app"),
-    CHANNEL_UPDATE("channel.update", AuditEventClass.API_ACTIVITY, "change", "group"),
-    CHANNEL_DELETE("channel.delete", AuditEventClass.API_ACTIVITY, "provider"),
+    // Historical: the Tenant's chat bots (MEM-246, MEM-263), removed with ADR 0032.
+    CHANNEL_CREATE("channel.create", AuditEventClass.API_ACTIVITY, Era.HISTORICAL, "provider", "app"),
+    CHANNEL_UPDATE("channel.update", AuditEventClass.API_ACTIVITY, Era.HISTORICAL, "change", "group"),
+    CHANNEL_DELETE("channel.delete", AuditEventClass.API_ACTIVITY, Era.HISTORICAL, "provider"),
     /** A member linked their account on a bot's platform (MEM-263); the record names the member and the bot only. */
-    CHANNEL_ACCOUNT_LINK("channel.account_link", AuditEventClass.ACCOUNT_CHANGE),
+    CHANNEL_ACCOUNT_LINK("channel.account_link", AuditEventClass.ACCOUNT_CHANGE, Era.HISTORICAL),
     /** A member removed the link of their account on a bot's platform. */
-    CHANNEL_ACCOUNT_UNLINK("channel.account_unlink", AuditEventClass.ACCOUNT_CHANGE),
+    CHANNEL_ACCOUNT_UNLINK("channel.account_unlink", AuditEventClass.ACCOUNT_CHANGE, Era.HISTORICAL),
 
     // What a Tenant may spend on AI (MEM-123).
     AI_LIMIT_CREATE("ai_limit.create", AuditEventClass.API_ACTIVITY, "scope", "group", "after"),
@@ -114,19 +117,30 @@ public enum AuditAction {
 
     private static final Map<String, AuditAction> BY_VALUE = buildIndex();
 
+    private enum Era { CURRENT, HISTORICAL }
+
     private final String value;
     private final AuditEventClass eventClass;
+    private final Era era;
     private final Set<String> fields;
 
     AuditAction(String value, AuditEventClass eventClass, String... fields) {
+        this(value, eventClass, Era.CURRENT, fields);
+    }
+
+    AuditAction(String value, AuditEventClass eventClass, Era era, String... fields) {
         this.value = value;
         this.eventClass = eventClass;
+        this.era = era;
         this.fields = Set.of(fields);
     }
 
     public String value() { return value; }
 
     public AuditEventClass eventClass() { return eventClass; }
+
+    /** Whether the action belongs to a removed feature: its events are kept and read, and none is recorded any more. */
+    public boolean historical() { return era == Era.HISTORICAL; }
 
     /** The only keys this action's {@code details} may carry. */
     public Set<String> fields() { return fields; }

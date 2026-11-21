@@ -68,6 +68,23 @@ it guards `core`, not the split. The per-platform isolation check between integr
   that supersedes ADR 0027, 0028, 0029 and 0031. The Report 4 package diagram (`r4-package-diagram.mjs`) is redrawn
   with four modules.
 
+### Data effect of V202
+
+Per [ADR 0018](../../../decisions/0018-schema-changes-preserve-data.md), with the owner's decision of 2026-11-22 to
+drop the bots' data:
+
+- **Lost on purpose.** Every bot and its encrypted secret, the provider identities and account links, link codes,
+  conversation and message records the bots kept (ids only; the text is in the conversations), group chats and their
+  labels and permissions, pairing codes, connection state and leases, the WhatsApp bridge's `whatsapp` schema with its
+  linked devices and whatsmeow sessions, the bindings of bots and group chats to assistants, the assistant a member
+  chose for direct messages, `mcp_server.public_bots`, the `CHANNELS_MANAGE` grants (their Tenants'
+  `authorization_version` advances) and the scheduled task `memoryos-channel-message-retention-v1`.
+- **Kept.** The conversations the bots held (`chat_session.surface = 'CHANNEL'`, with their messages), which stay their
+  owners' and in the administrator's chat history; the bots' `SERVICE` accounts, which those conversations and the
+  audit log name; audit events with `channel.*` actions; `V155` and `V156` themselves.
+- **Rollback.** The release before cannot run on the new schema (it reads the dropped columns), so going back past
+  V202 is a database restore.
+
 ## Verification
 
 - `./gradlew clean check` green, including `ModulithArchitectureTest`, `CoreDependencyRulesTest`,

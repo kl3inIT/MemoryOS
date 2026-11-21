@@ -22,8 +22,7 @@ class MicrosoftDependencyRulesTest {
                         "io.memoryos..persistence..",
                         "io.memoryos.ingestion..",
                         "io.memoryos.integration.lark..",
-                        "io.memoryos.integration.google..",
-                        "io.memoryos.integration.zalo.."
+                        "io.memoryos.integration.google.."
                 )
                 .because("an integration depends on public capability APIs, writes the document model that document owns, and on no other platform (ADR 0027)")
                 .check(classes);

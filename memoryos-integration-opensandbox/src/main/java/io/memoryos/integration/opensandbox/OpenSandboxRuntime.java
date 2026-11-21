@@ -38,7 +38,7 @@ import java.util.stream.Collectors;
 
 /**
  * {@link SandboxRuntime} on an OpenSandbox server (MEM-270). Every call after creation goes through the server's
- * proxy ({@code useServerProxy}), because the API, the Worker and the channels process sit on an internal network
+ * proxy ({@code useServerProxy}), because the API and the Worker sit on an internal network
  * that cannot reach the ports sandboxes publish (MEM-270 probe, topology). Each sandbox is created with a network
  * policy that denies everything but the allowed domains. File calls run as the sandbox user
  * ({@code filesWithIdentity}, OpenSandbox 1.1.1): execd itself runs as root, and its default file routes would follow

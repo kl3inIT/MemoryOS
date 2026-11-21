@@ -43,8 +43,7 @@ characters, collapse it into a compact tile instead of inserting it inline", sto
    question is never sent without the pasted text it refers to; the person sends with Send.
 9. **Where it applies.** The behaviour lives in `ChatThreadComposer`, which every Chat composer shares:
    the main Chat, an assistant's *Chat thử* and *Agent Builder* tabs. Following the preference there is
-   free, so all of them do. A shared, read-only conversation has no composer. The channel direct
-   assistant setting is a picker, not a composer.
+   free, so all of them do. A shared, read-only conversation has no composer.
 
 ## Out of scope
 

@@ -27,7 +27,6 @@ import { Route as AuthenticatedAdminAgentsRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAdminAiCostsRouteImport } from './routes/_authenticated.admin.ai-costs'
 import { Route as AuthenticatedAdminAiProvidersRouteImport } from './routes/_authenticated.admin.ai-providers'
 import { Route as AuthenticatedAdminAuditRouteImport } from './routes/_authenticated.admin.audit'
-import { Route as AuthenticatedAdminChannelsRouteImport } from './routes/_authenticated.admin.channels'
 import { Route as AuthenticatedAdminChatRouteImport } from './routes/_authenticated.admin.chat'
 import { Route as AuthenticatedAdminChatHistoryRouteImport } from './routes/_authenticated.admin.chat-history'
 import { Route as AuthenticatedAdminGroupsRouteImport } from './routes/_authenticated.admin.groups'
@@ -57,8 +56,6 @@ import { Route as AuthenticatedSettingsUsageRouteImport } from './routes/_authen
 import { Route as AuthenticatedSharedSessionIdRouteImport } from './routes/_authenticated.shared.$sessionId'
 import { Route as AuthenticatedChatChatSessionIdRouteImport } from './routes/_authenticated._chat.chat.$sessionId'
 import { Route as AuthenticatedChatProjectsProjectIdRouteImport } from './routes/_authenticated._chat.projects.$projectId'
-import { Route as AuthenticatedAdminChannelsIndexRouteImport } from './routes/_authenticated.admin.channels.index'
-import { Route as AuthenticatedAdminChannelsChannelIdRouteImport } from './routes/_authenticated.admin.channels.$channelId'
 import { Route as AuthenticatedAdminDocumentSetsIndexRouteImport } from './routes/_authenticated.admin.document-sets.index'
 import { Route as AuthenticatedAdminDocumentSetsDocumentSetIdRouteImport } from './routes/_authenticated.admin.document-sets.$documentSetId'
 import { Route as AuthenticatedAdminDocumentSetsNewRouteImport } from './routes/_authenticated.admin.document-sets.new'
@@ -169,12 +166,6 @@ const AuthenticatedAdminAuditRoute = AuthenticatedAdminAuditRouteImport.update({
   path: '/audit',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
-const AuthenticatedAdminChannelsRoute =
-  AuthenticatedAdminChannelsRouteImport.update({
-    id: '/channels',
-    path: '/channels',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
 const AuthenticatedAdminChatRoute = AuthenticatedAdminChatRouteImport.update({
   id: '/chat',
   path: '/chat',
@@ -345,18 +336,6 @@ const AuthenticatedChatProjectsProjectIdRoute =
     path: '/projects/$projectId',
     getParentRoute: () => AuthenticatedChatRoute,
   } as any)
-const AuthenticatedAdminChannelsIndexRoute =
-  AuthenticatedAdminChannelsIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => AuthenticatedAdminChannelsRoute,
-  } as any)
-const AuthenticatedAdminChannelsChannelIdRoute =
-  AuthenticatedAdminChannelsChannelIdRouteImport.update({
-    id: '/$channelId',
-    path: '/$channelId',
-    getParentRoute: () => AuthenticatedAdminChannelsRoute,
-  } as any)
 const AuthenticatedAdminDocumentSetsIndexRoute =
   AuthenticatedAdminDocumentSetsIndexRouteImport.update({
     id: '/document-sets/',
@@ -482,7 +461,6 @@ export interface FileRoutesByFullPath {
   '/admin/ai-costs': typeof AuthenticatedAdminAiCostsRoute
   '/admin/ai-providers': typeof AuthenticatedAdminAiProvidersRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
-  '/admin/channels': typeof AuthenticatedAdminChannelsRouteWithChildren
   '/admin/chat': typeof AuthenticatedAdminChatRoute
   '/admin/chat-history': typeof AuthenticatedAdminChatHistoryRoute
   '/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
@@ -513,7 +491,6 @@ export interface FileRoutesByFullPath {
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/chat/$sessionId': typeof AuthenticatedChatChatSessionIdRoute
   '/projects/$projectId': typeof AuthenticatedChatProjectsProjectIdRoute
-  '/admin/channels/$channelId': typeof AuthenticatedAdminChannelsChannelIdRoute
   '/admin/document-sets/$documentSetId': typeof AuthenticatedAdminDocumentSetsDocumentSetIdRoute
   '/admin/document-sets/new': typeof AuthenticatedAdminDocumentSetsNewRoute
   '/admin/groups/$groupId': typeof AuthenticatedAdminGroupsGroupIdRoute
@@ -522,7 +499,6 @@ export interface FileRoutesByFullPath {
   '/admin/sources/$sourceId': typeof AuthenticatedAdminSourcesSourceIdRoute
   '/admin/sources/new': typeof AuthenticatedAdminSourcesNewRouteWithChildren
   '/agents/$agentId/edit': typeof AuthenticatedAgentsAgentIdEditRoute
-  '/admin/channels/': typeof AuthenticatedAdminChannelsIndexRoute
   '/admin/document-sets/': typeof AuthenticatedAdminDocumentSetsIndexRoute
   '/admin/groups/': typeof AuthenticatedAdminGroupsIndexRoute
   '/admin/mcp/': typeof AuthenticatedAdminMcpIndexRoute
@@ -576,7 +552,6 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/chat/$sessionId': typeof AuthenticatedChatChatSessionIdRoute
   '/projects/$projectId': typeof AuthenticatedChatProjectsProjectIdRoute
-  '/admin/channels/$channelId': typeof AuthenticatedAdminChannelsChannelIdRoute
   '/admin/document-sets/$documentSetId': typeof AuthenticatedAdminDocumentSetsDocumentSetIdRoute
   '/admin/document-sets/new': typeof AuthenticatedAdminDocumentSetsNewRoute
   '/admin/groups/$groupId': typeof AuthenticatedAdminGroupsGroupIdRoute
@@ -584,7 +559,6 @@ export interface FileRoutesByTo {
   '/admin/mcp/$serverId': typeof AuthenticatedAdminMcpServerIdRoute
   '/admin/sources/$sourceId': typeof AuthenticatedAdminSourcesSourceIdRoute
   '/agents/$agentId/edit': typeof AuthenticatedAgentsAgentIdEditRoute
-  '/admin/channels': typeof AuthenticatedAdminChannelsIndexRoute
   '/admin/document-sets': typeof AuthenticatedAdminDocumentSetsIndexRoute
   '/admin/groups': typeof AuthenticatedAdminGroupsIndexRoute
   '/admin/mcp': typeof AuthenticatedAdminMcpIndexRoute
@@ -614,7 +588,6 @@ export interface FileRoutesById {
   '/_authenticated/admin/ai-costs': typeof AuthenticatedAdminAiCostsRoute
   '/_authenticated/admin/ai-providers': typeof AuthenticatedAdminAiProvidersRoute
   '/_authenticated/admin/audit': typeof AuthenticatedAdminAuditRoute
-  '/_authenticated/admin/channels': typeof AuthenticatedAdminChannelsRouteWithChildren
   '/_authenticated/admin/chat': typeof AuthenticatedAdminChatRoute
   '/_authenticated/admin/chat-history': typeof AuthenticatedAdminChatHistoryRoute
   '/_authenticated/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
@@ -646,7 +619,6 @@ export interface FileRoutesById {
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/_chat/chat/$sessionId': typeof AuthenticatedChatChatSessionIdRoute
   '/_authenticated/_chat/projects/$projectId': typeof AuthenticatedChatProjectsProjectIdRoute
-  '/_authenticated/admin/channels/$channelId': typeof AuthenticatedAdminChannelsChannelIdRoute
   '/_authenticated/admin/document-sets/$documentSetId': typeof AuthenticatedAdminDocumentSetsDocumentSetIdRoute
   '/_authenticated/admin/document-sets/new': typeof AuthenticatedAdminDocumentSetsNewRoute
   '/_authenticated/admin/groups/$groupId': typeof AuthenticatedAdminGroupsGroupIdRoute
@@ -655,7 +627,6 @@ export interface FileRoutesById {
   '/_authenticated/admin/sources/$sourceId': typeof AuthenticatedAdminSourcesSourceIdRoute
   '/_authenticated/admin/sources/new': typeof AuthenticatedAdminSourcesNewRouteWithChildren
   '/_authenticated/agents_/$agentId/edit': typeof AuthenticatedAgentsAgentIdEditRoute
-  '/_authenticated/admin/channels/': typeof AuthenticatedAdminChannelsIndexRoute
   '/_authenticated/admin/document-sets/': typeof AuthenticatedAdminDocumentSetsIndexRoute
   '/_authenticated/admin/groups/': typeof AuthenticatedAdminGroupsIndexRoute
   '/_authenticated/admin/mcp/': typeof AuthenticatedAdminMcpIndexRoute
@@ -685,7 +656,6 @@ export interface FileRouteTypes {
     | '/admin/ai-costs'
     | '/admin/ai-providers'
     | '/admin/audit'
-    | '/admin/channels'
     | '/admin/chat'
     | '/admin/chat-history'
     | '/admin/groups'
@@ -716,7 +686,6 @@ export interface FileRouteTypes {
     | '/settings/'
     | '/chat/$sessionId'
     | '/projects/$projectId'
-    | '/admin/channels/$channelId'
     | '/admin/document-sets/$documentSetId'
     | '/admin/document-sets/new'
     | '/admin/groups/$groupId'
@@ -725,7 +694,6 @@ export interface FileRouteTypes {
     | '/admin/sources/$sourceId'
     | '/admin/sources/new'
     | '/agents/$agentId/edit'
-    | '/admin/channels/'
     | '/admin/document-sets/'
     | '/admin/groups/'
     | '/admin/mcp/'
@@ -779,7 +747,6 @@ export interface FileRouteTypes {
     | '/settings'
     | '/chat/$sessionId'
     | '/projects/$projectId'
-    | '/admin/channels/$channelId'
     | '/admin/document-sets/$documentSetId'
     | '/admin/document-sets/new'
     | '/admin/groups/$groupId'
@@ -787,7 +754,6 @@ export interface FileRouteTypes {
     | '/admin/mcp/$serverId'
     | '/admin/sources/$sourceId'
     | '/agents/$agentId/edit'
-    | '/admin/channels'
     | '/admin/document-sets'
     | '/admin/groups'
     | '/admin/mcp'
@@ -816,7 +782,6 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/ai-costs'
     | '/_authenticated/admin/ai-providers'
     | '/_authenticated/admin/audit'
-    | '/_authenticated/admin/channels'
     | '/_authenticated/admin/chat'
     | '/_authenticated/admin/chat-history'
     | '/_authenticated/admin/groups'
@@ -848,7 +813,6 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/'
     | '/_authenticated/_chat/chat/$sessionId'
     | '/_authenticated/_chat/projects/$projectId'
-    | '/_authenticated/admin/channels/$channelId'
     | '/_authenticated/admin/document-sets/$documentSetId'
     | '/_authenticated/admin/document-sets/new'
     | '/_authenticated/admin/groups/$groupId'
@@ -857,7 +821,6 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/sources/$sourceId'
     | '/_authenticated/admin/sources/new'
     | '/_authenticated/agents_/$agentId/edit'
-    | '/_authenticated/admin/channels/'
     | '/_authenticated/admin/document-sets/'
     | '/_authenticated/admin/groups/'
     | '/_authenticated/admin/mcp/'
@@ -1003,13 +966,6 @@ declare module '@tanstack/react-router' {
       path: '/audit'
       fullPath: '/admin/audit'
       preLoaderRoute: typeof AuthenticatedAdminAuditRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/_authenticated/admin/channels': {
-      id: '/_authenticated/admin/channels'
-      path: '/channels'
-      fullPath: '/admin/channels'
-      preLoaderRoute: typeof AuthenticatedAdminChannelsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/admin/chat': {
@@ -1215,20 +1171,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedChatProjectsProjectIdRouteImport
       parentRoute: typeof AuthenticatedChatRoute
     }
-    '/_authenticated/admin/channels/': {
-      id: '/_authenticated/admin/channels/'
-      path: '/'
-      fullPath: '/admin/channels/'
-      preLoaderRoute: typeof AuthenticatedAdminChannelsIndexRouteImport
-      parentRoute: typeof AuthenticatedAdminChannelsRoute
-    }
-    '/_authenticated/admin/channels/$channelId': {
-      id: '/_authenticated/admin/channels/$channelId'
-      path: '/$channelId'
-      fullPath: '/admin/channels/$channelId'
-      preLoaderRoute: typeof AuthenticatedAdminChannelsChannelIdRouteImport
-      parentRoute: typeof AuthenticatedAdminChannelsRoute
-    }
     '/_authenticated/admin/document-sets/': {
       id: '/_authenticated/admin/document-sets/'
       path: '/document-sets'
@@ -1380,23 +1322,6 @@ const AuthenticatedChatRouteChildren: AuthenticatedChatRouteChildren = {
 const AuthenticatedChatRouteWithChildren =
   AuthenticatedChatRoute._addFileChildren(AuthenticatedChatRouteChildren)
 
-interface AuthenticatedAdminChannelsRouteChildren {
-  AuthenticatedAdminChannelsChannelIdRoute: typeof AuthenticatedAdminChannelsChannelIdRoute
-  AuthenticatedAdminChannelsIndexRoute: typeof AuthenticatedAdminChannelsIndexRoute
-}
-
-const AuthenticatedAdminChannelsRouteChildren: AuthenticatedAdminChannelsRouteChildren =
-  {
-    AuthenticatedAdminChannelsChannelIdRoute:
-      AuthenticatedAdminChannelsChannelIdRoute,
-    AuthenticatedAdminChannelsIndexRoute: AuthenticatedAdminChannelsIndexRoute,
-  }
-
-const AuthenticatedAdminChannelsRouteWithChildren =
-  AuthenticatedAdminChannelsRoute._addFileChildren(
-    AuthenticatedAdminChannelsRouteChildren,
-  )
-
 interface AuthenticatedAdminGroupsRouteChildren {
   AuthenticatedAdminGroupsGroupIdRoute: typeof AuthenticatedAdminGroupsGroupIdRoute
   AuthenticatedAdminGroupsNewRoute: typeof AuthenticatedAdminGroupsNewRoute
@@ -1462,7 +1387,6 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminAiCostsRoute: typeof AuthenticatedAdminAiCostsRoute
   AuthenticatedAdminAiProvidersRoute: typeof AuthenticatedAdminAiProvidersRoute
   AuthenticatedAdminAuditRoute: typeof AuthenticatedAdminAuditRoute
-  AuthenticatedAdminChannelsRoute: typeof AuthenticatedAdminChannelsRouteWithChildren
   AuthenticatedAdminChatRoute: typeof AuthenticatedAdminChatRoute
   AuthenticatedAdminChatHistoryRoute: typeof AuthenticatedAdminChatHistoryRoute
   AuthenticatedAdminGroupsRoute: typeof AuthenticatedAdminGroupsRouteWithChildren
@@ -1490,7 +1414,6 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminAiCostsRoute: AuthenticatedAdminAiCostsRoute,
   AuthenticatedAdminAiProvidersRoute: AuthenticatedAdminAiProvidersRoute,
   AuthenticatedAdminAuditRoute: AuthenticatedAdminAuditRoute,
-  AuthenticatedAdminChannelsRoute: AuthenticatedAdminChannelsRouteWithChildren,
   AuthenticatedAdminChatRoute: AuthenticatedAdminChatRoute,
   AuthenticatedAdminChatHistoryRoute: AuthenticatedAdminChatHistoryRoute,
   AuthenticatedAdminGroupsRoute: AuthenticatedAdminGroupsRouteWithChildren,

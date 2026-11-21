@@ -1045,158 +1045,19 @@ class ChatPersistenceIntegrationTest {
     }
 
     @Test
-    void aChannelConversationOpensForItsOwnerAndStaysOutOfTheSidebarAndSearch() {
+    void aConversationTheChatBotsHeldOpensForItsOwnerAndStaysOutOfTheSidebarAndSearch() {
         var web = sessions.create(owner, "Doanh thu quý trên web");
         ask(owner, web, "Doanh thu quý 3?", "Tăng 12%.");
-        var channel = sessions.createInChannel(owner, "Doanh thu quý từ Lark");
+        // The chat bots are gone (ADR 0032); the conversations they held stay as they were.
+        var held = sessions.create(owner, "Doanh thu quý từ Lark");
+        jdbc.sql("UPDATE chat_session SET surface = 'CHANNEL' WHERE id = :id").param("id", held.id()).update();
+        var channel = sessions.get(owner, held.id());
 
         assertEquals(channel, sessions.get(owner, channel.id()), "its owner opens it by its address");
         assertEquals(List.of(web.id()), sessions.list(owner, false, 0, 30).stream().map(ChatSession::id).toList());
         assertEquals(List.of(web.id()), sessions.search(owner, "doanh thu", 0, 30).stream()
                 .map(match -> match.session().id()).toList());
         assertEquals("CHAT_UNAVAILABLE", assertThrows(ChatException.class, () -> sessions.get(other, channel.id())).code());
-    }
-
-    @Test
-    void aChannelConversationUsesItsBotsAssistantOnlyWhileTheBotIsBoundToItAndOnlyFromTheChannel() {
-        var agent = personas.create(owner, new ChatPersonaService.PersonaInput("Nhân sự", null, "", "Trả lời theo quy chế.",
-                null, List.of(), List.of(), null, Set.of("search"), null, null, null, null, null, null, null, null, null));
-        var finance = personas.create(owner, new ChatPersonaService.PersonaInput("Tài chính", null, "", "Trả lời theo báo cáo.",
-                null, List.of(), List.of(), null, Set.of("search"), null, null, null, null, null, null, null, null, null));
-        assertThrows(ChatException.class, () -> personas.get(other, agent.id()), "the assistant is the owner's alone");
-        var bindings = new ChatChannelBindings(new JdbcChatRepository(jdbc));
-        var tenantId = new TenantId(tenant);
-        UUID bot = UUID.randomUUID();
-        UUID builtin = sessions.create(other, "Web").personaId();
-        assertEquals(builtin, sessions.channelPersona(other, bot, null, false), "a bot bound to nothing answers with the built-in one");
-
-        tx.executeWithoutResult(_ -> bindings.bind(tenantId, bot, agent.id()));
-        var held = sessions.createInChannel(other, "Nghỉ phép từ Zalo", bot, null, false);
-        assertEquals(agent.id(), held.personaId());
-        // While the bot is bound to it, a question asked through the bot runs with the assistant.
-        assertTrue(snapshot(held.id()).instructions().contains("Trả lời theo quy chế."));
-        assertTrue(turns.agent(other, held.id(), true).persona().instructions().contains("Trả lời theo quy chế."));
-        // The same conversation continued from the web needs the owner to be able to use the assistant.
-        assertEquals("CHAT_UNAVAILABLE", assertThrows(ChatException.class, () -> turns.agent(other, held.id(), false)).code());
-
-        // Moving the bot ends the old conversation's use of the assistant, instructions and files alike.
-        tx.executeWithoutResult(_ -> bindings.bind(tenantId, bot, finance.id()));
-        assertEquals("CHAT_UNAVAILABLE", assertThrows(ChatException.class, () -> snapshot(held.id())).code());
-        assertEquals(finance.id(), sessions.createInChannel(other, "Sau khi chuyển", bot, null, false).personaId());
-        // So does unbinding it, and a deleted assistant is the built-in one.
-        var onFinance = sessions.createInChannel(other, "Tài chính từ Zalo", bot, null, false);
-        tx.executeWithoutResult(_ -> bindings.bind(tenantId, bot, null));
-        assertEquals("CHAT_UNAVAILABLE", assertThrows(ChatException.class, () -> snapshot(onFinance.id())).code());
-        tx.executeWithoutResult(_ -> bindings.bind(tenantId, bot, agent.id()));
-        personas.delete(owner, agent.id(), personas.get(owner, agent.id()).revision());
-        assertEquals(builtin, sessions.channelPersona(other, bot, null, false));
-        assertEquals(builtin, sessions.createInChannel(other, "Sau khi xoá", bot, null, false).personaId());
-    }
-
-    /**
-     * MEM-298: a conversation started through a public bot reads what its assistant is given, a Document Set the bot's
-     * account cannot use included, searches nothing when the assistant is given nothing, and offers no code interpreter;
-     * one started while the bot answered members keeps the bot account's own reach.
-     */
-    @Test
-    void aPublicBotsConversationReadsItsAssistantsAttachmentsOnlyAndRunsNoCode() {
-        source(sourceId);
-        when(authorization.effectiveCapabilities(other)).thenReturn(Set.of(IamCapability.CHAT_READ, IamCapability.CHAT_WRITE));
-        var set = documentSets.create(owner, new DocumentSetService.Input("Bảng giá", "", List.of(sourceId), false));
-        var care = personas.create(owner, new ChatPersonaService.PersonaInput("Chăm sóc khách hàng", null, "", "Trả lời khách.",
-                null, List.of(), List.of(), List.of(set.id()), Set.of("search", "code_interpreter"), null, null, null, List.of(),
-                null, null, null, null, null));
-        var bindings = new ChatChannelBindings(new JdbcChatRepository(jdbc));
-        UUID bot = UUID.randomUUID();
-        tx.executeWithoutResult(_ -> bindings.bind(new TenantId(tenant), bot, care.id()));
-
-        var open = snapshot(sessions.createInChannel(other, "Giá từ Zalo", bot, null, true).id()).options();
-        assertTrue(open.wholeSources());
-        assertEquals(List.of(sourceId), open.sourceAllowlist(), "the Set's Sources count though the bot cannot use it");
-        assertFalse(open.codeInterpreter());
-
-        var members = snapshot(sessions.createInChannel(other, "Giá từ Zalo", bot, null, false).id()).options();
-        assertFalse(members.wholeSources());
-        assertEquals(List.of(), members.sourceAllowlist());
-        assertTrue(members.codeInterpreter());
-
-        UUID builtinBot = UUID.randomUUID();
-        var nothing = snapshot(sessions.createInChannel(other, "Giá", builtinBot, null, true).id()).options();
-        assertEquals(List.of(), nothing.sourceAllowlist(), "an assistant given nothing searches nothing, never everything");
-    }
-
-    @Test
-    void aGroupChatAnswersWithItsOwnAssistantOnlyWhileItIsGivenIt() {
-        var hr = personas.create(owner, new ChatPersonaService.PersonaInput("Nhân sự", null, "", "Trả lời theo quy chế.",
-                null, List.of(), List.of(), null, Set.of("search"), null, null, null, null, null, null, null, null, null));
-        var finance = personas.create(owner, new ChatPersonaService.PersonaInput("Tài chính", null, "", "Trả lời theo báo cáo.",
-                null, List.of(), List.of(), null, Set.of("search"), null, null, null, null, null, null, null, null, null));
-        var bindings = new ChatChannelBindings(new JdbcChatRepository(jdbc));
-        var tenantId = new TenantId(tenant);
-        UUID bot = UUID.randomUUID();
-        UUID builtin = sessions.create(other, "Web").personaId();
-        tx.executeWithoutResult(_ -> bindings.bind(tenantId, bot, finance.id()));
-
-        // No group of its own: the bot's default, in a group and in a direct message alike.
-        assertEquals(finance.id(), sessions.channelPersona(other, bot, "oc_hr", false));
-        tx.executeWithoutResult(_ -> bindings.bindGroup(tenantId, bot, "oc_hr", hr.id()));
-        assertEquals(hr.id(), sessions.channelPersona(other, bot, "oc_hr", false), "the group's own assistant wins");
-        assertEquals(finance.id(), sessions.channelPersona(other, bot, "oc_board", false), "another group keeps the default");
-        assertEquals(finance.id(), sessions.channelPersona(other, bot, null, false), "a direct message keeps the default");
-
-        // MEM-299: a member's direct messages answer with the assistant they chose, while they may use it; a group and
-        // a public bot keep the administrator's choice.
-        jdbc.sql("""
-                        INSERT INTO chat_preferences (tenant_id, actor_id, channel_persona_id) VALUES (:tenant, :actor, :persona)
-                        ON CONFLICT (tenant_id, actor_id) DO UPDATE SET channel_persona_id = EXCLUDED.channel_persona_id
-                        """).param("tenant", tenant).param("actor", other.value()).param("persona", hr.id()).update();
-        assertEquals(finance.id(), sessions.channelPersona(other, bot, null, false), "an assistant they may not use is ignored");
-        jdbc.sql("UPDATE persona SET is_public = TRUE WHERE id = :id").param("id", hr.id()).update();
-        assertEquals(hr.id(), sessions.channelPersona(other, bot, null, false), "their own choice answers their direct message");
-        assertEquals(hr.id(), sessions.createInChannel(other, "Riêng", bot, null, false).personaId());
-        assertEquals(finance.id(), sessions.channelPersona(other, bot, "oc_board", false), "a group keeps the bot's");
-        assertEquals(finance.id(), sessions.channelPersona(other, bot, null, true), "a public bot keeps the bot's");
-        jdbc.sql("UPDATE persona SET is_public = FALSE WHERE id = :id").param("id", hr.id()).update();
-        jdbc.sql("UPDATE chat_preferences SET channel_persona_id = NULL WHERE actor_id = :actor")
-                .param("actor", other.value()).update();
-
-        var inGroup = sessions.createInChannel(other, "Nghỉ phép trong nhóm", bot, "oc_hr", false);
-        assertEquals(hr.id(), inGroup.personaId());
-        assertTrue(snapshot(inGroup.id()).instructions().contains("Trả lời theo quy chế."));
-        var inBoard = sessions.createInChannel(other, "Doanh thu trong nhóm", bot, "oc_board", false);
-        assertTrue(snapshot(inBoard.id()).instructions().contains("Trả lời theo báo cáo."));
-        assertEquals("CHAT_UNAVAILABLE", assertThrows(ChatException.class, () -> turns.agent(other, inGroup.id(), false)).code(),
-                "a group's conversation continued from the web needs the owner to be able to use the assistant");
-
-        // Giving the group another assistant ends the old conversation's use of it at once.
-        tx.executeWithoutResult(_ -> bindings.bindGroup(tenantId, bot, "oc_hr", finance.id()));
-        assertEquals("CHAT_UNAVAILABLE", assertThrows(ChatException.class, () -> snapshot(inGroup.id())).code());
-        var onFinance = sessions.createInChannel(other, "Sau khi đổi", bot, "oc_hr", false);
-        assertEquals(finance.id(), onFinance.personaId());
-        // Returning the group to the default leaves a conversation held with the default usable, and the default's
-        // move ends it.
-        tx.executeWithoutResult(_ -> bindings.bindGroup(tenantId, bot, "oc_hr", hr.id()));
-        assertEquals("CHAT_UNAVAILABLE", assertThrows(ChatException.class, () -> snapshot(onFinance.id())).code(),
-                "a conversation held with the default is cut off while the group has an assistant of its own");
-        tx.executeWithoutResult(_ -> bindings.bindGroup(tenantId, bot, "oc_hr", null));
-        assertTrue(snapshot(onFinance.id()).instructions().contains("Trả lời theo báo cáo."));
-        tx.executeWithoutResult(_ -> bindings.bind(tenantId, bot, null));
-        assertEquals("CHAT_UNAVAILABLE", assertThrows(ChatException.class, () -> snapshot(onFinance.id())).code());
-
-        // A deleted group assistant falls back to the default, and then to the built-in one.
-        tx.executeWithoutResult(_ -> bindings.bind(tenantId, bot, finance.id()));
-        tx.executeWithoutResult(_ -> bindings.bindGroup(tenantId, bot, "oc_hr", hr.id()));
-        personas.delete(owner, hr.id(), personas.get(owner, hr.id()).revision());
-        assertEquals(finance.id(), sessions.channelPersona(other, bot, "oc_hr", false));
-        assertTrue(snapshot(onFinance.id()).instructions().contains("Trả lời theo báo cáo."),
-                "a deleted group assistant no longer resolves, so the default's conversation is usable again");
-        tx.executeWithoutResult(_ -> bindings.release(tenantId, bot));
-        assertEquals(builtin, sessions.channelPersona(other, bot, "oc_hr", false));
-        assertEquals(Map.of(), tx.execute(_ -> bindings.groups(tenantId, bot)), "removing the bot drops its groups' assistants");
-    }
-
-    private JdbcChatRepository.Persona snapshot(UUID session) {
-        return tx.execute(_ -> new JdbcChatRepository(jdbc).persona(session, false, false));
     }
 
     @Test
@@ -1538,20 +1399,6 @@ class ChatPersistenceIntegrationTest {
         assertTrue(new JdbcUserFileRepository(jdbc).readable(scope, viewer, unrelated, granted, false).isEmpty());
         // Someone it is not shared with is granted nothing.
         assertEquals(Set.of(), attachments.usableThroughAgents(scope, stranger, all));
-        // MEM-298: a public bot's account is granted the knowledge files of the assistant its bot answers with, while it
-        // holds a conversation through the bot with it, though the assistant is not shared with it; not the avatar, not
-        // through a conversation of a bot that is not public, where a linked person may own it, and not once the bot is
-        // moved.
-        assertEquals(Set.of(), attachments.usableThroughAgents(scope, other, all));
-        var bindings = new ChatChannelBindings(new JdbcChatRepository(jdbc));
-        UUID bot = UUID.randomUUID();
-        tx.executeWithoutResult(_ -> bindings.bind(scope, bot, agent.id()));
-        sessions.createInChannel(other, "Tài liệu từ Zalo", bot, null, false);
-        assertEquals(Set.of(), attachments.usableThroughAgents(scope, other, all));
-        sessions.createInChannel(other, "Tài liệu từ Zalo", bot, null, true);
-        assertEquals(Set.of(attached), attachments.usableThroughAgents(scope, other, all));
-        tx.executeWithoutResult(_ -> bindings.bind(scope, bot, null));
-        assertEquals(Set.of(), attachments.usableThroughAgents(scope, other, all));
 
         // The agent is what holds both files, once each; the unrelated upload is held by nothing.
         var holders = attachments.holders(scope, all);
@@ -1852,7 +1699,7 @@ class ChatPersistenceIntegrationTest {
 
         clearInvocations(authorization);
         statements.reset();
-        var agent = turns.agent(owner, session.id(), false);
+        var agent = turns.agent(owner, session.id());
         var selection = new ChatTurnPersistence.ModelSelection(null, UUID.randomUUID(), null, binding,
                 agent.persona().revision(), "", agent);
         var reserved = turns.reserve(owner, session.id(), session.rootMessageId(), UUID.randomUUID(), "Question",

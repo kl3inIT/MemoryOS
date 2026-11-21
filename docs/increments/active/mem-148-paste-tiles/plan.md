@@ -20,6 +20,10 @@ per concern.
 
 ## Verification so far
 
+These results belong to the code before the chat bots were removed (taken with `4f743a893`; `df8c715df` is the last
+revision of `main` that still has them). The removal (ADR 0032, migration V202) deleted
+`channel-direct-assistant.test.tsx` and the `memoryos-channels` module named below.
+
 - Web: `tsc -b`, `oxlint --deny-warnings`, `oxfmt --check`, `i18n-audit --check`; vitest for
   `src/features/chat/composer`, `thread`, `settings`, `agent-editor.test.tsx`, `channel-direct-assistant.test.tsx`
   and `src/features/identity`; `chat-paste-tiles.spec.ts` alone against the fixture server (Chromium).

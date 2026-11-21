@@ -98,173 +98,17 @@ public class JdbcChatRepository {
                 .param("tenant", tenant.value()).query(UUID.class).optional();
     }
 
-    /**
-     * The assistant a bot answers with in a chat: the live assistant the group {@code groupChat} is given, else the live
-     * custom assistant the bot is bound to, else the Tenant's built-in one (MEM-273). {@code groupChat} is null for a
-     * direct message.
-     */
-    public Optional<UUID> channelPersona(TenantId tenant, UUID connection, @Nullable String groupChat) {
-        return channelPersona(tenant, connection, groupChat, null, false);
-    }
-
-    /**
-     * As {@link #channelPersona(TenantId, UUID, String)}, but a direct message from {@code member} answers with the
-     * assistant they chose for their direct messages while they may still use it (MEM-299); null for a group or a
-     * public bot, where the administrator's choice holds.
-     */
-    public Optional<UUID> channelPersona(TenantId tenant, UUID connection, @Nullable String groupChat,
-                                         @Nullable ActorId member, boolean agentsManage) {
-        if (groupChat == null && member != null) {
-            var chosen = jdbc.sql("""
-                            SELECT p.id FROM chat_preferences preference
-                            JOIN persona p ON p.tenant_id = preference.tenant_id AND p.id = preference.channel_persona_id
-                            WHERE preference.tenant_id = :tenant AND preference.actor_id = :actor AND p.deleted_at IS NULL
-                              AND """ + AgentAccessSql.USES)
-                    .param("tenant", tenant.value()).param("actor", member.value()).param("agentsManage", agentsManage)
-                    .query(UUID.class).optional();
-            if (chosen.isPresent()) return chosen;
-        }
-        if (groupChat != null) {
-            var group = jdbc.sql("""
-                            SELECT p.id FROM chat_channel_group_binding g
-                            JOIN persona p ON p.tenant_id = g.tenant_id AND p.id = g.persona_id
-                            WHERE g.tenant_id = :tenant AND g.connection_id = :connection AND g.external_chat_id = :chat
-                              AND p.deleted_at IS NULL
-                            """)
-                    .param("tenant", tenant.value()).param("connection", connection).param("chat", groupChat)
-                    .query(UUID.class).optional();
-            if (group.isPresent()) return group;
-        }
-        var bound = jdbc.sql("""
-                        SELECT p.id FROM chat_channel_binding b
-                        JOIN persona p ON p.tenant_id = b.tenant_id AND p.id = b.persona_id
-                        WHERE b.tenant_id = :tenant AND b.connection_id = :connection
-                          AND p.deleted_at IS NULL AND p.builtin_key IS NULL
-                        """)
-                .param("tenant", tenant.value()).param("connection", connection).query(UUID.class).optional();
-        return bound.isPresent() ? bound : defaultPersona(tenant);
-    }
-
-    /** The custom assistant a bot is bound to, deleted or not; empty when it is bound to none. */
-    public Optional<UUID> boundPersona(TenantId tenant, UUID connection) {
-        return jdbc.sql("SELECT persona_id FROM chat_channel_binding WHERE tenant_id = :tenant AND connection_id = :connection")
-                .param("tenant", tenant.value()).param("connection", connection).query(UUID.class).optional();
-    }
-
-    /** Every bot of the Tenant bound to an assistant, with the assistant. */
-    public Map<UUID, UUID> channelBindings(TenantId tenant) {
-        var bindings = new LinkedHashMap<UUID, UUID>();
-        jdbc.sql("SELECT connection_id, persona_id FROM chat_channel_binding WHERE tenant_id = :tenant ORDER BY bound_at, connection_id")
-                .param("tenant", tenant.value())
-                .query((row, ignored) -> bindings.put(row.getObject(1, UUID.class), row.getObject(2, UUID.class))).list();
-        return bindings;
-    }
-
-    /** Binds a bot to a custom assistant of the Tenant, or to none; returns whether the binding changed. */
-    public boolean bindChannel(TenantId tenant, UUID connection, @Nullable UUID persona) {
-        if (persona == null) {
-            return jdbc.sql("DELETE FROM chat_channel_binding WHERE tenant_id = :tenant AND connection_id = :connection")
-                    .param("tenant", tenant.value()).param("connection", connection).update() > 0;
-        }
-        return jdbc.sql("""
-                        INSERT INTO chat_channel_binding (tenant_id, connection_id, persona_id)
-                        VALUES (:tenant, :connection, :persona)
-                        ON CONFLICT (connection_id) DO UPDATE SET persona_id = EXCLUDED.persona_id, bound_at = now()
-                        WHERE chat_channel_binding.tenant_id = EXCLUDED.tenant_id
-                          AND chat_channel_binding.persona_id <> EXCLUDED.persona_id
-                        """)
-                .param("tenant", tenant.value()).param("connection", connection).param("persona", persona).update() > 0;
-    }
-
-    /** The assistant a group chat of a bot is given, deleted or not; empty when it answers with the bot's default. */
-    public Optional<UUID> groupBoundPersona(TenantId tenant, UUID connection, String groupChat) {
-        return jdbc.sql("""
-                        SELECT persona_id FROM chat_channel_group_binding
-                        WHERE tenant_id = :tenant AND connection_id = :connection AND external_chat_id = :chat
-                        """)
-                .param("tenant", tenant.value()).param("connection", connection).param("chat", groupChat)
-                .query(UUID.class).optional();
-    }
-
-    /** The group chats of a bot given an assistant of their own, with the assistant. */
-    public Map<String, UUID> groupBindings(TenantId tenant, UUID connection) {
-        var bindings = new LinkedHashMap<String, UUID>();
-        jdbc.sql("""
-                        SELECT external_chat_id, persona_id FROM chat_channel_group_binding
-                        WHERE tenant_id = :tenant AND connection_id = :connection ORDER BY bound_at, external_chat_id
-                        """)
-                .param("tenant", tenant.value()).param("connection", connection)
-                .query((row, ignored) -> bindings.put(row.getString(1), row.getObject(2, UUID.class))).list();
-        return bindings;
-    }
-
-    /** Every group chat of the Tenant's bots given {@code persona}, as bot and group chat. */
-    public List<GroupBinding> groupBindingsTo(TenantId tenant, UUID persona) {
-        return jdbc.sql("""
-                        SELECT connection_id, external_chat_id FROM chat_channel_group_binding
-                        WHERE tenant_id = :tenant AND persona_id = :persona ORDER BY bound_at, connection_id, external_chat_id
-                        """)
-                .param("tenant", tenant.value()).param("persona", persona)
-                .query((row, ignored) -> new GroupBinding(row.getObject(1, UUID.class), row.getString(2))).list();
-    }
-
-    /** A group chat of a bot, with the bot. */
-    public record GroupBinding(UUID connection, String groupChat) {}
-
-    /** Gives a group chat of a bot an assistant of the Tenant, or none; returns whether it changed. */
-    public boolean bindChannelGroup(TenantId tenant, UUID connection, String groupChat, @Nullable UUID persona) {
-        if (persona == null) {
-            return jdbc.sql("""
-                            DELETE FROM chat_channel_group_binding
-                            WHERE tenant_id = :tenant AND connection_id = :connection AND external_chat_id = :chat
-                            """)
-                    .param("tenant", tenant.value()).param("connection", connection).param("chat", groupChat).update() > 0;
-        }
-        return jdbc.sql("""
-                        INSERT INTO chat_channel_group_binding (tenant_id, connection_id, external_chat_id, persona_id)
-                        VALUES (:tenant, :connection, :chat, :persona)
-                        ON CONFLICT (connection_id, external_chat_id) DO UPDATE SET persona_id = EXCLUDED.persona_id, bound_at = now()
-                        WHERE chat_channel_group_binding.tenant_id = EXCLUDED.tenant_id
-                          AND chat_channel_group_binding.persona_id <> EXCLUDED.persona_id
-                        """)
-                .param("tenant", tenant.value()).param("connection", connection).param("chat", groupChat)
-                .param("persona", persona).update() > 0;
-    }
-
-    /** Drops a removed bot's default assistant and every group chat's own. */
-    public void releaseChannel(TenantId tenant, UUID connection) {
-        jdbc.sql("DELETE FROM chat_channel_group_binding WHERE tenant_id = :tenant AND connection_id = :connection")
-                .param("tenant", tenant.value()).param("connection", connection).update();
-        jdbc.sql("DELETE FROM chat_channel_binding WHERE tenant_id = :tenant AND connection_id = :connection")
-                .param("tenant", tenant.value()).param("connection", connection).update();
-    }
-
-    /** Whether the session is held in a channel. */
-    public boolean heldInChannel(UUID session) {
-        return jdbc.sql("SELECT surface = 'CHANNEL' FROM chat_session WHERE id = :session")
-                .param("session", session).query(Boolean.class).optional().orElse(false);
-    }
-
     public ChatSession create(TenantId tenant, ActorId actor, UUID personaId, String title, boolean temporary,
                               ChatSurface surface) {
-        return create(tenant, actor, personaId, title, temporary, surface, null, null, false);
-    }
-
-    public ChatSession create(TenantId tenant, ActorId actor, UUID personaId, String title, boolean temporary,
-                              ChatSurface surface, @Nullable UUID connection, @Nullable String groupChat,
-                              boolean channelPublic) {
         UUID id = UUID.randomUUID();
         UUID root = UUID.randomUUID();
         var session = jdbc.sql("""
                         INSERT INTO chat_session(id, tenant_id, owner_actor_id, persona_id, root_message_id, title,
-                                                 temporary, surface, channel_connection_id, channel_chat_id,
-                                                 channel_public)
-                        VALUES (:id, :tenant, :actor, :persona, :root, :title, :temporary, :surface, :connection, :chat,
-                                :public)
+                                                 temporary, surface)
+                        VALUES (:id, :tenant, :actor, :persona, :root, :title, :temporary, :surface)
                         RETURNING *, FALSE AS reply_running
                         """).param("id", id).param("tenant", tenant.value()).param("actor", actor.value())
-                .param("surface", surface.name()).param("connection", connection, Types.OTHER)
-                .param("chat", groupChat, Types.VARCHAR).param("public", channelPublic)
+                .param("surface", surface.name())
                 .param("persona", personaId).param("root", root).param("title", title).param("temporary", temporary)
                 .query(JdbcChatRepository::session).single();
         jdbc.sql("""
@@ -650,30 +494,17 @@ public class JdbcChatRepository {
     }
 
     /**
-     * Who may run a turn with the session's agent: whoever may use it, or the owner of a conversation held in a
-     * channel while its bot and group chat still resolve to that agent: the group's own live assistant when it has
-     * one, else the bot's custom one (MEM-273). Both are set only by someone who may edit the agent, and changing
-     * either ends it at once. The documents the turn reads stay the owner's own: Sources and Document Sets are
-     * resolved for {@code s.owner_actor_id} below and in retrieval.
+     * Who may run a turn with the session's agent: whoever may use it. The documents the turn reads stay the owner's
+     * own: Sources and Document Sets are resolved for {@code s.owner_actor_id} below and in retrieval.
      */
-    private static final String CHANNEL_OR_USES = """
-            (%s OR (s.surface = 'CHANNEL' AND p.id = COALESCE(
-                (SELECT group_binding.persona_id FROM chat_channel_group_binding group_binding
-                 JOIN persona group_persona ON group_persona.tenant_id = group_binding.tenant_id
-                     AND group_persona.id = group_binding.persona_id AND group_persona.deleted_at IS NULL
-                 WHERE group_binding.tenant_id = s.tenant_id AND group_binding.connection_id = s.channel_connection_id
-                   AND group_binding.external_chat_id = s.channel_chat_id),
-                (SELECT channel_binding.persona_id FROM chat_channel_binding channel_binding
-                 WHERE channel_binding.tenant_id = s.tenant_id
-                   AND channel_binding.connection_id = s.channel_connection_id))))""".formatted(
-            AgentAccessSql.USES.replace(":actor", "s.owner_actor_id"));
+    private static final String OWNER_USES = AgentAccessSql.USES.replace(":actor", "s.owner_actor_id");
 
     /** The session, its agent and its Project, as {@link #persona} and {@link #personaRevision} read them. */
     private static final String SESSION_AGENT = """
             FROM chat_session s JOIN persona p ON s.persona_id=p.id AND s.tenant_id=p.tenant_id
             LEFT JOIN chat_project pr ON pr.id=s.project_id AND pr.tenant_id=s.tenant_id AND pr.owner_actor_id=s.owner_actor_id
             WHERE s.id=:session AND s.deleted_at IS NULL AND p.deleted_at IS NULL AND
-            """ + CHANNEL_OR_USES;
+            """ + OWNER_USES;
 
     /** MCP servers open through the session's assistant alone (MEM-299), in ID order. */
     private static final String OPEN_MCP_SERVERS = "ARRAY(SELECT granted.server_id FROM mcp_server_persona granted"
@@ -722,15 +553,7 @@ public class JdbcChatRepository {
                                   JOIN document_set d ON d.tenant_id = attachment.tenant_id AND d.id = attachment.document_set_id
                                   JOIN document_set_source source ON source.tenant_id = d.tenant_id AND source.document_set_id = d.id
                                   WHERE attachment.persona_id = p.id AND d.deleted_at IS NULL AND %s
-                                  ORDER BY 1) AS sources,
-                            s.channel_public,
-                            ARRAY(SELECT direct.source_id FROM persona_source direct WHERE direct.persona_id = p.id
-                                  UNION
-                                  SELECT source.source_id FROM persona_document_set attachment
-                                  JOIN document_set d ON d.tenant_id = attachment.tenant_id AND d.id = attachment.document_set_id
-                                  JOIN document_set_source source ON source.tenant_id = d.tenant_id AND source.document_set_id = d.id
-                                  WHERE attachment.persona_id = p.id AND d.deleted_at IS NULL
-                                  ORDER BY 1) AS attached_sources
+                                  ORDER BY 1) AS sources
                         """.formatted(REVISION, OPEN_MCP_SERVERS, DocumentSetAccessSql.USES.replace(":actor", "s.owner_actor_id"))
                         + SESSION_AGENT + (lock ? " FOR SHARE OF p" : ""))
                 .param("session", session).param("base", ChatPrompts.DEFAULT_SYSTEM)
@@ -746,10 +569,6 @@ public class JdbcChatRepository {
                             .codeInterpreter(tools.contains("code_interpreter"))
                             .grounded(row.getBoolean("grounded"))
                             .build();
-                    // MEM-298: a public bot's conversation reads what its assistant is given, every Document Set
-                    // included, not what the bot's account may use of them.
-                    if (row.getBoolean("channel_public"))
-                        options = options.forPublicBot(List.of((UUID[]) row.getArray("attached_sources").getArray()));
                     return new Persona(row.getString("instructions"), options,
                             row.getString("revision"), row.getObject("model_configuration_id", UUID.class),
                             files(builtin, tools, List.of(JSON.readValue(row.getString("file_ids"), UUID[].class))), tools,
@@ -1108,7 +927,7 @@ public class JdbcChatRepository {
                 effort == null ? null : ReasoningEffort.valueOf(effort),
                 archived == null ? null : archived.toInstant(), row.getObject("branched_from_session_id", UUID.class),
                 row.getObject("branched_from_message_id", UUID.class), row.getBoolean("temporary"),
-                row.getBoolean("reply_running"), row.getBoolean("channel_public"));
+                row.getBoolean("reply_running"));
     }
 
     private static ChatMessage message(ResultSet row, int ignored) throws SQLException {

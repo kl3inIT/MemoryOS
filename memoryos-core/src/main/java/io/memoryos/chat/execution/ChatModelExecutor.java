@@ -276,7 +276,6 @@ public final class ChatModelExecutor {
             searchTool = new SearchTool(search, setup.actor(), selectionRunner, selected.policy().tokens(), searchLimits, active,
                     agent.guard()::availableContextTokens, agent.events(), cancellation, List.of(new UserMessage(agent.task())),
                     timings, setup.options().sourceAllowlist(), agent.evidence(), agent.activity());
-            if (setup.options().wholeSources()) searchTool.withWholeSources();
             tools.addAll(Tool.fromInstance(searchTool));
         }
         if (setup.webSearch() != WebSearchMode.off && web != null && setup.webAccess().search() != null) {
@@ -398,7 +397,6 @@ public final class ChatModelExecutor {
                 searchTool = new SearchTool(search, setup.actor(), selectionRunner, selected.policy().tokens(), searchLimits,
                         guard::checkActive, guard::availableContextTokens, events::accept, cancellation, setup.messages(), timings, setup.options().sourceAllowlist(), setup.evidence(), activity);
                 if (sandbox != null) searchTool.withSandbox(sandbox);
-                if (setup.options().wholeSources()) searchTool.withWholeSources();
                 runner = runner.withTools(Tool.fromInstance(searchTool));
             }
             if (selected.toolCalling() && setup.image() != ImageMode.off && setup.imageAccess().generate() != null) {
@@ -436,7 +434,7 @@ public final class ChatModelExecutor {
                 activity.quiet(mcpTools.openers());
             }
             // MEM-273: told even when no MCP tool remains, so the model explains the step instead of guessing.
-            if (mcp != null) guard.mcpNotice(McpTools.unavailableNotice(mcp.unavailable(), mcp.channel()));
+            if (mcp != null) guard.mcpNotice(McpTools.unavailableNotice(mcp.unavailable()));
             // MEM-287: a turn without tools sends no replayed tool calls; Anthropic refuses them without tools.
             if (runner == untooled) messages = ChatTurnSetup.withoutToolHistory(messages);
             if (selected.toolCalling()) runner = runner.withToolCallInspectors(activity);

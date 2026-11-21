@@ -61,6 +61,7 @@ const actionLabels: Record<string, AppCopy> = {
   "credential.create": "Added a credential",
   "credential.update": "Updated a credential",
   "credential.delete": "Deleted a credential",
+  // Historical (ADR 0032): the chat bots are gone and the events they recorded stay readable.
   "channel.create": "Added a chat bot",
   "channel.update": "Updated a chat bot",
   "channel.delete": "Removed a chat bot",
@@ -135,7 +136,6 @@ const fieldLabels: Record<string, AppCopy> = {
   provider: "Provider",
   providerSessionEnded: "Provider session ended",
   public: "Available to everyone",
-  publicBots: "Public bots",
   reason: "Reason",
   removed: "Removed",
   rule: "Blocked by",

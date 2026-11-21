@@ -91,7 +91,7 @@ public final class TestDatabase {
         var dataSource = pool(container, container.getDatabaseName());
         try {
             try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
-                // Every schema the migrations create, not public alone: V192 adds the WhatsApp bridge's.
+                // Every schema the migrations create, not public alone: V192 added one of its own, which V202 drops.
                 var schemas = new ArrayList<String>();
                 try (var found = statement.executeQuery("""
                         SELECT nspname FROM pg_namespace

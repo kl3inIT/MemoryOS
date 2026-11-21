@@ -165,18 +165,6 @@ class ChatLifecycleIntegrationTest {
     }
 
     @Test
-    void aConversationHeldInAChannelOpensByItsAddressAndIsListedByNeitherTheSidebarNorTheSearch() {
-        var web = sessions.create(owner, "Leave on the web");
-        ask(web, "How many days of leave do I have?");
-        var channel = sessions.createInChannel(owner, "Leave in Lark");
-
-        assertEquals(channel.id(), sessions.get(owner, channel.id()).id());
-        assertEquals(List.of(web.id()), ids(sessions.list(owner, false, 0, 30)));
-        assertEquals(List.of(web.id()), sessions.search(owner, "Leave", 0, 30).stream()
-                .map(match -> match.session().id()).toList());
-    }
-
-    @Test
     void archivingTakesAConversationOffTheSidebarAndWritingInItBringsItBack() {
         var kept = sessions.create(owner, "Kept");
         ask(kept, "What is kept?");

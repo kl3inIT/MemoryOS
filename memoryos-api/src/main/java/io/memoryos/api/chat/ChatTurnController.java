@@ -57,7 +57,7 @@ class ChatTurnController {
                   @PathVariable UUID sessionId, @Valid @RequestBody ChatSendTurnRequest request) {
         var accepted = turns.command(identity.actorId(), sessionId, new ChatCommand(ChatCommand.Operation.SEND,
                 request.parentMessageId(), request.clientRequestId(), request.text(), request.modelConfigurationId(), request.fileIds(), request.webSearch(), request.image(),
-                Boolean.TRUE.equals(request.deepResearch()), servers(request.mcpServerIds()), null),
+                Boolean.TRUE.equals(request.deepResearch()), servers(request.mcpServerIds())),
                 request.draftPersona() == null ? null : request.draftPersona().toInput(), Boolean.TRUE.equals(request.builder()));
         return new ChatTurnAcceptedResponse(accepted.userMessageId(), accepted.assistantMessageId(), accepted.modelConfigurationId(), accepted.fallbackReason());
     }
@@ -91,7 +91,7 @@ class ChatTurnController {
             @PathVariable UUID userMessageId, @Valid @RequestBody ChatEditTurnRequest request) {
         var accepted = turns.command(identity.actorId(), sessionId, new ChatCommand(ChatCommand.Operation.EDIT,
                 userMessageId, request.clientRequestId(), request.text(), request.modelConfigurationId(), request.fileIds(), request.webSearch(), request.image(),
-                Boolean.TRUE.equals(request.deepResearch()), servers(request.mcpServerIds()), null));
+                Boolean.TRUE.equals(request.deepResearch()), servers(request.mcpServerIds())));
         return new ChatTurnAcceptedResponse(accepted.userMessageId(), accepted.assistantMessageId(), accepted.modelConfigurationId(), accepted.fallbackReason());
     }
 
@@ -103,7 +103,7 @@ class ChatTurnController {
             @PathVariable UUID userMessageId, @Valid @RequestBody ChatRegenerateTurnRequest request) {
         var accepted = turns.command(identity.actorId(), sessionId, new ChatCommand(ChatCommand.Operation.REGENERATE,
                 userMessageId, request.clientRequestId(), "", request.modelConfigurationId(), List.of(), request.webSearch(), request.image(),
-                Boolean.TRUE.equals(request.deepResearch()), servers(request.mcpServerIds()), null));
+                Boolean.TRUE.equals(request.deepResearch()), servers(request.mcpServerIds())));
         return new ChatTurnAcceptedResponse(accepted.userMessageId(), accepted.assistantMessageId(), accepted.modelConfigurationId(), accepted.fallbackReason());
     }
 

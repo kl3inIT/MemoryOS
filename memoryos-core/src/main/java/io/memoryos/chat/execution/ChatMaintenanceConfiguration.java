@@ -11,7 +11,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 /**
  * The ticks a process that executes Chat turns owes them: saving a finished turn that could not be saved yet,
  * renewing and reconciling run leases, giving a freed slot to a waiting turn, and writing reply streams to Redis.
- * It comes with the turn runtime, so the API and {@code memoryos-channels} run it alike (MEM-246).
+ * It comes with the turn runtime, so every process that runs turns runs it alike.
  */
 @Configuration(proxyBeanMethods = false)
 @EnableScheduling
