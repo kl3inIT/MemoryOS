@@ -13,7 +13,7 @@ const member: CurrentIdentity = {
   actorId: "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1",
   authorizationVersion: 1,
   uiLanguage: "vi",
-  tenant: { displayName: "Tasco", role: "MEMBER" },
+  tenant: { displayName: "Công ty Mẫu", role: "MEMBER" },
   capabilities: ["MCP_MANAGE", "SEARCH_READ", "CHAT_READ", "CHAT_WRITE"],
   scopedCapabilities: [],
 };
@@ -22,12 +22,12 @@ const settings: GetMcpEndpointSettingsResponse = {
   configured: true,
   enabled: true,
   revision: 3,
-  url: "https://memoryos.tasco.com.vn/mcp",
+  url: "https://memoryos.example.test/mcp",
 };
 
 const connection: GetMcpEndpointConnectionResponse = {
   available: true,
-  url: "https://memoryos.tasco.com.vn/mcp",
+  url: "https://memoryos.example.test/mcp",
   apps: ["CLAUDE", "CHATGPT", "CUSTOM"],
 };
 
@@ -72,9 +72,9 @@ const trustedApps: McpTrustedAppListResponse = {
     {
       id: "5d0f6f1e-1f4b-4c39-9d0e-0c1f5e7a0003",
       preset: "CUSTOM",
-      name: "Trợ lý pháp chế Tasco",
-      clientIdHosts: ["agents.tasco.com.vn"],
-      documentHosts: ["agents.tasco.com.vn", "login.tasco.com.vn"],
+      name: "Trợ lý pháp chế Mẫu",
+      clientIdHosts: ["agents.example.test"],
+      documentHosts: ["agents.example.test", "login.example.test"],
       enabled: false,
       builtIn: false,
       revision: 4,
@@ -83,16 +83,16 @@ const trustedApps: McpTrustedAppListResponse = {
 };
 
 const people = [
-  ["Trần Thu Hà", "ha.tt@tasco.com.vn"],
-  ["Nguyễn Minh Quân", "quan.nm@tasco.com.vn"],
-  ["Lê Hoàng Yến", "yen.lh@tasco.com.vn"],
-  ["Phạm Đức Anh", "anh.pd@tasco.com.vn"],
-  ["Võ Thị Mai", "mai.vt@tasco.com.vn"],
+  ["Trần Thu Hà", "ha.tt@example.test"],
+  ["Nguyễn Minh Quân", "quan.nm@example.test"],
+  ["Lê Hoàng Yến", "yen.lh@example.test"],
+  ["Phạm Đức Anh", "anh.pd@example.test"],
+  ["Võ Thị Mai", "mai.vt@example.test"],
 ] as const;
 const apps = [
   ["CLAUDE", "Claude", "https://claude.ai/oauth/mcp-oauth-client-metadata"],
   ["CHATGPT", "ChatGPT", "https://chatgpt.com/oauth/client.json"],
-  ["OTHER", "agents.tasco.com.vn", "https://agents.tasco.com.vn/oauth/client.json"],
+  ["OTHER", "agents.example.test", "https://agents.example.test/oauth/client.json"],
 ] as const;
 const tools = ["search", "fetch", "search_with_filters"] as const;
 const outcomes: McpEndpointCallResponse["outcome"][] = [
@@ -147,7 +147,7 @@ function insights(days: number, now = new Date()): McpEndpointInsightsResponse {
     apps: [
       { key: apps[0][2], name: "Claude", calls: Math.round(calls * 0.64), people: 29 },
       { key: apps[1][2], name: "ChatGPT", calls: Math.round(calls * 0.31), people: 14 },
-      { key: apps[2][2], name: "agents.tasco.com.vn", calls: Math.round(calls * 0.05), people: 3 },
+      { key: apps[2][2], name: "agents.example.test", calls: Math.round(calls * 0.05), people: 3 },
     ],
     tools: [
       { key: "search", name: "search", calls: Math.round(calls * 0.55), people: 36 },
@@ -210,12 +210,12 @@ for (const theme of ["light", "dark"] as const) {
         timeout: 30_000,
       });
       await expect(page.getByLabel("Địa chỉ MCP", { exact: true })).toHaveValue(settings.url ?? "");
-      await expect(page.getByText("Trợ lý pháp chế Tasco")).toBeVisible();
+      await expect(page.getByText("Trợ lý pháp chế Mẫu")).toBeVisible();
       await page.screenshot({ path: `${OUTPUT}/admin-${theme}-${width}.png`, fullPage: true });
 
       await page.getByRole("button", { name: "Thêm ứng dụng" }).click();
       await page.getByLabel("Tên", { exact: true }).fill("Copilot Studio");
-      await page.getByLabel("Tên miền của client ID").fill("copilot.tasco.com.vn, bad_host");
+      await page.getByLabel("Tên miền của client ID").fill("copilot.example.test, bad_host");
       await expect(page.getByText("“bad_host” không phải tên miền.")).toBeVisible();
       await page.screenshot({ path: `${OUTPUT}/admin-add-${theme}-${width}.png` });
       await page.keyboard.press("Escape");

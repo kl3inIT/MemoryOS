@@ -20,7 +20,7 @@ const member: CurrentIdentity = {
   actorId: "e62a621f-41d2-4853-aa76-b600dafd8e34",
   authorizationVersion: 1,
   uiLanguage: "vi",
-  tenant: { displayName: "Tasco", role: "MEMBER" },
+  tenant: { displayName: "Công ty Mẫu", role: "MEMBER" },
   capabilities: ["SYSTEM_BASIC", "SEARCH_READ", "CHAT_READ", "CHAT_WRITE"],
   scopedCapabilities: [],
 };
@@ -352,12 +352,12 @@ async function mockMeetings(page: Page) {
           {
             actorId: "b1f0c4a2-3e5d-4a7b-9c81-2d6f8a0e4b73",
             name: "Chị Lan",
-            email: "lan@tasco.vn",
+            email: "lan@example.test",
           },
           {
             actorId: "d4b8e2a6-7c19-4f35-b0d8-6e2a4c81f593",
             name: "Anh Minh",
-            email: "minh@tasco.vn",
+            email: "minh@example.test",
           },
         ],
         groups: [{ id: "c9d3e7f1-5a2b-4c6d-8e90-1f3a5b7c9d02", name: "Khối Tài chính" }],
@@ -759,7 +759,7 @@ for (const width of [1440, 390]) {
     await dialog.getByRole("button", { name: "Thêm chi tiết" }).click();
     await dialog.getByLabel("Tên cuộc họp").fill("Giao ban tuần · Khối Tài chính");
     await dialog.getByLabel("Thành phần").fill("Anh Thanh, Chị Lan, Anh Minh");
-    await dialog.getByLabel("Thuật ngữ riêng").fill("Tasco, Vinaconex 9, OKR, KPI");
+    await dialog.getByLabel("Thuật ngữ riêng").fill("OKR, KPI, Mã dự án");
     await dialog.getByPlaceholder("Thêm người hoặc Group").fill("Lan");
     await dialog.getByRole("option", { name: /Chị Lan/ }).click();
     await expect(
@@ -903,8 +903,8 @@ for (const width of [1440, 390]) {
     );
     // The first biên bản opens the issuing organization, since there is nothing to carry over yet.
     await expect(bienBan.getByLabel("Cơ quan, tổ chức")).toBeVisible();
-    await bienBan.getByLabel("Cơ quan, tổ chức").fill("CÔNG TY CỔ PHẦN TASCO");
-    await bienBan.getByLabel("Cơ quan cấp trên").fill("TẬP ĐOÀN TASCO");
+    await bienBan.getByLabel("Cơ quan, tổ chức").fill("Công ty Mẫu");
+    await bienBan.getByLabel("Cơ quan cấp trên").fill("Tập đoàn Mẫu");
     await bienBan.getByLabel("Số biên bản").fill("12");
     await bienBan.getByLabel("Địa điểm").fill("Phòng họp A, Hà Nội");
     await bienBan.getByLabel("Chủ trì", { exact: true }).fill("Nguyễn Văn An");
@@ -924,7 +924,7 @@ for (const width of [1440, 390]) {
     await bienBan.getByRole("button", { name: "Tải Word" }).click();
     expect((await download).suggestedFilename()).toBe("bien-ban-giao-ban-tuan-khoi-tai-chinh.docx");
     expect(exported.heading).toMatchObject({
-      organization: "CÔNG TY CỔ PHẦN TASCO",
+      organization: "Công ty Mẫu",
       place: "Phòng họp A, Hà Nội",
       chair: "Nguyễn Văn An",
       attendees: ["Anh Thanh", "Chị Lan", "Anh Minh", "Chị Hoa"],

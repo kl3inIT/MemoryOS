@@ -20,7 +20,7 @@ function part(approved?: boolean, gate: Record<string, unknown> = {}): ToolPart 
       descriptor: {
         serverName: "Gmail",
         toolName: "send_email",
-        arguments: JSON.stringify({ to: "an@tasco.vn", body: "Chào anh An,\nEm gửi báo cáo." }),
+        arguments: JSON.stringify({ to: "an@example.test", body: "Chào anh An,\nEm gửi báo cáo." }),
         ...gate,
       },
     },
@@ -36,7 +36,7 @@ it("shows each argument and answers the gate through the runtime", async () => {
   const waiting = part();
   render(<ChatToolApproval part={waiting} tool="send_email" server="Gmail" />);
   expect(screen.getByText("Cho phép send_email trên Gmail?")).toBeInTheDocument();
-  expect(screen.getByText("an@tasco.vn")).toBeInTheDocument();
+  expect(screen.getByText("an@example.test")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Từ chối" }));
   await waitFor(() => expect(waiting.respondToApproval).toHaveBeenCalledWith({ approved: false }));
 });

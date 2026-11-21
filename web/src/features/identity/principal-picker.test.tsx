@@ -16,7 +16,7 @@ const SESSION: ApplicationSession = {
   displayName: null,
   authorizationVersion: 1,
   uiLanguage: "en",
-  tenant: { displayName: "Tasco", role: "OWNER" },
+  tenant: { displayName: "Công ty Mẫu", role: "OWNER" },
   capabilities: ["SYSTEM_BASIC"],
   scopedCapabilities: [],
 };
@@ -42,7 +42,7 @@ describe("PrincipalPicker", () => {
       handleSearchPrincipals(({ request }) => {
         searches.push(new URL(request.url).searchParams);
         return Response.json({
-          people: [{ actorId: LAN, name: "Chị Lan", email: "lan@tasco.vn" }],
+          people: [{ actorId: LAN, name: "Chị Lan", email: "lan@example.test" }],
           groups: [{ id: BOARD, name: "Ban điều hành" }],
         });
       }),
@@ -59,7 +59,7 @@ describe("PrincipalPicker", () => {
     expect(searches.map((search) => search.toString())).toEqual(["search=lan&size=20"]);
     expect(onPick).toHaveBeenCalledWith({
       kind: "person",
-      person: { actorId: LAN, name: "Chị Lan", email: "lan@tasco.vn" },
+      person: { actorId: LAN, name: "Chị Lan", email: "lan@example.test" },
     });
   });
 

@@ -66,9 +66,9 @@ const chatGpt: McpTrustedAppResponse = {
 const agent: McpTrustedAppResponse = {
   id: "a0000000-0000-4000-8000-000000000003",
   preset: "CUSTOM",
-  name: "Trợ lý Tasco",
-  clientIdHosts: ["agent.tasco.vn"],
-  documentHosts: ["agent.tasco.vn"],
+  name: "Trợ lý Mẫu",
+  clientIdHosts: ["agent.example.test"],
+  documentHosts: ["agent.example.test"],
   enabled: true,
   builtIn: false,
   revision: 2,
@@ -80,7 +80,7 @@ const call = (overrides: Partial<McpEndpointCallResponse>): McpEndpointCallRespo
   occurredAt: "2026-10-01T03:14:09Z",
   actorId: "10000000-0000-4000-8000-000000000001",
   actorName: "Trần Thu Hà",
-  actorEmail: "ha@tasco.vn",
+  actorEmail: "ha@example.test",
   client: "CLAUDE",
   clientName: "Claude",
   tool: "search",
@@ -227,7 +227,7 @@ describe("MemoryOS MCP administration", () => {
       ]),
     );
 
-    await user.click(screen.getByRole("button", { name: "Remove Trợ lý Tasco" }));
+    await user.click(screen.getByRole("button", { name: "Remove Trợ lý Mẫu" }));
     const confirm = await screen.findByRole("alertdialog");
     await user.click(within(confirm).getByRole("button", { name: "Remove" }));
     await waitFor(() => expect(removed).toEqual(["2"]));
@@ -243,7 +243,7 @@ describe("MemoryOS MCP administration", () => {
     expect(
       await screen.findByText("This server has no account configured to manage trusted apps."),
     ).toBeVisible();
-    for (const name of ["Claude", "ChatGPT", "Trợ lý Tasco"]) {
+    for (const name of ["Claude", "ChatGPT", "Trợ lý Mẫu"]) {
       expect(screen.getByRole("switch", { name })).toBeDisabled();
     }
     expect(screen.queryByRole("button", { name: "Add app" })).toBeNull();
@@ -262,7 +262,7 @@ describe("MemoryOS MCP administration", () => {
             call({
               id: "c0000000-0000-4000-8000-000000000002",
               client: "OTHER",
-              clientName: "agent.tasco.vn",
+              clientName: "agent.example.test",
               tool: "fetch",
             }),
           ],
@@ -277,7 +277,7 @@ describe("MemoryOS MCP administration", () => {
     expect(requested.at(-1)!.searchParams.get("outcome")).toBe("RATE_LIMITED");
     expect(requested.at(-1)!.searchParams.get("from")).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(within(table).getByText("Rate limited")).toBeVisible();
-    expect(within(table).getByText("agent.tasco.vn")).toBeVisible();
+    expect(within(table).getByText("agent.example.test")).toBeVisible();
     expect(within(table).getAllByText("Trần Thu Hà")).toHaveLength(2);
 
     await user.click(screen.getByRole("combobox", { name: "App" }));

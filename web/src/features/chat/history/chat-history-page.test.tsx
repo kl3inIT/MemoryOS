@@ -12,7 +12,7 @@ const entry = {
   id: "7f000000-0000-4000-8000-000000000001",
   actorId: "10000000-0000-4000-8000-000000000001",
   person: "Trần Thu Hà",
-  email: "ha@tasco.vn",
+  email: "ha@example.test",
   title: "Nghỉ phép",
   question: "Tôi còn bao nhiêu ngày phép?",
   answer: "Bạn còn 5 ngày.",
@@ -79,7 +79,7 @@ describe("conversation history", () => {
     mount([entry]);
     const row = (await screen.findByText("Tôi còn bao nhiêu ngày phép?")).closest("tr")!;
     expect(within(row).getByText("Trần Thu Hà")).toBeVisible();
-    expect(within(row).getByText("ha@tasco.vn")).toBeVisible();
+    expect(within(row).getByText("ha@example.test")).toBeVisible();
     expect(within(row).getByText("4 messages")).toBeVisible();
     expect(within(row).getByText("Marked good")).toBeVisible();
     expect(screen.getByText("Conversations").closest("div")).toHaveTextContent("1");

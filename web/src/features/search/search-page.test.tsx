@@ -66,7 +66,7 @@ const OWNER_SESSION: ApplicationSession = {
   authorizationVersion: 1,
   uiLanguage: "en",
   tenant: {
-    displayName: "Tasco",
+    displayName: "Công ty Mẫu",
     role: "OWNER",
   },
   capabilities: [

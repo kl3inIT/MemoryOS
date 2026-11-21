@@ -28,7 +28,7 @@ function session(
     authorizationVersion: 1,
     uiLanguage: "en",
     displayName,
-    tenant: { displayName: "Tasco", role: "MEMBER" },
+    tenant: { displayName: "Công ty Mẫu", role: "MEMBER" },
     capabilities,
     scopedCapabilities: [],
   };
@@ -135,7 +135,13 @@ it("keeps the sidebar mounted while moving between administration pages", async 
   const user = userEvent.setup();
   await renderShell("/admin/chat-history", ["AUDIT_READ", "CHAT_HISTORY_READ"]);
 
+  expect(await screen.findByRole("img", { name: "MemoryOS" })).toBeVisible();
   await user.click(await screen.findByRole("button", { name: "Collapse sidebar" }));
+  expect(
+    within(screen.getByRole("button", { name: "Expand sidebar" })).getByRole("img", {
+      name: "MemoryOS",
+    }),
+  ).toBeVisible();
   await user.click(screen.getByRole("link", { name: "Open audit" }));
 
   expect(await screen.findByText("Audit page")).toBeInTheDocument();

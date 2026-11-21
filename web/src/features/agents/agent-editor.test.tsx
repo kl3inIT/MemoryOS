@@ -36,7 +36,7 @@ const SESSION: ApplicationSession = {
   displayName: null,
   authorizationVersion: 1,
   uiLanguage: "en",
-  tenant: { displayName: "Tasco", role: "MEMBER" },
+  tenant: { displayName: "Công ty Mẫu", role: "MEMBER" },
   capabilities: ["SYSTEM_BASIC", "CHAT_READ", "CHAT_WRITE", "AGENTS_CREATE"],
   scopedCapabilities: [],
 };
@@ -71,7 +71,7 @@ function saved(overrides: Partial<PersonaView> = {}): PersonaView {
     avatarSeed: "contract-law",
     hasAvatar: false,
     labels: [],
-    owner: { actor: { actorId: SESSION.actorId, name: "Đạt Phan", email: "dat@tasco.vn" } },
+    owner: { actor: { actorId: SESSION.actorId, name: "Đạt Phan", email: "dat@example.test" } },
     userShares: [],
     groupShares: [],
     isPublic: false,
