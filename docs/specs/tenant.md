@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Tenant is the hard customer boundary and durable authority root for the self-hosted MemoryOS deployment. One deployment owns exactly one Tenant. `Tasco AI Workspace` remains product language; no persisted Workspace aggregate or membership exists after V4.
+Tenant is the hard customer boundary and durable authority root for the self-hosted MemoryOS deployment. One deployment owns exactly one Tenant. `AI Workspace` remains product language; no persisted Workspace aggregate or membership exists after V4.
 
 Identity, Tenant membership, invitations, Users and Groups are one closed `io.memoryos.iam` capability under [ADR 0007](../decisions/0007-unified-jpa-iam-and-group-authorization.md). IAM publishes identifiers and narrow operation/read contracts from its root; JPA entities, repositories, SQL projections and lock mechanics remain internal. Connector, Document, Ingestion and Object Storage stay separate capabilities. In particular, Connector retains JDBC ownership of Sources and Tenant-qualified Source–Group associations as specified by the [Connector contract](connector.md).
 
