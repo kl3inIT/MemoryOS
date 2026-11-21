@@ -73,6 +73,12 @@ step 2; the code moved without a change of behavior.
 - [x] Search on both environments uses OpenAI `text-embedding-3-large` (3072 dimensions, semantic floor 0.65) from 2026-11-22, so neither depends on the GPU serving node for embeddings: staging rebuilt 160 of 161 documents (the one left fails `SEARCH_INDEX_CONTENT_LIMIT` under Qwen as well) and switched, with Qwen kept restorable for seven days; production had no indexed document. OCR still reads through PaddleOCR-VL on that node.
 - [ ] Move this increment to `completed/` and reconcile the roadmap.
 
+## Follow-ups done the same night
+
+- [x] Staging OCR reads scans with the catalog model `codex-subscription/gpt-6-luna` through the Hypomnema provider (connection test passed); PaddleOCR-VL is kept but inactive. Production has no chat provider or indexed document yet, so its OCR selection is unchanged.
+- [x] The public landing (PR #943) no longer names the former customer; `vadan.app` runs `ghcr.io/kl3init/memoryos-landing@sha256:b6680ab2…` on the staging host (previous reference in `/apps/memoryos/.env.landing.previous`). The host started the site from `/apps/memoryos/infrastructure/deployment/compose.landing.yaml` with `/apps/memoryos/.env.landing`, not the layout `docs/runbooks/landing.md` describes.
+- [x] `ChatTurnServiceTest.theAssistantsServersThePersonCannotSelectAreOpenedAndOnlyConnectableOnesGetACard` failed once on main (220bf111) and passed on rerun: a flaky stream assertion, not caused by the cleanup.
+
 ## Web branding (separate pull request)
 
 - [x] Mask the MemoryOS wordmark and compact mark in the web shell and shared account states.
