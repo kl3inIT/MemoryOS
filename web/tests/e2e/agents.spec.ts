@@ -570,7 +570,7 @@ test("creates an agent from the short dialog, configures it in place and shares 
     "aria-checked",
     "false",
   );
-  await expect(page.getByRole("switch", { name: "Sandbox" })).toHaveAttribute(
+  await expect(page.getByRole("switch", { name: "Chạy Python" })).toHaveAttribute(
     "aria-checked",
     "false",
   );
@@ -918,7 +918,7 @@ test("the editor keeps the shell header in view and Lưu says why it is off", as
   const save = page.getByRole("button", { name: "Lưu", exact: true });
   // The switches' hidden inputs sit low in the form; they overflow the form's scroller, never the frame around the
   // header, so bringing a header control into view (as a hover retry or a screen reader does) cannot move it.
-  await page.getByRole("switch", { name: "Sandbox" }).focus();
+  await page.getByRole("switch", { name: "Chạy Python" }).focus();
   expect(
     await page.evaluate(() => {
       const frame = document.querySelector("[data-slot=sidebar-inset]")!;

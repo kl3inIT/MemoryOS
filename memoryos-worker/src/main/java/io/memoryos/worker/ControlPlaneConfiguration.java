@@ -20,7 +20,6 @@ import io.memoryos.ingestion.SearchProjectionMaintenance;
 import io.memoryos.objectstorage.ObjectUploadCleanupPort;
 import io.memoryos.objectstorage.ObjectWriteService;
 import io.memoryos.retrieval.settings.SearchSettingsService;
-import io.memoryos.sandbox.SandboxReconciliation;
 import io.memoryos.usage.report.UsageReportService;
 import java.time.Duration;
 import java.util.Optional;
@@ -203,13 +202,6 @@ class ControlPlaneConfiguration {
     RecurringTask<Void> userFileRelayTask(RedisOperationRelay relay, RedisExecutionProperties properties) {
         return Tasks.recurring("memoryos-redis-user-file-relay-v1", FixedDelay.of(properties.relayInterval()))
                 .execute((_, _) -> relay.relay(OperationWorkload.USER_FILE));
-    }
-
-    /** MEM-270: kills sandboxes no row records and clears rows whose sandbox is gone, every five minutes as Dust. */
-    @Bean
-    RecurringTask<Void> sandboxReconciliationTask(SandboxReconciliation reconciliation) {
-        return Tasks.recurring("memoryos-sandbox-reconciliation-v1", FixedDelay.of(Duration.ofMinutes(5)))
-                .execute((_, _) -> reconciliation.sweep());
     }
 
     /** Deletes audit events past their retention (ADR 0013), a batch at a time until none remain. */

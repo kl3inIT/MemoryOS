@@ -1,9 +1,9 @@
 # run_python evaluation
 
 Measures what a change to the `run_python` guidance (`RUN_PYTHON_GUIDANCE` in
-[`ChatPrompts.java`](../../memoryos-core/src/main/java/io/memoryos/chat/prompts/ChatPrompts.java)) or to the sandbox
-computer's [`sitecustomize.py`](../../memoryos-sandbox/computer/sitecustomize.py) does to a real model's data analysis.
-Run it when either changes, and when the computer's pandas, numpy or Python move.
+[`ChatPrompts.java`](../../memoryos-core/src/main/java/io/memoryos/chat/prompts/ChatPrompts.java)) or to the executor's
+[`sitecustomize.py`](../../memoryos-interpreter/executor/sitecustomize.py) does to a real model's data analysis. Run it
+when either changes, and when the executor's pandas, numpy or Python move.
 
 Ten tasks, phrased as a Vietnamese user asks in Chat, each print one JSON answer that is scored against a reference
 computed on the same packages: filling blanks in place, monthly, quarterly and hourly totals, a conditional update,
@@ -13,14 +13,13 @@ dates, which caused every wrong answer in the first run.
 
 Each arm is a git ref; its guidance and `sitecustomize.py` are read from the repository at that ref. For every task
 and repeat the model writes one script, the script runs, and a failing run gets one fix attempt with its traceback, as
-in Chat. Both arms run on the same packages: the computer's locked environment, or its image. An arm's runtime is
-`sandbox` by default; `interpreter`, retired by MEM-271, reads its `sitecustomize.py` from `memoryos-interpreter/` (or
-`interpreter/` at an older ref) and runs only in an executor image.
+in Chat. Both arms run on the same packages: the executor's locked environment, or its image. An arm reads its
+`sitecustomize.py` from `memoryos-interpreter/` (or `interpreter/` at a ref before MEM-271).
 
 ## Setup
 
 ```bash
-uv sync --directory memoryos-sandbox/computer --frozen --no-dev   # the computer's exact packages, for references and --sandbox local
+uv sync --directory memoryos-interpreter/executor --frozen --no-dev   # the executor's exact packages, for references and --sandbox local
 cp tools/interpreter-eval/.env.example tools/interpreter-eval/.env   # fill it; never commit values
 ```
 
@@ -32,23 +31,17 @@ temperature, so none is sent, and replies are not streamed.
 From `tools/interpreter-eval`, with the variables of `.env` exported:
 
 ```bash
-# Recommended: model-written code runs in the computer image, with no network.
-../../memoryos-sandbox/computer/.venv/bin/python -m interpreter_eval \
+# Recommended: model-written code runs in the executor image, with no network.
+../../memoryos-interpreter/executor/.venv/bin/python -m interpreter_eval \
   --baseline origin/main --candidate WORKTREE --sandbox docker \
-  --image ghcr.io/kl3init/memoryos-sandbox-computer:<tag>
+  --image ghcr.io/kl3init/memoryos-interpreter-executor:<tag>
 
-# The retired interpreter against the sandbox, as the MEM-271 gate ran: each arm in its own image.
-../../memoryos-sandbox/computer/.venv/bin/python -m interpreter_eval \
-  --baseline origin/main --candidate WORKTREE --sandbox docker \
-  --baseline-runtime interpreter --baseline-image ghcr.io/kl3init/memoryos-interpreter-executor:<tag> \
-  --candidate-image ghcr.io/kl3init/memoryos-sandbox-computer:<tag>
-
-# Without Docker: the computer's virtual environment, in a temporary directory, with no credentials in its
+# Without Docker: the executor's virtual environment, in a temporary directory, with no credentials in its
 # environment. The code still runs on this machine.
-../../memoryos-sandbox/computer/.venv/bin/python -m interpreter_eval --baseline origin/main --candidate WORKTREE --sandbox local
+../../memoryos-interpreter/executor/.venv/bin/python -m interpreter_eval --baseline origin/main --candidate WORKTREE --sandbox local
 ```
 
-On Windows the Python is `..\..\memoryos-sandbox\computer\.venv\Scripts\python.exe`. `--repeats` (default 5),
+On Windows the Python is `..\..\memoryos-interpreter\executor\.venv\Scripts\python.exe`. `--repeats` (default 5),
 `--workers` (default 6) and `--task` (repeatable) narrow a run; `--out` names the results file. The summary prints a
 table of correct first runs / correct after one fix per task and arm, and the count of answers that were wrong without
 an error. Compare runs only under the same model: a different model moves the scores more than most prompt changes.

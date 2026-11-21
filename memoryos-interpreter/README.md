@@ -1,6 +1,6 @@
 # MemoryOS interpreter
 
-Retired by [MEM-271](../docs/increments/completed/mem-271-run-python-sandbox/design.md): `run_python` runs in the conversation's sandbox (`memoryos-sandbox/`). This directory is kept as source; CI neither builds nor tests it, no release or deployment names it, and Dependabot does not watch it.
+Runs `run_python` again since [ADR 0033](../docs/decisions/0033-code-execution-through-memoryos-interpreter-again.md), after the OpenSandbox sandbox of [MEM-271](../docs/increments/superseded/mem-271-run-python-sandbox/design.md) was removed. CI builds and tests both images, each release publishes and deploys them, and Dependabot watches them.
 
 Runs model-written Python for Chat in disposable executor containers or pods. It started as a snapshot of the Onyx Code Interpreter service; see [NOTICE.md](NOTICE.md) for the source and the changes. [HOW_IT_WORKS.md](HOW_IT_WORKS.md) describes the executor architecture. The increment is [MEM-110](../docs/increments/completed/mem-110-memoryos-interpreter/design.md).
 

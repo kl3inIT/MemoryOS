@@ -39,12 +39,10 @@ Claude Code reads the same repository guide through [`CLAUDE.md`](CLAUDE.md); pr
 | Module | Responsibility |
 | --- | --- |
 | `memoryos-core` | Capability implementations: `iam`, `objectstorage`, `connector`, `document`, `ingestion`, `retrieval`, `chat`, `library`, `ai`, `voice`, `mcp`, `usage`, `meeting` and `audit`, over the `shared` kernel. IAM owns identity, Tenant membership, invitations, Users, Groups and authorization |
-| `memoryos-integration-lark`, `-google`, `-microsoft` | One module a platform: Lark Suite, Google Drive and SharePoint acquisition and their offline Docs, Sheets and page snapshots (`io.memoryos.integration.<platform>`) |
-| `memoryos-extraction` | XLSX/CSV readers, OCR for scans and images, Docling PDF/DOCX/PPTX with a bounded Tika fallback, and bounded Tika TXT/Markdown (`io.memoryos.ingestion.extraction`) |
+| `memoryos-sources` | Lark Suite, Google Drive and SharePoint acquisition and their offline Docs, Sheets and page snapshots (`io.memoryos.connector.adapter.<provider>`); XLSX/CSV readers, OCR for scans and images, Docling PDF/DOCX/PPTX with a bounded Tika fallback, and bounded Tika TXT/Markdown (`io.memoryos.ingestion.extraction`) |
 | `memoryos-api` | Spring Boot HTTP, validation, migration and security composition root; Chat runs here on virtual threads |
 | `memoryos-worker` | Source synchronization, extraction, Search projection and cleanup over Redis Streams |
-| `memoryos-sandbox` | The OpenSandbox server's configuration and the computer image each Chat conversation's sandbox runs (`run_python`, `bash`) |
-| `memoryos-interpreter` | The retired `run_python` service (MEM-110), kept as source; neither built nor deployed since MEM-271 |
+| `memoryos-interpreter` | The `run_python` service and its disposable executors, the vendored Onyx python-sandbox (MEM-110, [how it works](memoryos-interpreter/HOW_IT_WORKS.md)) |
 | `web`, `landing` | The browser application and the public landing page |
 
 [ARCHITECTURE.md](ARCHITECTURE.md) records the enforced dependencies and where each kind of state lives.
@@ -106,7 +104,7 @@ API and worker images build from [`Dockerfile`](Dockerfile) and read their secre
 `MEMORYOS_<NAME>_FILE` becomes `MEMORYOS_<NAME>`) before Spring Boot starts; the browser image builds from [`web/Dockerfile`](web/Dockerfile). A deployment is composed from
 [`compose.base.yaml`](infrastructure/deployment/compose.base.yaml) plus a staging or production overlay: the base owns
 PostgreSQL, private MinIO with its bucket bootstrap, the Keycloak runtime, TLS Redis, Docling, the
-sandbox server, API, worker and web.
+code interpreter, API, worker and web.
 API and worker hold distinct file-mounted MinIO credentials. Staging adds Mailpit, read-only pgweb and Redis
 Insight behind SSO proxies and an owner-only MinIO Console; production adds no inspection surface.
 

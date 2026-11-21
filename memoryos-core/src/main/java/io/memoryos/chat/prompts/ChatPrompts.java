@@ -158,20 +158,19 @@ public final class ChatPrompts {
             """;
 
     /**
-     * Onyx 40eb240df {@code PYTHON_TOOL_GUIDANCE}, except that a {@code file_link} is for downloads only (Onyx also
-     * offered it to display images, which showed a captured chart twice) and that the code runs in the conversation's
-     * sandbox (MEM-271): files under {@code /workspace} stay, the attachments are in {@code attachments/}, and the
-     * network and packages are the sandbox's; then lines for the MemoryOS image additions (MEM-110).
+     * Onyx 40eb240df {@code PYTHON_TOOL_GUIDANCE} verbatim, except that a {@code file_link} is for downloads only (Onyx
+     * also offered it to display images, which showed a captured chart twice), then lines for the MemoryOS executor
+     * additions (MEM-110).
      */
     private static final String RUN_PYTHON_GUIDANCE = """
             ## run_python
             Use the `run_python` tool to execute Python code in an isolated sandbox. The tool will respond with the output of the execution or time out after 60.0 seconds.
-            Any files uploaded to the chat are available in `attachments/` under the current directory (`/workspace`), and the source files behind this turn's search results in `.memoryos/search/` for the run only. The current directory in the file system can be used to save and persist user files. Files the code writes or changes in the current directory will be returned with a `file_link`. Use this to give the user a way to download the file.
-            Internet access is limited to the domains the administrator allowed; other web requests and API calls fail.
+            Any files uploaded to the chat will be automatically be available in the execution environment's current directory. The current directory in the file system can be used to save and persist user files. Files written to the current directory will be returned with a `file_link`. Use this to give the user a way to download the file.
+            Internet access for this session is disabled. Do not make external web requests or API calls as they will fail.
             Use `openpyxl` to read and write Excel files. You have access to libraries like numpy, pandas, scipy, matplotlib, and PIL.
             Write chart titles, axis labels, legends, and other text rendered into images in the language you reply in. The sandbox fonts cannot shape Arabic or render CJK glyphs (they come out as disconnected letters or boxes), so for those languages write the rendered text in English and explain the labels in your reply.
-            IMPORTANT: each call to this tool starts a new Python process. Variables, imports, and in-memory state from previous calls will NOT be available, but files in the current directory stay for later calls and later turns. Therefore batch multi-step work into a single script per call: e.g. load a workbook once, read all needed sheets, apply all edits, and save the result in one execution — not one small step per call.
-            Also preinstalled: statsmodels, sympy, pyarrow, xlrd (legacy .xls), xlsxwriter, python-docx, python-pptx, reportlab, fpdf2, pypdf, pdfplumber, pdf2image, markitdown, beautifulsoup4, jinja2, markdown, tabulate, chardet and charset-normalizer. Prefer what is installed; when the `bash` tool is offered, a missing package can be added with `uv pip install <package>`.
+            IMPORTANT: each call to this tool runs in a fresh, stateless sandbox. Variables, imports, and in-memory state from previous calls will NOT be available, and files written by a previous call will NOT be available in later calls. Therefore batch multi-step work into a single script per call: e.g. load a workbook once, read all needed sheets, apply all edits, and save the result in one execution — not one small step per call.
+            Also preinstalled: statsmodels, sympy, pyarrow, xlrd (legacy .xls), xlsxwriter, python-docx, python-pptx, reportlab, fpdf2, pypdf, pdfplumber, pdf2image, markitdown, beautifulsoup4, jinja2, markdown, tabulate, chardet and charset-normalizer. Packages cannot be installed; use only what is available.
             Versions: Python 3.14, numpy 2.5, pandas 3.0 and headless OpenCV 5 (no cv2.ml, no Haar cascades); write their current idioms, not older ones.
             pandas is copy-on-write and a chained assignment raises an error here: assign results back (`df['a'] = df['a'].fillna(0)`, `df.loc[mask, 'a'] = x`). Text columns have dtype `str`, not object (`pd.api.types.is_string_dtype`); use `freq='ME'` or `'h'`, `.ffill()`, and `.iloc[i]` for positions.
             numpy 2 removed `np.NaN`, `np.float_` and `np.trapz`, and its scalars print as `np.float64(1.5)`: convert them with `float()` or `.item()` before printing lists or dicts.
@@ -183,31 +182,10 @@ public final class ChatPrompts {
             After saving a .docx, run `check-docx` via subprocess with all such files in one call; it prints one JSON line per file whose `issues` name the formatting faults you cannot see, such as a table without borders or a typed bullet. Fix what it reports and save again before answering.
             Vietnamese and other Latin, Greek and Cyrillic text renders in matplotlib's default font, but the built-in PDF fonts (Helvetica, Times) cannot render it. Register a TTF font first, e.g. `/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf` with fpdf2 `add_font` or reportlab `TTFont`.
             Save output files in the current directory with a relative path such as `Báo cáo Q3.xlsx`; do not use `/mnt/data` or another absolute path.
-            Every file the code writes or changes in the current directory is handed to the user, so keep it for files the user should receive. Write intermediate files, such as text extracted from a document or scratch data, under `/tmp` (64 MB), and print what you need to read: `pdftotext -layout file.pdf -` writes a PDF's text to standard output instead of a `.txt` file beside it.
+            Every file left in the current directory is handed to the user, so keep it for files the user should receive. Write intermediate files, such as text extracted from a document or scratch data, under `/tmp` (64 MB), and print what you need to read: `pdftotext -layout file.pdf -` writes a PDF's text to standard output instead of a `.txt` file beside it.
             To show a chart in your answer, draw it with matplotlib and leave the figure open: every figure still open when the run ends is shown below your answer as an interactive chart, so do not also save, close or link it. The `charts` listed in the run result are those already shown: never embed or link their `file_link` in your answer. Save a chart as an image file only when the user asks for a file or it goes into a document.
-            Memory is limited to about 1 GiB; process large files in chunks. A run killed by the memory limit exits with code 137 and no error message.
-            """;
-    /**
-     * MEM-270: the Sandbox group (bash, bash_output, edit_file, publish_file). The working rules follow Claude Code's
-     * Bash and text editor descriptions and agents-flex's publish_file; the tool list is Dust's tool manifest for the
-     * MemoryOS computer image.
-     */
-    private static final String SANDBOX_GUIDANCE = """
-            ## Sandbox (bash, bash_output, edit_file, publish_file)
-            This conversation has its own Linux sandbox. Its working directory `/workspace` and every file in it persist across your tool calls and across turns of this conversation; the files attached to this conversation are copied into `/workspace/attachments` before your first sandbox tool of each turn (unsafe characters in a name become `_`; list them with `ls /workspace/attachments`). Commands run as an unprivileged user without root: add a missing Python package with `uv pip install <package>` (there is no `pip` command); system packages cannot be installed. Installed packages last as long as the sandbox, so check with `python3 -c 'import name'` before installing again.
-            Use `bash` for shell commands: one command or a script, with a short `description` of what it does. A command stops after `timeout_seconds` (default 60, at most 120); for longer work set `run_in_background`, then read its new output with `bash_output` and stop it with `kill`. Output longer than 30,000 characters is cut in the middle, and the result names the file holding all of it: search that file with `rg` or `tail` instead of printing it again.
-            Use `edit_file` to view a file with line numbers or a directory, create a file, replace one exact passage (`str_replace`, which must match exactly once: include enough surrounding lines) or insert after a line. Prefer it to sed or echo for editing files.
-            Search with `rg` (content) and `fd` (file names) in bash.
-            Network access is limited to the domains the administrator allowed; other requests fail.
-            When a file is ready for the user, call `publish_file` as the final delivery step. Internal paths such as `/workspace/...` are not reachable by the user and must never appear in your answer; give the returned link instead. If publishing fails, fix the problem and retry; never claim a file was delivered when the tool failed.
-            `run_python`, when it is offered, runs in this same sandbox from `/workspace`: the files it writes are there for `bash` and `publish_file`, and the files `bash` writes are there for it.
-            Installed in the sandbox:
-            - Shell: bash, coreutils, git, jq, rg (ripgrep), fd, file, 7z, zip and unzip, bc, sqlite3.
-            - Documents: pandoc; LibreOffice (`soffice --headless --convert-to pdf`); poppler-utils (pdftotext, pdftoppm); qpdf; `recalc-xlsx` (recalculates .xlsx formula values), `check-docx` (reports .docx formatting faults), `pptx-to-pdf`.
-            - Images, audio and video: ImageMagick (`magick`, `convert`), ffmpeg, Tesseract OCR with Vietnamese (`tesseract file.png - -l vie+eng`).
-            - Python 3.14 (`python3`): pandas, numpy, scipy, scikit-learn, statsmodels, matplotlib, seaborn, plotly, duckdb, pyarrow, openpyxl, xlrd, xlsxwriter, python-docx, python-pptx, reportlab, fpdf2, pypdf, pdfplumber, pypdfium2, pdf2image, pytesseract, markitdown, beautifulsoup4, sympy.
-            - Node: pptxgenjs, available to `node` scripts.
-            Vietnamese text needs a TTF font in PDFs: register `/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf`.
+            Memory is limited to about 1 GiB; process large files in chunks.
+            CPU time is limited to 30 seconds per run. A run killed by the memory or CPU limit exits with code 137 and no error message.
             """;
     private static final String OPEN_URL_REMINDER = """
             After web_search, open promising, reputable pages with open_url unless the query is
@@ -240,7 +218,6 @@ public final class ChatPrompts {
         if (tools.contains("open_url")) { heading(text); text.append(OPEN_URL_GUIDANCE); }
         if (tools.contains("search_files") || tools.contains("read_file")) { heading(text); text.append(FILES_GUIDANCE); }
         if (tools.contains("run_python")) { heading(text); text.append(RUN_PYTHON_GUIDANCE); }
-        if (tools.contains("bash")) { heading(text); text.append(SANDBOX_GUIDANCE); }
         if (tools.contains("generate_image")) { heading(text); text.append(IMAGE_GUIDANCE); }
         if (tools.contains("edit_image")) { heading(text); text.append(EDIT_IMAGE_GUIDANCE); }
         if (tools.contains("update_memory")) { heading(text); text.append(MEMORY_GUIDANCE); }

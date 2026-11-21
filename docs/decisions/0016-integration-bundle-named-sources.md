@@ -4,7 +4,7 @@ Date: 2026-09-25
 
 ## Status
 
-Superseded by [ADR 0027](0027-integrations-by-platform-and-memoryos-module-names.md) on 2026-10-12. Accepted; implemented 2026-09-25. Replaces the module name and the `io.memoryos.provider.<provider>` package layout of [ADR 0006](0006-shared-connector-bundle-and-jdbc-source-persistence.md); ADR 0006's single-bundle rationale and its JDBC persistence decision stand.
+Current again since [ADR 0034](0034-four-modules-with-memoryos-sources.md) (2026-11-22), with the module named `memoryos-sources` and Lark under `io.memoryos.connector.adapter.lark`; it was superseded by [ADR 0027](0027-integrations-by-platform-and-memoryos-module-names.md) from 2026-10-12 to 2026-11-22. Accepted; implemented 2026-09-25. Replaces the module name and the `io.memoryos.provider.<provider>` package layout of [ADR 0006](0006-shared-connector-bundle-and-jdbc-source-persistence.md); ADR 0006's single-bundle rationale and its JDBC persistence decision stand.
 
 ## Context
 

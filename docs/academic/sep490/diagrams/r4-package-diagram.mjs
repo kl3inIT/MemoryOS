@@ -5,7 +5,7 @@ import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const W = 1600;
-const H = 785;
+const H = 830;
 const INK = '#2b2b2b';
 const LINE = '#6f6a62';
 const MONO = "'JetBrains Mono', Consolas, monospace";
@@ -114,19 +114,28 @@ text(515, 112, 'HTTP', { anchor: 'middle', size: 12, italic: true, color: '#5d57
 dep([[830, 220], [830, 290]], '«use» public API', { lx: 830, ly: 255 });
 dep([[1365, 220], [1365, 290]], '«use» public API', { lx: 1365, ly: 255 });
 
-// ---- adapters below core -------------------------------------------------------
-const ay = 630;
-const adapters = ['memoryos-integration-google', 'memoryos-integration-microsoft', 'memoryos-integration-lark', 'memoryos-extraction'];
-const aw = 228;
-adapters.forEach((name, i) => {
-  const x = 323 + i * (aw + 14);
-  chip(x, ay, aw, 70, name, tone.adapter, { size: 12, sub: i < 3 ? ['Drive API, ACL', 'Microsoft Graph', 'Lark Open API'][i] : 'Docling, readers, OCR' });
-  dep([[x + aw / 2, ay], [x + aw / 2, 560]], i === 0 ? 'implements adapters' : undefined, { lx: x + aw / 2, ly: 596 });
+// ---- memoryos-sources below core, and the interpreter service -----------------
+const sources = pkg(30, 610, 1100, 150, 'memoryos-sources', tone.module, { mono: true, stereotype: '«library» platform adapters and content extraction' });
+const parts = [
+  ['connector.adapter.googledrive', 'Drive API, ACL'],
+  ['connector.adapter.sharepoint', 'Microsoft Graph'],
+  ['connector.adapter.lark', 'Lark Open API'],
+  ['ingestion.extraction', 'Docling, Tika, OCR, readers'],
+];
+const sw = (1100 - 32 - 3 * 14) / 4;
+parts.forEach(([name, sub], i) => {
+  chip(46 + i * (sw + 14), sources.top + 34, sw, 70, name, tone.adapter, { size: 12, sub });
 });
+dep([[580, 610], [580, 560]], '«use» public API, implements ports', { lx: 580, ly: 588 });
+
+const interpreter = pkg(1160, 610, 410, 150, 'memoryos-interpreter', tone.ai, { mono: true, stereotype: '«service» Python' });
+chips(['service (FastAPI)', 'executor image (per run)'], 1176, interpreter.top + 34, 378, tone.ai, { cols: 1, h: 34, gap: 8, size: 12.5 });
+// api calls the interpreter over HTTP for run_python, routed around the top row and core.
+dep([[1100, 47], [1100, 8], [1588, 8], [1588, 690], [1570, 690]], 'HTTP · run_python', { lx: 1380, ly: 8 });
 
 // ---- legend --------------------------------------------------------------------
-text(30, 745, 'Dashed arrow: «use» dependency. Layer arrows summarise the module dependencies listed in Table 2;', { size: 12.5, color: '#5d574f' });
-text(30, 763, 'every module may use shared. Out of the capstone scope and not drawn: channels, chat bots, sandbox.', { size: 12.5, color: '#5d574f' });
+text(30, 790, 'Dashed arrow: «use» dependency. Layer arrows summarise the module dependencies listed in Table 2;', { size: 12.5, color: '#5d574f' });
+text(30, 808, 'every module may use shared. memoryos-interpreter is a separate Python service, not a Gradle module.', { size: 12.5, color: '#5d574f' });
 
 const svg = `<svg id="diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
 <defs><marker id="open" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="11" markerHeight="11" orient="auto-start-reverse"><path d="M1 1 L11 6 L1 11" fill="none" stroke="${LINE}" stroke-width="1.6"/></marker></defs>

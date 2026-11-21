@@ -1046,18 +1046,6 @@ export const zBranchSelection = z.object({
     expectedChildId: z.uuid().nullish()
 });
 
-export const zSandboxSettingsRequest = z.object({
-    enabled: z.boolean(),
-    revision: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
-});
-
-export const zSandboxSettingsResponse = z.object({
-    configured: z.boolean(),
-    enabled: z.boolean(),
-    revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
-    allowedDomains: z.array(z.string())
-});
-
 export const zChatRetentionInput = z.object({
     days: z.int().gte(1).lte(3650).optional()
 });
@@ -1423,6 +1411,17 @@ export const zChatMemory = z.object({
 
 export const zChatMemoryEnabledInput = z.object({
     enabled: z.boolean()
+});
+
+export const zInterpreterSettingsRequest = z.object({
+    enabled: z.boolean(),
+    revision: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+});
+
+export const zInterpreterSettingsResponse = z.object({
+    configured: z.boolean(),
+    enabled: z.boolean(),
+    revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
 });
 
 export const zImageSelectionRequest = z.object({
@@ -3692,8 +3691,7 @@ export const zCodeEvent = z.object({
     code: z.string().nullable(),
     output: z.string().nullable(),
     files: z.array(zGeneratedFile),
-    stream: z.enum(['stdout', 'stderr']),
-    title: z.string().nullable()
+    stream: z.enum(['stdout', 'stderr'])
 });
 
 export const zResearchPlanEvent = z.object({
@@ -3801,12 +3799,6 @@ export const zChatSessionSearchItem = z.object({
 export const zChatSessionSearchPage = z.object({
     items: z.array(zChatSessionSearchItem),
     hasMore: z.boolean()
-});
-
-export const zSandboxHealthResponse = z.object({
-    connected: z.boolean(),
-    error: z.string(),
-    version: z.string()
 });
 
 export const zChatRetentionPreview = z.object({
@@ -4057,6 +4049,12 @@ export const zChatLibrarySourceOption = z.object({
         'SHAREPOINT',
         'LARK'
     ])
+});
+
+export const zInterpreterHealthResponse = z.object({
+    connected: z.boolean(),
+    error: z.string(),
+    version: z.string()
 });
 
 export const zImageAvailabilityResponse = z.object({
@@ -5203,18 +5201,6 @@ export const zSelectChatBranchPath = z.object({
 export const zSelectChatBranchResponse = z.void();
 
 /**
- * Sandbox setting
- */
-export const zGetChatSandboxSettingsResponse = zSandboxSettingsResponse;
-
-export const zUpdateChatSandboxSettingsBody = zSandboxSettingsRequest;
-
-/**
- * Saved Sandbox setting
- */
-export const zUpdateChatSandboxSettingsResponse = zSandboxSettingsResponse;
-
-/**
  * Your retention policy
  */
 export const zGetChatRetentionResponse = zChatRetentionPolicy;
@@ -5637,6 +5623,18 @@ export const zStarChatLibraryEntryPath = z.object({
  * Starred
  */
 export const zStarChatLibraryEntryResponse = z.void();
+
+/**
+ * Code Interpreter setting
+ */
+export const zGetChatInterpreterSettingsResponse = zInterpreterSettingsResponse;
+
+export const zUpdateChatInterpreterSettingsBody = zInterpreterSettingsRequest;
+
+/**
+ * Saved Code Interpreter setting
+ */
+export const zUpdateChatInterpreterSettingsResponse = zInterpreterSettingsResponse;
 
 export const zSelectChatImageProviderBody = zImageSelectionRequest;
 
@@ -7907,11 +7905,6 @@ export const zSearchChatSessionsQuery = z.object({
  */
 export const zSearchChatSessionsResponse = zChatSessionSearchPage;
 
-/**
- * Live sandbox runtime health
- */
-export const zGetChatSandboxHealthResponse = zSandboxHealthResponse;
-
 export const zPreviewChatRetentionQuery = z.object({
     days: z.int().gte(1).lte(3650).nullish()
 });
@@ -8109,6 +8102,11 @@ export const zDownloadChatLibraryArchivePath = z.object({
  * The ZIP bytes
  */
 export const zDownloadChatLibraryArchiveResponse = z.string();
+
+/**
+ * Live Code Interpreter service health
+ */
+export const zGetChatInterpreterHealthResponse = zInterpreterHealthResponse;
 
 /**
  * Configured image availability

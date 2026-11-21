@@ -16,10 +16,10 @@ ROOT = Path(__file__).resolve().parents[2]
 DEPLOYMENT = ROOT / "infrastructure/deployment"
 
 # Each service and the resource directories whose configuration it loads.
-INTEGRATIONS = ("memoryos-integration-lark/src/main/resources", "memoryos-integration-google/src/main/resources", "memoryos-integration-microsoft/src/main/resources", "memoryos-extraction/src/main/resources")
+SOURCES = ("memoryos-sources/src/main/resources",)
 SERVICES = {
-    "api": ("memoryos-api/src/main/resources", "memoryos-core/src/main/resources", *INTEGRATIONS),
-    "worker": ("memoryos-worker/src/main/resources", "memoryos-core/src/main/resources", *INTEGRATIONS),
+    "api": ("memoryos-api/src/main/resources", "memoryos-core/src/main/resources", *SOURCES),
+    "worker": ("memoryos-worker/src/main/resources", "memoryos-core/src/main/resources", *SOURCES),
 }
 
 ENVIRONMENTS = ("staging", "production")
@@ -34,7 +34,7 @@ DERIVED = {"MEMORYOS_REDIS_TLS_CA_CERTIFICATE": "MEMORYOS_REDIS_TLS_CA_FILE"}
 RENDERED_BY_CI = {
     "MEMORYOS_RELEASE", "MEMORYOS_API_IMAGE", "MEMORYOS_WORKER_IMAGE", "MEMORYOS_WEB_IMAGE",
     "MEMORYOS_KEYCLOAK_IMAGE",
-    "MEMORYOS_SANDBOX_IMAGE", "MEMORYOS_SANDBOX_COMPUTER_IMAGE",
+    "MEMORYOS_INTERPRETER_IMAGE", "MEMORYOS_INTERPRETER_EXECUTOR_IMAGE",
     "MEMORYOS_POSTGRES_ADMIN_PASSWORD", "MEMORYOS_DATABASE_PASSWORD",
     "MEMORYOS_KEYCLOAK_DATABASE_PASSWORD", "MEMORYOS_KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD",
     "MEMORYOS_TENANT_ID", "MEMORYOS_TENANT_SLUG", "MEMORYOS_TENANT_DISPLAY_NAME",

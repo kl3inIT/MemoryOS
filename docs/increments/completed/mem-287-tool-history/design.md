@@ -5,7 +5,7 @@
 A Chat turn's history holds earlier questions and answers only. The tool calls of those turns, and what they returned,
 are gone: `chat_message.activity` keeps a step's name, status and citations, never its arguments or result
 ([`ChatToolEvent`](../../../../memoryos-core/src/main/java/io/memoryos/chat/ChatToolEvent.java): "tool arguments and raw
-results are not streamed"). On staging on 2026-10-16 ([MEM-270](../mem-270-chat-sandbox/design.md)), turn 1 cleaned a
+results are not streamed"). On staging on 2026-10-16 ([MEM-270](../../superseded/mem-270-chat-sandbox/design.md)), turn 1 cleaned a
 workbook into `/workspace/doanh_thu_2026_da_lam_sach.xlsx`; turn 2 ("add a column chart and send me the cleaned
 workbook") listed only `/workspace/attachments` and answered that it could not create the file. Answers may not name
 sandbox paths, so nothing in the history said where the file was. A prompt rule pointing at `/workspace` (PR #714) was

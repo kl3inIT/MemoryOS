@@ -64,8 +64,6 @@ services:
       SPRING_PROFILES_ACTIVE: staging
       # Labels this host's telemetry; the worker's profiles cannot, as it runs the production profile too.
       MEMORYOS_ENVIRONMENT: staging
-      # MEM-270: this host has about 4 GiB free beside the stack; each sandbox may use 1 GiB.
-      MEMORYOS_SANDBOX_MAX_RUNNING: ${MEMORYOS_SANDBOX_MAX_RUNNING:-6}
     depends_on:
       postgres-inspector-bootstrap:
         condition: service_completed_successfully

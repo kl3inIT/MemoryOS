@@ -1146,24 +1146,6 @@ export type BranchSelection = {
     expectedChildId?: string | null;
 };
 
-export type SandboxSettingsRequest = {
-    enabled: boolean;
-    revision: number;
-};
-
-export type SandboxSettingsResponse = {
-    /**
-     * Whether this deployment has a sandbox
-     */
-    configured: boolean;
-    enabled: boolean;
-    revision: number;
-    /**
-     * The only domains a sandbox may reach, set by the deployment; empty denies all egress
-     */
-    allowedDomains: Array<string>;
-};
-
 export type ChatRetentionInput = {
     /**
      * Days of inactivity, 1 to 3650; leave it out to keep conversations until you delete them
@@ -1560,6 +1542,20 @@ export type ChatMemory = {
 
 export type ChatMemoryEnabledInput = {
     enabled: boolean;
+};
+
+export type InterpreterSettingsRequest = {
+    enabled: boolean;
+    revision: number;
+};
+
+export type InterpreterSettingsResponse = {
+    /**
+     * Whether this deployment has a Code Interpreter service
+     */
+    configured: boolean;
+    enabled: boolean;
+    revision: number;
 };
 
 export type ImageSelectionRequest = {
@@ -3690,10 +3686,6 @@ export type CodeEvent = {
     output: string | null;
     files: Array<GeneratedFile>;
     stream: 'stdout' | 'stderr';
-    /**
-     * A sandbox command's title, on its running stage
-     */
-    title: string | null;
 };
 
 export type GeneratedFile = {
@@ -3820,12 +3812,6 @@ export type ChatSessionSearchItem = {
 export type ChatSessionSearchPage = {
     items: Array<ChatSessionSearchItem>;
     hasMore: boolean;
-};
-
-export type SandboxHealthResponse = {
-    connected: boolean;
-    error: string;
-    version: string;
 };
 
 export type ChatRetentionPreview = {
@@ -4113,6 +4099,12 @@ export type ChatLibrarySourceOption = {
     id: string;
     name: string;
     type: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT' | 'LARK';
+};
+
+export type InterpreterHealthResponse = {
+    connected: boolean;
+    error: string;
+    version: string;
 };
 
 export type ImageAvailabilityResponse = {
@@ -7609,96 +7601,6 @@ export type SelectChatBranchResponses = {
 
 export type SelectChatBranchResponse = SelectChatBranchResponses[keyof SelectChatBranchResponses];
 
-export type GetChatSandboxSettingsData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/chat/sandbox';
-};
-
-export type GetChatSandboxSettingsErrors = {
-    /**
-     * Invalid Sandbox setting
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Management authority or CSRF required
-     */
-    403: ApiProblem;
-    /**
-     * Tenant unavailable
-     */
-    404: ApiProblem;
-    /**
-     * Sandbox setting changed
-     */
-    409: ApiProblem;
-    /**
-     * Sandbox is not configured
-     */
-    503: ApiProblem;
-};
-
-export type GetChatSandboxSettingsError = GetChatSandboxSettingsErrors[keyof GetChatSandboxSettingsErrors];
-
-export type GetChatSandboxSettingsResponses = {
-    /**
-     * Sandbox setting
-     */
-    200: SandboxSettingsResponse;
-};
-
-export type GetChatSandboxSettingsResponse = GetChatSandboxSettingsResponses[keyof GetChatSandboxSettingsResponses];
-
-export type UpdateChatSandboxSettingsData = {
-    body: SandboxSettingsRequest;
-    path?: never;
-    query?: never;
-    url: '/api/chat/sandbox';
-};
-
-export type UpdateChatSandboxSettingsErrors = {
-    /**
-     * Invalid Sandbox setting
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Management authority or CSRF required
-     */
-    403: ApiProblem;
-    /**
-     * Tenant unavailable
-     */
-    404: ApiProblem;
-    /**
-     * Sandbox setting changed
-     */
-    409: ApiProblem;
-    /**
-     * Sandbox is not configured
-     */
-    503: ApiProblem;
-};
-
-export type UpdateChatSandboxSettingsError = UpdateChatSandboxSettingsErrors[keyof UpdateChatSandboxSettingsErrors];
-
-export type UpdateChatSandboxSettingsResponses = {
-    /**
-     * Saved Sandbox setting
-     */
-    200: SandboxSettingsResponse;
-};
-
-export type UpdateChatSandboxSettingsResponse = UpdateChatSandboxSettingsResponses[keyof UpdateChatSandboxSettingsResponses];
-
 export type GetChatRetentionData = {
     body?: never;
     path?: never;
@@ -9430,6 +9332,96 @@ export type StarChatLibraryEntryResponses = {
 };
 
 export type StarChatLibraryEntryResponse = StarChatLibraryEntryResponses[keyof StarChatLibraryEntryResponses];
+
+export type GetChatInterpreterSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/interpreter';
+};
+
+export type GetChatInterpreterSettingsErrors = {
+    /**
+     * Invalid Code Interpreter setting
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Code Interpreter setting changed
+     */
+    409: ApiProblem;
+    /**
+     * Code Interpreter is not configured
+     */
+    503: ApiProblem;
+};
+
+export type GetChatInterpreterSettingsError = GetChatInterpreterSettingsErrors[keyof GetChatInterpreterSettingsErrors];
+
+export type GetChatInterpreterSettingsResponses = {
+    /**
+     * Code Interpreter setting
+     */
+    200: InterpreterSettingsResponse;
+};
+
+export type GetChatInterpreterSettingsResponse = GetChatInterpreterSettingsResponses[keyof GetChatInterpreterSettingsResponses];
+
+export type UpdateChatInterpreterSettingsData = {
+    body: InterpreterSettingsRequest;
+    path?: never;
+    query?: never;
+    url: '/api/chat/interpreter';
+};
+
+export type UpdateChatInterpreterSettingsErrors = {
+    /**
+     * Invalid Code Interpreter setting
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Code Interpreter setting changed
+     */
+    409: ApiProblem;
+    /**
+     * Code Interpreter is not configured
+     */
+    503: ApiProblem;
+};
+
+export type UpdateChatInterpreterSettingsError = UpdateChatInterpreterSettingsErrors[keyof UpdateChatInterpreterSettingsErrors];
+
+export type UpdateChatInterpreterSettingsResponses = {
+    /**
+     * Saved Code Interpreter setting
+     */
+    200: InterpreterSettingsResponse;
+};
+
+export type UpdateChatInterpreterSettingsResponse = UpdateChatInterpreterSettingsResponses[keyof UpdateChatInterpreterSettingsResponses];
 
 export type SelectChatImageProviderData = {
     body: ImageSelectionRequest;
@@ -17929,51 +17921,6 @@ export type SearchChatSessionsResponses = {
 
 export type SearchChatSessionsResponse = SearchChatSessionsResponses[keyof SearchChatSessionsResponses];
 
-export type GetChatSandboxHealthData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/chat/sandbox/health';
-};
-
-export type GetChatSandboxHealthErrors = {
-    /**
-     * Invalid Sandbox setting
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Management authority or CSRF required
-     */
-    403: ApiProblem;
-    /**
-     * Tenant unavailable
-     */
-    404: ApiProblem;
-    /**
-     * Sandbox setting changed
-     */
-    409: ApiProblem;
-    /**
-     * Sandbox is not configured
-     */
-    503: ApiProblem;
-};
-
-export type GetChatSandboxHealthError = GetChatSandboxHealthErrors[keyof GetChatSandboxHealthErrors];
-
-export type GetChatSandboxHealthResponses = {
-    /**
-     * Live sandbox runtime health
-     */
-    200: SandboxHealthResponse;
-};
-
-export type GetChatSandboxHealthResponse = GetChatSandboxHealthResponses[keyof GetChatSandboxHealthResponses];
-
 export type PreviewChatRetentionData = {
     body?: never;
     path?: never;
@@ -18941,6 +18888,51 @@ export type DownloadChatLibraryArchiveResponses = {
 
 export type DownloadChatLibraryArchiveResponse = DownloadChatLibraryArchiveResponses[keyof DownloadChatLibraryArchiveResponses];
 
+export type GetChatInterpreterHealthData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/interpreter/health';
+};
+
+export type GetChatInterpreterHealthErrors = {
+    /**
+     * Invalid Code Interpreter setting
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Code Interpreter setting changed
+     */
+    409: ApiProblem;
+    /**
+     * Code Interpreter is not configured
+     */
+    503: ApiProblem;
+};
+
+export type GetChatInterpreterHealthError = GetChatInterpreterHealthErrors[keyof GetChatInterpreterHealthErrors];
+
+export type GetChatInterpreterHealthResponses = {
+    /**
+     * Live Code Interpreter service health
+     */
+    200: InterpreterHealthResponse;
+};
+
+export type GetChatInterpreterHealthResponse = GetChatInterpreterHealthResponses[keyof GetChatInterpreterHealthResponses];
+
 export type GetChatImageAvailabilityData = {
     body?: never;
     path?: never;
@@ -19800,7 +19792,7 @@ export type GetChatFileArtifactPdfPreviewErrors = {
      */
     404: ApiProblem;
     /**
-     * Every short-lived sandbox is in use
+     * The interpreter is busy
      */
     429: ApiProblem;
     /**
