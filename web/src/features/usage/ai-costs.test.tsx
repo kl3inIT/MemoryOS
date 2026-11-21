@@ -74,7 +74,7 @@ describe("AI costs page", () => {
     const row: AiCostRow = {
       key: "00000000-0000-0000-0000-000000000011",
       label: "Trần Thu Hà",
-      detail: "ha@tasco.vn",
+      detail: "ha@example.test",
       calls: 412,
       unknownCostCalls: 3,
       inputTokens: 1_800_000,

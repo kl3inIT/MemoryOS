@@ -28,7 +28,7 @@ function session(
     authorizationVersion: 1,
     uiLanguage: "en",
     displayName,
-    tenant: { displayName: "Tasco", role: "MEMBER" },
+    tenant: { displayName: "Công ty Mẫu", role: "MEMBER" },
     capabilities,
     scopedCapabilities: [],
   };

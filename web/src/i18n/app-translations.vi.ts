@@ -475,7 +475,6 @@ export const englishUi: Record<string, string> = {
   "Lowercase letters, digits, dots, underscores or hyphens. Cannot be changed later.":
     "Chữ thường, số, dấu chấm, gạch dưới hoặc gạch ngang. Không đổi được sau này.",
   "Display name": "Tên hiển thị",
-  "Sign in with Tasco": "Đăng nhập bằng Tasco",
   "Issuer URL": "Issuer URL",
   "The issuer is fixed for the lifetime of this provider.":
     "Issuer cố định trong suốt vòng đời của nhà cung cấp này.",
@@ -506,7 +505,6 @@ export const englishUi: Record<string, string> = {
   "Redirect URI": "Redirect URI",
   Copy: "Sao chép",
   Copied: "Đã sao chép",
-  tasco: "tasco",
   "memoryos-broker": "memoryos-broker",
   "Allow sign-in through this provider": "Cho phép đăng nhập qua nhà cung cấp này",
   "Turning this off hides the provider on the sign-in screen without deleting its configuration.":

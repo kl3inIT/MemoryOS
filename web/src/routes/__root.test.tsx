@@ -19,7 +19,7 @@ const ENGLISH_MEMBER: CurrentIdentity = {
   displayName: null,
   authorizationVersion: 1,
   uiLanguage: "en",
-  tenant: { displayName: "Tasco", role: "MEMBER" },
+  tenant: { displayName: "Công ty Mẫu", role: "MEMBER" },
   capabilities: ["SYSTEM_BASIC", "CHAT_READ"],
   scopedCapabilities: [],
 };

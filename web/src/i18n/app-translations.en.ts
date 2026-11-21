@@ -370,7 +370,7 @@ export const vietnameseUi: Record<string, string> = {
   "Không nhận dạng được bản ghi. File đã được xóa.":
     "The recording could not be transcribed. The file has been deleted.",
   "Cơ quan, tổ chức": "Organization",
-  "CÔNG TY CỔ PHẦN TASCO": "TASCO JOINT STOCK COMPANY",
+  "Công ty Mẫu": "Example Company",
   "Số biên bản": "Minutes number",
   "Về việc": "Subject",
   "Địa điểm": "Place",

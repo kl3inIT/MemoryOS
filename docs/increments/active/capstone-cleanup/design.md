@@ -85,6 +85,15 @@ drop the bots' data:
 - **Rollback.** The release before cannot run on the new schema (it reads the dropped columns), so going back past
   V202 is a database restore.
 
+## Web branding
+
+The web shell, account states and 404 share the MemoryOS brand. The full wordmark reuses the splash and
+loader artwork, and the desktop rail uses the favicon's M. Both are masks painted in the active theme's
+text colour. The mobile navigation opens as a drawer and closes back to its trigger.
+
+The login theme styles the provider controls rendered by Keycloak using their configured display names and
+icons.
+
 ## Verification
 
 - `./gradlew clean check` green, including `ModulithArchitectureTest`, `CoreDependencyRulesTest`,

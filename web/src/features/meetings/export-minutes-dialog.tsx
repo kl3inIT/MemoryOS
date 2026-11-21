@@ -362,7 +362,7 @@ const HeadingFields = withForm({
                   <field.TextField
                     label={ui("Cơ quan, tổ chức")}
                     maxLength={200}
-                    placeholder={ui("CÔNG TY CỔ PHẦN TASCO")}
+                    placeholder={ui("Công ty Mẫu")}
                   />
                 )}
               </form.AppField>
