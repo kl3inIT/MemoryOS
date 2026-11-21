@@ -324,11 +324,6 @@ const faq: SectionIntro & { items: readonly { question: string; answer: string }
         "Google Workspace, Microsoft 365, Slack, Confluence, Notion, Jira, Salesforce, HubSpot, GitHub, cloud storage, email, databases and REST APIs, plus file uploads. MemoryOS indexes every common document format, including scanned files.",
     },
     {
-      question: "Who uses MemoryOS today?",
-      answer:
-        "MemoryOS is currently used in a university capstone project. Vadan is backed by GenAI Fund.",
-    },
-    {
       question: "How do we start?",
       answer:
         "Email info@vadan.app. We scope a deployment around your systems, identity provider and first use cases.",
