@@ -55,6 +55,7 @@ it("shows a direct load of an unknown address in the account language", async ()
   expect(
     await screen.findByRole("heading", { name: "This path isn’t part of your organization." }),
   ).toBeInTheDocument();
+  expect(screen.getByRole("img", { name: "MemoryOS" })).toBeVisible();
   expect(document.documentElement.lang).toBe("en");
   expect(screen.queryByText("Đường dẫn này không thuộc tổ chức của bạn.")).not.toBeInTheDocument();
 });
