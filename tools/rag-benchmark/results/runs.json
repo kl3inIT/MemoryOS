@@ -27,6 +27,13 @@
       "evals": ["eval-cII-2026-10-31T07:43:05"]
     },
     {
+      "file": "retrieval-openai-large.jsonl",
+      "label": "Retrieval, hybrid search, OpenAI text-embedding-3-large (semantic floor 0.65)",
+      "date": "2026-11-22",
+      "api": "main at 47c5fa9b",
+      "evals": ["eval-hfr-2026-11-21T22:49:45"]
+    },
+    {
       "file": "retrieval-keyword.jsonl",
       "label": "Retrieval, keyword search only",
       "date": "2026-10-31",
