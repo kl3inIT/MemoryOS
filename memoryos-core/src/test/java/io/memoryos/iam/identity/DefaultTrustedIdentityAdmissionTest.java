@@ -52,7 +52,7 @@ class DefaultTrustedIdentityAdmissionTest {
 
     private static final TenantId TENANT = new TenantId(UUID.fromString("10000000-0000-0000-0000-000000000059"));
     private static final String ISSUER = "https://keycloak.example/realms/memoryos";
-    private static final ExternalIdentity IDENTITY = new ExternalIdentity(ISSUER, "tasco-member");
+    private static final ExternalIdentity IDENTITY = new ExternalIdentity(ISSUER, "sample-member");
 
     private JpaHarness jpa;
     private JdbcClient jdbc;
@@ -82,7 +82,7 @@ class DefaultTrustedIdentityAdmissionTest {
                 jpa.transactionManager()
         );
         owner = bootstrapper.bootstrap(new InitialTenantBootstrapRequest(
-                TENANT, new ExternalIdentity(ISSUER, "owner"), "tasco", "Tasco", "TEST-MEM-59"
+                TENANT, new ExternalIdentity(ISSUER, "owner"), "sample", "Sample", "TEST-MEM-59"
         )).ownerActorId();
         admission = service(groups);
     }

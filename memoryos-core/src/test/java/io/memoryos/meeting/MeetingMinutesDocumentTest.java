@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 
 class MeetingMinutesDocumentTest {
     private static final MeetingMinutesDocument.Heading HEADING = new MeetingMinutesDocument.Heading(
-            "CÔNG TY CỔ PHẦN TASCO", "TẬP ĐOÀN TASCO", "12", "giao ban tuần Khối Tài chính", "Phòng họp A, Hà Nội",
+            "CÔNG TY MẪU", "TẬP ĐOÀN MẪU", "12", "giao ban tuần Khối Tài chính", "Phòng họp A, Hà Nội",
             "09 giờ 00 ngày 21 tháng 9 năm 2026", "10 giờ 15 cùng ngày", "Nguyễn Văn An", "Giám đốc Tài chính",
             "Trần Thị Bình", "Chuyên viên", List.of("Anh Thanh", "Chị Lan"));
 
@@ -32,7 +32,7 @@ class MeetingMinutesDocumentTest {
 
         assertTrue(lines.contains("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"));
         assertTrue(lines.contains("Độc lập - Tự do - Hạnh phúc"));
-        assertTrue(lines.contains("CÔNG TY CỔ PHẦN TASCO"));
+        assertTrue(lines.contains("CÔNG TY MẪU"));
         assertTrue(lines.contains("Số: 12/BB"));
         assertTrue(lines.contains("BIÊN BẢN"));
         assertTrue(lines.contains("Về việc giao ban tuần Khối Tài chính"));
@@ -100,12 +100,12 @@ class MeetingMinutesDocumentTest {
 
     @Test
     void theChosenFaceIsNamedOnEveryRunAndAnUnknownOneIsNot() throws Exception {
-        var arial = new MeetingMinutesDocument.Heading("Tasco", "", "", "Giao ban", "", "", "", "", "", "", "",
+        var arial = new MeetingMinutesDocument.Heading("Sample", "", "", "Giao ban", "", "", "", "", "", "", "",
                 List.of(), "Arial");
         assertEquals(List.of("Arial"), faces(MeetingMinutesDocument.render(meeting(), arial)),
                 "every run, the letterhead and the signatures included, is set in the face that was picked");
 
-        var unknown = MeetingService.validate(new MeetingMinutesDocument.Heading("Tasco", "", "", "Giao ban", "", "",
+        var unknown = MeetingService.validate(new MeetingMinutesDocument.Heading("Sample", "", "", "Giao ban", "", "",
                 "", "", "", "", "", List.of(), "Comic Sans MS"));
         assertEquals(List.of("Times New Roman"), faces(MeetingMinutesDocument.render(meeting(), unknown)),
                 "a face nobody offered falls back to the decree's own");

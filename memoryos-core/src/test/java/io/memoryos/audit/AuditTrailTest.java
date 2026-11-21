@@ -96,7 +96,7 @@ class AuditTrailTest {
 
     @Test void nothingRewritesOrRemovesAnEventOutsideTheRetentionSweep() {
         tx.executeWithoutResult(ignored -> trail.record(AuditRecord.of(AuditAction.USER_DEACTIVATE, tenant)
-                .actor(manager, "Trần Thu Hà").detail("email", "quan@tasco.vn").build()));
+                .actor(manager, "Trần Thu Hà").detail("email", "quan@example.test").build()));
         assertThrows(RuntimeException.class, () -> jdbc.sql("UPDATE audit_event SET outcome = 'DENIED'").update());
         assertThrows(RuntimeException.class, () -> jdbc.sql("DELETE FROM audit_event").update());
         assertEquals(1, events());
@@ -114,7 +114,7 @@ class AuditTrailTest {
             throw new IllegalStateException("denied");
         }));
         assertEquals(1, events());
-        assertEquals("ha@tasco.vn", jdbc.sql("SELECT actor_email FROM audit_event").query(String.class).single());
+        assertEquals("ha@example.test", jdbc.sql("SELECT actor_email FROM audit_event").query(String.class).single());
     }
 
     @Test void everyActionIsReadableBackAndUniquelyNamed() {
@@ -133,7 +133,7 @@ class AuditTrailTest {
     private TenantId tenant() {
         UUID id = UUID.randomUUID();
         jdbc.sql("ALTER TABLE tenants DROP CONSTRAINT IF EXISTS uq_tenants_deployment_slot").update();
-        jdbc.sql("INSERT INTO tenants(id, slug, display_name, status, bootstrap_reference) VALUES (:id, :slug, 'Tasco', 'ACTIVE', 'test')")
+        jdbc.sql("INSERT INTO tenants(id, slug, display_name, status, bootstrap_reference) VALUES (:id, :slug, 'Sample', 'ACTIVE', 'test')")
                 .param("id", id).param("slug", id.toString()).update();
         return new TenantId(id);
     }
@@ -146,7 +146,7 @@ class AuditTrailTest {
         jdbc.sql("""
                 INSERT INTO actor_profiles(actor_id, issuer, subject, display_name, email, email_verified, observed_at)
                 VALUES (:id, 'https://id.test', :subject, :name, :email, true, :at)""")
-                .param("id", id).param("subject", id.toString()).param("name", name).param("email", "ha@tasco.vn")
+                .param("id", id).param("subject", id.toString()).param("name", name).param("email", "ha@example.test")
                 .param("at", Timestamp.from(Instant.now())).update();
         return new ActorId(id);
     }

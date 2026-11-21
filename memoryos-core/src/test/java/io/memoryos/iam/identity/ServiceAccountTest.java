@@ -67,7 +67,7 @@ class ServiceAccountTest {
                 InitialTenantBootstrapper.class,
                 jpa.transactionManager()
         ).bootstrap(new InitialTenantBootstrapRequest(
-                TENANT, new ExternalIdentity(ISSUER, "owner"), "tasco", "Tasco", "TEST-ADR-0032"
+                TENANT, new ExternalIdentity(ISSUER, "owner"), "sample", "Sample", "TEST-ADR-0032"
         )).ownerActorId();
     }
 

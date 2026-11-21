@@ -39,8 +39,8 @@ class DefaultPrincipalSearchTest {
     void anActiveMemberSearchesTheirTenantWithoutAnyCapability() {
         // The searcher's capabilities are never consulted: meetings share through this picker without Chat authority.
         when(tenants.findActiveMembership(SEARCHER))
-                .thenReturn(Optional.of(new TenantMembership(TENANT, "Tasco", TenantMembershipRole.MEMBER)));
-        var person = new PrincipalPerson(new ActorId(UUID.randomUUID()), "Lan", "lan@tasco.vn");
+                .thenReturn(Optional.of(new TenantMembership(TENANT, "Sample", TenantMembershipRole.MEMBER)));
+        var person = new PrincipalPerson(new ActorId(UUID.randomUUID()), "Lan", "lan@example.test");
         var group = new GroupIdentity(new GroupId(UUID.randomUUID()), "Board", null);
         when(users.searchActiveMembers(TENANT, "la", 5)).thenReturn(List.of(person));
         when(groups.listGroupOptions(TENANT, "la", 0, 5)).thenReturn(new GroupIdentityPage(List.of(group), 0, 5, 1, 1));

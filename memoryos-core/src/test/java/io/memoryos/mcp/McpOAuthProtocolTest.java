@@ -254,7 +254,7 @@ class McpOAuthProtocolTest {
     @Test
     void buildsAuthorizationUrlsAndParsesChallengesAndProbeOrder() {
         var url = protocol.authorizationUrl(URI.create("https://as.example/authorize?tenant=1"), "client", URI.create("https://m.example/cb"),
-                "state", VERIFIER, "files:read", "https://mcp.example/mcp", Map.of("hd", "tasco.vn", "state", "attacker"));
+                "state", VERIFIER, "files:read", "https://mcp.example/mcp", Map.of("hd", "example.test", "state", "attacker"));
         var parameters = query(url.getRawQuery());
         assertEquals("1", parameters.get("tenant"));
         assertEquals("state", parameters.get("state"));
@@ -263,7 +263,7 @@ class McpOAuthProtocolTest {
         assertFalse(url.toString().contains(VERIFIER));
         assertEquals("S256", parameters.get("code_challenge_method"));
         assertEquals("https://mcp.example/mcp", parameters.get("resource"));
-        assertEquals("tasco.vn", parameters.get("hd"));
+        assertEquals("example.test", parameters.get("hd"));
 
         var challenge = McpOAuthProtocol.challenge(List.of("Basic realm=\"x\"", "Bearer realm=\"a,b\", scope=\"read write\", resource_metadata=\"https://m.example/.well-known/oauth-protected-resource\""));
         assertEquals("read write", challenge.scope());

@@ -51,7 +51,7 @@ class ActorSessionLoginSuccessHandlerTest {
         var request = sessionRequest();
         var response = new MockHttpServletResponse();
         handler(new SignInOutcome.NotAdmitted()).onAuthenticationSuccess(request, response,
-                login(Map.of(), Map.of("sub", "member", "memoryos_identity_provider", "tasco")));
+                login(Map.of(), Map.of("sub", "member", "memoryos_identity_provider", "sample")));
 
         assertNull(seen.get().identityProviderClaim());
         assertEquals(new ExternalIdentity(ISSUER, "member"), seen.get().identity());
@@ -80,9 +80,9 @@ class ActorSessionLoginSuccessHandlerTest {
         invitation.store(request);
         var response = new MockHttpServletResponse();
         handler(new SignInOutcome.Admitted(actor)).onAuthenticationSuccess(request, response,
-                login(Map.of("memoryos_identity_provider", "tasco", "sid", "provider-session"), Map.of("sub", "member")));
+                login(Map.of("memoryos_identity_provider", "sample", "sid", "provider-session"), Map.of("sub", "member")));
 
-        assertEquals("tasco", seen.get().identityProviderClaim());
+        assertEquals("sample", seen.get().identityProviderClaim());
         assertEquals(new SignInAttempt.Invitation(invitation.invitationId(), invitation.tenant()), seen.get().invitation());
         assertEquals(TRUST, seen.get().trust());
         assertEquals("/", response.getRedirectedUrl());

@@ -58,7 +58,7 @@ class SonioxLiveTranscriptionTest {
 
     private SonioxLiveTranscription open(long offsetMs, boolean diarize) {
         return SonioxLiveTranscription.open("https://api.soniox.com/v1", "voice-secret", "stt-rt-v5",
-                new LiveTranscription.Options("vi", List.of("Tasco", "OKR"), diarize), offsetMs, listener,
+                new LiveTranscription.Options("vi", List.of("Alpha", "OKR"), diarize), offsetMs, listener,
                 (uri, provider) -> {
                     providers.add(provider);
                     return CompletableFuture.completedFuture(socket());
@@ -72,7 +72,7 @@ class SonioxLiveTranscriptionTest {
             assertTrue(config.path("enable_speaker_diarization").asBoolean());
             assertTrue(config.path("enable_endpoint_detection").asBoolean());
             assertEquals(24_000, config.path("sample_rate").asInt());
-            assertEquals("Tasco", config.path("context").path("terms").get(0).asString());
+            assertEquals("Alpha", config.path("context").path("terms").get(0).asString());
             assertEquals("vi", config.path("language_hints").get(0).asString());
         }
     }

@@ -49,27 +49,27 @@ class DefaultJitAdmissionPolicyTest {
 
     @Test
     void allowsOnlyAnExactStringAliasPresentInTheDurableAllowlist() {
-        transactions.executeWithoutResult(_ -> allowlist.allow("tasco", null));
+        transactions.executeWithoutResult(_ -> allowlist.allow("sample", null));
 
-        assertTrue(policy.allows("tasco"));
-        assertFalse(policy.allows("TASCO"));
-        assertFalse(policy.allows(" tasco "));
+        assertTrue(policy.allows("sample"));
+        assertFalse(policy.allows("SAMPLE"));
+        assertFalse(policy.allows(" sample "));
         assertFalse(policy.allows(""));
         assertFalse(policy.allows("other"));
         assertFalse(policy.allows(null));
-        assertFalse(policy.allows(List.of("tasco")));
-        assertFalse(policy.allows(Map.of("alias", "tasco")));
+        assertFalse(policy.allows(List.of("sample")));
+        assertFalse(policy.allows(Map.of("alias", "sample")));
     }
 
     @Test
     void seedingIsIdempotentAndDisallowRemovesAdmission() {
-        transactions.executeWithoutResult(_ -> seeder.seed(List.of("tasco", "tasco")));
-        transactions.executeWithoutResult(_ -> seeder.seed(List.of("tasco")));
-        assertEquals(1L, jdbc.sql("SELECT COUNT(*) FROM jit_allowed_provider WHERE alias = 'tasco'")
+        transactions.executeWithoutResult(_ -> seeder.seed(List.of("sample", "sample")));
+        transactions.executeWithoutResult(_ -> seeder.seed(List.of("sample")));
+        assertEquals(1L, jdbc.sql("SELECT COUNT(*) FROM jit_allowed_provider WHERE alias = 'sample'")
                 .query(Long.class).single());
-        assertTrue(policy.allows("tasco"));
+        assertTrue(policy.allows("sample"));
 
-        transactions.executeWithoutResult(_ -> allowlist.disallow("tasco"));
-        assertFalse(policy.allows("tasco"));
+        transactions.executeWithoutResult(_ -> allowlist.disallow("sample"));
+        assertFalse(policy.allows("sample"));
     }
 }

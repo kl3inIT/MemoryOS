@@ -63,7 +63,7 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
             ExtractionFailure.CONNECTION_FAILED, ExtractionFailure.TIMEOUT,
             ExtractionFailure.INTERNAL, ExtractionFailure.MALFORMED);
     // A PDF with a text layer carries hundreds of characters on a page. A scan carries none, or a
-    // signature on one page: the Tasco financial reports have text on 6 of 260 pages. Below this
+    // signature on one page: the sample financial reports have text on 6 of 260 pages. Below this
     // density the native reader has read the scan's margins, not the document, and indexing that
     // would publish a document that answers no question while reporting success.
     static final int MIN_FALLBACK_CHARACTERS_PER_PDF_PAGE = 100;

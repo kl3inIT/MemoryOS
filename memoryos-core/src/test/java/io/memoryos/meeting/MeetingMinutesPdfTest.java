@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 /** The PDF biên bản, read back out of the bytes: what it says, what it is set in, and where its pages break. */
 class MeetingMinutesPdfTest {
     private static final MeetingMinutesDocument.Heading HEADING = new MeetingMinutesDocument.Heading(
-            "CÔNG TY CỔ PHẦN TASCO", "TẬP ĐOÀN TASCO", "12", "Giao ban tuần", "Phòng họp A, Hà Nội",
+            "CÔNG TY MẪU", "TẬP ĐOÀN MẪU", "12", "Giao ban tuần", "Phòng họp A, Hà Nội",
             "9 giờ ngày 21 tháng 9 năm 2026", "10 giờ 15", "Nguyễn Văn An", "Tổng giám đốc", "Trần Thị Lan",
             "Chuyên viên", List.of("Anh Thanh", "Chị Lan"));
 
@@ -25,7 +25,7 @@ class MeetingMinutesPdfTest {
         String text = text(MeetingMinutesPdf.render(meeting(List.of()), HEADING));
 
         for (String expected : List.of("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", "Độc lập - Tự do - Hạnh phúc",
-                "CÔNG TY CỔ PHẦN TASCO", "BIÊN BẢN", "Về việc Giao ban tuần", "I. Thành phần tham dự:",
+                "CÔNG TY MẪU", "BIÊN BẢN", "Về việc Giao ban tuần", "I. Thành phần tham dự:",
                 "II. Nội dung cuộc họp:", "III. Kết luận cuộc họp:", "IV. Nhiệm vụ được giao:",
                 "Chốt ngân sách quý 4 trước thứ Năm", "THƯ KÝ", "CHỦ TỌA", "Nguyễn Văn An", "Trần Thị Lan"))
             assertTrue(squash(text).contains(squash(expected)), () -> "missing: " + expected);
@@ -70,7 +70,7 @@ class MeetingMinutesPdfTest {
     }
 
     private static MeetingMinutesDocument.Heading withFace(String face) {
-        return new MeetingMinutesDocument.Heading("Tasco", "", "", "Giao ban", "", "", "", "", "", "", "", List.of(),
+        return new MeetingMinutesDocument.Heading("Sample", "", "", "Giao ban", "", "", "", "", "", "", "", List.of(),
                 face);
     }
 
