@@ -30,7 +30,7 @@ tasks.withType<Test>().configureEach {
     doFirst { diagnostics.mkdirs() }
 }
 
-// Core holds the ports; no platform SDK and no parser reaches it (ADR 0027).
+// Core holds the ports; no platform SDK and no parser reaches it (ADR 0027, kept by ADR 0034).
 classpathIsolation {
     forbiddenGroups.addAll("com.larksuite.oapi", "com.google.apis", "com.google.api-client", "com.microsoft.graph", "org.apache.tika", "ai.docling")
 }

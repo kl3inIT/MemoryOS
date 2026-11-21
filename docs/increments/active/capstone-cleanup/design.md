@@ -105,7 +105,7 @@ remove the Chat sandbox:
 ## Verification
 
 - `./gradlew clean check` green, including `ModulithArchitectureTest`, `CoreDependencyRulesTest`,
-  `WorkerDependencyRulesTest` and `OpenApiContractTest`; `pnpm --dir web check` green.
+  `SourcesDependencyRulesTest`, `WorkerDependencyRulesTest` and `OpenApiContractTest`; `pnpm --dir web check` green.
 - Flyway migrates a copy of the staging schema forward without error.
 - Staging: sign in, a Source syncs and indexes, Search and a cited Chat answer work, `run_python` returns a file,
   a meeting records; no `channels` or `sandbox` container runs.

@@ -50,14 +50,21 @@ request with step 3.
 
 ## 3. Four modules again
 
-- [ ] Merge `memoryos-integration-google`, `memoryos-integration-microsoft`, `memoryos-integration-lark` and
+Done 2026-11-22 ([ADR 0034](../../../decisions/0034-four-modules-with-memoryos-sources.md)), in one pull request with
+step 2; the code moved without a change of behavior.
+
+- [x] Merge `memoryos-integration-google`, `memoryos-integration-microsoft`, `memoryos-integration-lark` and
       `memoryos-extraction` into `memoryos-sources`, packaged by capability as at `d756db3d`
-      (`io.memoryos.connector.adapter.<provider>`, `io.memoryos.ingestion.extraction`).
-- [ ] One convention for its dependency rules test; keep the check that no platform SDK reaches `memoryos-core`.
-- [ ] A new ADR superseding ADR 0027 (and naming ADR 0016 as current again); `ARCHITECTURE.md`,
-      `docs/guidelines/backend.md`, `AGENTS.md` module list.
-- [ ] Redraw `docs/academic/sep490/diagrams/r4-package-diagram.mjs` with four modules and export the PNG.
-- [ ] Gates green.
+      (`io.memoryos.connector.adapter.googledrive`, `.sharepoint`, `.lark`; `io.memoryos.ingestion.extraction`), with
+      one auto-configuration imports file.
+- [x] One dependency rules test, `SourcesDependencyRulesTest`; `memoryos-core` keeps the check that no platform SDK
+      or parser reaches its runtime classpath; the per-platform isolation goes.
+- [x] ADR 0034 superseding ADR 0027 and naming ADR 0016 current again; `ARCHITECTURE.md`,
+      `docs/guidelines/backend.md`, `AGENTS.md`, `README.md`, `settings.gradle.kts`, `Dockerfile`, the CI backend
+      leg (`sources-worker`), the CI/CD runbook and the test matrices.
+- [x] Redraw `docs/academic/sep490/diagrams/r4-package-diagram.mjs` with four modules and `memoryos-interpreter` as a
+      separate Python service; HTML and PNG regenerated.
+- [x] Gates: `clean check` and `pnpm --dir web check` in CI.
 
 ## 4. Release (owner's session)
 

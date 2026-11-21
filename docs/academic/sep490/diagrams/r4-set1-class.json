@@ -356,7 +356,7 @@
       "id": "extractor",
       "label": "SourceContentExtractorRouter",
       "kind": "class",
-      "sublabel": "memoryos-extraction",
+      "sublabel": "memoryos-sources",
       "row": 4,
       "col": 3,
       "methods": [
