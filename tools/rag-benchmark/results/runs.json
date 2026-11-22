@@ -24,7 +24,7 @@
       "label": "Grounded mode, OpenAI text-embedding-3-large (semantic floor 0.65)",
       "date": "2026-11-22",
       "api": "main at a26ae788",
-      "evals": ["eval-1MR-2026-11-22T00:26:02"]
+      "evals": ["eval-1MR-2026-11-22T00:26:02", "eval-Dan-2026-11-22T03:09:23 (stage re-grade of the same replies)"]
     },
     {
       "file": "retrieval-hybrid.jsonl",
