@@ -85,8 +85,8 @@ class DefaultTenantMemberManagementTest {
         owner = bootstrapper.bootstrap(new InitialTenantBootstrapRequest(
                 TENANT_ID,
                 new ExternalIdentity("https://issuer.example", "owner"),
-                "tasco",
-                "Tasco",
+                "sample",
+                "Sample",
                 "MEM-36"
         )).ownerActorId();
         persistMember();

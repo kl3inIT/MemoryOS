@@ -1,8 +1,8 @@
 // Fails `check` when a forbidden library reaches a module's runtime classpath.
 //
 // Nothing fails to compile when an `implementation` turns into an `api`, or when a library grows a transitive
-// dependency, so a platform SDK can reach `memoryos-core` or another platform's module unnoticed. Resolution is
-// the only place that shows it (ADR 0027).
+// dependency, so a platform SDK or a parser can reach `memoryos-core` unnoticed. Resolution is the only place that
+// shows it (ADR 0027, kept by ADR 0034).
 //
 // Usage: `classpathIsolation { forbiddenGroups.addAll("com.larksuite.oapi") }`.
 interface ClasspathIsolation {

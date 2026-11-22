@@ -4,7 +4,9 @@ Date: 2026-10-12
 
 ## Status
 
-Accepted; implemented 2026-10-12
+Superseded by [ADR 0034](0034-four-modules-with-memoryos-sources.md) on 2026-11-22, which returns to
+[ADR 0016](0016-integration-bundle-named-sources.md)'s single bundle as `memoryos-sources` and keeps this ADR's
+`memoryos-*` names and its check that no platform SDK reaches `memoryos-core`. Accepted; implemented 2026-10-12
 ([MEM-247](../increments/completed/mem-247-module-layout/design.md)). Supersedes
 [ADR 0016](0016-integration-bundle-named-sources.md): its single `sources` bundle and its rule that a bundle
 package follows the capability it serves. [ADR 0015](0015-capability-module-map.md) stands for `core`: a package

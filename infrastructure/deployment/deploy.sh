@@ -20,9 +20,9 @@ mkdir -p "$state"
 exec 9>"$state/lock"
 flock --nonblock 9 || { echo "Another $environment operation owns the lock" >&2; exit 1; }
 
-# Release images in images.env order. The sandbox server starts a conversation's sandbox from sandbox-computer on
-# the host daemon, so it is pulled and verified here but is not a Compose service.
-images=(api worker web keycloak channels sandbox sandbox-computer)
+# Release images in images.env order. The interpreter starts executor containers from interpreter-executor on the
+# host daemon, so it is pulled and verified here but is not a Compose service.
+images=(api worker web interpreter interpreter-executor keycloak)
 
 image_key() {
   local key=${1//-/_}
@@ -33,13 +33,13 @@ image_reference() {
   sed -n "s/^$(image_key "$1")=//p" "$2"
 }
 
-# A runtime accepted from MEM-110 to MEM-271 has the interpreter; a release no longer does, and a rollback to such a
-# runtime starts it again from that runtime's Compose files.
+# A runtime accepted before MEM-110, or on the OpenSandbox sandbox from MEM-271 until ADR 0033, has no interpreter.
 has_interpreter() {
   grep -q "^$(image_key interpreter)=" "$1"
 }
 
-# MEM-270: a runtime accepted before the Chat sandbox has no sandbox server.
+# MEM-270: a runtime accepted on the Chat sandbox, until ADR 0033, has its server; a release no longer does, and a
+# rollback to such a runtime starts it again from that runtime's Compose files.
 has_sandbox() {
   grep -q "^$(image_key sandbox)=" "$1"
 }
@@ -49,8 +49,9 @@ has_keycloak() {
   grep -q "^$(image_key keycloak)=" "$1"
 }
 
-# MEM-246: the chat bots' process runs where the target's Compose files define it, from a release that carries its
-# image; production defines none until the bot is accepted, and a release accepted before it has no image.
+# MEM-246: the chat bots' process runs where the target's Compose files define it, from a runtime that carries its
+# image. A runtime accepted on staging from MEM-246 until ADR 0032 has it; a release no longer does, and a rollback to
+# such a runtime starts it again from that runtime's Compose files. Production never defined it.
 # The services are read whole before they are searched: under pipefail, grep -q leaving a pipe early makes Compose
 # die of SIGPIPE, and the answer would then turn on timing.
 has_channels() {
@@ -111,15 +112,25 @@ rollout() {
   if has_sandbox "$tx/$target.env"; then
     compose up -d --no-deps --pull never --force-recreate --wait --wait-timeout 240 sandbox
   fi
-  # MEM-271: a runtime without the interpreter takes down the one a runtime before it left. Its Compose files no longer
+  # ADR 0033: a runtime without the sandbox takes down the server a runtime before it left. Its Compose files no longer
   # name the service, so it is found by its Compose labels.
-  if ! has_interpreter "$tx/$target.env"; then
+  if ! has_sandbox "$tx/$target.env"; then
     local left
     left=$(docker ps --all --quiet --filter label=com.docker.compose.project=memoryos \
-      --filter label=com.docker.compose.service=interpreter)
+      --filter label=com.docker.compose.service=sandbox)
     if [[ -n "$left" ]]; then
       # shellcheck disable=SC2086
       docker stop --time 65 $left > /dev/null && docker rm $left > /dev/null
+    fi
+  fi
+  # ADR 0032: likewise a runtime without the chat bots' process takes down the one a runtime before it left.
+  if ! has_channels; then
+    local bots
+    bots=$(docker ps --all --quiet --filter label=com.docker.compose.project=memoryos \
+      --filter label=com.docker.compose.service=channels)
+    if [[ -n "$bots" ]]; then
+      # shellcheck disable=SC2086
+      docker stop --time 45 $bots > /dev/null && docker rm $bots > /dev/null
     fi
   fi
 }
@@ -337,16 +348,12 @@ if [[ "$mode" == deploy ]]; then
   mkdir "$DOCKER_CONFIG"
   trap 'rm -f -- "$DOCKER_CONFIG/config.json"; rmdir -- "$DOCKER_CONFIG"' EXIT
   docker login ghcr.io --username "${4:?registry user}" --password-stdin
-  compose pull api worker web sandbox
-  if has_channels; then compose pull channels; fi
+  compose pull api worker web interpreter
   if has_keycloak "$tx/candidate.env"; then compose pull keycloak; fi
-  docker pull --quiet "$(image_reference sandbox-computer "$tx/candidate.env")" > /dev/null
+  docker pull --quiet "$(image_reference interpreter-executor "$tx/candidate.env")" > /dev/null
   for component in "${images[@]}"; do
     reference=$(image_reference "$component" "$tx/candidate.env")
     [[ -n "$reference" ]] || continue
-    # A release names the chat bots' image everywhere, but only an environment that defines the service pulls it:
-    # production's 2026-10-18 promotion stopped here on an image it never pulled (MEM-246).
-    if [[ "$component" == channels ]] && ! has_channels; then continue; fi
     docker image inspect "$reference" | jq --exit-status --arg sha "${release:0:40}" '
       .[0].Config.Labels["org.opencontainers.image.revision"] == $sha
     ' > /dev/null
@@ -398,7 +405,7 @@ elif [[ "$mode" == rollback ]]; then
     # keeps saying that somebody has to look. The database was empty when this began, so recovery
     # is to take the stack down, discard its volumes and deploy again, not to restore anything.
     echo 'First deployment on this host: no previous runtime exists to restore.' >&2
-    echo 'Stop the candidate api, worker, web and sandbox, then remove the reservation.' >&2
+    echo 'Stop the candidate api, worker, web and interpreter, then remove the reservation.' >&2
     echo 'Keep the database: the same volume holds the identity realm, and migrations already applied' >&2
     echo 'are carried by the next release as well. See the CI/CD runbook.' >&2
     exit 1
@@ -409,9 +416,9 @@ elif [[ "$mode" == rollback ]]; then
   cmp --silent "$tx/schema.before" "$tx/schema.after-failure" || {
     echo 'Schema changed: writers stopped; operator recovery is required. No database restore was attempted.' >&2; exit 1;
   }
-  if ! has_sandbox "$tx/previous.env"; then
-    # The previous Compose files have no sandbox server to restore; leave the candidate one stopped.
-    target=candidate; compose stop --timeout 30 sandbox
+  if ! has_interpreter "$tx/previous.env"; then
+    # The previous Compose files have no interpreter service to restore; leave the candidate one stopped.
+    target=candidate; compose stop --timeout 65 interpreter
   fi
   # A previous runtime without a release Keycloak leaves the candidate's running: stopping it would
   # sign nobody in, and restoring the operator's image is the operator's call.

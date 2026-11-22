@@ -39,7 +39,6 @@ const server = (overrides: Partial<McpServerView> = {}): McpServerView => ({
   tenantWide: true,
   groupIds: [],
   personaIds: [],
-  publicBots: false,
   status: "CREATED",
   lastRefreshedAt: null,
   toolCount: 0,
@@ -50,7 +49,7 @@ const server = (overrides: Partial<McpServerView> = {}): McpServerView => ({
 
 const client = (overrides: Partial<McpOAuthClientView> = {}): McpOAuthClientView => ({
   id: "c1",
-  label: "Tasco North",
+  label: "Sample North",
   source: "ADMIN",
   issuer: "https://accounts.google.com",
   clientId: "client-1",
@@ -220,7 +219,7 @@ it("goes straight to the manual form for a server with a known provider", async 
 
 it("offers the administrator's own connect only on a shared-connection server", async () => {
   show(server({ authPerformer: "PER_USER" }), [client()]);
-  expect(await screen.findByText("Tasco North")).toBeInTheDocument();
+  expect(await screen.findByText("Sample North")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Kết nối" })).not.toBeInTheDocument();
 });
 
@@ -255,9 +254,9 @@ it("asks before deleting an application", async () => {
     }),
   );
   show(server(), [client()]);
-  await userEvent.click(await screen.findByRole("button", { name: "Xóa Tasco North" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Xóa Sample North" }));
   expect(deleted).toBe(false);
-  expect(await screen.findByText("Xóa ứng dụng Tasco North?")).toBeInTheDocument();
+  expect(await screen.findByText("Xóa ứng dụng Sample North?")).toBeInTheDocument();
   const dialog = screen.getByRole("alertdialog");
   await userEvent.click(
     [...dialog.querySelectorAll("button")].find((button) => button.textContent === "Xóa")!,

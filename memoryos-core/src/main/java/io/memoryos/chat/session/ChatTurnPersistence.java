@@ -140,21 +140,14 @@ public class ChatTurnPersistence {
                                boolean inProject) {}
 
     /**
-     * The session agent's tool policy, read under the owner's agent use authority before a command is admitted;
-     * {@code fromChannel} when the channel asks. A conversation held in a channel may
-     * use its bot's assistant only for questions asked through the bot (MEM-273): a command from anywhere else, such as
-     * the web, needs the owner to be able to use the assistant themself.
+     * The session agent's tool policy, read under the owner's agent use authority before a command is admitted.
      */
     @Transactional(readOnly = true)
-    public SessionAgent agent(ActorId actor, UUID session, boolean fromChannel) {
+    public SessionAgent agent(ActorId actor, UUID session) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
         var owned = chats.findOwned(tenant, actor, session, false).orElseThrow(ChatException::unavailable);
         var capabilities = authorization.effectiveCapabilities(actor);
         boolean agentsManage = capabilities.contains(IamCapability.AGENTS_MANAGE);
-        if (!fromChannel && chats.heldInChannel(session)
-                && !chats.usablePersona(tenant, actor, owned.personaId(), agentsManage)) {
-            throw ChatException.unavailable();
-        }
         return new SessionAgent(chats.persona(session, false, agentsManage), agentsManage,
                 capabilities.contains(IamCapability.MODELS_MANAGE), owned.projectId() != null);
     }
@@ -308,7 +301,6 @@ public class ChatTurnPersistence {
             var binding = selection.binding().forOptions(settings.options().sampling());
             instructions = ChatPrompts.resolve(instructions,
                     binding.toolCalling() && settings.options().searches(), Instant.now(), language);
-            instructions = ChatPrompts.withChannel(instructions, command.channel());
             instructions = userInformation(tenant, actor, instructions, own, sessionId);
             ChatTurnSetup.validateQuestion(instructions, text, contextTokenLimit, binding, selection.promptContribution());
         }

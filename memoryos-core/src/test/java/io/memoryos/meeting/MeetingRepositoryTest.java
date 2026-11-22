@@ -32,7 +32,7 @@ class MeetingRepositoryTest {
         meetings = new MeetingRepository(jdbc);
         jdbc.sql("ALTER TABLE tenants DROP CONSTRAINT uq_tenants_deployment_slot").update();
         tenant = UUID.randomUUID();
-        jdbc.sql("INSERT INTO tenants(id, slug, display_name, status, bootstrap_reference) VALUES (:id, :slug, 'Tasco', 'ACTIVE', 'test')")
+        jdbc.sql("INSERT INTO tenants(id, slug, display_name, status, bootstrap_reference) VALUES (:id, :slug, 'Sample', 'ACTIVE', 'test')")
                 .param("id", tenant).param("slug", tenant.toString()).update();
         owner = UUID.randomUUID();
         jdbc.sql("INSERT INTO actors(id) VALUES (:id)").param("id", owner).update();
@@ -232,23 +232,23 @@ class MeetingRepositoryTest {
     @Test void decidingOneStretchAnswersTheLineAndTheProposalAsTheyNowStand() {
         UUID id = meeting(), run = UUID.randomUUID();
         var line = new Meeting.Utterance(UUID.randomUUID(), Meeting.Track.MIC, "1", 0, 2000,
-                "Bên Tát cô đã gửi bảng KPI.", 0.5,
+                "Bên Anh fa đã gửi bảng KPI.", 0.5,
                 List.of(new Meeting.Span(4, 10, 0.35), new Meeting.Span(18, 22, 0.4)));
         meetings.insertUtterance(tenant, id, line);
-        var offered = new Meeting.Correction(UUID.randomUUID(), line.id(), run, 4, 10, "Tát cô", "Tasco",
+        var offered = new Meeting.Correction(UUID.randomUUID(), line.id(), run, 4, 10, "Anh fa", "Alpha",
                 "Tên công ty.", 0.75, 0.75, 0.75, true, Meeting.CorrectionStatus.PENDING);
         var declined = new Meeting.Correction(UUID.randomUUID(), line.id(), run, 18, 22, "bảng", "băng", "", 0.5,
                 0.5, 0.5, false, Meeting.CorrectionStatus.PENDING);
         meetings.insertCorrections(tenant, id, run, List.of(offered, declined));
 
-        var rewritten = meetings.rewrite(tenant, id, line.id(), line.text(), "Bên Tasco đã gửi bảng KPI.",
+        var rewritten = meetings.rewrite(tenant, id, line.id(), line.text(), "Bên Alpha đã gửi bảng KPI.",
                 List.of(new Meeting.Span(17, 21, 0.4)), Meeting.EditSource.MODEL, run, owner, "MODEL");
-        var accepted = meetings.accepted(tenant, offered.id(), owner, 4, 10, "Tát cô", "Tasco");
+        var accepted = meetings.accepted(tenant, offered.id(), owner, 4, 10, "Anh fa", "Alpha");
         var kept = meetings.decide(tenant, declined.id(), Meeting.CorrectionStatus.KEPT, owner);
 
         assertEquals(meetings.utterances(tenant, id).getFirst(), rewritten, "the line as a reader now reads it");
         assertEquals(Meeting.EditSource.MODEL, rewritten.editSource());
-        assertEquals(new Meeting.Correction(offered.id(), line.id(), run, 4, 10, "Tát cô", "Tasco", "Tên công ty.",
+        assertEquals(new Meeting.Correction(offered.id(), line.id(), run, 4, 10, "Anh fa", "Alpha", "Tên công ty.",
                 0.75, 0.75, 0.75, true, Meeting.CorrectionStatus.ACCEPTED), accepted);
         assertEquals(Meeting.CorrectionStatus.KEPT, kept.status());
         assertTrue(meetings.corrections(tenant, id).containsAll(List.of(accepted, kept)),
@@ -257,23 +257,23 @@ class MeetingRepositoryTest {
 
     @Test void aRewrittenLineKeepsItsOtherProposalsOnTheirWords() {
         UUID id = meeting(), run = UUID.randomUUID();
-        String text = "Bên Tát cô đã gửi bảng KPI quý tư.";
+        String text = "Bên Anh fa đã gửi bảng KPI quý tư.";
         var line = new Meeting.Utterance(UUID.randomUUID(), Meeting.Track.MIC, "1", 0, 2000, text, 0.5, List.of());
         var other = new Meeting.Utterance(UUID.randomUUID(), Meeting.Track.MIC, "1", 3000, 4000, text, 0.5, List.of());
         meetings.insertUtterance(tenant, id, line);
         meetings.insertUtterance(tenant, id, other);
-        var changed = offer(line.id(), run, 4, 10, "Tát cô", "Tasco");
+        var changed = offer(line.id(), run, 4, 10, "Anh fa", "Alpha");
         var inside = offer(line.id(), run, 8, 10, "cô", "co");
         var before = offer(line.id(), run, 0, 3, "Bên", "Bênh");
         var after = offer(line.id(), run, 27, 33, "quý tư", "quý 4");
         var elsewhere = offer(other.id(), run, 27, 33, "quý tư", "quý 4");
         meetings.insertCorrections(tenant, id, run, List.of(changed, inside, before, after, elsewhere));
 
-        meetings.realign(tenant, line.id(), changed.id(), 4, 10, "Tasco".length() - "Tát cô".length(), owner);
+        meetings.realign(tenant, line.id(), changed.id(), 4, 10, "Alpha".length() - "Anh fa".length(), owner);
 
         var stored = meetings.corrections(tenant, id).stream()
                 .collect(Collectors.toMap(Meeting.Correction::id, Function.identity()));
-        String rewritten = "Bên Tasco đã gửi bảng KPI quý tư.";
+        String rewritten = "Bên Alpha đã gửi bảng KPI quý tư.";
         var moved = stored.get(after.id());
         assertEquals("quý tư", rewritten.substring(moved.start(), moved.end()), "what follows moves with the words");
         assertEquals(Meeting.CorrectionStatus.PENDING, moved.status());

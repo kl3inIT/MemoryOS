@@ -1,61 +1,49 @@
-/** The Tenant this deployment serves. A second Tenant makes this its own setting. */
-const TENANT_NAME = "Tasco";
+import { useId } from "react";
+import {
+  MEMORYOS_WORDMARK_PATHS,
+  MEMORYOS_WORDMARK_VIEW_BOX,
+} from "@/components/memoryos-wordmark";
+import { useAppTranslation } from "@/i18n/use-app-translation";
+
+// The M from public/favicon.svg, without the favicon's background.
+const MEMORYOS_MARK_PATHS = ["M8 9h3.2l4.8 7 4.8-7H24v14h-3.3v-8.7L16 21l-4.7-6.7V23H8V9Z"];
+const MEMORYOS_MARK_VIEW_BOX = { x: 8, y: 9, width: 16, height: 14 };
 
 type BrandProps = {
   compact?: boolean;
 };
 
-/**
- * The Tenant's wordmark, painted in the surrounding text colour.
- *
- * The artwork is a black silhouette, so it is masked rather than drawn: one file serves the
- * sidebar in either theme, and it follows the colour around it instead of carrying its own.
- * The collapsed rail is as wide as a button, where a wordmark would be a smudge, so it shows the
- * wordmark's own "T" (tenant-mark.png, cut from the same artwork) in the tile.
- */
+/** Masks the MemoryOS artwork with the theme's primary text colour. */
 export function Brand({ compact = false }: BrandProps) {
-  const name = TENANT_NAME;
-
-  if (compact) {
-    return (
-      <span
-        role="img"
-        className="grid size-7 place-items-center rounded-md border border-border-default bg-surface-raised"
-        aria-label={name}
-      >
-        <span
-          aria-hidden="true"
-          className="size-4 bg-content-primary"
-          style={{
-            maskImage: "url(/tenant-mark.png)",
-            WebkitMaskImage: "url(/tenant-mark.png)",
-            maskRepeat: "no-repeat",
-            WebkitMaskRepeat: "no-repeat",
-            maskPosition: "center",
-            WebkitMaskPosition: "center",
-            maskSize: "contain",
-            WebkitMaskSize: "contain",
-          }}
-        />
-      </span>
-    );
-  }
+  const ui = useAppTranslation();
+  const maskId = useId();
+  const { x, y, width, height } = compact ? MEMORYOS_MARK_VIEW_BOX : MEMORYOS_WORDMARK_VIEW_BOX;
+  const paths = compact ? MEMORYOS_MARK_PATHS : MEMORYOS_WORDMARK_PATHS;
 
   return (
-    <span
+    <svg
       role="img"
-      aria-label={name}
-      className="inline-block h-4 w-[6.9rem] bg-content-primary"
-      style={{
-        maskImage: "url(/tenant-wordmark.png)",
-        WebkitMaskImage: "url(/tenant-wordmark.png)",
-        maskRepeat: "no-repeat",
-        WebkitMaskRepeat: "no-repeat",
-        maskPosition: "left center",
-        WebkitMaskPosition: "left center",
-        maskSize: "contain",
-        WebkitMaskSize: "contain",
-      }}
-    />
+      aria-label={ui("MemoryOS")}
+      viewBox={`${x} ${y} ${width} ${height}`}
+      className={
+        compact
+          ? "size-7 rounded-md border border-border-default bg-surface-raised p-[5px] text-content-primary"
+          : "h-4 w-28 text-content-primary"
+      }
+    >
+      <mask id={maskId}>
+        {paths.map((d) => (
+          <path key={d} d={d} fill="white" fillRule="evenodd" />
+        ))}
+      </mask>
+      <rect
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        fill="currentColor"
+        mask={`url(#${maskId})`}
+      />
+    </svg>
   );
 }

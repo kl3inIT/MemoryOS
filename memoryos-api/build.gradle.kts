@@ -16,14 +16,7 @@ configurations.configureEach {
 dependencies {
     implementation(project(":memoryos-core"))
     implementation(libs.commons.csv)
-    implementation(project(":memoryos-integration-lark"))
-    runtimeOnly(project(":memoryos-integration-opensandbox"))
-    implementation(project(":memoryos-integration-google"))
-    implementation(project(":memoryos-integration-microsoft"))
-    // MEM-263: the Zalo bot's adapter, through which an administrator's token is checked.
-    runtimeOnly(project(":memoryos-integration-zalo"))
-    runtimeOnly(project(":memoryos-integration-whatsapp"))
-    implementation(project(":memoryos-extraction"))
+    implementation(project(":memoryos-sources"))
     implementation(platform(libs.spring.ai.bom))
     implementation(libs.embabel.platform)
     implementation(libs.embabel.openai)

@@ -21,7 +21,7 @@ class DeploymentEmbeddingProviderMigrationTest {
     void anUnusedDeploymentProviderGoesAUsedOneLosesItsKeyReferenceAndEnteredKeysStay() throws Exception {
         try (var database = TestDatabase.freshPostgres("143")) {
             var jdbc = JdbcClient.create(database);
-            UUID tenant = tenant(jdbc, "tasco");
+            UUID tenant = tenant(jdbc, "sample");
             provider(jdbc, tenant, "Deployment", "deployment");
             UUID serving = provider(jdbc, tenant, "serving-embedding", "v1:sealed");
             generation(jdbc, tenant, serving, "memoryos-chunks-serving", "PRESENT");

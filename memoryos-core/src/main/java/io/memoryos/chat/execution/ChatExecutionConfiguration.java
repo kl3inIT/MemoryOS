@@ -18,6 +18,7 @@ import io.memoryos.chat.image.ImageArtifactService;
 import io.memoryos.chat.image.ImageConnectionService;
 import io.memoryos.chat.image.ImageProviderClient;
 import io.memoryos.chat.ChatMemoryService;
+import io.memoryos.chat.interpreter.InterpreterClient;
 import io.memoryos.chat.interpreter.InterpreterService;
 import io.memoryos.chat.research.ResearchProperties;
 import io.memoryos.chat.research.ResearchTelemetry;
@@ -35,7 +36,6 @@ import io.memoryos.retrieval.DocumentOriginalService;
 import io.memoryos.retrieval.DocumentSearchService;
 import io.memoryos.retrieval.SearchTimings;
 import io.memoryos.usage.AiUsageLimitService;
-import io.memoryos.sandbox.SandboxService;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
 import org.springframework.beans.factory.ObjectProvider;
@@ -74,12 +74,12 @@ class ChatExecutionConfiguration {
                                         @Qualifier("chatInferenceScheduler") Scheduler scheduler, SearchTimings timings,
                                         UserFileService files, UserFileSearchService fileSearch, UserFileContentService fileContent,
                                         WebProviderClient web, ImageProviderClient image, ImageArtifactService imageArtifacts,
-                                        InterpreterService interpreterSettings,
+                                        InterpreterClient interpreter, InterpreterService interpreterSettings,
                                         DocumentOriginalService originals, ChatMemoryService memories, ResearchProperties research,
-                                        ObjectProvider<SandboxService> sandboxes, MeterRegistry meters,
+                                        MeterRegistry meters,
                                         ObservationRegistry observations) {
         return new ChatModelExecutor(contexts, repository, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent,
-                web, image, imageArtifacts, interpreterSettings, originals, memories, sandboxes.getIfAvailable(),
+                web, image, imageArtifacts, interpreter, interpreterSettings, originals, memories,
                 research, new ResearchTelemetry(meters, observations), meters);
     }
 

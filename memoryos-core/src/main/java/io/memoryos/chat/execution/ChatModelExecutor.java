@@ -20,6 +20,7 @@ import io.memoryos.chat.ChatToolActivity;
 import io.memoryos.chat.ChatTurnOptions;
 import io.memoryos.chat.WebSearchMode;
 import io.memoryos.chat.ChatMemoryService;
+import io.memoryos.chat.interpreter.InterpreterClient;
 import io.memoryos.chat.interpreter.InterpreterService;
 import io.memoryos.chat.research.ResearchProperties;
 import io.memoryos.chat.research.ResearchTelemetry;
@@ -27,7 +28,6 @@ import io.memoryos.chat.tools.AgentBuilderTools;
 import io.memoryos.chat.tools.FileReaderTool;
 import io.memoryos.chat.tools.McpTools;
 import io.memoryos.chat.tools.RunPythonTool;
-import io.memoryos.chat.tools.SandboxTools;
 import io.memoryos.chat.tools.UpdateMemoryTool;
 import io.memoryos.chat.tools.SandboxDocuments;
 import io.memoryos.chat.tools.WebTools;
@@ -59,7 +59,6 @@ import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.Map;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
@@ -69,7 +68,6 @@ import reactor.core.scheduler.Scheduler;
 import io.memoryos.library.UserFileContentService;
 import io.memoryos.library.UserFileSearchService;
 import io.memoryos.library.UserFileService;
-import io.memoryos.sandbox.SandboxService;
 
 /** Calls the public native runner. There is no MemoryOS inference/tool loop here. */
 public final class ChatModelExecutor {
@@ -86,27 +84,27 @@ public final class ChatModelExecutor {
     private final @Nullable WebProviderClient web;
     private final @Nullable ImageProviderClient image;
     private final ImageArtifactService imageArtifacts;
+    private final @Nullable InterpreterClient interpreter;
     private final @Nullable InterpreterService interpreterSettings;
     private final @Nullable DocumentOriginalService originals;
     private final @Nullable ChatMemoryService memories;
     private final MeterRegistry meters;
     private final @Nullable ResearchExecutor research;
-    private final @Nullable SandboxService sandboxes;
 
     public ChatModelExecutor(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository processes,
             ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits, Scheduler scheduler, SearchTimings timings,
             UserFileService files, UserFileSearchService fileSearch, UserFileContentService fileContent,
             @Nullable WebProviderClient web, @Nullable ImageProviderClient image, ImageArtifactService imageArtifacts,
+            @Nullable InterpreterClient interpreter,
             @Nullable InterpreterService interpreterSettings,
             @Nullable DocumentOriginalService originals,
             @Nullable ChatMemoryService memories,
-            @Nullable SandboxService sandboxes,
             @Nullable ResearchProperties researchLimits, @Nullable ResearchTelemetry researchTelemetry,
             MeterRegistry meters) {
+        this.interpreter = interpreter;
         this.interpreterSettings = interpreterSettings;
         this.originals = originals;
         this.memories = memories;
-        this.sandboxes = sandboxes;
         this.research = researchLimits == null ? null : new ResearchExecutor(researchLimits, researchTelemetry == null ? ResearchTelemetry.NOOP : researchTelemetry);
         this.contexts = contexts;
         this.processes = processes;
@@ -126,8 +124,6 @@ public final class ChatModelExecutor {
 
     /** Attachment bytes come from object storage; this bounds that read on its own, not by a turn deadline. */
     private static final Duration FILE_INPUT_TIMEOUT = Duration.ofSeconds(60);
-    /** Workspace archives run on their own virtual threads, off the turn's and the provider's. */
-    private static final Executor SANDBOX_SAVES = save -> Thread.ofVirtual().name("chat-sandbox-save").start(save);
 
     /** {@code run_python} needs a tool-calling model and an agent whose tool policy includes the code interpreter. */
     static boolean pythonAllowed(boolean toolCalling, ChatTurnOptions options) {
@@ -276,7 +272,6 @@ public final class ChatModelExecutor {
             searchTool = new SearchTool(search, setup.actor(), selectionRunner, selected.policy().tokens(), searchLimits, active,
                     agent.guard()::availableContextTokens, agent.events(), cancellation, List.of(new UserMessage(agent.task())),
                     timings, setup.options().sourceAllowlist(), agent.evidence(), agent.activity());
-            if (setup.options().wholeSources()) searchTool.withWholeSources();
             tools.addAll(Tool.fromInstance(searchTool));
         }
         if (setup.webSearch() != WebSearchMode.off && web != null && setup.webAccess().search() != null) {
@@ -329,7 +324,6 @@ public final class ChatModelExecutor {
         var guards = new CopyOnWriteArrayList<ChatModelGuard>();
         var drains = new CopyOnWriteArrayList<CompletableFuture<Void>>();
         SearchTool searchTool = null;
-        SandboxTools sandboxWork = null;
         var fileWork = new SearchTasks.Scope(searchLimits.cleanupTimeout());
         var fileCancellation = cancellation.subscribe(ignored -> fileWork.cancel());
         Runnable fileActive = () -> { fileWork.checkActive(); guard.checkActive(); };
@@ -367,7 +361,7 @@ public final class ChatModelExecutor {
             }
             // Each withTools returns a new runner, so an unchanged runner registered no tool.
             var untooled = runner;
-            // MEM-280: an Agent Builder turn has no documents, files, Web, images, Sandbox, memory or MCP, only its tools.
+            // MEM-280: an Agent Builder turn has no documents, files, Web, images, Code Interpreter, memory or MCP, only its tools.
             var builder = setup.builder();
             if (selected.toolCalling() && builder != null)
                 runner = runner.withTools(Tool.fromInstance(new AgentBuilderTools(builder, guard::checkActive, activity)));
@@ -383,14 +377,12 @@ public final class ChatModelExecutor {
                 runner = runner.withTools(Tool.fromInstance(new FileReaderTool(files, setup.actor(), setup.tenant(),
                         setup.fileIds(), fileActive, guard::availableContextTokens, selected.policy().tokens(), fileSearch, setup.evidence(), fileWork)));
             }
-            // Onyx is_available: configured and enabled; a deployment without a sandbox omits the tools, never fails the turn.
+            // Onyx is_available: configured, enabled and healthy; an unavailable interpreter omits the tool, never fails the turn.
             // The session agent must also allow the tool (Onyx per-agent tools).
-            // MEM-270/MEM-271: code_interpreter and the Tenant's switch govern the Sandbox group, run_python included,
-            // all in the conversation's sandbox.
-            boolean sandboxTools = pythonAllowed(selected.toolCalling(), setup.options()) && interpreterSettings != null
-                    && interpreterSettings.enabled(setup.tenant()) && sandboxes != null && sandboxes.available();
+            boolean python = pythonAllowed(selected.toolCalling(), setup.options()) && interpreter != null && interpreterSettings != null
+                    && interpreter.configured() && interpreterSettings.enabled(setup.tenant()) && interpreter.healthy();
             // Onyx llm_loop.py: search hits with a stored original are staged for the Python calls that follow.
-            var sandbox = sandboxTools && originals != null ? new SandboxDocuments(originals, setup.actor()) : null;
+            var sandbox = python && originals != null ? new SandboxDocuments(originals, setup.actor()) : null;
             if (selected.toolCalling() && setup.options().searches()) {
                 var selectionRunner = context.ai().withLlmService(nativeService);
                 selectionRunner = selectionRunner.withLlm(Objects.requireNonNull(selectionRunner.getLlm())
@@ -398,7 +390,6 @@ public final class ChatModelExecutor {
                 searchTool = new SearchTool(search, setup.actor(), selectionRunner, selected.policy().tokens(), searchLimits,
                         guard::checkActive, guard::availableContextTokens, events::accept, cancellation, setup.messages(), timings, setup.options().sourceAllowlist(), setup.evidence(), activity);
                 if (sandbox != null) searchTool.withSandbox(sandbox);
-                if (setup.options().wholeSources()) searchTool.withWholeSources();
                 runner = runner.withTools(Tool.fromInstance(searchTool));
             }
             if (selected.toolCalling() && setup.image() != ImageMode.off && setup.imageAccess().generate() != null) {
@@ -413,13 +404,10 @@ public final class ChatModelExecutor {
                         setup.actor(), setup.tenant(), setup.sessionId(), setup.assistantMessageId(), setup.fileIds(), names,
                         fileActive, imageEvents, Integer.MAX_VALUE)));
             }
-            if (sandboxTools) {
-                sandboxWork = new SandboxTools(sandboxes, interpreterSettings, fileContent, setup.fileIds(), setup.tenant(),
-                        setup.actor(), setup.sessionId(), setup.assistantMessageId(), fileActive, activity, codeEvents);
-                runner = runner.withTools(Tool.fromInstance(new RunPythonTool(sandboxWork, interpreterSettings,
+            if (python) {
+                runner = runner.withTools(Tool.fromInstance(new RunPythonTool(interpreter, interpreterSettings,
                         fileContent, setup.actor(), setup.tenant(), setup.assistantMessageId(), setup.fileIds(), fileActive,
                         activity, codeEvents).withSandbox(sandbox)));
-                runner = runner.withTools(Tool.fromInstance(sandboxWork));
             }
             // MEM-250: only the owner's own, non-temporary conversation edits their memory, and only while it is on.
             if (selected.toolCalling() && memories != null && memories.usableIn(setup.tenant(), setup.actor(), setup.sessionId())) {
@@ -436,7 +424,7 @@ public final class ChatModelExecutor {
                 activity.quiet(mcpTools.openers());
             }
             // MEM-273: told even when no MCP tool remains, so the model explains the step instead of guessing.
-            if (mcp != null) guard.mcpNotice(McpTools.unavailableNotice(mcp.unavailable(), mcp.channel()));
+            if (mcp != null) guard.mcpNotice(McpTools.unavailableNotice(mcp.unavailable()));
             // MEM-287: a turn without tools sends no replayed tool calls; Anthropic refuses them without tools.
             if (runner == untooled) messages = ChatTurnSetup.withoutToolHistory(messages);
             if (selected.toolCalling()) runner = runner.withToolCallInspectors(activity);
@@ -450,11 +438,6 @@ public final class ChatModelExecutor {
             drains.add(fileWork.drained());
             if (searchTool != null) drains.add(searchTool.whenDrained());
             var drained = CompletableFuture.allOf(drains.toArray(CompletableFuture[]::new));
-            // MEM-270: a turn that worked in the sandbox ends by archiving its workspace, as Onyx Craft snapshots the
-            // session, after the reply and before the run gives its place back.
-            var saving = sandboxes;
-            var retired = sandboxWork != null && sandboxWork.used() && saving != null
-                    ? drained.thenRunAsync(() -> saving.save(setup.tenant(), setup.sessionId()), SANDBOX_SAVES) : drained;
             try {
                 // A timed-out provider can still record usage. Never persist an incomplete total as known.
                 if (!drained.isDone())
@@ -464,7 +447,7 @@ public final class ChatModelExecutor {
                 else accounting.accept(guards.contains(guard)
                         ? ModelAccounting.of(guards, process, metadata).withContext(guard.contextTokens(), guard.inputLimit())
                         : ModelAccounting.of(guards, process, metadata));
-            } finally { onDrained.accept(retired.thenRun(() -> processes.delete(process))); }
+            } finally { onDrained.accept(drained.thenRun(() -> processes.delete(process))); }
         }
     }
 }

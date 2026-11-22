@@ -74,7 +74,7 @@ MEM-76 selection admission/checkpoint/recovery and exact run-attribution/retenti
 | Redis credentials require TLS at startup; rejected configuration does not expose credentials | `RedisTransportSecurityConfigurationTest` |
 | The worker composition contains the Redis consumer and no direct PostgreSQL polling executor or poll-delay configuration | Full source/configuration review and worker runtime integration (`RedisExecutionTopologyIntegrationTest`, `WorkerFileProcessingIntegrationTest`) |
 | Processing outcomes remain independent of ACK, duplicate/stale claims are SKIPPED, handled failures retain durable retries, and initial wait excludes retries/clamps negative clocks | `DefaultIngestionCoordinatorTest`, `WorkerFileProcessingIntegrationTest`; `SourceSyncProcessor`, `SelectionValidationProcessor` and `IngestionMetrics` cover continuation/supersession and bounded workload labels. `RedisOperationRelayTest` passed separately after the selection-validation allowlist correction |
-| An integration and extraction import only public capability APIs, and extraction names no platform | The `*DependencyRulesTest` of each module; `SourceContentExtractorRouterTest` |
+| The platform adapters and extraction import only public capability APIs, and extraction names no platform | `SourcesDependencyRulesTest`; `SourceContentExtractorRouterTest` |
 
 ## Controlled 100k-file traversal
 

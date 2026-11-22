@@ -145,7 +145,7 @@ const columns = column.columns([
             <span className="font-secondary-body text-content-muted">
               {ui(appText("{{count}} messages", { count: entry.messages }))}
             </span>
-            {/* Held in a channel such as the Lark bot, not on the web. */}
+            {/* Held by one of the chat bots before their removal (ADR 0032), not on the web. */}
             {entry.surface === "CHANNEL" ? (
               <StatusBadge tone="neutral" size="sm">
                 {ui("Bot")}

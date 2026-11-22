@@ -27,7 +27,7 @@ import io.memoryos.chat.image.persistence.JdbcImageArtifactRepository;
 import io.memoryos.library.persistence.JdbcUserFileRepository;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.group.persistence.IamLockRepository;
-import io.memoryos.sandbox.SandboxService;
+import io.memoryos.chat.interpreter.InterpreterProperties;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.ActorLanguageService;
 import io.memoryos.iam.identity.persistence.ActorRefreshImpl;
@@ -149,7 +149,7 @@ class ChatLifecycleIntegrationTest {
         var writes = new DefaultObjectWriteService(objects, new JdbcObjectWriteRepository(jdbc), storage,
                 new ObjectUploadProperties(Duration.ofMinutes(15), Duration.ofSeconds(30), Duration.ofMinutes(5),
                         Duration.ofMinutes(1), 16), jpa.transactionManager());
-        interpreter = new InterpreterService(new JdbcInterpreterRepository(jdbc), mock(SandboxService.class),
+        interpreter = new InterpreterService(new JdbcInterpreterRepository(jdbc), new InterpreterProperties(null, null),
                 authorization, tenants, writes, storage, quotas, new LibraryTrashProperties(Duration.ZERO),
                 jpa.transactionManager(), TestDatabase.noAudit());
         // Constructed directly: the service owns its own transaction template, which is what the copy relies on.
@@ -162,18 +162,6 @@ class ChatLifecycleIntegrationTest {
     void close() {
         if (jpa != null) jpa.close();
         if (database != null) database.close();
-    }
-
-    @Test
-    void aConversationHeldInAChannelOpensByItsAddressAndIsListedByNeitherTheSidebarNorTheSearch() {
-        var web = sessions.create(owner, "Leave on the web");
-        ask(web, "How many days of leave do I have?");
-        var channel = sessions.createInChannel(owner, "Leave in Lark");
-
-        assertEquals(channel.id(), sessions.get(owner, channel.id()).id());
-        assertEquals(List.of(web.id()), ids(sessions.list(owner, false, 0, 30)));
-        assertEquals(List.of(web.id()), sessions.search(owner, "Leave", 0, 30).stream()
-                .map(match -> match.session().id()).toList());
     }
 
     @Test

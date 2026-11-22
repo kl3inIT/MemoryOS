@@ -49,7 +49,7 @@ class DefaultInitialTenantBootstrapperTest {
     );
     private static final ExternalIdentity OWNER_IDENTITY = new ExternalIdentity(
             "https://keycloak.example/realms/memoryos",
-            "tasco-owner"
+            "sample-owner"
     );
 
     private JdbcClient jdbcClient;
@@ -147,7 +147,7 @@ class DefaultInitialTenantBootstrapperTest {
         InitialTenantBootstrapRequest changed = new InitialTenantBootstrapRequest(
                 TENANT_ID,
                 OWNER_IDENTITY,
-                "tasco",
+                "sample",
                 "Changed Tenant",
                 "MEM-36"
         );
@@ -156,7 +156,7 @@ class DefaultInitialTenantBootstrapperTest {
         assertEquals(initial.ownerActorId().value(), jdbcClient.sql("SELECT actor_id FROM tenant_memberships")
                 .query(UUID.class)
                 .single());
-        assertEquals("Tasco AI", jdbcClient.sql("SELECT display_name FROM tenants").query(String.class).single());
+        assertEquals("Sample AI", jdbcClient.sql("SELECT display_name FROM tenants").query(String.class).single());
     }
 
     @Test
@@ -206,8 +206,8 @@ class DefaultInitialTenantBootstrapperTest {
         return new InitialTenantBootstrapRequest(
                 TENANT_ID,
                 OWNER_IDENTITY,
-                "tasco",
-                "Tasco AI",
+                "sample",
+                "Sample AI",
                 "MEM-36"
         );
     }

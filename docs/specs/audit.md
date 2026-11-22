@@ -45,6 +45,11 @@ Rules on the table:
 - **Declared details.** Each action also declares the detail fields it may carry. A call site that sets any other
   field fails, so a secret cannot reach the record by mistake.
 - **Secrets.** Never stored as values. A changed key is recorded as `credentialChange: KEEP | REPLACE | REMOVE`.
+- **Historical actions.** An action of a removed feature stays in the catalog: its recorded events read, filter and
+  export like any other, and nothing records it again (`AuditAction.historical()`; `AuditRecord` refuses it). The
+  chat bots' actions are historical since their removal ([ADR 0032](../decisions/0032-no-chat-bots-in-the-capstone-scope.md)):
+  `channel.create`, `channel.update`, `channel.delete` (API activity), `channel.account_link` and
+  `channel.account_unlink` (account change).
 
 | Class | Actions |
 | --- | --- |
@@ -52,7 +57,7 @@ Rules on the table:
 | Account change | `user.invite`, `user.invite_rotate`, `user.invite_revoke`, `user.join`, `user.deactivate`, `user.reactivate` |
 | User access management | `user.group_change` |
 | Group management | `user_group.create`, `rename`, `delete`, `member_change`, `manager_change`, `permission_change` |
-| API activity | `llm_provider.create`, `update`, `delete`; `model.create`, `update`, `delete`; `model_default.change`; `model_flow.change`; `web_connection.change`; `voice_connection.change`; `image_connection.change`; `interpreter.change`; `chat_settings.change`; `chat_guardrail.block` (MEM-195: a question stopped by a sensitive topic or blocked phrase; the rule kind, topic and session, never the question or phrase; since MEM-208 the topic is the Tenant's topic name, earlier records hold the built-in key); `mcp_server.create`, `update`, `delete`; `mcp_tool.change`; `mcp_oauth_client.change`; `mcp_connection.change`; `mcp_endpoint.change` (MEM-114: the MCP endpoint switch; calls through the endpoint are a member reading what they may read and are not audited, but kept for 90 days in the endpoint's own activity log, MEM-209); `mcp_trusted_app.change` (MEM-207: an app trusted to connect to the endpoint was added, switched on or off, or removed; the change and the app's client ID domains); `identity_provider.create`, `update`, `delete`; `source.create`, `update`, `delete`, `access_change`, `manager_change`, `group_change`, `pause`, `resume`, `item_remove`; `credential.create`, `update`, `delete`; `channel.create`, `update`, `delete`; `chat_history.read`; `chat_history.export`; `audit.export`; `permission.denied` |
+| API activity | `llm_provider.create`, `update`, `delete`; `model.create`, `update`, `delete`; `model_default.change`; `model_flow.change`; `web_connection.change`; `voice_connection.change`; `image_connection.change`; `interpreter.change`; `chat_settings.change`; `chat_guardrail.block` (MEM-195: a question stopped by a sensitive topic or blocked phrase; the rule kind, topic and session, never the question or phrase; since MEM-208 the topic is the Tenant's topic name, earlier records hold the built-in key); `mcp_server.create`, `update`, `delete`; `mcp_tool.change`; `mcp_oauth_client.change`; `mcp_connection.change`; `mcp_endpoint.change` (MEM-114: the MCP endpoint switch; calls through the endpoint are a member reading what they may read and are not audited, but kept for 90 days in the endpoint's own activity log, MEM-209); `mcp_trusted_app.change` (MEM-207: an app trusted to connect to the endpoint was added, switched on or off, or removed; the change and the app's client ID domains); `identity_provider.create`, `update`, `delete`; `source.create`, `update`, `delete`, `access_change`, `manager_change`, `group_change`, `pause`, `resume`, `item_remove`; `credential.create`, `update`, `delete`; `chat_history.read`; `chat_history.export`; `audit.export`; `permission.denied` |
 
 ## Recording
 
@@ -99,7 +104,7 @@ Every read requires `AUDIT_READ`. It is an ordinary grant given through a Group,
 | --- | --- |
 | `GET /api/audit/events` | A page of `AuditEvent`, newest first, keyed by an opaque `(occurred_at, id)` cursor. Optional filters: `from`, `to` (at most 366 days apart), `q` (actor name or e-mail, resource name; `%` and `_` are literal), `eventClass`, `action`, `outcome`, `actorId`, `resourceType`, `resourceId`. `size` is 1–100, default 50 |
 | `GET /api/audit/events/{eventId}` | One event of the Tenant |
-| `GET /api/audit/catalog` | Every action value with its class |
+| `GET /api/audit/catalog` | Every action value with its class, historical ones included |
 | `GET /api/audit/export` | The filtered events as CSV, at most 50,000 rows, with a UTF-8 byte-order mark and formula prefixes neutralized. The export is itself recorded as `audit.export` with its row count, outside the read, so an export that breaks
   halfway is still recorded, with the rows it had written and the outcome `FAILURE` |
 

@@ -58,7 +58,7 @@ class MeetingRecordingRetirementTest {
                 new DataSourceTransactionManager(dataSource));
         jdbc.sql("ALTER TABLE tenants DROP CONSTRAINT uq_tenants_deployment_slot").update();
         tenant = UUID.randomUUID();
-        jdbc.sql("INSERT INTO tenants(id, slug, display_name, status, bootstrap_reference) VALUES (:id, :slug, 'Tasco', 'ACTIVE', 'test')")
+        jdbc.sql("INSERT INTO tenants(id, slug, display_name, status, bootstrap_reference) VALUES (:id, :slug, 'Sample', 'ACTIVE', 'test')")
                 .param("id", tenant).param("slug", tenant.toString()).update();
         owner = UUID.randomUUID();
         jdbc.sql("INSERT INTO actors(id) VALUES (:id)").param("id", owner).update();

@@ -117,13 +117,13 @@ class ChatTenantProvisioningTest {
         assertFalse(restarted.bootstrap(request()).created());
         assertProvisioned();
 
-        jdbc.sql("UPDATE persona SET name = 'Trợ lý Tasco' WHERE builtin_key = 'default'").update();
+        jdbc.sql("UPDATE persona SET name = 'Trợ lý Sample' WHERE builtin_key = 'default'").update();
         jdbc.sql("UPDATE model_flow_default SET model_configuration_id = NULL, revision = revision + 1").update();
         restarted.bootstrap(request());
 
         assertCatalogProvisioned();
         assertAgentProvisioned();
-        assertEquals("Trợ lý Tasco", jdbc.sql("SELECT name FROM persona WHERE builtin_key = 'default'").query(String.class).single());
+        assertEquals("Trợ lý Sample", jdbc.sql("SELECT name FROM persona WHERE builtin_key = 'default'").query(String.class).single());
         assertEquals(0L, jdbc.sql("SELECT count(*) FROM model_flow_default WHERE model_configuration_id IS NOT NULL")
                 .query(Long.class).single());
     }
@@ -236,7 +236,7 @@ class ChatTenantProvisioningTest {
 
     private static InitialTenantBootstrapRequest request() {
         return new InitialTenantBootstrapRequest(TENANT,
-                new ExternalIdentity("https://keycloak.example/realms/memoryos", "chat-owner"), "tasco", "Tasco AI", "TEST-CHAT-PROVISION");
+                new ExternalIdentity("https://keycloak.example/realms/memoryos", "chat-owner"), "sample", "Sample AI", "TEST-CHAT-PROVISION");
     }
 
     static final class FailingProvisioner {

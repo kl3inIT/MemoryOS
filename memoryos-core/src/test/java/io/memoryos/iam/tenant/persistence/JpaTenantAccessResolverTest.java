@@ -70,11 +70,11 @@ class JpaTenantAccessResolverTest {
         persistMembership(member, tenantId, TenantMembershipRole.MEMBER, "ACTIVE");
 
         assertEquals(
-                new TenantMembership(tenantId, "Tasco", TenantMembershipRole.OWNER),
+                new TenantMembership(tenantId, "Sample", TenantMembershipRole.OWNER),
                 resolver.findActiveMembership(owner).orElseThrow()
         );
         assertEquals(
-                new TenantMembership(tenantId, "Tasco", TenantMembershipRole.MEMBER),
+                new TenantMembership(tenantId, "Sample", TenantMembershipRole.MEMBER),
                 resolver.findActiveMembership(member).orElseThrow()
         );
     }
@@ -115,7 +115,7 @@ class JpaTenantAccessResolverTest {
                         """)
                 .param("tenantId", tenantId.value())
                 .param("slug", "tenant-" + tenantId.value().toString().substring(0, 8))
-                .param("displayName", "Tasco")
+                .param("displayName", "Sample")
                 .update();
     }
 

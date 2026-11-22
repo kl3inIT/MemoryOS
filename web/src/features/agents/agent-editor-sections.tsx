@@ -1,7 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { Plug, TriangleAlert } from "lucide-react";
-import { listAssistantChannelsOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
+import { Plug } from "lucide-react";
 import {
   ModelSelectorContent,
   ModelSelectorEffort,
@@ -175,28 +173,9 @@ export function OpeningSection({ form, editable }: SectionProps) {
  * Searching documents heads the section as its switch; with it off the choices stay but are disabled, and a turn
  * then reads none of them, files included (Onyx "Use Knowledge"). "Chỉ trả lời có căn cứ" is one switch under the list.
  */
-/** The public bots that answer with the assistant (MEM-298): whoever messages them uses what it is given. */
-function usePublicBots(agent: Persona): string[] {
-  const channels = useQuery({
-    ...listAssistantChannelsOptions({ path: { personaId: agent.id } }),
-    enabled: !agent.builtin,
-  });
-  return (channels.data ?? []).filter((bot) => bot.publicAccess).map((bot) => bot.name);
-}
-
-function PublicWarning({ children }: { children: string }) {
-  return (
-    <p className="flex items-start gap-2 font-secondary-body text-status-warning-content">
-      <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-      {children}
-    </p>
-  );
-}
-
 export function DocumentsSection({ form, agent, choices, editable }: SectionProps) {
   const ui = useAppTranslation();
   const { sources, documentSets } = choices;
-  const publicBots = usePublicBots(agent);
   return (
     <form.AppField name="tools">
       {(tools) => {
@@ -216,13 +195,6 @@ export function DocumentsSection({ form, agent, choices, editable }: SectionProp
               />
             }
           >
-            {publicBots.length > 0 && (
-              <PublicWarning>
-                {ui("Ai nhắn bot {{bots}} cũng đọc được tài liệu ở đây.", {
-                  bots: publicBots.join(", "),
-                })}
-              </PublicWarning>
-            )}
             <fieldset
               disabled={!editable || !searching}
               className="flex min-w-0 flex-col gap-4 disabled:opacity-60"
@@ -295,7 +267,6 @@ export function ToolsSection({ form, agent, choices }: SectionProps) {
   const ui = useAppTranslation();
   const toolNames = useToolNames();
   const connected = choices.mcp.data ?? [];
-  const publicBots = usePublicBots(agent);
   // MEM-299: a server open through this assistant alone is given on the server's page and is always on here.
   const open = agent.openMcpServers;
   const mcpOptions = [
@@ -336,14 +307,6 @@ export function ToolsSection({ form, agent, choices }: SectionProps) {
       {/* Without an MCP server in the organization there is nothing to choose, so the subsection stays out. */}
       {(mcpOptions.length > 0 || open.length > 0) && (
         <EditorField label={ui("Ứng dụng MCP")}>
-          {publicBots.length > 0 && agent.publicBotMcpServers.length > 0 && (
-            <PublicWarning>
-              {ui("Ai nhắn bot {{bots}} cũng dùng được {{apps}}.", {
-                bots: publicBots.join(", "),
-                apps: agent.publicBotMcpServers.map((server) => server.name).join(", "),
-              })}
-            </PublicWarning>
-          )}
           {agent.builtin ? (
             <p className="font-secondary-body text-content-muted">
               {ui("Trợ lý mặc định dùng mọi máy chủ MCP mà người dùng được phép dùng.")}

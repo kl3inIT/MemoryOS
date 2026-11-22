@@ -4,8 +4,10 @@ Date: 2026-10-15
 
 ## Status
 
-Accepted with the [MEM-270 design](../increments/completed/mem-270-chat-sandbox/design.md) on 2026-10-15; implementation
-started with the runtime (step 1).
+Superseded by [ADR 0033](0033-code-execution-through-memoryos-interpreter-again.md) on 2026-11-22, when the owner
+removed the Chat sandbox and returned `run_python` to `memoryos-interpreter`. Accepted with the
+[MEM-270 design](../increments/superseded/mem-270-chat-sandbox/design.md) on 2026-10-15; implementation started with
+the runtime (step 1).
 
 ## Context
 

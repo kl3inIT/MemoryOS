@@ -2,7 +2,6 @@ import { useMatchRoute, type LinkProps } from "@tanstack/react-router";
 import {
   Blocks,
   Bot,
-  BotMessageSquare,
   Cable,
   KeyRound,
   Library,
@@ -27,14 +26,13 @@ export type AdminPage =
   | "documentSets"
   | "users"
   | "groups"
-  | "sandbox"
+  | "interpreter"
   | "chat"
   | "providers"
   | "aiProviders"
   | "searchSettings"
   | "mcp"
   | "mcpEndpoint"
-  | "channels"
   | "agents"
   | "costs"
   | "audit";
@@ -80,10 +78,10 @@ export const adminPages: readonly AdminPageEntry[] = [
     visible: manageModels,
   },
   {
-    id: "sandbox",
-    to: "/admin/sandbox",
-    label: appText("Sandbox"),
-    title: appText("Sandbox"),
+    id: "interpreter",
+    to: "/admin/code-interpreter",
+    label: appText("Code Interpreter"),
+    title: appText("Code Interpreter"),
     icon: SquareTerminal,
     group: "configuration",
     visible: manageModels,
@@ -124,16 +122,6 @@ export const adminPages: readonly AdminPageEntry[] = [
     icon: Cable,
     group: "agents",
     visible: (authority) => authority.canManageMcp,
-  },
-  {
-    id: "channels",
-    to: "/admin/channels",
-    label: appText("Kênh chat"),
-    title: appText("Kênh chat"),
-    icon: BotMessageSquare,
-    group: "agents",
-    visible: (authority) => authority.canManageChannels,
-    fuzzy: true,
   },
   {
     id: "sources",

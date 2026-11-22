@@ -15,17 +15,15 @@ import org.jspecify.annotations.Nullable;
  * {@link #KEPT_ARGUMENTS} only: a memory's text or an MCP call's payload is not.
  */
 public final class ChatToolTranscript {
-    /** Tools whose result is replayed: sandbox and Python work, the public web and generated images. */
-    public static final Set<String> KEPT_RESULTS = Set.of("bash", "bash_output", "edit_file", "publish_file",
-            "run_python", "web_search", "open_url", "generate_image", "edit_image");
+    /** Tools whose result is replayed: Python work, the public web and generated images. */
+    public static final Set<String> KEPT_RESULTS = Set.of("run_python", "web_search", "open_url", "generate_image",
+            "edit_image");
     /** Tools whose arguments are replayed: the kept-result tools, searches and file reads, which name only queries and files. */
-    public static final Set<String> KEPT_ARGUMENTS = Set.of("bash", "bash_output", "edit_file", "publish_file",
-            "run_python", "web_search", "open_url", "generate_image", "edit_image", "search_knowledge", "read_file",
-            "search_files");
+    public static final Set<String> KEPT_ARGUMENTS = Set.of("run_python", "web_search", "open_url", "generate_image",
+            "edit_image", "search_knowledge", "read_file", "search_files");
     /** Built-in tools that bring no organization content in; any other tool, an MCP tool among them, does. */
-    private static final Set<String> CONTAINED = Set.of("bash", "bash_output", "edit_file", "publish_file",
-            "run_python", "web_search", "open_url", "generate_image", "edit_image", "read_file", "search_files",
-            "update_memory");
+    private static final Set<String> CONTAINED = Set.of("run_python", "web_search", "open_url", "generate_image",
+            "edit_image", "read_file", "search_files", "update_memory");
     /** In place of a result that was not kept, as Onyx replays its earlier calls. */
     public static final String NOT_KEPT = "This tool call completed but its result is not kept.";
     /** The bound of a call's arguments and of its result, as the column checks enforce. */

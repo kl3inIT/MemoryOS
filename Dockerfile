@@ -1,13 +1,5 @@
 # syntax=docker/dockerfile:1.7
 
-# MEM-283: the WhatsApp bridge, a static Go binary on whatsmeow that the channels process starts as a child process.
-FROM golang:1.27.3-bookworm@sha256:972b4110ba0f47539a975c31e52c64765e1ff19f2d74469ae4a595c6676e80a5 AS whatsapp-bridge
-WORKDIR /bridge
-COPY memoryos-integration-whatsapp/bridge/go.mod memoryos-integration-whatsapp/bridge/go.sum ./
-RUN go mod download
-COPY memoryos-integration-whatsapp/bridge/*.go ./
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/memoryos-whatsapp-bridge .
-
 FROM eclipse-temurin:25-jdk-noble@sha256:ba0f0e1a33864105e1d454e88105c617ab40f71062db1f306bf58be32a3f8e5e AS build
 
 WORKDIR /workspace
@@ -18,45 +10,27 @@ COPY gradlew gradlew.bat settings.gradle.kts build.gradle.kts ./
 COPY gradle ./gradle
 COPY build-logic ./build-logic
 COPY memoryos-core/build.gradle.kts ./memoryos-core/
-COPY memoryos-integration-lark/build.gradle.kts ./memoryos-integration-lark/
-COPY memoryos-integration-google/build.gradle.kts ./memoryos-integration-google/
-COPY memoryos-integration-microsoft/build.gradle.kts ./memoryos-integration-microsoft/
-COPY memoryos-integration-zalo/build.gradle.kts ./memoryos-integration-zalo/
-COPY memoryos-integration-whatsapp/build.gradle.kts ./memoryos-integration-whatsapp/
-COPY memoryos-integration-opensandbox/build.gradle.kts ./memoryos-integration-opensandbox/
-COPY memoryos-extraction/build.gradle.kts ./memoryos-extraction/
+COPY memoryos-sources/build.gradle.kts ./memoryos-sources/
 COPY memoryos-api/build.gradle.kts ./memoryos-api/
 COPY memoryos-worker/build.gradle.kts ./memoryos-worker/
-COPY memoryos-channels/build.gradle.kts ./memoryos-channels/
 RUN sed -i 's/\r$//' gradlew \
     && chmod 0755 gradlew \
     && ./gradlew --no-daemon --no-configuration-cache --stacktrace resolveDependencies
 
 COPY memoryos-core ./memoryos-core
-COPY memoryos-integration-lark ./memoryos-integration-lark
-COPY memoryos-integration-google ./memoryos-integration-google
-COPY memoryos-integration-microsoft ./memoryos-integration-microsoft
-COPY memoryos-integration-zalo ./memoryos-integration-zalo
-COPY memoryos-integration-whatsapp/src ./memoryos-integration-whatsapp/src
-COPY memoryos-integration-opensandbox ./memoryos-integration-opensandbox
-COPY memoryos-extraction ./memoryos-extraction
+COPY memoryos-sources ./memoryos-sources
 COPY memoryos-api ./memoryos-api
 COPY memoryos-worker ./memoryos-worker
-COPY memoryos-channels ./memoryos-channels
 
-RUN ./gradlew --no-daemon --stacktrace :memoryos-api:bootJar :memoryos-worker:bootJar :memoryos-channels:bootJar \
+RUN ./gradlew --no-daemon --stacktrace :memoryos-api:bootJar :memoryos-worker:bootJar \
     && api_jar="$(find memoryos-api/build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' -print -quit)" \
     && worker_jar="$(find memoryos-worker/build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' -print -quit)" \
-    && channels_jar="$(find memoryos-channels/build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' -print -quit)" \
     && test -n "${api_jar}" \
     && test -n "${worker_jar}" \
-    && test -n "${channels_jar}" \
     && cp "${api_jar}" /workspace/api.jar \
     && cp "${worker_jar}" /workspace/worker.jar \
-    && cp "${channels_jar}" /workspace/channels.jar \
     && java -Djarmode=tools -jar /workspace/api.jar extract --layers --destination /workspace/api-extracted \
-    && java -Djarmode=tools -jar /workspace/worker.jar extract --layers --destination /workspace/worker-extracted \
-    && java -Djarmode=tools -jar /workspace/channels.jar extract --layers --destination /workspace/channels-extracted
+    && java -Djarmode=tools -jar /workspace/worker.jar extract --layers --destination /workspace/worker-extracted
 
 FROM bellsoft/liberica-runtime-container:jre-25-glibc@sha256:294d5b4f2836c8ebf75978467305fdecf1a08daa6b706ad72eecc7da7dad3648 AS runtime
 
@@ -113,21 +87,3 @@ COPY --from=build --chown=1654:1654 /workspace/api-extracted/dependencies/ ./
 COPY --from=build --chown=1654:1654 /workspace/api-extracted/spring-boot-loader/ ./
 COPY --from=build --chown=1654:1654 /workspace/api-extracted/snapshot-dependencies/ ./
 COPY --from=build --chown=1654:1654 /workspace/api-extracted/application/ ./
-
-# MEM-246: the chat bots' process. It runs Chat turns like the API and serves no browser, so it needs none of the
-# API's native speech libraries; it is sized like the Worker (MEM-244).
-FROM runtime AS channels
-ARG VCS_REF=unknown
-ARG BUILD_DATE=unknown
-LABEL org.opencontainers.image.title="MemoryOS Channels" \
-      org.opencontainers.image.source="https://github.com/kl3inIT/MemoryOS" \
-      org.opencontainers.image.revision="${VCS_REF}" \
-      org.opencontainers.image.created="${BUILD_DATE}"
-ENV MEMORYOS_APPLICATION_JAR=channels.jar \
-    JAVA_TOOL_OPTIONS="-XX:InitialRAMPercentage=10 -XX:MaxRAMPercentage=60 -XX:+UseSerialGC -XX:+UseCompactObjectHeaders -XX:+ExitOnOutOfMemoryError -Dfile.encoding=UTF-8"
-COPY --from=build --chown=1654:1654 /workspace/channels-extracted/dependencies/ ./
-COPY --from=build --chown=1654:1654 /workspace/channels-extracted/spring-boot-loader/ ./
-COPY --from=build --chown=1654:1654 /workspace/channels-extracted/snapshot-dependencies/ ./
-COPY --from=build --chown=1654:1654 /workspace/channels-extracted/application/ ./
-# Owned by root, so the process that runs it cannot change it.
-COPY --from=whatsapp-bridge --chmod=0755 /out/memoryos-whatsapp-bridge /application/bin/memoryos-whatsapp-bridge

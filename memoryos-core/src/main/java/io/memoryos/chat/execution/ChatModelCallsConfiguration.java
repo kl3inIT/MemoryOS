@@ -18,7 +18,7 @@ import org.springframework.core.task.SimpleAsyncTaskExecutor;
 /**
  * How a process that runs Chat turns calls a model outside a turn's own loop: the native Asyncer the agent platform
  * uses for a tool's helper calls, and single model calls such as the guardrail check. Both come with the turn
- * runtime, so the API and {@code memoryos-channels} have them alike (MEM-246).
+ * runtime, so every process that runs turns has them alike.
  */
 @Configuration(proxyBeanMethods = false)
 class ChatModelCallsConfiguration {

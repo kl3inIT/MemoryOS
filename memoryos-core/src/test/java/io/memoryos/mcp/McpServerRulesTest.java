@@ -51,7 +51,7 @@ class McpServerRulesTest {
         assertEquals(List.of("https://www.googleapis.com/auth/drive.readonly"),
                 McpServerRules.scopes(List.of("https://www.googleapis.com/auth/drive.readonly")));
         assertCode("MCP_INVALID", () -> McpServerRules.scopes(List.of("two words")));
-        assertEquals(Map.of("hd", "tasco.vn"), McpServerRules.parameters(Map.of("hd", "tasco.vn")));
+        assertEquals(Map.of("hd", "example.test"), McpServerRules.parameters(Map.of("hd", "example.test")));
         assertCode("MCP_INVALID", () -> McpServerRules.parameters(Map.of("redirect_uri", "https://evil.example")));
     }
 

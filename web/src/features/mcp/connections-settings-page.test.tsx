@@ -24,7 +24,7 @@ const connection = (
   authPerformer: "PER_USER",
   status: "CONNECTED",
   connectionState,
-  oauthClients: [{ id: `${id}-client`, label: "Tasco" }],
+  oauthClients: [{ id: `${id}-client`, label: "Sample" }],
   enabledToolCount: 4,
   credentialUpdatedAt: null,
   revision: 1,
@@ -36,7 +36,7 @@ it("disconnects the member's own account after confirmation and offers Connect w
     handleListMcpConnections({
       body: [
         connection("drive", "Google Drive", "CONNECTED"),
-        connection("jira", "Jira Tasco", "NOT_CONNECTED"),
+        connection("jira", "Jira Sample", "NOT_CONNECTED"),
       ],
     }),
     handleDisconnectMcpConnection(({ params }) => {
@@ -51,7 +51,7 @@ it("disconnects the member's own account after confirmation and offers Connect w
       </ActionNotifications>
     </QueryClientProvider>,
   );
-  await screen.findByText("Jira Tasco");
+  await screen.findByText("Jira Sample");
   expect(screen.getByRole("button", { name: "Connect" })).toBeVisible();
   await userEvent.click(screen.getByRole("button", { name: "Actions for Google Drive" }));
   await userEvent.click(await screen.findByRole("menuitem", { name: "Disconnect" }));
@@ -62,10 +62,10 @@ it("disconnects the member's own account after confirmation and offers Connect w
 it("offers Reconnect for a rejected credential and one menu for several organizations", async () => {
   const rejected = connection("drive", "Google Drive", "REAUTH_REQUIRED");
   const several = {
-    ...connection("jira", "Jira Tasco", "NOT_CONNECTED"),
+    ...connection("jira", "Jira Sample", "NOT_CONNECTED"),
     oauthClients: [
-      { id: "north", label: "Tasco North" },
-      { id: "south", label: "Tasco South" },
+      { id: "north", label: "Sample North" },
+      { id: "south", label: "Sample South" },
     ],
   };
   server.use(handleListMcpConnections({ body: [rejected, several] }));
@@ -76,5 +76,5 @@ it("offers Reconnect for a rejected credential and one menu for several organiza
   );
   expect(await screen.findByRole("button", { name: "Reconnect" })).toBeVisible();
   expect(screen.getByRole("button", { name: "Connect" })).toBeVisible();
-  expect(screen.queryByRole("button", { name: "Tasco North" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Sample North" })).not.toBeInTheDocument();
 });

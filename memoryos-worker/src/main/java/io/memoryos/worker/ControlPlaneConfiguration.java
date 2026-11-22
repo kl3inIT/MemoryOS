@@ -5,7 +5,6 @@ import com.github.kagkarlsson.scheduler.boot.config.DbSchedulerCustomizer;
 import com.github.kagkarlsson.scheduler.task.helper.RecurringTask;
 import com.github.kagkarlsson.scheduler.task.helper.Tasks;
 import com.github.kagkarlsson.scheduler.task.schedule.FixedDelay;
-import io.memoryos.channel.ChannelMessageRetention;
 import io.memoryos.chat.ChatArtifactCleanupService;
 import io.memoryos.chat.ChatRunReconciliation;
 import io.memoryos.chat.ChatExportService;
@@ -21,7 +20,6 @@ import io.memoryos.ingestion.SearchProjectionMaintenance;
 import io.memoryos.objectstorage.ObjectUploadCleanupPort;
 import io.memoryos.objectstorage.ObjectWriteService;
 import io.memoryos.retrieval.settings.SearchSettingsService;
-import io.memoryos.sandbox.SandboxReconciliation;
 import io.memoryos.usage.report.UsageReportService;
 import java.time.Duration;
 import java.util.Optional;
@@ -204,24 +202,6 @@ class ControlPlaneConfiguration {
     RecurringTask<Void> userFileRelayTask(RedisOperationRelay relay, RedisExecutionProperties properties) {
         return Tasks.recurring("memoryos-redis-user-file-relay-v1", FixedDelay.of(properties.relayInterval()))
                 .execute((_, _) -> relay.relay(OperationWorkload.USER_FILE));
-    }
-
-    /** Deletes the ids of messages a bot received past their retention (MEM-246), a batch at a time. */
-    /** MEM-270: kills sandboxes no row records and clears rows whose sandbox is gone, every five minutes as Dust. */
-    @Bean
-    RecurringTask<Void> sandboxReconciliationTask(SandboxReconciliation reconciliation) {
-        return Tasks.recurring("memoryos-sandbox-reconciliation-v1", FixedDelay.of(Duration.ofMinutes(5)))
-                .execute((_, _) -> reconciliation.sweep());
-    }
-
-    @Bean
-    RecurringTask<Void> channelMessageRetentionTask(ChannelMessageRetention retention) {
-        return Tasks.recurring("memoryos-channel-message-retention-v1", FixedDelay.of(Duration.ofDays(1)))
-                .execute((_, _) -> {
-                    for (int batch = 0; batch < 20 && retention.sweep() == ChannelMessageRetention.BATCH; batch++) {
-                        // A full batch means more may be waiting.
-                    }
-                });
     }
 
     /** Deletes audit events past their retention (ADR 0013), a batch at a time until none remain. */

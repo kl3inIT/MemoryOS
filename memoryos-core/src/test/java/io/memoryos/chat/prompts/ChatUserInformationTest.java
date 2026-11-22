@@ -15,12 +15,12 @@ class ChatUserInformationTest {
 
                 ## Basic Information
                 User name: Trần Thu Hà
-                User email: ha@tasco.vn
+                User email: ha@example.test
                 User role: Kế toán trưởng
 
                 ## User Preferences
                 Trả lời ngắn gọn.
-                """, ChatPrompts.withUserInformation("Base", "Trần Thu Hà", "ha@tasco.vn", " Kế toán trưởng ",
+                """, ChatPrompts.withUserInformation("Base", "Trần Thu Hà", "ha@example.test", " Kế toán trưởng ",
                 "Trả lời ngắn gọn.", ""));
         assertEquals("""
                 Base
@@ -41,14 +41,14 @@ class ChatUserInformationTest {
 
                 ## Basic Information
                 User name: Trần Thu Hà
-                User email: ha@tasco.vn
+                User email: ha@example.test
 
                 ## User Preferences
                 Trả lời ngắn gọn.
 
                 ## User Memories
                 Đang làm báo cáo quý 3 cho ban giám đốc.
-                """, ChatPrompts.withUserInformation("Base", "Trần Thu Hà", "ha@tasco.vn", "", "Trả lời ngắn gọn.",
+                """, ChatPrompts.withUserInformation("Base", "Trần Thu Hà", "ha@example.test", "", "Trả lời ngắn gọn.",
                 " Đang làm báo cáo quý 3 cho ban giám đốc. "));
         assertEquals("""
                 Base

@@ -106,8 +106,8 @@ class DefaultInvitationServiceTest {
         ownerActorId = bootstrapper.bootstrap(new InitialTenantBootstrapRequest(
                 TENANT_ID,
                 new ExternalIdentity(ISSUER, "owner"),
-                "tasco",
-                "Tasco",
+                "sample",
+                "Sample",
                 "TEST-MEM-36"
         )).ownerActorId();
         authorization = new DefaultIamAuthorization(

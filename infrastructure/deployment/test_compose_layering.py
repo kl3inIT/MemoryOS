@@ -74,7 +74,7 @@ class WorkerMemoryTest(unittest.TestCase):
         # The collector is named so that a changed limit cannot change it; the heap leaves half the limit to the children.
         self.assertIn("-XX:+UseSerialGC", options)
         self.assertIn("-XX:MaxRAMPercentage=50", options)
-        extractor = (ROOT / "memoryos-extraction/src/main/java/io/memoryos/ingestion/extraction/TikaSourceContentExtractor.java"
+        extractor = (ROOT / "memoryos-sources/src/main/java/io/memoryos/ingestion/extraction/TikaSourceContentExtractor.java"
                      ).read_text(encoding="utf-8")
         # The child inherits JAVA_TOOL_OPTIONS; its own initial size keeps it from committing its whole heap.
         self.assertIn('"-Xms32m"', extractor)
@@ -122,7 +122,7 @@ class WorkerAotCacheTest(unittest.TestCase):
 
 class ComposeLayeringTest(unittest.TestCase):
     def test_the_runtime_both_environments_share_is_defined_once(self):
-        for service in ("redis", "sandbox", "api", "worker", "web", "postgres", "minio"):
+        for service in ("redis", "interpreter", "api", "worker", "web", "postgres", "minio"):
             self.assertTrue(defines(BASE, service), service)
             self.assertFalse(defines(STAGING, service), service)
             self.assertFalse(defines(PRODUCTION, service), service)
@@ -213,22 +213,6 @@ class ComposeLayeringTest(unittest.TestCase):
         declared = production.split("\nnetworks:\n", 1)[1]
         egress = re.search(r"\n  egress:\n((?:    .*\n?)*)", "\n" + declared).group(1)
         self.assertNotIn("internal: true", egress, "an internal network is no way out")
-
-
-def networks(text, service):
-    """The networks a service block names, in its own text."""
-    block = re.search(r"\n  %s:\n(.*?)(?=\n  [a-z0-9_-]+:\n|\Z)" % re.escape(service), text, re.S).group(1)
-    listed = re.search(r"\n    networks:\n((?:      .*\n?)*)", "\n" + block)
-    return set(re.findall(r"^      ([a-z0-9-]+):", listed.group(1), re.M)) if listed else set()
-
-
-class ChannelsEgressTest(unittest.TestCase):
-    def test_the_bots_process_reaches_out_as_the_api_does(self):
-        # MEM-246: the first staging run of the bots' process had only internal networks; it could resolve neither
-        # Lark nor a model provider, and every bot failed to open with CHANNEL_OPEN_FAILED.
-        egress = networks(STAGING, "api") - {"memoryos-telemetry"}
-        self.assertTrue(egress)
-        self.assertLessEqual(egress, networks(STAGING, "channels"))
 
 
 if __name__ == "__main__":

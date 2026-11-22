@@ -66,7 +66,7 @@ class DefaultSignInAdmissionTest {
     private final AuditTrail audit = mock(AuditTrail.class);
     private final RecordingTransactions transactions = new RecordingTransactions();
     private final List<String> auditedInside = new ArrayList<>();
-    private Set<String> allowlist = Set.of("tasco");
+    private Set<String> allowlist = Set.of("sample");
     private DefaultSignInAdmission admission;
 
     @BeforeEach
@@ -84,7 +84,7 @@ class DefaultSignInAdmissionTest {
 
     @Test
     void trustedAliasCannotAdmitFromAnotherIssuer() {
-        var attempt = attempt(new ExternalIdentity("https://other.example/realms/memoryos", "member"), "tasco", null, false);
+        var attempt = attempt(new ExternalIdentity("https://other.example/realms/memoryos", "member"), "sample", null, false);
         assertEquals(new SignInOutcome.NotAdmitted(), admission.admit(attempt));
         verifyNoInteractions(trusted, profiles);
         assertRefused(AuditOutcome.DENIED, "NOT_ADMITTED", null);
@@ -93,7 +93,7 @@ class DefaultSignInAdmissionTest {
     @Test
     void trustedClaimCannotAdmitWhenDeploymentHasNotOptedIn() {
         allowlist = Set.of();
-        assertEquals(new SignInOutcome.NotAdmitted(), admission.admit(attempt(IDENTITY, "tasco", null, false)));
+        assertEquals(new SignInOutcome.NotAdmitted(), admission.admit(attempt(IDENTITY, "sample", null, false)));
         verifyNoInteractions(trusted, profiles);
         assertRefused(AuditOutcome.DENIED, "NOT_ADMITTED", null);
     }
@@ -104,7 +104,7 @@ class DefaultSignInAdmissionTest {
         when(trusted.admit(TENANT, IDENTITY)).thenReturn(actor);
         when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(TENANT));
 
-        assertEquals(new SignInOutcome.Admitted(actor), admission.admit(attempt(IDENTITY, "tasco", null, false)));
+        assertEquals(new SignInOutcome.Admitted(actor), admission.admit(attempt(IDENTITY, "sample", null, false)));
 
         verify(profiles).record(actor, IDENTITY, "Member", "member@example.test", true);
         verify(invitations, never()).acceptVerifiedEmail(any());
@@ -119,7 +119,7 @@ class DefaultSignInAdmissionTest {
         when(tenants.hasActiveTenant(actor)).thenReturn(true);
         when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(TENANT));
 
-        assertEquals(new SignInOutcome.Admitted(actor), admission.admit(attempt(IDENTITY, "tasco", null, false)));
+        assertEquals(new SignInOutcome.Admitted(actor), admission.admit(attempt(IDENTITY, "sample", null, false)));
         verifyNoInteractions(trusted, invitations);
         verify(profiles).record(actor, IDENTITY, "Member", "member@example.test", true);
     }
@@ -130,14 +130,14 @@ class DefaultSignInAdmissionTest {
         when(identities.resolve(IDENTITY)).thenReturn(Optional.of(known));
         when(trusted.admit(TENANT, IDENTITY)).thenThrow(new IamException(IamFailureReason.ACCESS_DENIED, "inactive"));
 
-        assertEquals(new SignInOutcome.NotAdmitted(), admission.admit(attempt(IDENTITY, "tasco", null, false)));
+        assertEquals(new SignInOutcome.NotAdmitted(), admission.admit(attempt(IDENTITY, "sample", null, false)));
         assertRefused(AuditOutcome.DENIED, "NOT_ADMITTED", known);
         assertTrue(transactions.rolledBack);
         verifyNoInteractions(profiles);
 
         var conflict = new IamException(IamFailureReason.GROUP_CONFLICT, "unexpected");
         doThrow(conflict).when(trusted).admit(TENANT, IDENTITY);
-        assertSame(conflict, assertThrows(IamException.class, () -> admission.admit(attempt(IDENTITY, "tasco", null, false))));
+        assertSame(conflict, assertThrows(IamException.class, () -> admission.admit(attempt(IDENTITY, "sample", null, false))));
     }
 
     @Test
@@ -172,7 +172,7 @@ class DefaultSignInAdmissionTest {
         var failure = new IllegalStateException("profile write failed");
         doAnswer(call -> { throw failure; }).when(profiles).record(any(), any(), any(), any(), anyBoolean());
 
-        assertSame(failure, assertThrows(IllegalStateException.class, () -> admission.admit(attempt(IDENTITY, "tasco", null, false))));
+        assertSame(failure, assertThrows(IllegalStateException.class, () -> admission.admit(attempt(IDENTITY, "sample", null, false))));
         assertTrue(transactions.rolledBack);
         assertTrue(auditedInside.isEmpty());
     }

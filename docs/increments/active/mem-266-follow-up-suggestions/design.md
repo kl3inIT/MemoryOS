@@ -60,5 +60,5 @@ conversation in Chat, a failed or stopped answer, and any answer but the last.
 
 ## Out of scope
 
-- A per-member switch, persisting suggestions, suggestions in chat channels (Lark, Zalo, WhatsApp).
+- A per-member switch, persisting suggestions.
 - Measuring the real token cost per answer; that is a staging check in the plan.

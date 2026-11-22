@@ -49,7 +49,7 @@ test.beforeEach(async ({ page }) => {
         actorId: "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1",
         authorizationVersion: 1,
         uiLanguage: "en",
-        tenant: { displayName: "Tasco", role: "MEMBER" },
+        tenant: { displayName: "Công ty Mẫu", role: "MEMBER" },
         capabilities: [
           "SYSTEM_BASIC",
           "SEARCH_READ",
@@ -203,7 +203,7 @@ test("picks a range of update days on the calendar beside the presets", async ({
         actorId: "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1",
         authorizationVersion: 1,
         uiLanguage: "vi",
-        tenant: { displayName: "Tasco", role: "MEMBER" },
+        tenant: { displayName: "Công ty Mẫu", role: "MEMBER" },
         capabilities: ["SYSTEM_BASIC", "SEARCH_READ", "CHAT_READ", "CHAT_WRITE"],
         scopedCapabilities: [],
       },

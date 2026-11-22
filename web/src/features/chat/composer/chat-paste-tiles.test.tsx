@@ -24,7 +24,7 @@ const session: ApplicationSession = {
   displayName: null,
   authorizationVersion: 1,
   uiLanguage: "en",
-  tenant: { displayName: "Tasco", role: "MEMBER" },
+  tenant: { displayName: "Công ty Mẫu", role: "MEMBER" },
   capabilities: ["CHAT_READ", "CHAT_WRITE"],
   scopedCapabilities: [],
 };

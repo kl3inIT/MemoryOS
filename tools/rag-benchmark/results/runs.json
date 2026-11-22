@@ -20,11 +20,25 @@
       "evals": ["eval-Yi1-2026-10-08T11:17:04", "eval-s5h-2026-10-31T07:53:32 (stage re-grade of the same replies)"]
     },
     {
+      "file": "grounded-openai-large.jsonl",
+      "label": "Grounded mode, OpenAI text-embedding-3-large (semantic floor 0.65)",
+      "date": "2026-11-22",
+      "api": "main at a26ae788",
+      "evals": ["eval-1MR-2026-11-22T00:26:02", "eval-Dan-2026-11-22T03:09:23 (stage re-grade of the same replies)"]
+    },
+    {
       "file": "retrieval-hybrid.jsonl",
       "label": "Retrieval, hybrid search (released)",
       "date": "2026-10-31",
       "api": "main at dcdea3c5",
       "evals": ["eval-cII-2026-10-31T07:43:05"]
+    },
+    {
+      "file": "retrieval-openai-large.jsonl",
+      "label": "Retrieval, hybrid search, OpenAI text-embedding-3-large (semantic floor 0.65)",
+      "date": "2026-11-22",
+      "api": "main at 47c5fa9b",
+      "evals": ["eval-hfr-2026-11-21T22:49:45"]
     },
     {
       "file": "retrieval-keyword.jsonl",

@@ -475,7 +475,6 @@ export const englishUi: Record<string, string> = {
   "Lowercase letters, digits, dots, underscores or hyphens. Cannot be changed later.":
     "Chữ thường, số, dấu chấm, gạch dưới hoặc gạch ngang. Không đổi được sau này.",
   "Display name": "Tên hiển thị",
-  "Sign in with Tasco": "Đăng nhập bằng Tasco",
   "Issuer URL": "Issuer URL",
   "The issuer is fixed for the lifetime of this provider.":
     "Issuer cố định trong suốt vòng đời của nhà cung cấp này.",
@@ -506,7 +505,6 @@ export const englishUi: Record<string, string> = {
   "Redirect URI": "Redirect URI",
   Copy: "Sao chép",
   Copied: "Đã sao chép",
-  tasco: "tasco",
   "memoryos-broker": "memoryos-broker",
   "Allow sign-in through this provider": "Cho phép đăng nhập qua nhà cung cấp này",
   "Turning this off hides the provider on the sign-in screen without deleting its configuration.":
@@ -1942,7 +1940,6 @@ Object.assign(englishUi, {
   "Provider session ended": "Đã kết thúc phiên ở nhà cung cấp",
   "Available to everyone": "Mọi người dùng được",
   Assistants: "Trợ lý",
-  "Public bots": "Bot công khai",
   Reason: "Lý do",
   Kept: "Giữ nguyên",
   Replaced: "Đã thay",
@@ -2011,7 +2008,7 @@ Object.assign(englishUi, {
   "Changed voice": "Đã đổi Giọng nói",
   "Changed image generation": "Đã đổi Tạo ảnh",
   "Changed OCR": "Đã đổi OCR",
-  "Changed Sandbox": "Đã đổi Sandbox",
+  "Changed Code Interpreter": "Đã đổi Code Interpreter",
   "Changed Chat settings": "Đã đổi cài đặt Chat",
   "Question blocked": "Câu hỏi bị chặn",
   "Blocked by": "Chặn bởi",
@@ -2057,9 +2054,6 @@ Object.assign(englishUi, {
   "Read and export who changed sign-in, users, Groups, models, connections and Sources within the organization.":
     "Xem và xuất nhật ký ai đã thay đổi đăng nhập, người dùng, Nhóm, mô hình, kết nối và nguồn dữ liệu trong tổ chức.",
   "Manage MCP servers": "Quản lý máy chủ MCP",
-  "Manage chat bots": "Quản lý bot chat",
-  "Connect, configure, switch on or off and remove the organization's chat bots, such as the Lark bot.":
-    "Kết nối, cấu hình, bật hoặc tắt và gỡ các bot chat của tổ chức, như bot Lark.",
   "Register remote MCP servers, their authentication and OAuth clients, enable their tools and control Group access within the organization.":
     "Đăng ký máy chủ MCP từ xa, cách xác thực và OAuth client của chúng, bật công cụ và kiểm soát quyền truy cập của Nhóm trong tổ chức.",
   "IAM administration": "Quản trị danh tính và quyền truy cập",
@@ -2179,7 +2173,6 @@ Object.assign(englishUi, {
   Thấp: "Thấp",
   Vừa: "Vừa",
   Cao: "Cao",
-  "· default": "· mặc định",
   "{{input}} in · {{output}} out · {{cache}} cache":
     "{{input}} in · {{output}} out · {{cache}} cache",
   "Share of spend": "Tỉ lệ chi phí",

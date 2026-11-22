@@ -22,7 +22,7 @@ class DeploymentChatProviderMigrationTest {
         try (var database = TestDatabase.freshPostgres("139")) {
             var jdbc = JdbcClient.create(database);
             UUID tenant = UUID.randomUUID();
-            jdbc.sql("INSERT INTO tenants(id,slug,display_name,status,bootstrap_reference) VALUES(:id,'tasco','Tasco','ACTIVE','TEST')")
+            jdbc.sql("INSERT INTO tenants(id,slug,display_name,status,bootstrap_reference) VALUES(:id,'sample','Sample','ACTIVE','TEST')")
                     .param("id", tenant).update();
             UUID seeded = provider(jdbc, tenant, "OpenAI", "deployment", "deployment");
             UUID added = provider(jdbc, tenant, "9Router", "v1:encrypted", null);

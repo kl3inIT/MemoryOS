@@ -4,7 +4,8 @@ Date: 2026-10-15
 
 ## Status
 
-Accepted with the [MEM-246 design](../increments/active/mem-246-lark-bot/design.md) on 2026-10-13; implemented in
+Superseded by [ADR 0032](0032-no-chat-bots-in-the-capstone-scope.md) on 2026-11-22, when the owner removed the chat
+bots from MemoryOS. Accepted with the [MEM-246 design](../increments/superseded/mem-246-lark-bot/design.md) on 2026-10-13; implemented in
 PRs #631 to #656 and running on staging with the Lark bot.
 
 ## Context

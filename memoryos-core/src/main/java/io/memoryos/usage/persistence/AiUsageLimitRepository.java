@@ -94,7 +94,7 @@ public class AiUsageLimitRepository {
      * actor and is excluded everywhere: indexing a Source must never exhaust anyone's budget.
      */
     public List<DaySpend> spend(UUID tenant, LocalDate from, AiUsageLimitScope scope, @Nullable UUID subject) {
-        // A budget for each person is not one for a service account (MEM-246): all of a channel's group turns
+        // A budget for each person is not one for a service account (MEM-246): all of a chat bot's group turns
         // are its bot's, so its spend counts in the Tenant's budget and in its Groups', and in no person's.
         String sql = switch (scope) {
             case TENANT -> """

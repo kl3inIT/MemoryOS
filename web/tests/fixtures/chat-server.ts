@@ -889,7 +889,7 @@ export async function handleChatFixture(
         serverName: "Gmail",
         toolName: "send_email",
         arguments: JSON.stringify({
-          to: "an.nguyen@tasco.vn",
+          to: "an.nguyen@example.test",
           subject: "Báo cáo doanh thu tháng 9",
           body: "Chào anh An,\n\nEm gửi báo cáo doanh thu tháng 9 của khu vực miền Bắc.\n\nTrân trọng,\nMinh Anh",
         }),

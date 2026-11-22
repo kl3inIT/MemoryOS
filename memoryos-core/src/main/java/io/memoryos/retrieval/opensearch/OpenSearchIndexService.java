@@ -422,7 +422,7 @@ public class OpenSearchIndexService implements SearchIndex {
         if (scope.sources().isEmpty()) return List.of();
         return searchPrepared(active, scope.tenant(), query, queryVector(active, scope.tenant(), scope.actor(), query, null), mediaTypes,
                 new SearchFilters(Set.of(), null, updated), scope.sources().keySet().stream().map(UUID::toString).toList(),
-                ids(scope.wholeSources()), scope.accessTokens());
+                scope.accessTokens());
     }
 
     /** Embed each distinct text once for this Search call, and only a text this reader has no kept vector of. */
@@ -450,8 +450,7 @@ public class OpenSearchIndexService implements SearchIndex {
         }
         List<Callable<List<SearchHit>>> tasks = texts.stream().<Callable<List<SearchHit>>>map(text ->
                 () -> timings.measure(SearchTimings.Stage.HYBRID, () -> searchPrepared(active, scope.tenant(), text, vectors.get(text), List.of(), filters,
-                        scope.sources().keySet().stream().map(UUID::toString).toList(), ids(scope.wholeSources()),
-                        scope.accessTokens()))).toList();
+                        scope.sources().keySet().stream().map(UUID::toString).toList(), scope.accessTokens()))).toList();
         var results = SearchTasks.run(tasks, checkActive);
         // The adapter uses the same hybrid request for both groups. Reuse identical IO but retain
         // each group's rank list and weight for fusion.
@@ -460,18 +459,7 @@ public class OpenSearchIndexService implements SearchIndex {
 
     private List<SearchHit> searchPrepared(SearchGenerations.Active active, TenantId tenant, String query, float[] vector,
             List<String> mediaTypes, SearchFilters restrictions, List<String> sourceIds, Collection<String> accessTokens) {
-        return searchPrepared(active, tenant, query, vector, mediaTypes, restrictions, sourceIds, List.of(), List.of(), accessTokens);
-    }
-
-    private List<SearchHit> searchPrepared(SearchGenerations.Active active, TenantId tenant, String query, float[] vector,
-            List<String> mediaTypes, SearchFilters restrictions, List<String> sourceIds, List<String> wholeSources,
-            Collection<String> accessTokens) {
-        return searchPrepared(active, tenant, query, vector, mediaTypes, restrictions, sourceIds, List.of(), wholeSources,
-                accessTokens);
-    }
-
-    private static List<String> ids(Set<UUID> sources) {
-        return sources.stream().map(UUID::toString).sorted().toList();
+        return searchPrepared(active, tenant, query, vector, mediaTypes, restrictions, sourceIds, List.of(), accessTokens);
     }
 
     /**
@@ -505,19 +493,19 @@ public class OpenSearchIndexService implements SearchIndex {
         if (allowed.isEmpty()) return List.of();
         // Owner-private files are authorized by the explicit owner file mappings, not by Source access.
         return searchPrepared(active, tenant, query, queryVector(active, tenant, actor, query, queryCaller(tenant, actor)), List.of(),
-                SearchFilters.NONE, List.of(), allowed, List.of(), null);
+                SearchFilters.NONE, List.of(), allowed, null);
     }
 
     private List<SearchHit> searchPrepared(SearchGenerations.Active active, TenantId tenant, String query, float[] vector,
             List<String> mediaTypes, SearchFilters restrictions, List<String> sourceIds, List<Object> privateFiles,
-            List<String> wholeSources, @Nullable Collection<String> accessTokens) {
+            @Nullable Collection<String> accessTokens) {
         String identity = active.identity();
         List<Object> filters = new ArrayList<>();
         filters.add(term("tenant_id", tenant.value().toString()));
         filters.add(term("index_identity", identity));
         filters.add(privateFiles.isEmpty() ? Map.of("bool", Map.of("must_not", List.of(Map.of("exists", Map.of("field", "user_file_id")))))
                 : Map.of("bool", Map.of("should", privateFiles, "minimum_should_match", 1)));
-        if (accessTokens != null) filters.add(accessFilter(accessTokens, wholeSources));
+        if (accessTokens != null) filters.add(accessFilter(accessTokens));
         if (!mediaTypes.isEmpty()) filters.add(Map.of("terms", Map.of("media_type", mediaTypes)));
         // One origin must satisfy every source condition at once; the dates are the provider's, never MemoryOS's.
         List<Object> origins = new ArrayList<>();
@@ -844,16 +832,10 @@ public class OpenSearchIndexService implements SearchIndex {
      * Readers match public documents or shared tokens. Chunks written before access fields existed stay visible
      * until their ACCESS backfill completes; the post-query database recheck still authorizes every hit.
      */
-    /**
-     * What the reader may read: public chunks, chunks granted to one of its tokens, and every chunk with an origin in one
-     * of {@code wholeSources}, which a public bot reads whole (MEM-298); the recheck after the query is exact.
-     */
-    private static Map<String, Object> accessFilter(Collection<String> tokens, List<String> wholeSources) {
+    private static Map<String, Object> accessFilter(Collection<String> tokens) {
         List<Object> allowed = new ArrayList<>();
         allowed.add(Map.of("term", Map.of("access_public", true)));
         if (!tokens.isEmpty()) allowed.add(Map.of("terms", Map.of("access_control_list", tokens.stream().sorted().toList())));
-        if (!wholeSources.isEmpty()) allowed.add(Map.of("nested", Map.of("path", "source_metadata",
-                "query", Map.of("terms", Map.of("source_metadata.source_id", wholeSources)))));
         allowed.add(Map.of("bool", Map.of("must_not", List.of(Map.of("exists", Map.of("field", "access_public"))))));
         return Map.of("bool", Map.of("should", allowed, "minimum_should_match", 1));
     }

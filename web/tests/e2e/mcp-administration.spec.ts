@@ -11,7 +11,7 @@ const administrator: CurrentIdentity = {
   actorId: "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1",
   authorizationVersion: 1,
   uiLanguage: "vi",
-  tenant: { displayName: "Tasco", role: "MEMBER" },
+  tenant: { displayName: "Công ty Mẫu", role: "MEMBER" },
   capabilities: ["MCP_MANAGE", "CHAT_READ", "CHAT_WRITE"],
   scopedCapabilities: [],
 };
@@ -36,7 +36,6 @@ const servers: ListMcpServersResponse = [
     tenantWide: true,
     groupIds: [],
     personaIds: [],
-    publicBots: false,
     status: "CONNECTED",
     lastRefreshedAt: "2026-09-16T03:10:00Z",
     toolCount: 6,
@@ -59,7 +58,6 @@ const servers: ListMcpServersResponse = [
     tenantWide: false,
     groupIds: ["group-ops"],
     personaIds: [],
-    publicBots: false,
     status: "AWAITING_AUTH",
     lastRefreshedAt: null,
     toolCount: 0,
@@ -134,7 +132,7 @@ const tools: ListMcpServerToolsResponse = [
 const oauthClients: ListMcpServerOAuthClientsResponse = [
   {
     id: "c1",
-    label: "Tasco Miền Bắc",
+    label: "Công ty Mẫu Miền Bắc",
     source: "ADMIN",
     issuer: "https://accounts.google.com",
     clientId: "north.apps.googleusercontent.com",
@@ -148,7 +146,7 @@ const oauthClients: ListMcpServerOAuthClientsResponse = [
   },
   {
     id: "c2",
-    label: "Tasco Miền Nam",
+    label: "Công ty Mẫu Miền Nam",
     source: "REGISTERED",
     issuer: "https://accounts.google.com",
     clientId: "south.apps.googleusercontent.com",
@@ -173,7 +171,7 @@ const connections: ListMcpConnectionsResponse = [
     authPerformer: "PER_USER",
     status: "CONNECTED",
     connectionState: "CONNECTED",
-    oauthClients: [{ id: "c1", label: "Tasco Miền Bắc" }],
+    oauthClients: [{ id: "c1", label: "Công ty Mẫu Miền Bắc" }],
     enabledToolCount: 4,
     credentialUpdatedAt: "2026-09-16T03:00:00Z",
     revision: 3,
@@ -204,8 +202,8 @@ const connections: ListMcpConnectionsResponse = [
     status: "CONNECTED",
     connectionState: "REAUTH_REQUIRED",
     oauthClients: [
-      { id: "f1", label: "Tasco Miền Bắc" },
-      { id: "f2", label: "Tasco Miền Nam" },
+      { id: "f1", label: "Công ty Mẫu Miền Bắc" },
+      { id: "f2", label: "Công ty Mẫu Miền Nam" },
     ],
     enabledToolCount: 3,
     credentialUpdatedAt: "2026-09-10T03:00:00Z",
@@ -343,7 +341,7 @@ test("MCP administration lists servers, tools and OAuth applications", async ({ 
     .first()
     .click();
   await page.getByRole("button", { name: "Nâng cao" }).click();
-  await expect(page.getByText("Tasco Miền Bắc")).toBeVisible();
+  await expect(page.getByText("Công ty Mẫu Miền Bắc")).toBeVisible();
   await expect(page.getByText("Ghi đè hoặc xóa · 1")).toBeVisible();
   await expect(page.getByText("Đã chỉnh", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Về mặc định" })).toBeVisible();
@@ -447,7 +445,7 @@ test("A tool that asks first waits for the owner and continues once allowed", as
 
   // The card shows each argument the call would send, before anything runs.
   await expect(page.getByText("Cho phép send_email trên Gmail?")).toBeVisible();
-  await expect(page.getByText("an.nguyen@tasco.vn")).toBeVisible();
+  await expect(page.getByText("an.nguyen@example.test")).toBeVisible();
   await expect(page.getByRole("button", { name: "Luôn cho phép" })).toBeVisible();
   await page.screenshot({ path: "test-results/mcp-approval-waiting.png" });
   await page.getByRole("button", { name: "Cho phép", exact: true }).click();

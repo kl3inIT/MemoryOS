@@ -110,13 +110,6 @@ function ServerDetail({
             : "Chọn nhóm",
       ),
     ],
-    // MEM-299: only a shared connection or none can serve a public bot.
-    ...(server.authType === "NONE" || server.authPerformer === "ADMIN"
-      ? ([[ui("Bot công khai"), ui(server.publicBots ? "Được dùng" : "Không dùng")]] as [
-          string,
-          string,
-        ][])
-      : []),
   ];
 
   return (

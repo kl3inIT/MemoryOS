@@ -1,3 +1,5 @@
+/// <reference types="node" />
+// It reads the installed packages, so it runs with Node's types; the app program has none of its own.
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";

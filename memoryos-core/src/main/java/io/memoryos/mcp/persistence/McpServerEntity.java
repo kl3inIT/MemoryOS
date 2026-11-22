@@ -45,7 +45,6 @@ public class McpServerEntity implements Persistable<UUID> {
     @Column(name = "header_template", columnDefinition = "text") private @Nullable String headerTemplate;
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 16) private McpServerStatus status = McpServerStatus.CREATED;
     @Column(name = "tenant_wide", nullable = false) private boolean tenantWide = true;
-    @Column(name = "public_bots", nullable = false) private boolean publicBots;
     @Column(name = "last_refreshed_at") private @Nullable Instant lastRefreshedAt;
     @Column(name = "created_at", nullable = false, updatable = false) private Instant createdAt;
     @Column(name = "updated_at", nullable = false) private Instant updatedAt;
@@ -69,12 +68,11 @@ public class McpServerEntity implements Persistable<UUID> {
     public void configure(String name, @Nullable String description, String url, McpAuthType authType,
                           McpAuthPerformer authPerformer, @Nullable McpOAuthProviderMode oauthProviderMode,
                           String oauthScopes, String oauthAdditionalParameters, @Nullable String headerTemplate,
-                          boolean tenantWide, Set<UUID> groups, Set<UUID> personas, boolean publicBots, Instant now) {
+                          boolean tenantWide, Set<UUID> groups, Set<UUID> personas, Instant now) {
         this.name = name; this.description = description; this.url = url; this.authType = authType;
         this.authPerformer = authPerformer; this.oauthProviderMode = oauthProviderMode; this.oauthScopes = oauthScopes;
         this.oauthAdditionalParameters = oauthAdditionalParameters; this.headerTemplate = headerTemplate;
-        this.tenantWide = tenantWide; groupIds.clear(); groupIds.addAll(groups); personaIds.clear(); personaIds.addAll(personas);
-        this.publicBots = publicBots; updatedAt = now;
+        this.tenantWide = tenantWide; groupIds.clear(); groupIds.addAll(groups); personaIds.clear(); personaIds.addAll(personas); updatedAt = now;
     }
 
     public void status(McpServerStatus status, @Nullable Instant refreshedAt, Instant now) {
@@ -110,7 +108,5 @@ public class McpServerEntity implements Persistable<UUID> {
     public Set<UUID> groupIds() { return Set.copyOf(groupIds); }
     /** The assistants a server is open through alone (MEM-299); empty unless that is its access. */
     public Set<UUID> personaIds() { return Set.copyOf(personaIds); }
-    /** Whether a public bot may use the server (MEM-299). */
-    public boolean publicBots() { return publicBots; }
     public long revision() { return revision; }
 }

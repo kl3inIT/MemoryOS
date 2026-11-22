@@ -21,23 +21,6 @@ updates:
           - minor
           - patch
 
-  # MEM-283: whatsmeow follows WhatsApp's protocol; a bump is how a protocol change reaches the bridge.
-  - package-ecosystem: gomod
-    directory: /memoryos-integration-whatsapp/bridge
-    schedule:
-      interval: weekly
-      day: monday
-      time: "09:00"
-      timezone: Asia/Ho_Chi_Minh
-    open-pull-requests-limit: 5
-    labels:
-      - dependencies
-    groups:
-      gomod-minor-and-patch:
-        update-types:
-          - minor
-          - patch
-
   - package-ecosystem: npm
     directories:
       - /web
@@ -61,7 +44,8 @@ updates:
 
   - package-ecosystem: uv
     directories:
-      - /memoryos-sandbox/computer
+      - /memoryos-interpreter/service
+      - /memoryos-interpreter/executor
     schedule:
       interval: weekly
       day: monday
@@ -81,8 +65,8 @@ updates:
       - /
       - /web
       - /landing
-      - /memoryos-sandbox/computer
-      - /memoryos-sandbox/server
+      - /memoryos-interpreter/service
+      - /memoryos-interpreter/executor
       - /infrastructure/keycloak
       - /infrastructure/deployment/ocr
     schedule:

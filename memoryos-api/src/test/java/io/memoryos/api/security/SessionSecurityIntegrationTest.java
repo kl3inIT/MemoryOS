@@ -102,7 +102,7 @@ class SessionSecurityIntegrationTest {
         registry.add("spring.security.oauth2.resourceserver.jwt.issuer-uri", () -> ISSUER);
         registry.add("spring.security.oauth2.resourceserver.jwt.jwk-set-uri", () -> ISSUER + "/jwks");
         registry.add("memoryos.identity.audience", () -> "memoryos-api");
-        registry.add("memoryos.identity.jit.allowed-provider-aliases", () -> "tasco");
+        registry.add("memoryos.identity.jit.allowed-provider-aliases", () -> "sample");
         registry.add("memoryos.identity.keycloak.admin.server-url", () -> "http://127.0.0.1:1");
         registry.add("memoryos.identity.keycloak.admin.client-secret", () -> "test-provisioner-secret");
         registry.add(
@@ -123,8 +123,8 @@ class SessionSecurityIntegrationTest {
         registry.add("spring.security.oauth2.client.provider.memoryos.issuer-uri", () -> ISSUER);
         registry.add("memoryos.initial-tenant.id", () -> "10000000-0000-0000-0000-000000000024");
         registry.add("memoryos.initial-tenant.owner-subject", () -> "initial-owner");
-        registry.add("memoryos.initial-tenant.slug", () -> "tasco");
-        registry.add("memoryos.initial-tenant.display-name", () -> "Tasco");
+        registry.add("memoryos.initial-tenant.slug", () -> "sample");
+        registry.add("memoryos.initial-tenant.display-name", () -> "Sample");
         registry.add("memoryos.initial-tenant.change-reference", () -> "TEST-BROWSER-BOOTSTRAP");
     }
 
@@ -149,7 +149,7 @@ class SessionSecurityIntegrationTest {
             AUTHENTICATING_SUBJECT.set(subject);
             AUTHENTICATING_EMAIL.set(email);
             AUTHENTICATING_EMAIL_VERIFIED.set(false);
-            AUTHENTICATING_PROVIDER.set("tasco");
+            AUTHENTICATING_PROVIDER.set("sample");
             UUID actor;
             try (var memberClient = client(new CookieManager(null, CookiePolicy.ACCEPT_ALL))) {
                 var callback = completeOAuth(memberClient, "/oauth2/authorization/memoryos");
@@ -178,7 +178,7 @@ class SessionSecurityIntegrationTest {
             }
             jdbcClient.sql("UPDATE tenant_memberships SET status = 'INACTIVE' WHERE actor_id = :actor")
                     .param("actor", actor).update();
-            AUTHENTICATING_PROVIDER.set("tasco");
+            AUTHENTICATING_PROVIDER.set("sample");
             try (var revokedClient = client(new CookieManager(null, CookiePolicy.ACCEPT_ALL))) {
                 var callback = completeOAuth(revokedClient, "/oauth2/authorization/memoryos");
                 assertEquals(baseUri().resolve("/access-not-provisioned").toString(),
@@ -228,7 +228,7 @@ class SessionSecurityIntegrationTest {
         AUTHENTICATING_EMAIL.set("owner@example.test");
         AUTHENTICATING_EMAIL_VERIFIED.set(true);
         try {
-            for (Object provider : List.of("local", "TASCO", " tasco ", List.of("tasco"), Map.of("alias", "tasco"))) {
+            for (Object provider : List.of("local", "SAMPLE", " sample ", List.of("sample"), Map.of("alias", "sample"))) {
                 AUTHENTICATING_PROVIDER.set(provider);
                 try (var browser = client(new CookieManager(null, CookiePolicy.ACCEPT_ALL))) {
                     var callback = completeOAuth(browser, "/oauth2/authorization/memoryos");
@@ -241,7 +241,7 @@ class SessionSecurityIntegrationTest {
             String bearer = signedToken(new JWTClaimsSet.Builder().issuer(ISSUER).subject(subject)
                     .audience("memoryos-api").issueTime(new Date())
                     .expirationTime(Date.from(Instant.now().plusSeconds(300)))
-                    .claim("memoryos_identity_provider", "tasco").build());
+                    .claim("memoryos_identity_provider", "sample").build());
             long sessions = count("spring_session");
             try (var bearerClient = client(new CookieManager(null, CookiePolicy.ACCEPT_ALL))) {
                 var response = bearerClient.send(HttpRequest.newBuilder(baseUri().resolve("/api/identity/me"))
@@ -339,7 +339,7 @@ class SessionSecurityIntegrationTest {
             );
             assertEquals(200, currentIdentity.statusCode());
             assertTrue(currentIdentity.body().contains(ownerActorId.toString()));
-            assertTrue(currentIdentity.body().contains("\"displayName\":\"Tasco\""));
+            assertTrue(currentIdentity.body().contains("\"displayName\":\"Sample\""));
             assertTrue(currentIdentity.body().contains("\"role\":\"OWNER\""));
             assertTrue(currentIdentity.body().contains("\"USERS_MANAGE\""));
             assertTrue(currentIdentity.body().contains("\"SOURCES_MANAGE\""));
@@ -742,7 +742,7 @@ class SessionSecurityIntegrationTest {
                     HttpResponse.BodyHandlers.ofString()
             );
             assertEquals(200, current.statusCode());
-            assertEquals("Tasco", jsonString(current.body(), "tenantDisplayName"));
+            assertEquals("Sample", jsonString(current.body(), "tenantDisplayName"));
 
             AUTHENTICATING_SUBJECT.set(memberSubject);
             AUTHENTICATING_EMAIL.set(memberEmail);
@@ -770,7 +770,7 @@ class SessionSecurityIntegrationTest {
                     .query(UUID.class)
                     .single();
             assertTrue(identity.body().contains(memberActorId.toString()));
-            assertTrue(identity.body().contains("\"displayName\":\"Tasco\""));
+            assertTrue(identity.body().contains("\"displayName\":\"Sample\""));
             assertTrue(identity.body().contains("\"role\":\"MEMBER\""));
             assertBasicCapabilities(Json.mapper().readTree(identity.body()));
             var ownerOnlyResponses = List.of(

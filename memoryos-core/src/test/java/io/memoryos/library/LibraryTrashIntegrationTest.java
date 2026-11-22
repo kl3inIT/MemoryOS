@@ -20,7 +20,7 @@ import io.memoryos.chat.image.persistence.JdbcImageArtifactRepository;
 import io.memoryos.library.persistence.JdbcUserFileRepository;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.group.persistence.IamLockRepository;
-import io.memoryos.sandbox.SandboxService;
+import io.memoryos.chat.interpreter.InterpreterProperties;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
@@ -111,7 +111,7 @@ class LibraryTrashIntegrationTest {
         artifacts = new JdbcInterpreterRepository(jdbc);
         var quotas = new StorageQuotaService(tenants,
                 new LibraryStorageProperties(0), library);
-        interpreter = new InterpreterService(artifacts, mock(SandboxService.class),
+        interpreter = new InterpreterService(artifacts, new InterpreterProperties(null, null),
                 mock(IamAuthorization.class), tenants, writes, storage, quotas,
                 new LibraryTrashProperties(WINDOW), jpa.transactionManager(),
                 TestDatabase.noAudit());

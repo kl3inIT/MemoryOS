@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 
 /** What the model is asked, and what is done with what it answers. */
 class TranscriptCorrectorTest {
-    private static final Subject SUBJECT = new Subject("Giao ban tuần", List.of("Tasco", "KPI"), "vi");
+    private static final Subject SUBJECT = new Subject("Giao ban tuần", List.of("Alpha", "KPI"), "vi");
 
     @Test
     void marksThatReadAsOnePhraseAreAskedAboutTogether() {
@@ -37,8 +37,8 @@ class TranscriptCorrectorTest {
 
     @Test
     void theAskCarriesTheWordsEitherSideTheSpeakerAndTheSameWordsElsewhere() {
-        var lines = List.of(new Line("a", "Chị Lan", "Bên Tát cô đã gửi bảng KPI."),
-                new Line("b", "Anh Thanh", "Đúng rồi, Tasco gửi sáng nay."),
+        var lines = List.of(new Line("a", "Chị Lan", "Bên Anh fa đã gửi bảng KPI."),
+                new Line("b", "Anh Thanh", "Đúng rồi, Alpha gửi sáng nay."),
                 new Line("c", "Chị Lan", "Vậy chốt nhé."));
         var byId = new LinkedHashMap<String, Line>();
         for (var line : lines) byId.put(line.id(), line);
@@ -47,10 +47,10 @@ class TranscriptCorrectorTest {
                 List.of(new Stretch("s1", "a", 4, 10)));
 
         assertTrue(ask.contains("Speaker: Chị Lan"));
-        assertTrue(ask.contains("Uncertain stretch: \"Tát cô\""));
+        assertTrue(ask.contains("Uncertain stretch: \"Anh fa\""));
         assertTrue(ask.contains("Left context: \"Bên \""));
-        assertTrue(ask.contains("Terms used in this meeting: Tasco, KPI"));
-        assertTrue(ask.contains("[TARGET] Chị Lan: Bên Tát cô"), "the line being judged is marked in its window");
+        assertTrue(ask.contains("Terms used in this meeting: Alpha, KPI"));
+        assertTrue(ask.contains("[TARGET] Chị Lan: Bên Anh fa"), "the line being judged is marked in its window");
         assertTrue(ask.contains("Anh Thanh: Đúng rồi"), "and it is read inside the exchange it belongs to");
     }
 

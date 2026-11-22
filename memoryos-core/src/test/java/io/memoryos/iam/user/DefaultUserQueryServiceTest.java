@@ -220,7 +220,7 @@ class DefaultUserQueryServiceTest {
         jdbcClient.sql("""
                         INSERT INTO tenants (
                             id, slug, display_name, status, bootstrap_reference, deployment_slot
-                        ) VALUES (:tenantId, 'tasco', 'Tasco', 'ACTIVE', 'TEST-MEM-55', 1)
+                        ) VALUES (:tenantId, 'sample', 'Sample', 'ACTIVE', 'TEST-MEM-55', 1)
                         """)
                 .param("tenantId", TENANT.value())
                 .update();

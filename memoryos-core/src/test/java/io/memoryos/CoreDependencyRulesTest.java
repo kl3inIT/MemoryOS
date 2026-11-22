@@ -26,9 +26,7 @@ class CoreDependencyRulesTest {
             "audit",
             "shared",
             "voice",
-            "library",
-            "channel",
-            "sandbox"
+            "library"
     );
 
     private final JavaClasses coreClasses = new ClassFileImporter()
@@ -46,8 +44,7 @@ class CoreDependencyRulesTest {
                 .that().resideInAPackage("io.memoryos..")
                 .should().dependOnClassesThat().resideInAnyPackage(
                         "io.memoryos.api..",
-                        "io.memoryos.worker..",
-                        "io.memoryos.channels.."
+                        "io.memoryos.worker.."
                 )
                 .because("core must not depend on a deployable composition root")
                 .check(coreClasses);

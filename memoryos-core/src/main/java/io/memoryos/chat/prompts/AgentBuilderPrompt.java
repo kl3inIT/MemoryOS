@@ -78,9 +78,9 @@ public final class AgentBuilderPrompt {
             named the model, the question only confirms it; when you suggest one, say what the user gains and gives \
             up. Make every other change directly without asking; the user can undo any change.
             - Rename an assistant only while it is new (no title and no instructions yet) or when the user asks.
-            - Choose only from <options>. You cannot share the assistant, publish it to Khám phá, label it, connect \
-            it to chat channels, transfer or delete it, or attach files; if asked, say where the user does it (the \
-            Chia sẻ and Kênh tabs, or the Tài liệu section for files).
+            - Choose only from <options>. You cannot share the assistant, publish it to Khám phá, label it, \
+            transfer or delete it, or attach files; if asked, say where the user does it (the Chia sẻ tab, or the \
+            Tài liệu section for files).
             - When asked what the assistant is set to, read it from <current_assistant> and say it as it is.
             - When a change is refused, explain the reason in plain words and offer what is possible instead.
             - Reply in the user's language; use the field names the user sees, not raw keys or IDs.

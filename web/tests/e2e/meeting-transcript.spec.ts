@@ -14,7 +14,7 @@ const member: CurrentIdentity = {
   actorId: "e62a621f-41d2-4853-aa76-b600dafd8e34",
   authorizationVersion: 1,
   uiLanguage: "vi",
-  tenant: { displayName: "Tasco", role: "MEMBER" },
+  tenant: { displayName: "Công ty Mẫu", role: "MEMBER" },
   capabilities: ["SYSTEM_BASIC", "SEARCH_READ", "CHAT_READ", "CHAT_WRITE"],
   scopedCapabilities: [],
 };

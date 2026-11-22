@@ -10,9 +10,9 @@ import org.junit.jupiter.api.Test;
 /** MEM-287: what an answer keeps of its tool calls for later turns. */
 class ChatToolTranscriptTest {
     @Test
-    void sandboxAndPublicResultsAreKeptAndKnowledgeResultsAreNot() {
+    void pythonAndPublicResultsAreKeptAndKnowledgeResultsAreNot() {
         var transcript = new ChatToolTranscript();
-        transcript.record("call_1", "bash", "{\"command\":\"ls\"}", "clean.xlsx");
+        transcript.record("call_1", "run_python", "{\"code\":\"print(1)\"}", "clean.xlsx");
         transcript.record("call_2", "search_knowledge", "{\"queries\":[\"policy\"]}", "[1] Confidential policy text");
         transcript.record("call_3", "read_file", null, "Attached file text");
         var calls = transcript.calls();
@@ -38,7 +38,7 @@ class ChatToolTranscriptTest {
     void anMcpToolBringsOrganizationContentInAndKeepsNoArguments() {
         var transcript = new ChatToolTranscript();
         transcript.record("call_1", "lark_docs_read", "{\"doc\":\"Q3 plan\"}", "Q3 plan text");
-        transcript.record("call_2", "bash", "{\"command\":\"cat notes.txt\"}", "Q3 plan text");
+        transcript.record("call_2", "run_python", "{\"code\":\"print(notes)\"}", "Q3 plan text");
         var calls = transcript.calls();
         assertTrue(calls.get(0).arguments().startsWith("{\"note\":"), calls.get(0).arguments());
         assertNull(calls.get(0).result());
@@ -49,7 +49,7 @@ class ChatToolTranscriptTest {
     void aMemoryUpdateKeepsNeitherItsTextNorItsResult() {
         var transcript = new ChatToolTranscript();
         transcript.record("call_1", "update_memory", "{\"memory\":\"My salary is 50M\"}", "Saved.");
-        transcript.record("call_2", "bash", "{\"command\":\"ls\"}", "clean.xlsx");
+        transcript.record("call_2", "run_python", "{\"code\":\"print(1)\"}", "clean.xlsx");
         var calls = transcript.calls();
         assertTrue(calls.get(0).arguments().startsWith("{\"note\":"), calls.get(0).arguments());
         assertNull(calls.get(0).result());
@@ -59,7 +59,7 @@ class ChatToolTranscriptTest {
     @Test
     void aLongResultIsCutWithinItsBoundOnACharacterBoundary() {
         var transcript = new ChatToolTranscript();
-        transcript.record("call_1", "bash", "{}", "ệ".repeat(40_000));
+        transcript.record("call_1", "run_python", "{}", "ệ".repeat(40_000));
         String result = transcript.calls().getFirst().result();
         assertTrue(result.getBytes(StandardCharsets.UTF_8).length <= ChatToolTranscript.FIELD_BYTES);
         assertTrue(result.endsWith("[cut: the rest of this result is not kept]"));
@@ -69,7 +69,7 @@ class ChatToolTranscriptTest {
     @Test
     void argumentsTooLargeAreReplacedByValidJsonNeverCut() {
         var transcript = new ChatToolTranscript();
-        transcript.record("call_1", "edit_file", "{\"file_text\":\"" + "a".repeat(70_000) + "\"}", "Created.");
+        transcript.record("call_1", "run_python", "{\"code\":\"" + "a".repeat(70_000) + "\"}", "Created.");
         String arguments = transcript.calls().getFirst().arguments();
         assertTrue(arguments.startsWith("{\"note\":") && arguments.endsWith("}"), arguments);
     }
@@ -77,7 +77,7 @@ class ChatToolTranscriptTest {
     @Test
     void pastTheMessageBoundTheRemainingResultsAreNotKept() {
         var transcript = new ChatToolTranscript();
-        for (int i = 0; i < 6; i++) transcript.record("call_" + i, "bash", "{}", "b".repeat(60_000));
+        for (int i = 0; i < 6; i++) transcript.record("call_" + i, "run_python", "{}", "b".repeat(60_000));
         var calls = transcript.calls();
         assertEquals(6, calls.size());
         assertEquals(4, calls.stream().filter(call -> call.result() != null).count());

@@ -31,7 +31,7 @@ class UsageReportRepositoryTest {
         reports = new UsageReportRepository(jdbc);
         jdbc.sql("ALTER TABLE tenants DROP CONSTRAINT uq_tenants_deployment_slot").update();
         tenant = tenant();
-        manager = actor("Trần Thu Hà", "ha@tasco.vn");
+        manager = actor("Trần Thu Hà", "ha@example.test");
     }
 
     @AfterEach void close() { if (dataSource != null) dataSource.close(); }
@@ -101,7 +101,7 @@ class UsageReportRepositoryTest {
 
     private UUID tenant() {
         UUID id = UUID.randomUUID();
-        jdbc.sql("INSERT INTO tenants(id, slug, display_name, status, bootstrap_reference) VALUES (:id, :slug, 'Tasco', 'ACTIVE', 'test')")
+        jdbc.sql("INSERT INTO tenants(id, slug, display_name, status, bootstrap_reference) VALUES (:id, :slug, 'Sample', 'ACTIVE', 'test')")
                 .param("id", id).param("slug", id.toString()).update();
         return id;
     }

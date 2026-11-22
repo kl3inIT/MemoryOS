@@ -92,10 +92,10 @@ describe("IdentityProvidersPage", () => {
     expect(within(dialog).getByText("Enter an alias.")).toBeVisible();
     expect(within(dialog).getByText("Enter the client secret.")).toBeVisible();
 
-    await user.type(within(dialog).getByRole("textbox", { name: "Alias" }), "tasco");
+    await user.type(within(dialog).getByRole("textbox", { name: "Alias" }), "sample");
     await user.type(within(dialog).getByRole("textbox", { name: "Display name" }), "Partner");
     await user.type(within(dialog).getByRole("textbox", { name: "Issuer URL" }), PARTNER.issuer);
-    expect(within(dialog).getByRole("textbox", { name: "Alias" })).toHaveValue("tasco");
+    expect(within(dialog).getByRole("textbox", { name: "Alias" })).toHaveValue("sample");
     await user.type(within(dialog).getByRole("textbox", { name: "Client ID" }), "broker");
     await user.type(within(dialog).getByLabelText("Client secret"), "secret");
     await user.click(within(dialog).getByRole("button", { name: "Add provider" }));

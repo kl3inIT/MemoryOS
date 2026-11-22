@@ -221,13 +221,7 @@ export function IdentityProviderDialog({
               }}
             >
               {(field) => (
-                <field.TextField
-                  label={ui("Alias")}
-                  maxLength={128}
-                  placeholder={ui("tasco")}
-                  size="lg"
-                  disabled={pending}
-                />
+                <field.TextField label={ui("Alias")} maxLength={128} size="lg" disabled={pending} />
               )}
             </form.AppField>
             <form.AppField name="displayName">
@@ -235,7 +229,6 @@ export function IdentityProviderDialog({
                 <field.TextField
                   label={ui("Display name")}
                   maxLength={200}
-                  placeholder={ui("Sign in with Tasco")}
                   size="lg"
                   disabled={pending}
                 />

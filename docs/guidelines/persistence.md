@@ -31,7 +31,7 @@ A temporary runtime profile, command, or endpoint is not an acceptable substitut
 
 ## Schema evolution
 
-Schema changes preserve committed data ([ADR 0018](../decisions/0018-schema-changes-preserve-data.md), 2026-09-30). The early-project allowance for destructive resets ended when production began holding Tasco data.
+Schema changes preserve committed data ([ADR 0018](../decisions/0018-schema-changes-preserve-data.md), 2026-09-30). The early-project allowance for destructive resets ended when production began holding customer data.
 
 - Migrations are forward-only and append-only; never edit an applied migration or its checksum.
 - Never reset, recreate or squash a database, schema or table to reach a cleaner model. A change to an existing shape transforms the existing rows in the migration (or a bounded, idempotent backfill) and states what is kept, converted or deliberately lost; losing user-created data needs a recorded owner decision.

@@ -17,7 +17,6 @@ import { ApplicationSessionProvider } from "@/features/identity/application-sess
 import {
   handleCreateChatPersona,
   handleGetChatPersona,
-  handleListAssistantChannels,
   handleListChatPersonaLabels,
   handleListChatPersonaModels,
   handleListChatPersonaSources,
@@ -37,7 +36,7 @@ const SESSION: ApplicationSession = {
   displayName: null,
   authorizationVersion: 1,
   uiLanguage: "en",
-  tenant: { displayName: "Tasco", role: "MEMBER" },
+  tenant: { displayName: "Công ty Mẫu", role: "MEMBER" },
   capabilities: ["SYSTEM_BASIC", "CHAT_READ", "CHAT_WRITE", "AGENTS_CREATE"],
   scopedCapabilities: [],
 };
@@ -72,7 +71,7 @@ function saved(overrides: Partial<PersonaView> = {}): PersonaView {
     avatarSeed: "contract-law",
     hasAvatar: false,
     labels: [],
-    owner: { actor: { actorId: SESSION.actorId, name: "Đạt Phan", email: "dat@tasco.vn" } },
+    owner: { actor: { actorId: SESSION.actorId, name: "Đạt Phan", email: "dat@example.test" } },
     userShares: [],
     groupShares: [],
     isPublic: false,
@@ -148,114 +147,18 @@ beforeEach(() => {
     handleListChatPersonaModels({ body: [] }),
     handleListChatPersonaLabels({ body: [] }),
     handleListMcpConnections({ body: [] }),
-    handleListAssistantChannels({ body: [] }),
   );
 });
 
 afterEach(() => vi.restoreAllMocks());
 
 describe("AgentEditorPage", () => {
-  it("shows on Kênh where the assistant answers, without links to someone who does not manage bots", async () => {
-    server.use(
-      handleListAssistantChannels({
-        body: [
-          {
-            id: "80000000-0000-4000-8000-000000000001",
-            provider: "ZALO_BOT",
-            name: "HR questions",
-            botName: "HR bot",
-            enabled: false,
-            publicAccess: false,
-            byDefault: true,
-            groups: [],
-          },
-          {
-            id: "80000000-0000-4000-8000-000000000002",
-            provider: "LARK",
-            name: "Tasco helpdesk",
-            enabled: true,
-            publicAccess: false,
-            byDefault: false,
-            groups: [{ id: "oc_5f1e2d3c4b5a69788796a5b4c3d2e1f0", name: "HR team" }],
-          },
-        ],
-      }),
-    );
-    await renderEditor("channels");
-    const panel = await screen.findByRole("tabpanel", { name: "Channels" });
-    const bots = await within(panel).findByRole("region", { name: "Bot default" });
-    const groups = within(panel).getByRole("region", { name: "Group chats" });
-    expect(within(bots).getByText("HR questions")).toBeVisible();
-    expect(within(bots).getByText("Zalo bot · default · Off")).toBeVisible();
-    expect(within(groups).getByText("HR team")).toBeVisible();
-    expect(within(groups).getByText("Lark group · through the bot “Tasco helpdesk”")).toBeVisible();
-    expect(within(bots).queryByText("HR team")).not.toBeInTheDocument();
-    expect(within(panel).queryByRole("link")).not.toBeInTheDocument();
-    expect(within(panel).queryByRole("button")).not.toBeInTheDocument();
-  });
-
-  it("warns beside its documents that anyone who messages a public bot answering with it reads them", async () => {
-    server.use(
-      handleListAssistantChannels({
-        body: [
-          {
-            id: "80000000-0000-4000-8000-000000000003",
-            provider: "ZALO_BOT",
-            name: "Tasco customer care",
-            enabled: true,
-            publicAccess: true,
-            byDefault: true,
-            groups: [],
-          },
-        ],
-      }),
-    );
-    const user = await renderEditor();
-    expect(
-      await screen.findByText(
-        "Anyone who messages Tasco customer care can read the documents here.",
-      ),
-    ).toBeVisible();
-    await user.click(screen.getByRole("tab", { name: "Channels" }));
-    expect(await screen.findByText("Zalo bot · default · public")).toBeVisible();
-  });
-
-  it("shows an app open through the assistant alone as always on, and warns that a public bot uses it", async () => {
+  it("shows an app open through the assistant alone as always on", async () => {
     const linear = { id: "90000000-0000-4000-8000-000000000001", name: "Linear" };
-    server.use(
-      handleGetChatPersona({
-        body: saved({ openMcpServers: [linear], publicBotMcpServers: [linear] }),
-      }),
-      handleListAssistantChannels({
-        body: [
-          {
-            id: "80000000-0000-4000-8000-000000000003",
-            provider: "ZALO_BOT",
-            name: "Tasco customer care",
-            enabled: true,
-            publicAccess: true,
-            byDefault: true,
-            groups: [],
-          },
-        ],
-      }),
-    );
+    server.use(handleGetChatPersona({ body: saved({ openMcpServers: [linear] }) }));
     await renderEditor();
-    expect(
-      await screen.findByText("Anyone who messages Tasco customer care can use Linear."),
-    ).toBeVisible();
-    expect(screen.getByText("Always on")).toBeVisible();
+    expect(await screen.findByText("Always on")).toBeVisible();
     expect(screen.getByRole("switch", { name: "Linear" })).toBeDisabled();
-  });
-
-  it("gives the built-in assistant no Kênh tab", async () => {
-    server.use(handleGetChatPersona({ body: saved({ builtin: true }) }));
-    await renderEditor("channels");
-    expect(await screen.findByRole("tab", { name: "Configure" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
-    expect(screen.queryByRole("tab", { name: "Channels" })).not.toBeInTheDocument();
   });
 
   it("shows Cancel and Save only on the Configure tab, keeping the unsaved state on the others", async () => {
