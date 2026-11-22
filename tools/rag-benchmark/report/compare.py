@@ -48,6 +48,10 @@ VARIANTS = {
     "ablation-v1b": "V1 no rewrite, run 2",
     "ablation-v6": "V6 no adjacent chunks",
 }
+# The released search and Chat as measured last (2026-11-22, OpenAI text-embedding-3-large): the stage charts and the
+# stages by text layer. The search-mode comparison and the step ablation stay on the 31 October runs above.
+CURRENT_SEARCH = "retrieval-openai-large"
+CURRENT_GROUNDED = "grounded-openai-large"
 ABLATION = {
     "pass_all": "Rows passing every check",
     "correctness": "Correctness",
@@ -111,7 +115,7 @@ def verdict(difference: Rate, more: str = "higher", less: str = "lower") -> str:
 
 
 def load_runs() -> dict[str, list[dict]]:
-    names = list(SEARCHES) + list(MODES) + list(VARIANTS)
+    names = list(SEARCHES) + list(MODES) + list(VARIANTS) + [CURRENT_SEARCH, CURRENT_GROUNDED]
     return {name: read_jsonl(RESULTS / f"{name}.jsonl") for name in names}
 
 
@@ -127,16 +131,19 @@ def comparisons(runs: dict[str, list[dict]], layers: dict[str, str]) -> dict:
         for other in ("retrieval-keyword", "retrieval-vector")
     }
     chat = {metric: {name: rate(runs[name], metric) for name in MODES} for metric in CHAT}
-    grounded = runs["baseline-v3-grounded"]
+    current_search = runs[CURRENT_SEARCH]
+    grounded = runs[CURRENT_GROUNDED]
 
     def in_layer(rows: list[dict], layer: str) -> list[dict]:
         return [r for r in rows if layers.get(r["id"]) == layer]
 
     by_layer = {
         "Extraction coverage": {
-            layer: rate(in_layer(hybrid, layer), "extraction_coverage") for layer in LAYERS
+            layer: rate(in_layer(current_search, layer), "extraction_coverage") for layer in LAYERS
         },
-        "Recall@10": {layer: rate(in_layer(hybrid, layer), "recall_at_10") for layer in LAYERS},
+        "Recall@10": {
+            layer: rate(in_layer(current_search, layer), "recall_at_10") for layer in LAYERS
+        },
         "Context recall": {
             layer: rate(in_layer(grounded, layer), "context_recall") for layer in LAYERS
         },
@@ -146,9 +153,9 @@ def comparisons(runs: dict[str, list[dict]], layers: dict[str, str]) -> dict:
         },
     }
     stages = [
-        ("1 Extraction", "Extraction coverage", rate(hybrid, "extraction_coverage")),
-        ("2 Retrieval", "Recall@10", rate(hybrid, "recall_at_10")),
-        ("2 Retrieval", "Passage recall@10", rate(hybrid, "passage_recall_at_10")),
+        ("1 Extraction", "Extraction coverage", rate(current_search, "extraction_coverage")),
+        ("2 Retrieval", "Recall@10", rate(current_search, "recall_at_10")),
+        ("2 Retrieval", "Passage recall@10", rate(current_search, "passage_recall_at_10")),
         ("3 Context", "Context recall", rate(grounded, "context_recall")),
         ("4 Answer", "Correctness", rate(grounded, "correctness")),
         ("4 Answer", "Completeness", rate(grounded, "completeness")),

@@ -47,8 +47,14 @@ CHAT_RUNS = [
     "ablation-v1a",
     "ablation-v1b",
     "ablation-v6",
+    "grounded-openai-large",
 ]
-RETRIEVAL_RUNS = ["retrieval-hybrid", "retrieval-keyword", "retrieval-vector"]
+RETRIEVAL_RUNS = [
+    "retrieval-hybrid",
+    "retrieval-keyword",
+    "retrieval-vector",
+    "retrieval-openai-large",
+]
 CHAT_METRICS = [
     "leakage",
     "tempting",
@@ -519,7 +525,8 @@ def comparison_sheet(ws: Worksheet, data: dict) -> None:
     block(
         "Every stage by the text layer of the gold documents",
         "Text: every page has a text layer. Scanned: no page has one, OCR reads it. Mixed: some of each. "
-        "Extraction and recall from the hybrid retrieval run, the rest from the grounded baseline.",
+        "Extraction and recall from the retrieval run of 2026-11-22, the rest from the grounded run of 2026-11-22 "
+        "(OpenAI text-embedding-3-large).",
         [
             "Measure",
             "Text",
