@@ -20,6 +20,13 @@
       "evals": ["eval-Yi1-2026-10-08T11:17:04", "eval-s5h-2026-10-31T07:53:32 (stage re-grade of the same replies)"]
     },
     {
+      "file": "grounded-openai-large.jsonl",
+      "label": "Grounded mode, OpenAI text-embedding-3-large (semantic floor 0.65)",
+      "date": "2026-11-22",
+      "api": "main at a26ae788",
+      "evals": ["eval-1MR-2026-11-22T00:26:02"]
+    },
+    {
       "file": "retrieval-hybrid.jsonl",
       "label": "Retrieval, hybrid search (released)",
       "date": "2026-10-31",
