@@ -620,7 +620,7 @@ for (const manager of [false, true]) {
       })
     ).json();
     await page.goto(`/chat/${session.id}`);
-    await page.getByRole("textbox", { name: "Câu hỏi", exact: true }).fill("VETC có những ai");
+    await page.getByRole("textbox", { name: "Câu hỏi", exact: true }).fill("Công ty có những ai");
     await page.getByRole("button", { name: "Gửi câu hỏi" }).click();
     if (manager) {
       await expect(page.getByRole("alert")).toContainText("Provider từ chối API key");
