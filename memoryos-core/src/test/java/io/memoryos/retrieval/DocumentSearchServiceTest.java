@@ -129,6 +129,26 @@ class DocumentSearchServiceTest {
     }
 
     @Test
+    void mergedSectionKeepsOnlyTheFirstChunksHeader() {
+        var document = UUID.randomUUID();
+        givenHits(document, List.of(
+                headed(document, 20, "Title: Báo cáo\nSection: Vốn chủ sở hữu\nTrích quỹ khen thưởng, phúc", .9),
+                headed(document, 21, "Title: Báo cáo\nSection: Vốn chủ sở hữu\nlợi - - (493.414.967)", .8),
+                headed(document, 22, "Title: Báo cáo\nChia cổ tức (66.620.064.000)", .7)));
+
+        var section = service.search(actor, new SearchRequest("cổ tức", List.of(), null, null, 0, 10, List.of(), List.of()))
+                .results().getFirst().sections().getFirst();
+
+        assertEquals("Title: Báo cáo\nSection: Vốn chủ sở hữu\nTrích quỹ khen thưởng, phúc\nlợi - - (493.414.967)"
+                + "\nChia cổ tức (66.620.064.000)", section.content());
+    }
+
+    private SearchHit headed(UUID document, int ordinal, String content, double score) {
+        return new SearchHit(document, generation, ordinal, "Báo cáo", "text/plain", content,
+                "[{\"page\":" + ordinal + "}]", Instant.EPOCH, score);
+    }
+
+    @Test
     void limitsSectionsAfterMergingAllAdjacentCandidatesAndRanksByBestHit() {
         var document = UUID.randomUUID();
         givenHits(document, List.of(hit(document, generation, 13, .95), hit(document, generation, 40, .9),

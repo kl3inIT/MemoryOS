@@ -6,6 +6,7 @@ import io.memoryos.connector.SourceDocumentAccessResolver;
 import io.memoryos.connector.SourceSearchService;
 import io.memoryos.connector.SourceSearchScope;
 import io.memoryos.connector.SourceType;
+import io.memoryos.document.DocumentChunk;
 import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.PassageLine;
@@ -194,8 +195,12 @@ public class DocumentSearchService {
 
     private static SearchPage.Section section(List<SearchHit> chunks) {
         var best = chunks.stream().min(HIT_ORDER).orElseThrow();
+        // Every chunk opens with the chunker's header. Inside one passage only the first keeps it: a later header
+        // would sit mid-text where the original has none, and the citation could not be located in the preview.
+        String content = chunks.getFirst().content() + chunks.stream().skip(1)
+                .map(hit -> "\n" + DocumentChunk.body(hit.content())).collect(Collectors.joining());
         return new SearchPage.Section(chunks.getFirst().ordinal(), chunks.getLast().ordinal(), best.ordinal(),
-                best.score(), chunks.stream().map(SearchHit::content).collect(Collectors.joining("\n")),
+                best.score(), content,
                 chunks.stream().map(hit -> new SearchPage.ChunkProvenance(hit.ordinal(), hit.provenanceJson())).toList());
     }
 
