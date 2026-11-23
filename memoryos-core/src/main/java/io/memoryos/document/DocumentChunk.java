@@ -18,6 +18,22 @@ public record DocumentChunk(int ordinal, String content, List<String> headings,
     /** The most characters a passage's lines take: some 300 lines, far more than 768 tokens hold. */
     public static final int MAX_LINES_JSON = 65_536;
 
+    /**
+     * The passage without the header the chunker writes in front of it: a {@code Title:} line and, under
+     * headings, a {@code Section:} line. The original document contains neither, so passages joined into one
+     * citation keep only the first passage's header.
+     */
+    public static String body(String content) {
+        if (!content.startsWith("Title: ")) return content;
+        String body = afterFirstLine(content);
+        return body.startsWith("Section: ") ? afterFirstLine(body) : body;
+    }
+
+    private static String afterFirstLine(String text) {
+        int lineBreak = text.indexOf('\n');
+        return lineBreak < 0 ? "" : text.substring(lineBreak + 1);
+    }
+
     /** A passage without located lines. */
     public DocumentChunk(int ordinal, String content, List<String> headings, int blockIndex, int part,
             String provenanceJson, String contentSha256, int tokenCount) {
