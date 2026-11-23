@@ -65,7 +65,12 @@ export function placeCitations(
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
     const text = node as Text;
     const owner = text.parentElement?.closest(BLOCK);
-    if (block !== undefined && owner !== block) breaks.push(raw.length);
+    // Two blocks render as separate lines but their text nodes hold no space between them, while the passage
+    // joins them with a line break; without one, a passage spanning a paragraph or a table cell is never found.
+    if (block !== undefined && owner !== block) {
+      raw += " ";
+      breaks.push(raw.length);
+    }
     block = owner;
     runs.push({ node: text, from: raw.length });
     raw += text.data;
