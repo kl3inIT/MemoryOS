@@ -19,6 +19,19 @@ describe("placeCitations", () => {
     expect(placed?.range?.toString()).toBe("Doanh thu quý 3 đạt 412 tỷ đồng.");
   });
 
+  it("places a passage across blocks whose text holds no space between them", () => {
+    const container = render(
+      "<p>Lợi nhuận sau thuế đạt 87 tỷ đồng.</p><table><tr><td>Chia cổ tức</td><td>66.620.064.000</td></tr></table>",
+    );
+    const [placed] = placeCitations(container, [
+      "Lợi nhuận sau thuế đạt 87 tỷ đồng.\n\nChia cổ tức 66.620.064.000",
+    ]);
+    expect(placed?.confidence).toBe("exact");
+    expect(placed?.range?.toString()).toBe(
+      "Lợi nhuận sau thuế đạt 87 tỷ đồng.Chia cổ tức66.620.064.000",
+    );
+  });
+
   it("places a passage that stops inside a styled run", () => {
     const container = render("<p>Doanh thu <strong>412 tỷ</strong> đồng, tăng 6,2%.</p>");
     const [placed] = placeCitations(container, ["Doanh thu 412 tỷ"]);
