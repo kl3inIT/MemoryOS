@@ -307,8 +307,9 @@
   background: transparent;
 }
 
+/* The select is as wide as its longest language, not the selected one: the browser draws the open
+   list at that width, so a pill sized to "English" left the list jutting out to its right. */
 .pf-v5-c-login__main-header-utilities select {
-  field-sizing: content;
   width: auto;
   min-height: 0;
   margin: 0;
