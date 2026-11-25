@@ -1,0 +1,175 @@
+{
+ "schema": "memoryos-extraction-v2",
+ "blocks": [
+  {
+   "index": 0,
+   "kind": "HEADING",
+   "headingLevel": 1,
+   "text": "Quy chế công tác phí năm 2026"
+  },
+  {
+   "index": 1,
+   "kind": "HEADING",
+   "headingLevel": 2,
+   "text": "1. Phạm vi áp dụng"
+  },
+  {
+   "index": 2,
+   "kind": "PARAGRAPH",
+   "text": "Quy chế này áp dụng cho toàn bộ nhân viên chính thức của công ty khi được cử đi công tác trong nước."
+  },
+  {
+   "index": 3,
+   "kind": "PARAGRAPH",
+   "text": "Nhân viên thử việc được hưởng bảy mươi phần trăm các mức phụ cấp quy định tại quy chế này."
+  },
+  {
+   "index": 4,
+   "kind": "HEADING",
+   "headingLevel": 2,
+   "text": "2. Mức phụ cấp"
+  },
+  {
+   "index": 5,
+   "kind": "PARAGRAPH",
+   "text": "Nhân viên đi công tác được phụ cấp lưu trú 350.000 đồng một ngày, tính từ ngày khởi hành đến ngày trở về."
+  },
+  {
+   "index": 6,
+   "kind": "PARAGRAPH",
+   "text": "Chuyến công tác dưới nửa ngày được phụ cấp một nửa mức lưu trú."
+  },
+  {
+   "index": 7,
+   "kind": "TABLE",
+   "text": "",
+   "table": {
+    "rowCount": 4,
+    "columnCount": 3,
+    "cells": [
+     {
+      "row": 0,
+      "column": 0,
+      "text": "Khoản chi",
+      "columnHeader": true
+     },
+     {
+      "row": 0,
+      "column": 1,
+      "text": "Mức tối đa",
+      "columnHeader": true
+     },
+     {
+      "row": 0,
+      "column": 2,
+      "text": "Chứng từ",
+      "columnHeader": true
+     },
+     {
+      "row": 1,
+      "column": 0,
+      "text": "Tiền phòng nghỉ"
+     },
+     {
+      "row": 1,
+      "column": 1,
+      "text": "1.200.000 đồng/đêm"
+     },
+     {
+      "row": 1,
+      "column": 2,
+      "text": "Hóa đơn tài chính"
+     },
+     {
+      "row": 2,
+      "column": 0,
+      "text": "Vé máy bay"
+     },
+     {
+      "row": 2,
+      "column": 1,
+      "text": "Hạng phổ thông"
+     },
+     {
+      "row": 2,
+      "column": 2,
+      "text": "Thẻ lên máy bay"
+     },
+     {
+      "row": 3,
+      "column": 0,
+      "text": "Đi lại nội thành"
+     },
+     {
+      "row": 3,
+      "column": 1,
+      "text": "300.000 đồng/ngày"
+     },
+     {
+      "row": 3,
+      "column": 2,
+      "text": "Hóa đơn taxi"
+     }
+    ]
+   }
+  },
+  {
+   "index": 8,
+   "kind": "HEADING",
+   "headingLevel": 2,
+   "text": "3. Thanh toán"
+  },
+  {
+   "index": 9,
+   "kind": "PARAGRAPH",
+   "text": "Hồ sơ thanh toán nộp cho phòng Kế toán trong vòng mười ngày làm việc sau khi kết thúc chuyến công tác."
+  },
+  {
+   "index": 10,
+   "kind": "PARAGRAPH",
+   "text": "Khoản tạm ứng chưa sử dụng phải được hoàn trả cùng hồ sơ thanh toán."
+  },
+  {
+   "index": 11,
+   "kind": "HEADING",
+   "headingLevel": 2,
+   "text": "4. Công tác nước ngoài"
+  },
+  {
+   "index": 12,
+   "kind": "PARAGRAPH",
+   "text": "Nhân viên được cử đi công tác nước ngoài được phụ cấp lưu trú 50 đô la Mỹ một ngày, thanh toán theo tỷ giá bán ra của Ngân hàng Ngoại thương vào ngày tạm ứng."
+  },
+  {
+   "index": 13,
+   "kind": "PARAGRAPH",
+   "text": "Chi phí bảo hiểm du lịch, thị thực và lệ phí sân bay được thanh toán theo hóa đơn thực tế, không tính vào mức phụ cấp lưu trú."
+  },
+  {
+   "index": 14,
+   "kind": "PARAGRAPH",
+   "text": "Trưởng đơn vị phê duyệt kế hoạch công tác nước ngoài ít nhất mười lăm ngày trước ngày khởi hành, trừ trường hợp khẩn cấp do Tổng giám đốc quyết định."
+  },
+  {
+   "index": 15,
+   "kind": "HEADING",
+   "headingLevel": 2,
+   "text": "5. Trách nhiệm"
+  },
+  {
+   "index": 16,
+   "kind": "PARAGRAPH",
+   "text": "Phòng Hành chính đặt vé và phòng nghỉ cho đoàn công tác từ ba người trở lên, theo danh sách nhà cung cấp đã được công ty lựa chọn."
+  },
+  {
+   "index": 17,
+   "kind": "PARAGRAPH",
+   "text": "Nhân viên kê khai sai hoặc sử dụng chứng từ không hợp lệ phải hoàn trả toàn bộ khoản đã thanh toán và bị xem xét kỷ luật theo nội quy lao động."
+  },
+  {
+   "index": 18,
+   "kind": "PARAGRAPH",
+   "text": "Quy chế có hiệu lực từ ngày 1 tháng 1 năm 2026 và thay thế quy chế công tác phí ban hành năm 2023."
+  }
+ ]
+}

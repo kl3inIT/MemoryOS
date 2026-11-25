@@ -1,0 +1,403 @@
+{
+ "schema": "memoryos-extraction-v2",
+ "blocks": [
+  {
+   "index": 0,
+   "kind": "HEADING",
+   "text": "Quy chế công tác phí năm 2026",
+   "locations": [
+    {
+     "page_no": 1,
+     "bbox": {
+      "l": 72,
+      "t": 760.0,
+      "r": 523,
+      "b": 742.0,
+      "coord_origin": "BOTTOMLEFT"
+     }
+    }
+   ],
+   "headingLevel": 1
+  },
+  {
+   "index": 1,
+   "kind": "HEADING",
+   "text": "1. Phạm vi áp dụng",
+   "locations": [
+    {
+     "page_no": 1,
+     "bbox": {
+      "l": 72,
+      "t": 730.0,
+      "r": 523,
+      "b": 712.0,
+      "coord_origin": "BOTTOMLEFT"
+     }
+    }
+   ],
+   "headingLevel": 2
+  },
+  {
+   "index": 2,
+   "kind": "PARAGRAPH",
+   "text": "Quy chế này áp dụng cho toàn bộ nhân viên chính thức của công ty khi được cử đi công tác trong nước.",
+   "locations": [
+    {
+     "page_no": 1,
+     "bbox": {
+      "l": 72,
+      "t": 700.0,
+      "r": 523,
+      "b": 664.0,
+      "coord_origin": "BOTTOMLEFT"
+     }
+    }
+   ]
+  },
+  {
+   "index": 3,
+   "kind": "PARAGRAPH",
+   "text": "Nhân viên thử việc được hưởng bảy mươi phần trăm các mức phụ cấp quy định tại quy chế này.",
+   "locations": [
+    {
+     "page_no": 1,
+     "bbox": {
+      "l": 72,
+      "t": 652.0,
+      "r": 523,
+      "b": 616.0,
+      "coord_origin": "BOTTOMLEFT"
+     }
+    }
+   ]
+  },
+  {
+   "index": 4,
+   "kind": "HEADING",
+   "text": "2. Mức phụ cấp",
+   "locations": [
+    {
+     "page_no": 1,
+     "bbox": {
+      "l": 72,
+      "t": 604.0,
+      "r": 523,
+      "b": 586.0,
+      "coord_origin": "BOTTOMLEFT"
+     }
+    }
+   ],
+   "headingLevel": 2
+  },
+  {
+   "index": 5,
+   "kind": "PARAGRAPH",
+   "text": "Nhân viên đi công tác được phụ cấp lưu trú 350.000 đồng một ngày, tính từ ngày khởi hành đến ngày trở về.",
+   "locations": [
+    {
+     "page_no": 1,
+     "bbox": {
+      "l": 72,
+      "t": 574.0,
+      "r": 523,
+      "b": 538.0,
+      "coord_origin": "BOTTOMLEFT"
+     }
+    }
+   ]
+  },
+  {
+   "index": 6,
+   "kind": "PARAGRAPH",
+   "text": "Chuyến công tác dưới nửa ngày được phụ cấp một nửa mức lưu trú.",
+   "locations": [
+    {
+     "page_no": 2,
+     "bbox": {
+      "l": 72,
+      "t": 760.0,
+      "r": 523,
+      "b": 742.0,
+      "coord_origin": "BOTTOMLEFT"
+     }
+    }
+   ]
+  },
+  {
+   "index": 7,
+   "kind": "TABLE",
+   "text": "",
+   "locations": [
+    {
+     "page_no": 2,
+     "bbox": {
+      "l": 72,
+      "t": 730.0,
+      "r": 523,
+      "b": 658.0,
+      "coord_origin": "BOTTOMLEFT"
+     }
+    }
+   ],
+   "table": {
+    "rowCount": 4,
+    "columnCount": 3,
+    "cells": [
+     {
+      "row": 0,
+      "column": 0,
+      "text": "Khoản chi",
+      "columnHeader": true
+     },
+     {
+      "row": 0,
+      "column": 1,
+      "text": "Mức tối đa",
+      "columnHeader": true
+     },
+     {
+      "row": 0,
+      "column": 2,
+      "text": "Chứng từ",
+      "columnHeader": true
+     },
+     {
+      "row": 1,
+      "column": 0,
+      "text": "Tiền phòng nghỉ"
+     },
+     {
+      "row": 1,
+      "column": 1,
+      "text": "1.200.000 đồng/đêm"
+     },
+     {
+      "row": 1,
+      "column": 2,
+      "text": "Hóa đơn tài chính"
+     },
+     {
+      "row": 2,
+      "column": 0,
+      "text": "Vé máy bay"
+     },
+     {
+      "row": 2,
+      "column": 1,
+      "text": "Hạng phổ thông"
+     },
+     {
+      "row": 2,
+      "column": 2,
+      "text": "Thẻ lên máy bay"
+     },
+     {
+      "row": 3,
+      "column": 0,
+      "text": "Đi lại nội thành"
+     },
+     {
+      "row": 3,
+      "column": 1,
+      "text": "300.000 đồng/ngày"
+     },
+     {
+      "row": 3,
+      "column": 2,
+      "text": "Hóa đơn taxi"
+     }
+    ]
+   }
+  },
+  {
+   "index": 8,
+   "kind": "HEADING",
+   "text": "3. Thanh toán",
+   "locations": [
+    {
+     "page_no": 2,
+     "bbox": {
+      "l": 72,
+      "t": 646.0,
+      "r": 523,
+      "b": 628.0,
+      "coord_origin": "BOTTOMLEFT"
+     }
+    }
+   ],
+   "headingLevel": 2
+  },
+  {
+   "index": 9,
+   "kind": "PARAGRAPH",
+   "text": "Hồ sơ thanh toán nộp cho phòng Kế toán trong vòng mười ngày làm việc sau khi kết thúc chuyến công tác.",
+   "locations": [
+    {
+     "page_no": 2,
+     "bbox": {
+      "l": 72,
+      "t": 616.0,
+      "r": 523,
+      "b": 580.0,
+      "coord_origin": "BOTTOMLEFT"
+     }
+    }
+   ]
+  },
+  {
+   "index": 10,
+   "kind": "PARAGRAPH",
+   "text": "Khoản tạm ứng chưa sử dụng phải được hoàn trả cùng hồ sơ thanh toán.",
+   "locations": [
+    {
+     "page_no": 2,
+     "bbox": {
+      "l": 72,
+      "t": 568.0,
+      "r": 523,
+      "b": 550.0,
+      "coord_origin": "BOTTOMLEFT"
+     }
+    }
+   ]
+  },
+  {
+   "index": 11,
+   "kind": "HEADING",
+   "text": "4. Công tác nước ngoài",
+   "locations": [
+    {
+     "page_no": 2,
+     "bbox": {
+      "l": 72,
+      "t": 538.0,
+      "r": 523,
+      "b": 520.0,
+      "coord_origin": "BOTTOMLEFT"
+     }
+    }
+   ],
+   "headingLevel": 2
+  },
+  {
+   "index": 12,
+   "kind": "PARAGRAPH",
+   "text": "Nhân viên được cử đi công tác nước ngoài được phụ cấp lưu trú 50 đô la Mỹ một ngày, thanh toán theo tỷ giá bán ra của Ngân hàng Ngoại thương vào ngày tạm ứng.",
+   "locations": [
+    {
+     "page_no": 2,
+     "bbox": {
+      "l": 72,
+      "t": 508.0,
+      "r": 523,
+      "b": 454.0,
+      "coord_origin": "BOTTOMLEFT"
+     }
+    }
+   ]
+  },
+  {
+   "index": 13,
+   "kind": "PARAGRAPH",
+   "text": "Chi phí bảo hiểm du lịch, thị thực và lệ phí sân bay được thanh toán theo hóa đơn thực tế, không tính vào mức phụ cấp lưu trú.",
+   "locations": [
+    {
+     "page_no": 2,
+     "bbox": {
+      "l": 72,
+      "t": 442.0,
+      "r": 523,
+      "b": 406.0,
+      "coord_origin": "BOTTOMLEFT"
+     }
+    }
+   ]
+  },
+  {
+   "index": 14,
+   "kind": "PARAGRAPH",
+   "text": "Trưởng đơn vị phê duyệt kế hoạch công tác nước ngoài ít nhất mười lăm ngày trước ngày khởi hành, trừ trường hợp khẩn cấp do Tổng giám đốc quyết định.",
+   "locations": [
+    {
+     "page_no": 2,
+     "bbox": {
+      "l": 72,
+      "t": 394.0,
+      "r": 523,
+      "b": 340.0,
+      "coord_origin": "BOTTOMLEFT"
+     }
+    }
+   ]
+  },
+  {
+   "index": 15,
+   "kind": "HEADING",
+   "text": "5. Trách nhiệm",
+   "locations": [
+    {
+     "page_no": 2,
+     "bbox": {
+      "l": 72,
+      "t": 328.0,
+      "r": 523,
+      "b": 310.0,
+      "coord_origin": "BOTTOMLEFT"
+     }
+    }
+   ],
+   "headingLevel": 2
+  },
+  {
+   "index": 16,
+   "kind": "PARAGRAPH",
+   "text": "Phòng Hành chính đặt vé và phòng nghỉ cho đoàn công tác từ ba người trở lên, theo danh sách nhà cung cấp đã được công ty lựa chọn.",
+   "locations": [
+    {
+     "page_no": 2,
+     "bbox": {
+      "l": 72,
+      "t": 298.0,
+      "r": 523,
+      "b": 262.0,
+      "coord_origin": "BOTTOMLEFT"
+     }
+    }
+   ]
+  },
+  {
+   "index": 17,
+   "kind": "PARAGRAPH",
+   "text": "Nhân viên kê khai sai hoặc sử dụng chứng từ không hợp lệ phải hoàn trả toàn bộ khoản đã thanh toán và bị xem xét kỷ luật theo nội quy lao động.",
+   "locations": [
+    {
+     "page_no": 2,
+     "bbox": {
+      "l": 72,
+      "t": 250.0,
+      "r": 523,
+      "b": 214.0,
+      "coord_origin": "BOTTOMLEFT"
+     }
+    }
+   ]
+  },
+  {
+   "index": 18,
+   "kind": "PARAGRAPH",
+   "text": "Quy chế có hiệu lực từ ngày 1 tháng 1 năm 2026 và thay thế quy chế công tác phí ban hành năm 2023.",
+   "locations": [
+    {
+     "page_no": 2,
+     "bbox": {
+      "l": 72,
+      "t": 202.0,
+      "r": 523,
+      "b": 166.0,
+      "coord_origin": "BOTTOMLEFT"
+     }
+    }
+   ]
+  }
+ ]
+}

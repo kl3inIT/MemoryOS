@@ -44,7 +44,7 @@ class ChatEventStreamTest {
 
     @Test
     void searchEvidenceReplaysBeforeTextAndTerminalWithStableWireIdentity() {
-        var source = ChatSource.document(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 2, 2, List.of(new ChatSource.Provenance(2, "[]")));
+        var source = ChatSource.document(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 2, 2, 2, List.of(new ChatSource.Provenance(2, "[]")));
         streams.open(assistant);
         streams.tool(assistant, ChatToolEvent.source(new ChatToolEvent.Call("tool-1", "search_knowledge"), source));
         streams.append(assistant, "Twelve days [1]");

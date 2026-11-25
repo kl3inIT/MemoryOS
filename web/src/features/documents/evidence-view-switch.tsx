@@ -17,6 +17,8 @@ export type OriginalEvidence = {
   boxes: readonly PdfHighlight[];
   /** The cited passage text, which the original view locates and paints. */
   citations: readonly string[];
+  /** The heading trail each citation was read under, which tells two identical passages apart. */
+  sections: readonly (string | undefined)[];
 };
 
 const panel = "flex min-h-0 flex-1 flex-col";
@@ -92,6 +94,7 @@ export function EvidenceViewSwitch({
           pages={original.pages}
           boxes={original.boxes}
           texts={original.citations}
+          sections={original.sections}
         />
       </TabsContent>
     </Tabs>

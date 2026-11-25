@@ -31997,6 +31997,11 @@ components:
         endOrdinal:
           type: integer
           format: int32
+        matchingOrdinal:
+          type: integer
+          format: int32
+          description: The passage search matched inside the cited range; null for
+            file and Web citations and for answers saved before it was recorded
         provenance:
           type: array
           items:
