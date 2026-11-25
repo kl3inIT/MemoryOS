@@ -121,7 +121,7 @@ class ResearchExecutorLiveTest {
                     var text = new StringBuilder();
                     for (var document : DOCUMENTS.entrySet()) {
                         var source = agent.evidence().register("doc:" + document.getKey(), id -> ChatSource.document(id,
-                                uuid(document.getKey()), uuid(document.getKey() + ":g"), document.getKey() + " report", 0, 0,
+                                uuid(document.getKey()), uuid(document.getKey() + ":g"), document.getKey() + " report", 0, 0, 0,
                                 List.of(new ChatSource.Provenance(0, "[]"))), call);
                         if (source != null) text.append("\n[").append(source.citationId()).append("] ").append(document.getValue());
                     }

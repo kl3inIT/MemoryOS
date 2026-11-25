@@ -149,7 +149,7 @@ class StreamBufferWriterTest {
         var writer = new StreamBufferWriter(redis, limits);
         var id = UUID.randomUUID();
         var call = new ChatToolEvent.Call("call_s", "search_knowledge");
-        var source = ChatSource.document(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 2, 2, List.of(new ChatSource.Provenance(2, "[]")));
+        var source = ChatSource.document(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 2, 2, 2, List.of(new ChatSource.Provenance(2, "[]")));
         var published = List.of(
                 ChatToolEvent.searching(call, new ChatToolEvent.QueryPlan(List.of("leave policy"), SearchFilters.NONE)),
                 ChatToolEvent.reading(call, List.of(new ChatToolEvent.ReadingDocument(UUID.randomUUID(), UUID.randomUUID(), "HR", 0, 3))),

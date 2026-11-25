@@ -110,7 +110,7 @@ class WebToolsTest {
         var command = ChatCommand.builder(ChatCommand.Operation.SEND, UUID.randomUUID(), UUID.randomUUID(), "Question").build();
         assertEquals(WebSearchMode.off, command.webSearch());
         assertThrows(IllegalArgumentException.class, () -> new ChatSource(1, UUID.randomUUID(), UUID.randomUUID(), "Title",
-                0, 0, List.of(), null, null, new ChatSource.WebLocation("https://example.com", "Excerpt", Instant.now()),
+                0, 0, null, List.of(), null, null, new ChatSource.WebLocation("https://example.com", "Excerpt", Instant.now()),
                 null, List.of(), null));
     }
     @Test void stoppedToolNeverStartsNetworkIo() {

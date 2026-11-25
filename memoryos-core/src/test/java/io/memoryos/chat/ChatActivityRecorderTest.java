@@ -34,7 +34,7 @@ class ChatActivityRecorderTest {
     @Test
     void recordsOrderedStepsSummariesCitationsAndReasoningSegments() {
         var recorder = new ChatActivityRecorder();
-        var source = ChatSource.document(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 2, 2, List.of(new ChatSource.Provenance(2, "[]")));
+        var source = ChatSource.document(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 2, 2, 2, List.of(new ChatSource.Provenance(2, "[]")));
         recorder.accept(new ChatReasoningDelta("Looking for "), 0);
         recorder.accept(new ChatReasoningDelta("the policy."), 0);
         recorder.accept(ChatToolEvent.started(search), 0);
@@ -68,7 +68,7 @@ class ChatActivityRecorderTest {
     void researchAgentStepsReasoningAndProgressStayOutOfTopLevelActivity() {
         var recorder = new ChatActivityRecorder();
         var agent = new ChatToolEvent.Call("call_agent", "research_agent");
-        var nestedSource = ChatSource.document(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 2, 2, List.of(new ChatSource.Provenance(2, "[]")));
+        var nestedSource = ChatSource.document(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 2, 2, 2, List.of(new ChatSource.Provenance(2, "[]")));
         recorder.accept(ChatResearchEvent.plan("1. Revenue"), 0);
         recorder.accept(ChatToolEvent.started(agent).tab(0), 0);
         recorder.accept(ChatResearchEvent.agent("call_agent", 0, "Revenue in 2025"), 0);
