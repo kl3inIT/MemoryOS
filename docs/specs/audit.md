@@ -91,7 +91,10 @@ Coverage:
 - **Drive and SharePoint Sources:** they are created and re-scoped by a request the Worker validates. The event
   records the request, and its resource is the Source id that request creates.
 - **Refusals:** recorded only when a scoped manager reaches past their scope, as in Onyx: a Group manager acting on
-  another Group, or a Source manager acting on another Source. A probe that decides which actions to offer
+  another Group, or a Source manager acting on another Source. A Source manager's refusals also cover asking for a
+  Public Source (scope `TENANT`) and creating a Source for, or attaching it to or detaching it from, an existing
+  ordinary Group they do not manage (scope `GROUP`, resource the Group; MEM-318, BR-09). An unknown Group or a
+  system Group is refused without a record, as for Groups. A probe that decides which actions to offer
   (`SourceAccessPolicy.canManage`) records nothing.
 - **Failed provider exchanges:** an OIDC exchange that fails at the provider carries no identity and is not
   recorded.
