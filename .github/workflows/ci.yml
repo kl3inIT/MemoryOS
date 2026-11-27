@@ -409,13 +409,17 @@ jobs:
       - name: Exercise browser states
         run: pnpm --dir web test:e2e --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
-  # The shards run the dev server, which sends no deployment policy. These specs run once against the production
-  # build served with nginx.conf's CSP and Permissions-Policy, and fail on any violation the browser reports.
+  # Dev-server fixtures send no deployment policy. These shards exercise the production build with
+  # nginx.conf's CSP and Permissions-Policy and fail on any violation the browser reports.
   frontend-preview:
     needs: changes
     if: ${{ github.event_name != 'pull_request' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     container:
       image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:7852dc5a7d72f5fe458a597d690f6c42fbc8e9e26ddfa95f8e6ef552558d9bbf
       options: --user 1001
@@ -434,9 +438,8 @@ jobs:
         env:
           MEMORYOS_E2E_PREVIEW: "1"
         run: >-
-          pnpm --dir web test:e2e
+          pnpm --dir web test:e2e --shard=${{ matrix.shard }}/${{ strategy.job-total }}
           chat-generated-file-preview identity-shell groups-list search meetings
-
 
   frontend-image:
     needs: changes
