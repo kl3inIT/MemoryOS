@@ -256,6 +256,8 @@ public final class SearchTool implements AutoCloseable {
                             readingTitle(s.anchor().title()), s.start(), s.end())).toList()));
             var groups = new LinkedHashMap<String, TreeMap<Integer, SearchPage.Passage>>();
             var metadata = new LinkedHashMap<String, SearchHit>();
+            // The passage each selected section matched, in selection order, so every window cites its own match.
+            var anchors = new LinkedHashMap<String, List<Integer>>();
             var contexts = SearchTasks.run(selectedSections.stream().<Callable<List<SearchPage.Passage>>>map(section ->
                     () -> selectContext(result, section)).toList(), checkActive);
             checkActive.run();
@@ -271,6 +273,7 @@ public final class SearchTool implements AutoCloseable {
                 if (passages.isEmpty() || !authorized.contains(selectedSection)) continue;
                 String key = hit.documentId() + ":" + hit.generation();
                 metadata.putIfAbsent(key, hit);
+                anchors.computeIfAbsent(key, ignored -> new ArrayList<>()).add(hit.ordinal());
                 var ordered = groups.computeIfAbsent(key, ignored -> new TreeMap<>());
                 passages.forEach(p -> ordered.putIfAbsent(p.ordinal(), p));
             }
@@ -287,14 +290,14 @@ public final class SearchTool implements AutoCloseable {
                 var adjacent = new ArrayList<SearchPage.Passage>();
                 for (var passage : group.getValue().values()) {
                     if (!adjacent.isEmpty() && passage.ordinal() != adjacent.getLast().ordinal() + 1) {
-                        appendEvidence(metadata.get(group.getKey()), adjacent, output, budget,
+                        appendEvidence(metadata.get(group.getKey()), anchors.get(group.getKey()), adjacent, output, budget,
                                 sandboxNames.get(metadata.get(group.getKey()).documentId()));
                         adjacent.clear();
                     }
                     adjacent.add(passage);
                 }
-                if (!adjacent.isEmpty()) appendEvidence(metadata.get(group.getKey()), adjacent, output, budget,
-                        sandboxNames.get(metadata.get(group.getKey()).documentId()));
+                if (!adjacent.isEmpty()) appendEvidence(metadata.get(group.getKey()), anchors.get(group.getKey()), adjacent,
+                        output, budget, sandboxNames.get(metadata.get(group.getKey()).documentId()));
             }
             checkActive.run();
             return output.length() == prefixLength ? "No evidence fits the available context." : output.toString();
@@ -572,11 +575,17 @@ public final class SearchTool implements AutoCloseable {
         return text.substring(0, low) + " [truncated]";
     }
 
-    private void appendEvidence(SearchHit hit, List<SearchPage.Passage> passages, StringBuilder output, int budget,
-                                @Nullable String sandboxName) {
+    /**
+     * @param anchors the passages the document's selected sections matched, in selection order; the first inside
+     *                this window is the one it cites, and the one its budget trims toward
+     */
+    private void appendEvidence(SearchHit hit, List<Integer> anchors, List<SearchPage.Passage> passages,
+                                StringBuilder output, int budget, @Nullable String sandboxName) {
         // Reduce distant neighbors first so a large merged section cannot crowd out its matching passage.
         var included = new ArrayList<>(passages);
-        int anchor = Math.clamp(hit.ordinal(), included.getFirst().ordinal(), included.getLast().ordinal());
+        int first = included.getFirst().ordinal(), last = included.getLast().ordinal();
+        int anchor = anchors.stream().filter(ordinal -> ordinal >= first && ordinal <= last).findFirst()
+                .orElse(Math.clamp(hit.ordinal(), first, last));
         while (included.size() > 1 && (included.size() > 60
                 || tokens.estimate(output + evidenceText(evidence.nextId(), hit.title(), included, sandboxName)) > budget)) {
             checkActive.run();
@@ -587,7 +596,7 @@ public final class SearchTool implements AutoCloseable {
         if (tokens.estimate(output + evidenceText(evidence.nextId(), hit.title(), included, sandboxName)) > budget) return;
         checkActive.run();
         var source = evidence.register(key, id -> ChatSource.document(id, hit.documentId(), hit.generation(), hit.title(),
-                included.getFirst().ordinal(), included.getLast().ordinal(),
+                included.getFirst().ordinal(), included.getLast().ordinal(), anchor,
                 included.stream().map(p -> new ChatSource.Provenance(p.ordinal(), p.provenanceJson())).toList())
                 .described(hit.mediaType(), hit.origins().stream().map(origin -> origin.type()).distinct().toList(),
                         DocumentSourceMetadata.providerUrl(hit.origins())), call());

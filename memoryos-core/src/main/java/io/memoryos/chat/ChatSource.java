@@ -14,35 +14,38 @@ import org.jspecify.annotations.Nullable;
 /**
  * Evidence supplied to this answer. Historical evidence does not grant access to current source content.
  * {@code mediaType} and {@code sourceTypes} describe the evidence when it was cited, for presentation only;
- * answers saved before they existed carry null and an empty list.
+ * answers saved before they existed carry null and an empty list. {@code matchingOrdinal} is the passage of a
+ * Document citation that search matched, inside the window given to the model; answers saved before it existed
+ * carry null.
  */
 public record ChatSource(int citationId, @Nullable UUID documentId, @Nullable UUID generation, String title,
-                         int startOrdinal, int endOrdinal, List<Provenance> provenance, @Nullable UUID fileId,
+                         int startOrdinal, int endOrdinal, @Nullable Integer matchingOrdinal,
+                         List<Provenance> provenance, @Nullable UUID fileId,
                          @Nullable FileLocation fileLocation, @Nullable WebLocation web,
                          @Nullable String mediaType, List<SourceType> sourceTypes, @Nullable String providerUrl) {
-    /** A passage of an indexed Document. */
+    /** Passages of an indexed Document, of which {@code matchingOrdinal} is the one search matched. */
     public static ChatSource document(int citationId, UUID documentId, UUID generation, String title,
-                                      int startOrdinal, int endOrdinal, List<Provenance> provenance) {
-        return new ChatSource(citationId, documentId, generation, title, startOrdinal, endOrdinal, provenance,
-                null, null, null, null, List.of(), null);
+                                      int startOrdinal, int endOrdinal, int matchingOrdinal, List<Provenance> provenance) {
+        return new ChatSource(citationId, documentId, generation, title, startOrdinal, endOrdinal, matchingOrdinal,
+                provenance, null, null, null, null, List.of(), null);
     }
 
     /** A file of the conversation, as a whole or at {@code location}. */
     public static ChatSource file(int citationId, UUID fileId, String title, @Nullable String mediaType,
                                   @Nullable FileLocation location) {
-        return new ChatSource(citationId, null, null, title, 0, 0, List.of(), fileId, location, null,
+        return new ChatSource(citationId, null, null, title, 0, 0, null, List.of(), fileId, location, null,
                 mediaType, List.of(), null);
     }
 
     /** A Web page. */
     public static ChatSource web(int citationId, String title, WebLocation web) {
-        return new ChatSource(citationId, null, null, title, 0, 0, List.of(), null, null, web, null, List.of(), null);
+        return new ChatSource(citationId, null, null, title, 0, 0, null, List.of(), null, null, web, null, List.of(), null);
     }
 
     /** The same evidence with how it was presented when it was cited. */
     public ChatSource described(@Nullable String mediaType, List<SourceType> sourceTypes, @Nullable String providerUrl) {
-        return new ChatSource(citationId, documentId, generation, title, startOrdinal, endOrdinal, provenance, fileId,
-                fileLocation, web, mediaType, sourceTypes, providerUrl);
+        return new ChatSource(citationId, documentId, generation, title, startOrdinal, endOrdinal, matchingOrdinal,
+                provenance, fileId, fileLocation, web, mediaType, sourceTypes, providerUrl);
     }
 
     public record WebLocation(String url, String excerpt, Instant retrievedAt) {
@@ -70,6 +73,8 @@ public record ChatSource(int citationId, @Nullable UUID documentId, @Nullable UU
         if (citationId < 1 || title == null || title.length() > 1024
                 || startOrdinal < 0 || endOrdinal < startOrdinal || endOrdinal > 9999)
             throw new IllegalArgumentException("Invalid Chat source");
+        if (matchingOrdinal != null && (documentId == null || matchingOrdinal < startOrdinal || matchingOrdinal > endOrdinal))
+            throw new IllegalArgumentException("Only a Document citation matches a passage, inside its range");
         provenance = List.copyOf(provenance);
         if (web == null && fileId == null && provenance.isEmpty() || provenance.size() > 60 || provenance.stream().anyMatch(p -> p.ordinal() < startOrdinal || p.ordinal() > endOrdinal))
             throw new IllegalArgumentException("Invalid Chat source provenance");
@@ -87,8 +92,8 @@ public record ChatSource(int citationId, @Nullable UUID documentId, @Nullable UU
 
     /** The same evidence under another citation number, when a research agent's source is merged into the turn. */
     public ChatSource withCitationId(int id) {
-        return new ChatSource(id, documentId, generation, title, startOrdinal, endOrdinal, provenance, fileId, fileLocation, web,
-                mediaType, sourceTypes, providerUrl);
+        return new ChatSource(id, documentId, generation, title, startOrdinal, endOrdinal, matchingOrdinal, provenance, fileId,
+                fileLocation, web, mediaType, sourceTypes, providerUrl);
     }
     public record FileLocation(@Nullable Integer offset, @Nullable Integer count,
                                @Nullable UUID generation, @Nullable Integer ordinal) {

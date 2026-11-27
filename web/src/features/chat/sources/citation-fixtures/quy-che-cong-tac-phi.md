@@ -1,0 +1,41 @@
+# Quy chế công tác phí năm 2026
+
+## 1. Phạm vi áp dụng
+
+Quy chế này áp dụng cho toàn bộ nhân viên chính thức của công ty khi được cử đi công tác trong nước.
+
+Nhân viên thử việc được hưởng bảy mươi phần trăm các mức phụ cấp quy định tại quy chế này.
+
+## 2. Mức phụ cấp
+
+Nhân viên đi công tác được phụ cấp lưu trú 350.000 đồng một ngày, tính từ ngày khởi hành đến ngày trở về.
+
+Chuyến công tác dưới nửa ngày được phụ cấp một nửa mức lưu trú.
+
+| Khoản chi | Mức tối đa | Chứng từ |
+|---|---|---|
+| Tiền phòng nghỉ | 1.200.000 đồng/đêm | Hóa đơn tài chính |
+| Vé máy bay | Hạng phổ thông | Thẻ lên máy bay |
+| Đi lại nội thành | 300.000 đồng/ngày | Hóa đơn taxi |
+
+## 3. Thanh toán
+
+Hồ sơ thanh toán nộp cho phòng Kế toán trong vòng mười ngày làm việc sau khi kết thúc chuyến công tác.
+
+Khoản tạm ứng chưa sử dụng phải được hoàn trả cùng hồ sơ thanh toán.
+
+## 4. Công tác nước ngoài
+
+Nhân viên được cử đi công tác nước ngoài được phụ cấp lưu trú 50 đô la Mỹ một ngày, thanh toán theo tỷ giá bán ra của Ngân hàng Ngoại thương vào ngày tạm ứng.
+
+Chi phí bảo hiểm du lịch, thị thực và lệ phí sân bay được thanh toán theo hóa đơn thực tế, không tính vào mức phụ cấp lưu trú.
+
+Trưởng đơn vị phê duyệt kế hoạch công tác nước ngoài ít nhất mười lăm ngày trước ngày khởi hành, trừ trường hợp khẩn cấp do Tổng giám đốc quyết định.
+
+## 5. Trách nhiệm
+
+Phòng Hành chính đặt vé và phòng nghỉ cho đoàn công tác từ ba người trở lên, theo danh sách nhà cung cấp đã được công ty lựa chọn.
+
+Nhân viên kê khai sai hoặc sử dụng chứng từ không hợp lệ phải hoàn trả toàn bộ khoản đã thanh toán và bị xem xét kỷ luật theo nội quy lao động.
+
+Quy chế có hiệu lực từ ngày 1 tháng 1 năm 2026 và thay thế quy chế công tác phí ban hành năm 2023.

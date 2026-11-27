@@ -16,6 +16,9 @@ public record ChatSourceResponse(@Schema(requiredMode = REQUIRED) int citationId
                                  @Schema(requiredMode = REQUIRED) String title,
                                  @Schema(requiredMode = REQUIRED) int startOrdinal,
                                  @Schema(requiredMode = REQUIRED) int endOrdinal,
+                                 @Schema(description = "The passage search matched inside the cited range; null for "
+                                         + "file and Web citations and for answers saved before it was recorded")
+                                 @Nullable Integer matchingOrdinal,
                                  @Schema(requiredMode = REQUIRED) List<Provenance> provenance,
                                  @Nullable UUID fileId, ChatSource.@Nullable FileLocation fileLocation, ChatSource.@Nullable WebLocation web,
                                  @Nullable String mediaType,
@@ -25,7 +28,7 @@ public record ChatSourceResponse(@Schema(requiredMode = REQUIRED) int citationId
                              @Schema(requiredMode = REQUIRED) String provenanceJson) {}
     public static ChatSourceResponse from(ChatSource source) {
         return new ChatSourceResponse(source.citationId(), source.documentId(), source.generation(), source.title(),
-                source.startOrdinal(), source.endOrdinal(), source.provenance().stream()
+                source.startOrdinal(), source.endOrdinal(), source.matchingOrdinal(), source.provenance().stream()
                 .map(p -> new Provenance(p.ordinal(), p.provenanceJson())).toList(), source.fileId(), source.fileLocation(), source.web(),
                 source.mediaType(), source.sourceTypes(), source.providerUrl());
     }

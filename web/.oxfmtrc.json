@@ -9,6 +9,7 @@
     "src/lib/hey-api/**",
     "src/routeTree.gen.ts",
     "src/lib/cn-tables.ts",
+    "src/features/chat/sources/citation-fixtures/**",
     "test-results/**"
   ],
   "sortTailwindcss": {

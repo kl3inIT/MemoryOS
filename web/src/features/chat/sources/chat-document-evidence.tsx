@@ -32,6 +32,7 @@ export function ChatDocumentEvidence({
           pages: location.pages,
           boxes: location.boxes,
           citations: reading.citations,
+          sections: reading.sections,
         }
       : undefined;
   return (

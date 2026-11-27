@@ -7,13 +7,9 @@ name: CI
       - 'docs/**'
       - '*.md'
       - 'tools/visual-paradigm-mcp/**'
+  # The required check also needs a result on documentation-only pull requests.
   pull_request:
-    paths-ignore:
-      - 'docs/**'
-      - '*.md'
-      - 'tools/visual-paradigm-mcp/**'
-  # A merge that produced no run leaves main with nothing to deploy from, and an empty commit cannot start one
-  # because a push that changes no file matches every ignored path. This is the way back.
+  # Run the full verification and image build graph on a branch without publishing a release.
   workflow_dispatch:
 
 permissions:
@@ -39,12 +35,17 @@ jobs:
       contents: read # Read the revision and the pull requests a main commit came from.
       actions: read # Find the pull request run that verified this tree.
     outputs:
+      infrastructure: ${{ steps.scope.outputs.infrastructure }}
       backend: ${{ steps.scope.outputs.backend }}
+      backend_images: ${{ steps.scope.outputs.backend_images }}
+      keycloak_image: ${{ steps.scope.outputs.keycloak_image }}
+      frontend_image: ${{ steps.scope.outputs.frontend_image }}
       web: ${{ steps.scope.outputs.web }}
       landing: ${{ steps.scope.outputs.landing }}
       interpreter: ${{ steps.scope.outputs.interpreter }}
       tree: ${{ steps.scope.outputs.tree }}
       backend_verified: ${{ steps.verified.outputs.backend }}
+      backend_legs: ${{ steps.backend.outputs.legs }}
       web_verified: ${{ steps.verified.outputs.web }}
       interpreter_verified: ${{ steps.verified.outputs.interpreter }}
     steps:
@@ -60,21 +61,20 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
-          backend=true
-          web=true
-          landing=true
-          interpreter=true
-          # Main pushes build and publish every area. A pull request selects areas from its merge
-          # commit, whose first parent is the base branch tip; unknown paths or an empty diff select all.
+          declare -A selected
+          areas=(infrastructure backend backend_images keycloak_image web frontend_image landing interpreter)
+          for area in "${areas[@]}"; do
+            selected[$area]=true
+          done
+          # Main pushes and dispatches select every area. The PR merge commit's first parent is its base tip.
           if [[ "$EVENT_NAME" == pull_request ]]; then
-            mapfile -t changed < <(git diff --name-only HEAD^1 HEAD)
+            git diff --no-renames --name-only -z HEAD^1 HEAD > "$RUNNER_TEMP/changed-paths"
+            mapfile -d '' -t changed < "$RUNNER_TEMP/changed-paths"
             if (( ${#changed[@]} > 0 )); then
-              backend=false
-              web=false
-              landing=false
-              interpreter=false
+              for area in "${areas[@]}"; do
+                selected[$area]=false
+              done
               for path in "${changed[@]}"; do
-                # Mirror paths-ignore: only root-level Markdown is documentation; nested .md can be source.
                 if [[ "$path" != */* && "$path" == *.md ]]; then
                   continue
                 fi
@@ -82,41 +82,71 @@ jobs:
                   docs/*|tools/visual-paradigm-mcp/*)
                     ;;
                   openapi.yml)
-                    backend=true
-                    web=true
+                    selected[backend]=true
+                    selected[web]=true
+                    selected[frontend_image]=true
+                    ;;
+                  .github/workflows/*|.github/scripts/*|.github/dependabot.yml|tools/interpreter-eval/*)
+                    selected[infrastructure]=true
+                    ;;
+                  .github/gradle/*|gradle.properties)
+                    selected[backend]=true
+                    ;;
+                  Dockerfile|Dockerfile.dockerignore|.github/backend-images.hcl)
+                    selected[infrastructure]=true
+                    selected[backend_images]=true
+                    ;;
+                  .dockerignore)
+                    selected[backend_images]=true
+                    selected[frontend_image]=true
+                    ;;
+                  build-logic/*|memoryos-core/*|memoryos-sources/*|memoryos-api/*|memoryos-worker/*|gradle/*|build.gradle.kts|settings.gradle.kts|gradlew|gradlew.bat)
+                    selected[backend]=true
+                    selected[backend_images]=true
                     ;;
                   infrastructure/deployment/compose.landing.yaml)
-                    backend=true
-                    landing=true
+                    selected[infrastructure]=true
+                    selected[landing]=true
                     ;;
-                  build-logic/*|memoryos-core/*|memoryos-sources/*|memoryos-api/*|memoryos-worker/*|gradle/*|build.gradle.kts|settings.gradle.kts|gradle.properties|gradlew|gradlew.bat|Dockerfile|infrastructure/*)
-                    backend=true
+                  infrastructure/keycloak/*)
+                    selected[infrastructure]=true
+                    selected[keycloak_image]=true
+                    ;;
+                  infrastructure/*)
+                    selected[infrastructure]=true
                     ;;
                   memoryos-interpreter/*)
-                    interpreter=true
+                    selected[interpreter]=true
                     ;;
                   web/*)
-                    web=true
+                    selected[web]=true
+                    selected[frontend_image]=true
                     ;;
                   landing/*)
-                    landing=true
+                    selected[landing]=true
+                    ;;
+                  .github/actions/pnpm-project/*)
+                    selected[web]=true
+                    selected[landing]=true
                     ;;
                   *)
-                    backend=true
-                    web=true
-                    landing=true
-                    interpreter=true
+                    for area in "${areas[@]}"; do
+                      selected[$area]=true
+                    done
                     ;;
                 esac
               done
             fi
           fi
-          printf 'backend=%s\nweb=%s\nlanding=%s\ninterpreter=%s\n' "$backend" "$web" "$landing" "$interpreter" >> "$GITHUB_OUTPUT"
+          # Backend verification includes the infrastructure checks when recording a reusable result.
+          if [[ "${selected[backend]}" == true ]]; then selected[infrastructure]=true; fi
+          for area in "${areas[@]}"; do
+            printf '%s=%s\n' "$area" "${selected[$area]}" | tee -a "$GITHUB_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
+          done
           printf 'tree=%s\n' "$(git rev-parse 'HEAD^{tree}')" >> "$GITHUB_OUTPUT"
-          printf 'Verification areas: backend=%s web=%s landing=%s interpreter=%s\n' "$backend" "$web" "$landing" "$interpreter" >> "$GITHUB_STEP_SUMMARY"
 
-      # A main commit whose tree a same-repository pull request run already verified does not run those tests
-      # again; its images are still built, because their revision label names the main commit (ADR 0021). A fork's
+      # A main commit whose tree a same-repository pull request run already verified reuses those PR tests.
+      # Its images are still built, because their revision label names the main commit (ADR 0021). A fork's
       # artifact is never trusted: it could carry the name of another pull request's tree. Any failure to prove the
       # match leaves every test in place.
       - name: Reuse the verification of an identical pull request tree
@@ -157,10 +187,28 @@ jobs:
             printf 'No same-repository pull request run verified tree %s; every test runs.\n' "$TREE" >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      - name: Select backend test shards
+        id: backend
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BACKEND_VERIFIED: ${{ steps.verified.outputs.backend }}
+        run: |
+          pr_legs=(core-ai core-chat core-connectors core-architecture core-retrieval core-other api-contracts api-other sources-worker)
+          main_legs=(core-main api-main)
+          if [[ "$EVENT_NAME" == pull_request ]]; then
+            legs=("${pr_legs[@]}")
+          elif [[ "$BACKEND_VERIFIED" == true ]]; then
+            legs=("${main_legs[@]}")
+          else
+            legs=("${pr_legs[@]}" "${main_legs[@]}")
+          fi
+          legs_json=$(jq --compact-output --null-input '$ARGS.positional' --args "${legs[@]}")
+          printf 'legs=%s\n' "$legs_json" >> "$GITHUB_OUTPUT"
+
   # Deployment, monitoring and workflow checks need no JVM, so they run beside the Gradle legs instead of before them.
   infrastructure:
     needs: changes
-    if: ${{ needs.changes.outputs.backend == 'true' && needs.changes.outputs.backend_verified != 'true' }}
+    if: ${{ needs.changes.outputs.infrastructure == 'true' && needs.changes.outputs.backend_verified != 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -240,24 +288,16 @@ jobs:
       - name: Verify the run_python evaluation's scoring
         run: python3 -m unittest discover -s tools/interpreter-eval/tests -t tools/interpreter-eval
 
-  # One runner held every module's tests, and core alone took eight of its ten minutes while api, sources
-  # and worker competed for the same four CPUs. Each leg now owns a runner; together they are the repository's `check`.
+  # A verified PR tree can supply the regular shards. Main still runs its own integration shards.
   backend:
     needs: changes
-    if: ${{ needs.changes.outputs.backend == 'true' && needs.changes.outputs.backend_verified != 'true' }}
+    if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        include:
-          # Core has the runner to itself: three JVMs, each with its PostgreSQL container and up to 1.5 GiB heap.
-          - leg: core
-            tasks: ':memoryos-core:check'
-          - leg: api
-            tasks: ':memoryos-api:check'
-          - leg: sources-worker
-            tasks: ':memoryos-sources:check :memoryos-worker:check'
+        leg: ${{ fromJSON(needs.changes.outputs.backend_legs) }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -276,10 +316,20 @@ jobs:
       - name: Build and verify
         env:
           MEMORYOS_CORE_TEST_FORKS: 3
-          TASKS: ${{ matrix.tasks }}
+          BACKEND_TEST_SHARD: ${{ matrix.leg }}
         run: |
-          read -ra tasks <<< "$TASKS"
-          ./gradlew clean "${tasks[@]}" --no-daemon
+          gradle_args=(--no-daemon)
+          case "$BACKEND_TEST_SHARD" in
+            core-architecture) tasks=(:memoryos-core:check) ;;
+            core-*) tasks=(:memoryos-core:test) ;;
+            api-*) tasks=(:memoryos-api:test) ;;
+            sources-worker) tasks=(:memoryos-sources:check :memoryos-worker:check) ;;
+            *) exit 2 ;;
+          esac
+          if [[ "$BACKEND_TEST_SHARD" != sources-worker ]]; then
+            gradle_args+=(--init-script .github/gradle/test-shards.gradle)
+          fi
+          ./gradlew "${gradle_args[@]}" "${tasks[@]}"
 
       - name: Upload backend test reports
         if: ${{ !cancelled() }}
@@ -296,11 +346,11 @@ jobs:
           retention-days: 3
 
       - name: Upload core test heap diagnostics
-        if: ${{ failure() && matrix.leg == 'core' }}
+        if: ${{ failure() && startsWith(matrix.leg, 'core-') }}
         continue-on-error: true
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: core-test-diagnostics
+          name: core-test-diagnostics-${{ matrix.leg }}
           path: memoryos-core/build/test-diagnostics/
           if-no-files-found: ignore
           retention-days: 3
@@ -349,7 +399,7 @@ jobs:
       fail-fast: false
       matrix:
         # Playwright's CI guidance: one worker per runner, scale with shards. fullyParallel splits by test.
-        shard: [1, 2, 3, 4, 5, 6]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     container:
       image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:7852dc5a7d72f5fe458a597d690f6c42fbc8e9e26ddfa95f8e6ef552558d9bbf
       options: --user 1001
@@ -367,13 +417,17 @@ jobs:
       - name: Exercise browser states
         run: pnpm --dir web test:e2e --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
-  # The shards run the dev server, which sends no deployment policy. These specs run once against the production
-  # build served with nginx.conf's CSP and Permissions-Policy, and fail on any violation the browser reports.
+  # Dev-server fixtures send no deployment policy. These shards exercise the production build with
+  # nginx.conf's CSP and Permissions-Policy and fail on any violation the browser reports.
   frontend-preview:
     needs: changes
-    if: ${{ needs.changes.outputs.web == 'true' && needs.changes.outputs.web_verified != 'true' }}
+    if: ${{ github.event_name != 'pull_request' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     container:
       image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:7852dc5a7d72f5fe458a597d690f6c42fbc8e9e26ddfa95f8e6ef552558d9bbf
       options: --user 1001
@@ -392,13 +446,12 @@ jobs:
         env:
           MEMORYOS_E2E_PREVIEW: "1"
         run: >-
-          pnpm --dir web test:e2e
+          pnpm --dir web test:e2e --shard=${{ matrix.shard }}/${{ strategy.job-total }}
           chat-generated-file-preview identity-shell groups-list search meetings
-
 
   frontend-image:
     needs: changes
-    if: ${{ needs.changes.outputs.web == 'true' }}
+    if: ${{ needs.changes.outputs.frontend_image == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -689,7 +742,69 @@ jobs:
 
   backend-images:
     needs: changes
-    if: ${{ needs.changes.outputs.backend == 'true' }}
+    if: ${{ needs.changes.outputs.backend_images == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read # Check out the revision the images are built from.
+      packages: write # Push the images from Bake only on a main push.
+    outputs:
+      images: ${{ steps.push.outputs.images }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Resolve image metadata
+        id: meta
+        run: printf 'build-date=%s\n' "$(git show -s --format=%cI HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # Layer caches live in GHCR beside the images, outside the Actions cache and its 10 GB eviction. Every run
+      # reads them; only a main push writes them.
+      - name: Authenticate to GHCR for layer caches
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+
+      - name: Build API and worker together
+        env:
+          VCS_REF: ${{ github.sha }}
+          BUILD_DATE: ${{ steps.meta.outputs.build-date }}
+          RELEASE_TAG: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && format('sha-{0}-{1}-{2}', github.sha, github.run_id, github.run_attempt) || '' }}
+        run: docker buildx bake --file .github/backend-images.hcl --metadata-file "$RUNNER_TEMP/backend-images.json"
+
+      - name: Record backend image digests
+        id: push
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        run: |
+          for component in api worker; do
+            digest=$(jq -er --arg component "$component" '.[$component]["containerimage.digest"]' "$RUNNER_TEMP/backend-images.json")
+            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+            image="ghcr.io/kl3init/memoryos-$component@$digest"
+            docker buildx imagetools inspect --format '{{json .Image}}' "$image" |
+              jq -e --arg sha "$GITHUB_SHA" '
+                .config.Labels | .["org.opencontainers.image.revision"] == $sha
+                and .["org.opencontainers.image.source"] == "https://github.com/kl3inIT/MemoryOS"
+              ' > /dev/null
+            printf 'MEMORYOS_%s_IMAGE=%s\n' "${component^^}" "$image" >> "$RUNNER_TEMP/backend-images.env"
+          done
+          {
+            echo 'images<<MEMORYOS_IMAGES'
+            cat "$RUNNER_TEMP/backend-images.env"
+            echo 'MEMORYOS_IMAGES'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Remove registry credentials
+        if: ${{ always() }}
+        run: docker logout ghcr.io
+
+  keycloak-image:
+    needs: changes
+    if: ${{ needs.changes.outputs.keycloak_image == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -717,41 +832,6 @@ jobs:
           REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
 
-      # Both targets share the Gradle build stage; each keeps its own cache scope and reads the other's.
-      - name: Build production API image
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: .
-          target: api
-          tags: memoryos-api:sha-${{ github.sha }}
-          load: true
-          provenance: false
-          sbom: false
-          build-args: |
-            VCS_REF=${{ github.sha }}
-            BUILD_DATE=${{ steps.meta.outputs.build-date }}
-          cache-from: |
-            type=registry,ref=ghcr.io/kl3init/memoryos-api:buildcache
-            type=registry,ref=ghcr.io/kl3init/memoryos-worker:buildcache
-          cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/kl3init/memoryos-api:buildcache,mode=max,ignore-error=true' || '' }}
-
-      - name: Build production worker image
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: .
-          target: worker
-          tags: memoryos-worker:sha-${{ github.sha }}
-          load: true
-          provenance: false
-          sbom: false
-          build-args: |
-            VCS_REF=${{ github.sha }}
-            BUILD_DATE=${{ steps.meta.outputs.build-date }}
-          cache-from: |
-            type=registry,ref=ghcr.io/kl3init/memoryos-api:buildcache
-            type=registry,ref=ghcr.io/kl3init/memoryos-worker:buildcache
-          cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/kl3init/memoryos-worker:buildcache,mode=max,ignore-error=true' || '' }}
-
       # The login theme is inside this image, so a release carries its own sign-in page.
       - name: Build production Keycloak image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
@@ -770,12 +850,12 @@ jobs:
       - name: Prove the Keycloak image serves the MemoryOS login theme
         run: infrastructure/keycloak/smoke-test-image.sh "memoryos-keycloak:sha-$GITHUB_SHA"
 
-      - name: Push verified backend images to GHCR
+      - name: Push verified Keycloak image to GHCR
         id: push
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: ./.github/actions/push-release-images
         with:
-          components: api worker keycloak
+          components: keycloak
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Remove registry credentials
@@ -837,32 +917,40 @@ jobs:
   gate:
     name: CI Gate
     if: ${{ always() }}
-    needs: [changes, infrastructure, backend, frontend-check, frontend, frontend-preview, frontend-image, backend-images, landing, interpreter, secrets, migrations]
+    needs: [changes, infrastructure, backend, frontend-check, frontend, frontend-preview, frontend-image, backend-images, keycloak-image, landing, interpreter, secrets, migrations]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
       - name: Require every selected job to succeed and every unselected job to be skipped
         env:
           RESULTS: ${{ toJSON(needs) }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
-          # An area job may be skipped only when change detection succeeded and did not select that area, or, for
-          # a test-only job, when it found the area already verified on this tree.
-          jq --exit-status '
+          jq --exit-status --arg event "$EVENT_NAME" '
             . as $jobs
             | ($jobs.changes.outputs // {}) as $area
-            | def ok(jobs; result): all(jobs[]; $jobs[.].result == result);
-              def selected(name; tests; images):
-                if $area[name] != "true" then ok(tests + images; "skipped")
-                elif $area[name + "_verified"] == "true" then ok(tests; "skipped") and ok(images; "success")
-                else ok(tests + images; "success") end;
-            ($jobs | keys) == ["backend", "backend-images", "changes", "frontend", "frontend-check", "frontend-image", "frontend-preview", "infrastructure", "interpreter", "landing", "migrations", "secrets"]
-            and $jobs.changes.result == "success"
-            and $jobs.secrets.result == "success"
-            and $jobs.migrations.result == "success"
-            and selected("backend"; ["infrastructure", "backend"]; ["backend-images"])
-            and selected("web"; ["frontend-check", "frontend", "frontend-preview"]; ["frontend-image"])
-            and selected("landing"; []; ["landing"])
-            and selected("interpreter"; []; ["interpreter"])
+            | def selected(name): $area[name] == "true";
+              def verified(name): $area[name + "_verified"] == "true";
+              {
+                changes: true,
+                secrets: true,
+                migrations: true,
+                infrastructure: (selected("infrastructure") and (verified("backend") | not)),
+                backend: selected("backend"),
+                "backend-images": selected("backend_images"),
+                "keycloak-image": selected("keycloak_image"),
+                "frontend-check": (selected("web") and (verified("web") | not)),
+                frontend: (selected("web") and (verified("web") | not)),
+                "frontend-preview": ($event != "pull_request"),
+                "frontend-image": selected("frontend_image"),
+                landing: selected("landing"),
+                interpreter: selected("interpreter")
+              } as $expected
+            | def verdicts: ["infrastructure", "backend", "backend_images", "keycloak_image",
+                             "web", "frontend_image", "landing", "interpreter"];
+              all(verdicts[]; $area[.] == "true" or $area[.] == "false")
+              and ($jobs | keys) == ($expected | keys)
+              and all($expected | keys[]; $jobs[.].result == (if $expected[.] then "success" else "skipped" end))
           ' <<< "$RESULTS"
 
       # A main commit with this exact tree can reuse these results instead of running the tests again.
@@ -887,14 +975,14 @@ jobs:
     name: Publish verified release
     # Without a status function the condition would also require every job behind the gate to have run, and a main
     # push whose tree a pull request verified skips the test jobs, which skipped this job too (run 37041478495). The
-    # gate already judged those jobs, so the gate and the three image jobs are checked by name.
+    # gate already judged those jobs, so check the gate and the release image jobs by name.
     if: >-
       ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main'
       && needs.gate.result == 'success' && needs.backend-images.result == 'success'
-      && needs.frontend-image.result == 'success' && needs.interpreter.result == 'success' }}
+      && needs.keycloak-image.result == 'success' && needs.frontend-image.result == 'success' && needs.interpreter.result == 'success' }}
     # The image jobs already pushed what they verified; this job only names those digests as a release, and only
     # after CI Gate. A tag in GHCR without this job's artifact is not deployable.
-    needs: [gate, backend-images, frontend-image, interpreter]
+    needs: [gate, backend-images, keycloak-image, frontend-image, interpreter]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -912,6 +1000,7 @@ jobs:
         env:
           IMAGES: |
             ${{ needs.backend-images.outputs.images }}
+            ${{ needs.keycloak-image.outputs.images }}
             ${{ needs.frontend-image.outputs.images }}
             ${{ needs.interpreter.outputs.images }}
         run: |

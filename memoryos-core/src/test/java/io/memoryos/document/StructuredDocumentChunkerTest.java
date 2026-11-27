@@ -91,6 +91,22 @@ class StructuredDocumentChunkerTest {
     }
 
     @Test
+    void bodyIsThePassageWithoutTheHeaderTheChunkerWrites() {
+        var chunks = chunker.chunk("Chính sách công tác", """
+                {"schema":"memoryos-extraction-v2","blocks":[
+                  {"index":0,"kind":"PARAGRAPH","text":"Áp dụng cho mọi nhân viên."},
+                  {"index":1,"kind":"HEADING","headingLevel":1,"text":"Thanh toán"},
+                  {"index":2,"kind":"PARAGRAPH","text":"Nộp hóa đơn trong vòng 07 ngày."}]}
+                """);
+        var bodies = chunks.stream().map(chunk -> DocumentChunk.body(chunk.content())).toList();
+        assertTrue(bodies.contains("Áp dụng cho mọi nhân viên."), bodies.toString());
+        assertTrue(bodies.contains("Nộp hóa đơn trong vòng 07 ngày."), bodies.toString());
+        assertTrue(bodies.stream().noneMatch(body -> body.startsWith("Title: ") || body.startsWith("Section: ")),
+                bodies.toString());
+        assertEquals("No header here", DocumentChunk.body("No header here"));
+    }
+
+    @Test
     void preservesVietnameseSectionAndRealPageLocation() {
         var chunks = chunker.chunk("Chính sách công tác", """
                 {"schema":"memoryos-extraction-v2","blocks":[

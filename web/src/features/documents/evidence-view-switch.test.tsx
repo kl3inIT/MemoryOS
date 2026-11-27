@@ -35,6 +35,7 @@ it("opens a cited picture on its original with the recorded region marked, as th
           pages: location.pages,
           boxes: location.boxes,
           citations: ["Tổng cộng 1.200.000"],
+          sections: [undefined],
         }}
       >
         <p>Tổng cộng 1.200.000</p>

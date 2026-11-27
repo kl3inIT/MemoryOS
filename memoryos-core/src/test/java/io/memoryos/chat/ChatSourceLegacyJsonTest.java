@@ -21,6 +21,7 @@ class ChatSourceLegacyJsonTest {
 
         var source = List.of(new ObjectMapper().readValue(saved, ChatSource[].class)).getFirst();
 
+        assertNull(source.matchingOrdinal(), "an answer saved before the matching passage was recorded opens as before");
         assertNull(source.mediaType());
         assertEquals(List.of(), source.sourceTypes());
         assertNull(source.providerUrl());
@@ -28,8 +29,20 @@ class ChatSourceLegacyJsonTest {
     }
 
     @Test
+    void theMatchingPassageIsKeptAndOnlyADocumentCitationHasOneInsideItsRange() throws Exception {
+        var mapper = new ObjectMapper();
+        var cited = ChatSource.document(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 2, 5, 4,
+                List.of(new ChatSource.Provenance(2, "{}"), new ChatSource.Provenance(4, "{}")));
+        assertEquals(4, mapper.readValue(mapper.writeValueAsString(cited), ChatSource.class).matchingOrdinal());
+        assertThrows(IllegalArgumentException.class, () -> ChatSource.document(1, UUID.randomUUID(), UUID.randomUUID(),
+                "HR", 2, 5, 6, List.of(new ChatSource.Provenance(2, "{}"))));
+        assertThrows(IllegalArgumentException.class, () -> new ChatSource(1, null, null, "a.pdf", 0, 0, 0, List.of(),
+                UUID.randomUUID(), null, null, null, List.of(), null));
+    }
+
+    @Test
     void aProviderLinkIsAnHttpsAddressOfAnyProviderWithoutCredentials() {
-        var cited = ChatSource.document(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 0, 0,
+        var cited = ChatSource.document(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 0, 0, 0,
                 List.of(new ChatSource.Provenance(0, "{}")));
         for (String link : List.of("https://drive.google.com/open?id=1AbCdEfGhIjKlMnOp",
                 "https://contoso.sharepoint.com/sites/HR/Shared%20Documents/Leave.docx")) {

@@ -126,6 +126,7 @@ class SearchToolTest {
             assertNotNull(source);
             assertEquals(2, source.startOrdinal());
             assertEquals(3, source.endOrdinal());
+            assertEquals(2, source.matchingOrdinal());
             assertEquals(response, tool.searchKnowledge(List.of("policy"), null));
             assertEquals(1, events.stream().filter(e -> e.source() != null).count());
             verify(search, times(2)).window(any(), any(SearchSection.class), eq(2));
@@ -207,7 +208,28 @@ class SearchToolTest {
             assertNotNull(source);
             assertEquals(2, source.startOrdinal());
             assertEquals(2, source.endOrdinal());
+            assertEquals(2, source.matchingOrdinal());
             assertEquals(1, source.provenance().size());
+        }
+    }
+
+    @Test
+    void eachWindowOfADocumentCitesThePassageItsOwnSectionMatched() {
+        // Two sections of one document far apart: the second window's match is its own anchor, not the first
+        // section's hit pulled to the window's edge.
+        var far = IntStream.rangeClosed(18, 22).mapToObj(this::hit).toList();
+        var farSection = new SearchSection(far.get(3), far);
+        var result = candidates();
+        when(result.hits()).thenReturn(List.of(first, second, far.get(3)));
+        when(result.sections()).thenReturn(List.of(section, farSection));
+        when(runner.createObject(anyString(), eq(SearchTool.Selection.class))).thenReturn(new SearchTool.Selection(List.of(1, 2)));
+        try (var tool = tool(8000)) {
+            tool.searchKnowledge(List.of("policy"), null);
+            var sources = events.stream().map(ChatToolEvent::source).filter(Objects::nonNull).toList();
+            assertEquals(List.of(2, 18), sources.stream().map(source -> source.startOrdinal()).toList());
+            assertEquals(List.of(3, 22), sources.stream().map(source -> source.endOrdinal()).toList());
+            assertEquals(List.of(2, 21), sources.stream().map(source -> source.matchingOrdinal()).toList());
+            assertEquals(5, sources.get(1).provenance().size(), "the model's whole window stays cited");
         }
     }
 

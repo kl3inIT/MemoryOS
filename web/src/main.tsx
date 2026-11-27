@@ -10,7 +10,10 @@ import "@/lib/api";
 import { setupPreloadErrorReloadHandler } from "@/lib/preload-error-reload";
 import { queryClient } from "@/lib/query-client";
 import { router } from "@/router";
+import { config as zodConfig } from "zod";
 
+// The deployment CSP refuses eval, and zod's probe for it is reported as a violation even though zod catches it.
+zodConfig({ jitless: true });
 setupPreloadErrorReloadHandler();
 
 const rootElement = document.getElementById("root");

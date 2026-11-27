@@ -36,6 +36,8 @@ const documentSourceSchema = z
     title: z.string().max(1024),
     startOrdinal: z.number().int().min(0).max(9999),
     endOrdinal: z.number().int().min(0).max(9999),
+    // The passage search matched inside the range; answers saved before it was recorded omit it.
+    matchingOrdinal: z.number().int().min(0).max(9999).nullish(),
     provenance: z
       .array(
         z.object({ ordinal: z.number().int().nonnegative(), provenanceJson: z.string().max(8192) }),
@@ -49,6 +51,9 @@ const documentSourceSchema = z
   .refine(
     (source) =>
       source.endOrdinal >= source.startOrdinal &&
+      (source.matchingOrdinal == null ||
+        (source.matchingOrdinal >= source.startOrdinal &&
+          source.matchingOrdinal <= source.endOrdinal)) &&
       source.provenance.every(
         (item) => item.ordinal >= source.startOrdinal && item.ordinal <= source.endOrdinal,
       ),
@@ -64,6 +69,7 @@ export const sourceSchema = z.union([
     fileLocation: z.null().optional(),
     startOrdinal: z.literal(0),
     endOrdinal: z.literal(0),
+    matchingOrdinal: z.null().optional(),
     provenance: z.array(z.never()).max(0),
     web: z.object({
       url: z
@@ -112,6 +118,7 @@ export const sourceSchema = z.union([
     generation: z.null(),
     startOrdinal: z.literal(0),
     endOrdinal: z.literal(0),
+    matchingOrdinal: z.null().optional(),
     provenance: z.array(z.never()).max(0),
     mediaType: mediaTypeSchema,
     sourceTypes: z.array(z.never()).max(0).optional(),

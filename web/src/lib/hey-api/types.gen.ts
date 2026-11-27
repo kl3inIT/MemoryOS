@@ -3516,6 +3516,10 @@ export type ChatSource = {
     title: string;
     startOrdinal: number;
     endOrdinal: number;
+    /**
+     * The passage search matched inside the cited range; null for file and Web citations and for answers saved before it was recorded
+     */
+    matchingOrdinal?: number;
     provenance: Array<Provenance>;
     fileId?: string;
     fileLocation?: FileLocation;

@@ -30,5 +30,6 @@ java_pid*.hprof
 replay_pid*.log
 *.docx
 !docs/academic/sep490/templates/*.docx
+!web/src/features/chat/sources/citation-fixtures/*.docx
 /.skills/*/node_modules/
 .playwright-mcp/
