@@ -60,9 +60,10 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
+          declare -A selected
           areas=(infrastructure backend backend_images keycloak_image web frontend_image landing interpreter)
           for area in "${areas[@]}"; do
-            printf -v "$area" '%s' true
+            selected[$area]=true
           done
           # Main pushes and dispatches select every area. The PR merge commit's first parent is its base tip.
           if [[ "$EVENT_NAME" == pull_request ]]; then
@@ -70,7 +71,7 @@ jobs:
             mapfile -d '' -t changed < "$RUNNER_TEMP/changed-paths"
             if (( ${#changed[@]} > 0 )); then
               for area in "${areas[@]}"; do
-                printf -v "$area" '%s' false
+                selected[$area]=false
               done
               for path in "${changed[@]}"; do
                 if [[ "$path" != */* && "$path" == *.md ]]; then
@@ -80,56 +81,56 @@ jobs:
                   docs/*|tools/visual-paradigm-mcp/*)
                     ;;
                   openapi.yml)
-                    backend=true
-                    web=true
-                    frontend_image=true
+                    selected[backend]=true
+                    selected[web]=true
+                    selected[frontend_image]=true
                     ;;
                   .github/workflows/*|.github/scripts/*|.github/dependabot.yml|tools/interpreter-eval/*)
-                    infrastructure=true
+                    selected[infrastructure]=true
                     ;;
                   .github/gradle/*|gradle.properties)
-                    backend=true
+                    selected[backend]=true
                     ;;
                   Dockerfile|Dockerfile.dockerignore|.github/backend-images.hcl)
-                    infrastructure=true
-                    backend_images=true
+                    selected[infrastructure]=true
+                    selected[backend_images]=true
                     ;;
                   .dockerignore)
-                    backend_images=true
-                    frontend_image=true
+                    selected[backend_images]=true
+                    selected[frontend_image]=true
                     ;;
                   build-logic/*|memoryos-core/*|memoryos-sources/*|memoryos-api/*|memoryos-worker/*|gradle/*|build.gradle.kts|settings.gradle.kts|gradlew|gradlew.bat)
-                    backend=true
-                    backend_images=true
+                    selected[backend]=true
+                    selected[backend_images]=true
                     ;;
                   infrastructure/deployment/compose.landing.yaml)
-                    infrastructure=true
-                    landing=true
+                    selected[infrastructure]=true
+                    selected[landing]=true
                     ;;
                   infrastructure/keycloak/*)
-                    infrastructure=true
-                    keycloak_image=true
+                    selected[infrastructure]=true
+                    selected[keycloak_image]=true
                     ;;
                   infrastructure/*)
-                    infrastructure=true
+                    selected[infrastructure]=true
                     ;;
                   memoryos-interpreter/*)
-                    interpreter=true
+                    selected[interpreter]=true
                     ;;
                   web/*)
-                    web=true
-                    frontend_image=true
+                    selected[web]=true
+                    selected[frontend_image]=true
                     ;;
                   landing/*)
-                    landing=true
+                    selected[landing]=true
                     ;;
                   .github/actions/pnpm-project/*)
-                    web=true
-                    landing=true
+                    selected[web]=true
+                    selected[landing]=true
                     ;;
                   *)
                     for area in "${areas[@]}"; do
-                      printf -v "$area" '%s' true
+                      selected[$area]=true
                     done
                     ;;
                 esac
@@ -137,9 +138,9 @@ jobs:
             fi
           fi
           # Backend verification includes the infrastructure checks when recording a reusable result.
-          if [[ "$backend" == true ]]; then infrastructure=true; fi
+          if [[ "${selected[backend]}" == true ]]; then selected[infrastructure]=true; fi
           for area in "${areas[@]}"; do
-            printf '%s=%s\n' "$area" "${!area}" | tee -a "$GITHUB_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
+            printf '%s=%s\n' "$area" "${selected[$area]}" | tee -a "$GITHUB_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
           done
           printf 'tree=%s\n' "$(git rev-parse 'HEAD^{tree}')" >> "$GITHUB_OUTPUT"
 
