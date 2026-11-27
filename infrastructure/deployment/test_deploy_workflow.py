@@ -30,9 +30,11 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
             self.assertTrue(ignored.search(path), path)
         for path in ("landing/src/content/page.md", "memoryos-core/src/main/java/io/memoryos/A.java", ".github/workflows/ci.yml", "openapi.yml"):
             self.assertFalse(ignored.search(path), path)
-        # The filter mirrors CI's paths-ignore; a new ignored path must be added to both.
+        # Staging staleness follows main push filtering. PRs always emit the gate check.
+        push_trigger = CI_WORKFLOW.split("  push:\n", 1)[1].split("  pull_request:", 1)[0]
         for entry in ("'docs/**'", "'*.md'", "'tools/visual-paradigm-mcp/**'"):
-            self.assertEqual(CI_WORKFLOW.count(entry), 2, entry)
+            self.assertIn(entry, push_trigger)
+        self.assertRegex(CI_WORKFLOW, r"(?m)^  pull_request:\n")
 
     def test_delivery_does_not_require_business_test_tooling_or_accounts(self):
         for removed in ("STAGING_SMOKE", "MEMORYOS_SMOKE", "test:staging", "playwright", "setup-node", "corepack", "pnpm"):
@@ -192,22 +194,25 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
     def test_only_a_main_build_pushes_and_only_the_gate_makes_a_release(self):
         main_push = "if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}\n        uses: ./.github/actions/push-release-images"
         for job, end in (("frontend-image", "landing"), ("interpreter", "backend-images"),
-                         ("backend-images", "secrets")):
+                         ("keycloak-image", "secrets")):
             text = CI_WORKFLOW.split(f"  {job}:\n", 1)[1].split(f"\n  {end}:\n", 1)[0]
             self.assertEqual(text.count("uses: ./.github/actions/push-release-images"), 1, job)
             self.assertIn(main_push, text, job)
             self.assertNotIn("docker save", text, job)
-        # Images are pushed with the labels that name this revision; a tag alone is never deployable.
-        self.assertIn('.["org.opencontainers.image.revision"] == $sha', PUSH_ACTION)
+        # Bake handles API and worker publication directly, using a tag only on a main push.
+        bake_job = CI_WORKFLOW.split("  backend-images:\n", 1)[1].split("\n  keycloak-image:\n", 1)[0]
+        self.assertIn("RELEASE_TAG: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' &&", bake_job)
+        for text in (bake_job, PUSH_ACTION):
+            self.assertIn('.["org.opencontainers.image.revision"] == $sha', text)
         publish = CI_WORKFLOW.split("name: Publish verified release", 1)[1].split("publish-landing:", 1)[0]
-        self.assertIn("needs: [gate, backend-images, frontend-image, interpreter]", publish)
+        self.assertIn("needs: [gate, backend-images, keycloak-image, frontend-image, interpreter]", publish)
         self.assertIn("packages: read", publish)
         self.assertNotIn("docker push", publish)
         # A main push whose tree a pull request verified skips the test jobs behind the gate; without a status
         # function that skip would skip the release too, so the gate and the image jobs are checked by name.
         condition = CI_WORKFLOW.split("  publish:\n", 1)[1].split("    needs:", 1)[0]
         self.assertIn("!cancelled()", condition)
-        for job in ("gate", "backend-images", "frontend-image", "interpreter"):
+        for job in ("gate", "backend-images", "keycloak-image", "frontend-image", "interpreter"):
             self.assertIn(f"needs.{job}.result == 'success'", condition, job)
 
     def test_interpreter_images_join_the_release_contract(self):
@@ -253,10 +258,10 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         self.assertIn('export "${secret_variable%_FILE}=$secret_value"', launcher)
 
     def test_keycloak_is_rolled_out_by_the_release_on_every_host(self):
-        backend = CI_WORKFLOW.split("  backend-images:\n", 1)[1].split("\n  secrets:\n", 1)[0]
-        self.assertIn("context: infrastructure/keycloak", backend)
-        self.assertIn("infrastructure/keycloak/smoke-test-image.sh", backend)
-        self.assertIn('"memoryos-keycloak:sha-$GITHUB_SHA"', backend)
+        keycloak = CI_WORKFLOW.split("  keycloak-image:\n", 1)[1].split("\n  secrets:\n", 1)[0]
+        self.assertIn("context: infrastructure/keycloak", keycloak)
+        self.assertIn("infrastructure/keycloak/smoke-test-image.sh", keycloak)
+        self.assertIn('"memoryos-keycloak:sha-$GITHUB_SHA"', keycloak)
         deploy = SCRIPT.split('if [[ "$mode" == deploy ]]', 1)[1].split('elif [[ "$mode" == rollback ]]', 1)[0]
         # No environment file names a Keycloak image: images.env is the only source, on staging too.
         self.assertIn('cp "$tx/images.env" "$tx/candidate.env"', deploy)
@@ -615,47 +620,52 @@ else:
 
 
 class VerifiedTreeReuseTest(unittest.TestCase):
-    JOBS = ("backend", "backend-images", "changes", "frontend", "frontend-check", "frontend-image", "frontend-preview",
-            "infrastructure", "interpreter", "landing", "migrations", "secrets")
-    AREAS = {"backend": (["infrastructure", "backend"], ["backend-images"]),
-             "web": (["frontend-check", "frontend", "frontend-preview"], ["frontend-image"]),
-             "landing": ([], ["landing"]), "interpreter": ([], ["interpreter"])}
+    TEST_JOBS = {"infrastructure", "backend", "frontend-check", "frontend"}
+    MAIN_JOBS = {"backend-images", "keycloak-image", "frontend-image", "frontend-preview", "interpreter", "landing"}
+    ALWAYS = {"changes", "secrets", "migrations"}
+    AREAS = ("infrastructure", "backend", "backend_images", "keycloak_image",
+             "web", "frontend_image", "interpreter", "landing")
 
-    def gate(self, outputs, override=None):
-        jq = shutil.which("jq")
-        if jq is None:
+    def gate(self, event, outputs, successful, **overrides):
+        if shutil.which("jq") is None:
             self.skipTest("jq is required to run the gate")
-        gate = CI_WORKFLOW.split("  gate:\n", 1)[1].split("\n  publish:\n", 1)[0]
-        program = gate.split("jq --exit-status '", 1)[1].split("' <<< \"$RESULTS\"", 1)[0]
-        results = {job: {"result": "skipped", "outputs": {}} for job in self.JOBS}
-        results["changes"] = {"result": "success", "outputs": outputs}
-        results["secrets"]["result"] = "success"
-        results["migrations"]["result"] = "success"
-        for area, (tests, images) in self.AREAS.items():
-            if outputs.get(area) == "true":
-                for job in images:
-                    results[job]["result"] = "success"
-                if outputs.get(area + "_verified") != "true":
-                    for job in tests:
-                        results[job]["result"] = "success"
-        results.update({job: {"result": result, "outputs": {}} for job, result in (override or {}).items()})
-        return subprocess.run([jq, "--exit-status", program], input=json.dumps(results), text=True,
-                              capture_output=True).returncode
+        job = CI_WORKFLOW.split("  gate:\n", 1)[1].split("\n  publish:\n", 1)[0]
+        step = job.split("        run: |\n", 1)[1].split("\n\n", 1)[0]
+        results = {
+            name: {"result": overrides.get(name, "success" if name in successful or name in self.ALWAYS else "skipped")}
+            for name in self.TEST_JOBS | self.MAIN_JOBS | self.ALWAYS
+        }
+        results["changes"]["outputs"] = outputs
+        run = subprocess.run(
+            ["bash", "-e", "-o", "pipefail", "-c", step],
+            env={**os.environ, "EVENT_NAME": event, "RESULTS": json.dumps(results)},
+            capture_output=True, text=True,
+        )
+        self.assertIn(run.returncode, (0, 1), run.stderr)
+        return run.returncode
 
-    def test_a_verified_area_skips_its_tests_but_still_builds_its_images(self):
-        every = {"backend": "true", "web": "true", "landing": "true", "interpreter": "true"}
-        self.assertEqual(0, self.gate(every))
-        verified = {**every, "backend_verified": "true", "web_verified": "true"}
-        self.assertEqual(0, self.gate(verified))
-        self.assertNotEqual(0, self.gate(verified, {"backend-images": "skipped"}))
-        self.assertNotEqual(0, self.gate(verified, {"frontend-image": "failure"}))
-        # Tests may be skipped only when the area was found verified.
-        self.assertNotEqual(0, self.gate(every, {"backend": "skipped"}))
-        self.assertNotEqual(0, self.gate({"backend": "false", "web": "true", "landing": "false", "interpreter": "false"}, {"backend-images": "success"}))
-        # The interpreter images are built whenever the interpreter area is selected.
-        self.assertNotEqual(0, self.gate(every, {"interpreter": "skipped"}))
-        # A migration numbered below the base's newest stops the release even when every test was reused.
-        self.assertNotEqual(0, self.gate(verified, {"migrations": "failure"}))
+    def test_a_verified_main_tree_skips_reused_tests_but_requires_images_and_production_browser(self):
+        every = dict.fromkeys(self.AREAS, "true")
+        self.assertEqual(0, self.gate("push", every, self.MAIN_JOBS | self.TEST_JOBS))
+        verified = {**every, "backend_verified": "true", "web_verified": "true", "interpreter_verified": "true"}
+        self.assertEqual(0, self.gate("push", verified, self.MAIN_JOBS))
+        for job, result in (("backend-images", "skipped"), ("keycloak-image", "failure"),
+                            ("frontend-preview", "skipped"), ("interpreter", "skipped"),
+                            ("migrations", "failure")):
+            with self.subTest(job=job, result=result):
+                self.assertEqual(1, self.gate("push", verified, self.MAIN_JOBS, **{job: result}))
+
+    def test_a_filtered_pr_requires_success_for_selected_jobs_and_skips_for_the_rest(self):
+        docs_only = dict.fromkeys(self.AREAS, "false")
+        self.assertEqual(0, self.gate("pull_request", docs_only, set()))
+        outputs = {**docs_only, "infrastructure": "true", "backend": "true"}
+        selected = {"infrastructure", "backend"}
+        self.assertEqual(0, self.gate("pull_request", outputs, selected))
+        for job, result in (("backend", "failure"), ("backend", "skipped"),
+                            ("backend-images", "success"), ("backend-images", "failure"),
+                            ("keycloak-image", "cancelled"), ("changes", "failure")):
+            with self.subTest(job=job, result=result):
+                self.assertEqual(1, self.gate("pull_request", outputs, selected, **{job: result}))
 
     def test_only_a_successful_same_repository_pull_request_run_of_this_commit_is_trusted(self):
         changes = CI_WORKFLOW.split("  changes:\n", 1)[1].split("\n  infrastructure:\n", 1)[0]
