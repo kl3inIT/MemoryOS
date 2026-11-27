@@ -7,6 +7,12 @@ Project chỉnh sửa: [MemoryOS.vpp](MemoryOS.vpp).
 - [03 — Tìm kiếm và xem bằng chứng](memoryos-search-flow.png): phạm vi được phép, kết quả rỗng, chọn bằng chứng và kiểm tra lại quyền.
 - [04 — Hỏi đáp và trích dẫn](memoryos-chat-flow.png): quyền hội thoại/mô hình, truy xuất bằng chứng, sinh trả lời, lỗi/dừng và xem nguồn; có thể kết thúc mà không chọn trích dẫn.
 
+## Context Diagram (tiếng Anh)
+
+[Context Diagram - MemoryOS](context-diagram.png): 9 tác nhân/hệ thống ngoài và 18 luồng thông tin quanh MemoryOS. Nét liền là luồng đi vào MemoryOS, nét đứt là luồng MemoryOS trả ra.
+
+Sơ đồ vẽ bằng hình tự do (oval, chữ nhật bo góc, generic connector) trên một class diagram vì Visual Paradigm Community Edition không tạo được Data Flow Diagram; nó không phải DFD native nên `validateContextDiagram` không áp dụng. Trong model, mọi connector đi từ thực thể ngoài tới MemoryOS; chiều của luồng nét đứt thể hiện bằng đầu mũi tên. Lark nằm trong phạm vi báo cáo nhưng chưa có trong code (MEM-118).
+
 ## Phạm vi và nguồn đối chiếu
 
 F1: người dùng tìm kiếm, hỏi đáp và đọc bằng chứng — specs Chat/Search. F2: xác thực qua Keycloak, phân quyền do MemoryOS — spec Identity. F3: nạp dữ liệu Google Drive — spec Connector. F4: mô hình nhận ngữ cảnh được phép — spec Chat Models. F5: quản lý nguồn, thành viên/quyền và cấu hình mô hình — specs Connector/Identity/Chat Models.

@@ -352,6 +352,7 @@ public final class ContextDiagramTools extends VpAccess {
           IDiagramElement element = contextElement(diagram, elementId);
           element.setBounds(x, y, width, height);
           element.resetCaption();
+          element.resetCaptionSize();
           return mutationResult(diagram);
         });
   }

@@ -7,6 +7,7 @@ import vn.edu.swd392.vpmcp.tools.ClassDiagramTools;
 import vn.edu.swd392.vpmcp.tools.CommonDiagramTools;
 import vn.edu.swd392.vpmcp.tools.ContextDiagramTools;
 import vn.edu.swd392.vpmcp.tools.ConceptualErdTools;
+import vn.edu.swd392.vpmcp.tools.FreeformDiagramTools;
 import vn.edu.swd392.vpmcp.tools.DesignQaTools;
 import vn.edu.swd392.vpmcp.tools.SequenceDiagramTools;
 import vn.edu.swd392.vpmcp.tools.StateDiagramTools;
@@ -31,6 +32,7 @@ public final class VpMcpPlugin implements VPPlugin {
           new StateDiagramTools(),
           new UseCaseDiagramTools(),
           new ConceptualErdTools(),
+          new FreeformDiagramTools(),
           new DesignQaTools());
       bridge.start();
       StatusWidget.show(bridge, port);

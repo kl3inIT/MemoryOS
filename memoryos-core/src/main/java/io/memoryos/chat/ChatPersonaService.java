@@ -353,7 +353,7 @@ public class ChatPersonaService {
     @Transactional
     public AgentRef createLabel(ActorId actor, String name) {
         var tenant = write(actor);
-        authorization.require(actor, IamCapability.CHAT_WRITE, false);
+        requireManage(actor);
         String normalized = labelName(name);
         if (agents.labelNameTaken(tenant.value(), normalized, null)) throw ChatException.conflict();
         var id = UUID.randomUUID();

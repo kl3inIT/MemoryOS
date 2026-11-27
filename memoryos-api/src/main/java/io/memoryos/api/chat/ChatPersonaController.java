@@ -180,7 +180,7 @@ class ChatPersonaController {
     }
     @PostMapping("/persona-labels")
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(operationId = "createChatPersonaLabel", summary = "Create an agent label")
+    @Operation(operationId = "createChatPersonaLabel", summary = "Create an agent label; requires AGENTS_MANAGE")
     @ApiResponse(responseCode = "201", description = "Successful chat operation", useReturnTypeSchema = true)
     ChatAgentRefResponse createLabel(@CurrentActor IdentityContext identity, @RequestBody ChatPersonaLabelRequest request) {
         return ChatAgentRefResponse.from(personas.createLabel(identity.actorId(), request.name()));

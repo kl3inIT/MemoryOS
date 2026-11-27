@@ -291,23 +291,6 @@ export function AgentSharePanel({
               }),
             )
           }
-          onCreate={async (name) => {
-            let created;
-            try {
-              created = await choices.createLabel.mutateAsync({ body: { name } });
-            } catch (cause) {
-              throw new Error(actionErrorText(cause), { cause });
-            }
-            const id = created.id;
-            if (id)
-              await save(() =>
-                update.mutateAsync({
-                  path: { personaId: agent.id },
-                  query: { revision },
-                  body: labelsRequest(agent, [...agent.labels.map((label) => label.id), id]),
-                }),
-              );
-          }}
         />
       </section>
 

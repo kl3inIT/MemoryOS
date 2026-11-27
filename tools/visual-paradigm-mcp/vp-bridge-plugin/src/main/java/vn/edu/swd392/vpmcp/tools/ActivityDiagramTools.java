@@ -22,6 +22,8 @@ import com.vp.plugin.model.IInitialNode;
 import com.vp.plugin.model.IJoinNode;
 import com.vp.plugin.model.IMergeNode;
 import com.vp.plugin.model.IModelElement;
+import com.vp.plugin.model.IProjectTransaction;
+import java.awt.Color;
 import java.awt.Point;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -43,6 +45,49 @@ public final class ActivityDiagramTools extends VpAccess {
 
   @Tool(
       description =
+          "Delete exactly one activity diagram together with the activity models that appear "
+              + "only on that diagram. Models also shown on another diagram are kept.",
+      destructive = true,
+      idempotent = false)
+  public String deleteActivityDiagram(String diagramName) throws Exception {
+    return onEdt(
+        () -> {
+          IDiagramUIModel diagram = findDiagram(diagramName);
+          if (!(diagram instanceof IActivityDiagramUIModel)) {
+            throw new IllegalArgumentException(
+                "Target is not an activity diagram: " + diagramName);
+          }
+          Set<IModelElement> ownedModels = new HashSet<>();
+          Iterator<?> iterator = diagram.diagramElementIterator();
+          while (iterator.hasNext()) {
+            Object item = iterator.next();
+            if (!(item instanceof IDiagramElement)) {
+              continue;
+            }
+            IModelElement model = ((IDiagramElement) item).getModelElement();
+            if (model != null && shownOnlyOn(model, diagram)) {
+              ownedModels.add(model);
+            }
+          }
+          IProjectTransaction transaction = project().startProjectTransaction();
+          try {
+            diagram.delete();
+            for (IModelElement model : ownedModels) {
+              model.delete();
+            }
+          } finally {
+            transaction.endTransaction();
+          }
+          return "Deleted activity diagram "
+              + diagramName
+              + " and "
+              + ownedModels.size()
+              + " models shown only on it";
+        });
+  }
+
+  @Tool(
+      description =
           "Add a native vertical UML activity swimlane with two or more responsibility "
               + "partitions. partitionNamesCsv is ordered left-to-right. Coordinates and sizes "
               + "are absolute diagram pixels.")
@@ -56,6 +101,41 @@ public final class ActivityDiagramTools extends VpAccess {
       int height,
       int headerHeight)
       throws Exception {
+    return addSwimlane(
+        diagramName, swimlaneName, partitionNamesCsv, x, y, width, height, headerHeight, false);
+  }
+
+  @Tool(
+      description =
+          "Add a native horizontal UML activity swimlane with two or more responsibility "
+              + "partitions stacked as rows. partitionNamesCsv is ordered top-to-bottom and "
+              + "headerWidth is the width of the partition name column on the left. Coordinates "
+              + "and sizes are absolute diagram pixels.")
+  public String addHorizontalActivitySwimlane(
+      String diagramName,
+      String swimlaneName,
+      String partitionNamesCsv,
+      int x,
+      int y,
+      int width,
+      int height,
+      int headerWidth)
+      throws Exception {
+    return addSwimlane(
+        diagramName, swimlaneName, partitionNamesCsv, x, y, width, height, headerWidth, true);
+  }
+
+  private String addSwimlane(
+      String diagramName,
+      String swimlaneName,
+      String partitionNamesCsv,
+      int x,
+      int y,
+      int width,
+      int height,
+      int headerSize,
+      boolean horizontal)
+      throws Exception {
     return onEdt(
         () -> {
           IDiagramUIModel rawDiagram = findDiagram(diagramName);
@@ -65,15 +145,29 @@ public final class ActivityDiagramTools extends VpAccess {
           }
           requireText(swimlaneName, "swimlaneName");
           String[] partitionNames = parsePartitionNames(partitionNamesCsv);
-          if (width < partitionNames.length * 180) {
-            throw new IllegalArgumentException(
-                "width must allow at least 180 pixels per vertical partition");
-          }
-          if (height < 300) {
-            throw new IllegalArgumentException("height must be at least 300 pixels");
-          }
-          if (headerHeight < 24 || headerHeight > 100) {
-            throw new IllegalArgumentException("headerHeight must be between 24 and 100 pixels");
+          if (horizontal) {
+            if (height < partitionNames.length * 100) {
+              throw new IllegalArgumentException(
+                  "height must allow at least 100 pixels per horizontal partition");
+            }
+            if (width < 300) {
+              throw new IllegalArgumentException("width must be at least 300 pixels");
+            }
+            if (headerSize < 24 || headerSize > 100) {
+              throw new IllegalArgumentException("headerWidth must be between 24 and 100 pixels");
+            }
+          } else {
+            if (width < partitionNames.length * 180) {
+              throw new IllegalArgumentException(
+                  "width must allow at least 180 pixels per vertical partition");
+            }
+            if (height < 300) {
+              throw new IllegalArgumentException("height must be at least 300 pixels");
+            }
+            if (headerSize < 24 || headerSize > 100) {
+              throw new IllegalArgumentException(
+                  "headerHeight must be between 24 and 100 pixels");
+            }
           }
 
           IActivityDiagramUIModel diagram = (IActivityDiagramUIModel) rawDiagram;
@@ -89,24 +183,34 @@ public final class ActivityDiagramTools extends VpAccess {
           List<String> headerIds = new ArrayList<>();
           List<IActivityPartitionHeaderUIModel> headers = new ArrayList<>();
           List<String> compartmentIds = new ArrayList<>();
-          int baseWidth = width / partitionNames.length;
-          int laneX = x;
+          int total = horizontal ? height : width;
+          int origin = horizontal ? y : x;
+          int baseSize = total / partitionNames.length;
+          int offset = origin;
           for (int index = 0; index < partitionNames.length; index++) {
-            int laneWidth =
-                index == partitionNames.length - 1 ? x + width - laneX : baseWidth;
+            int laneSize =
+                index == partitionNames.length - 1 ? origin + total - offset : baseSize;
 
             IActivityPartition partition = models().createActivityPartition();
             partition.setName(partitionNames[index]);
-            swimlane.addVerticalPartition(partition);
+            if (horizontal) {
+              swimlane.addHorizontalPartition(partition);
+            } else {
+              swimlane.addVerticalPartition(partition);
+            }
             swimlane.addChild(partition);
 
             IActivityPartitionHeaderUIModel header =
                 (IActivityPartitionHeaderUIModel)
                     diagrams().createDiagramElement(diagram, partition);
-            header.setHorizontal(false);
+            header.setHorizontal(horizontal);
             header.setSwimlane(swimlaneShape);
             swimlaneShape.addChild(header);
-            header.setBounds(laneX, y, laneWidth, headerHeight);
+            if (horizontal) {
+              header.setBounds(x, offset, headerSize, laneSize);
+            } else {
+              header.setBounds(offset, y, laneSize, headerSize);
+            }
             header.setRequestResetCaption(true);
             header.resetCaption();
             header.resetCaptionSize();
@@ -119,15 +223,21 @@ public final class ActivityDiagramTools extends VpAccess {
                         .createDiagramElement(
                             diagram,
                             IShapeTypeConstants.SHAPE_TYPE_ACTIVITY_SWIMLANE2_COMPARTMENT);
-            compartment.setVerticalPartitionId(header.getId());
-            compartment.setBounds(laneX, y, laneWidth, height);
+            if (horizontal) {
+              compartment.setHorizontalPartitionId(header.getId());
+              compartment.setBounds(x, offset, width, laneSize);
+            } else {
+              compartment.setVerticalPartitionId(header.getId());
+              compartment.setBounds(offset, y, laneSize, height);
+            }
             swimlaneShape.addChild(compartment);
             compartmentIds.add(compartment.getId());
-            laneX += laneWidth;
+            offset += laneSize;
           }
 
-          swimlaneShape.setHorizontalPartitionIds(new String[0]);
-          swimlaneShape.setVerticalPartitionIds(headerIds.toArray(new String[0]));
+          String[] ids = headerIds.toArray(new String[0]);
+          swimlaneShape.setHorizontalPartitionIds(horizontal ? ids : new String[0]);
+          swimlaneShape.setVerticalPartitionIds(horizontal ? new String[0] : ids);
           swimlaneShape.setCompartmentIds(compartmentIds.toArray(new String[0]));
           swimlaneShape.sendToBack();
           for (IActivityPartitionHeaderUIModel header : headers) {
@@ -137,7 +247,9 @@ public final class ActivityDiagramTools extends VpAccess {
             header.resetCaptionSize();
           }
           diagrams().openDiagram(diagram);
-          return "Added vertical activity swimlane "
+          return "Added "
+              + (horizontal ? "horizontal" : "vertical")
+              + " activity swimlane "
               + swimlaneName
               + " with partitions: "
               + String.join(", ", partitionNames);
@@ -146,7 +258,8 @@ public final class ActivityDiagramTools extends VpAccess {
 
   @Tool(
       description =
-          "Assign an existing activity node to one native vertical swimlane partition. "
+          "Assign an existing activity node to one native swimlane partition, vertical or "
+              + "horizontal. "
               + "Create the swimlane first and keep the node bounds inside that partition.")
   public String assignActivityNodeToPartition(
       String diagramName, String swimlaneName, String partitionName, String nodeName)
@@ -158,9 +271,9 @@ public final class ActivityDiagramTools extends VpAccess {
               swimlaneShape(diagram, swimlaneName);
           IActivitySwimlane2 swimlane =
               (IActivitySwimlane2) swimlaneShape.getModelElement();
-          IActivityPartition partition = verticalPartition(swimlane, partitionName);
+          IActivityPartition partition = partition(swimlane, partitionName);
           IActivitySwimlane2CompartmentUIModel compartment =
-              verticalCompartment(swimlaneShape, partition);
+              compartment(swimlaneShape, partition);
           IDiagramElement nodeShape = activityNode(diagram, nodeName);
           IModelElement node = nodeShape.getModelElement();
 
@@ -199,7 +312,31 @@ public final class ActivityDiagramTools extends VpAccess {
           }
           IDiagramElement shape = activityNode(findDiagram(diagramName), nodeName);
           shape.setBounds(x, y, width, height);
+          fitCaptionToBounds(shape);
           return "Laid out activity node " + nodeName;
+        });
+  }
+
+  @Tool(
+      description =
+          "Re-centre the name inside every activity node on a diagram after the nodes were "
+              + "resized. Labels moved with layoutActivityNodeLabel keep their position.")
+  public String repairActivityNodeCaptions(String diagramName) throws Exception {
+    return onEdt(
+        () -> {
+          IDiagramUIModel diagram = findDiagram(diagramName);
+          // VP only applies caption resets to a diagram that is open in an editor.
+          diagrams().openDiagram(diagram);
+          int repaired = 0;
+          Iterator<?> iterator = diagram.diagramElementIterator();
+          while (iterator.hasNext()) {
+            Object item = iterator.next();
+            if (item instanceof IShapeUIModel && isActivityNode((IShapeUIModel) item)) {
+              fitCaptionToBounds((IShapeUIModel) item);
+              repaired++;
+            }
+          }
+          return "Re-centred captions of " + repaired + " activity nodes on " + diagramName;
         });
   }
 
@@ -216,9 +353,9 @@ public final class ActivityDiagramTools extends VpAccess {
           ICaptionUIModel caption = shape.getCaptionUIModel();
           caption.setVisible(visible);
           if (visible) {
-            caption.setSide(ICaptionUIModel.SIDE_FREEMOVE);
-            caption.setX(x);
-            caption.setY(y);
+            anchorLabel(shape, x, y);
+          } else {
+            markChanged(shape);
           }
           return (visible ? "Moved" : "Hid") + " activity node label " + nodeName;
         });
@@ -396,9 +533,7 @@ public final class ActivityDiagramTools extends VpAccess {
               findControlFlow(findDiagram(diagramName), fromNode, toNode);
           ICaptionUIModel caption = connector.getCaptionUIModel();
           caption.setVisible(true);
-          caption.setSide(ICaptionUIModel.SIDE_FREEMOVE);
-          caption.setX(x);
-          caption.setY(y);
+          anchorLabel(connector, x, y);
           return "Moved activity guard label "
               + fromNode
               + " -> "
@@ -435,17 +570,145 @@ public final class ActivityDiagramTools extends VpAccess {
         });
   }
 
+  @Tool(
+      description =
+          "Make every positioned activity label draggable in the Visual Paradigm editor again. "
+              + "Converts free-move node and guard labels to editor-native offsets without "
+              + "changing where they are drawn.")
+  public String repairActivityLabels(String diagramName) throws Exception {
+    return onEdt(
+        () -> {
+          IDiagramUIModel diagram = findDiagram(diagramName);
+          diagrams().openDiagram(diagram);
+          int nodes = 0;
+          int flows = 0;
+          Iterator<?> iterator = diagram.diagramElementIterator();
+          while (iterator.hasNext()) {
+            Object item = iterator.next();
+            if (!(item instanceof IDiagramElement)) {
+              continue;
+            }
+            IDiagramElement element = (IDiagramElement) item;
+            ICaptionUIModel caption = element.getCaptionUIModel();
+            if (caption == null || caption.getSide() != ICaptionUIModel.SIDE_FREEMOVE) {
+              continue;
+            }
+            if (element instanceof IShapeUIModel && isActivityNode(element)) {
+              anchorLabel(element, caption.getX(), caption.getY());
+              nodes++;
+            } else if (element instanceof IConnectorUIModel
+                && element.getModelElement() instanceof IControlFlow) {
+              anchorLabel(element, caption.getX(), caption.getY());
+              flows++;
+            }
+          }
+          return "Made "
+              + nodes
+              + " node labels and "
+              + flows
+              + " guard labels draggable on "
+              + diagramName;
+        });
+  }
+
+  @Tool(
+      description =
+          "Report every activity node and control-flow label with its caption side and the "
+              + "caption and owner coordinates exactly as the OpenAPI returns them.",
+      readOnly = true,
+      idempotent = true)
+  public String inspectActivityLabels(String diagramName) throws Exception {
+    return onEdt(
+        () -> {
+          IDiagramUIModel diagram = findDiagram(diagramName);
+          StringBuilder result = new StringBuilder();
+          Iterator<?> iterator = diagram.diagramElementIterator();
+          while (iterator.hasNext()) {
+            Object item = iterator.next();
+            if (!(item instanceof IDiagramElement)) {
+              continue;
+            }
+            IDiagramElement element = (IDiagramElement) item;
+            IModelElement model = element.getModelElement();
+            if (!(isActivityNode(element) || model instanceof IControlFlow)) {
+              continue;
+            }
+            ICaptionUIModel caption = element.getCaptionUIModel();
+            if (caption == null) {
+              continue;
+            }
+            result
+                .append(model instanceof IControlFlow ? "flow" : "node")
+                .append(" | ")
+                .append(model.getName())
+                .append(" | side=")
+                .append(caption.getSide())
+                .append(" caption=")
+                .append(caption.getX())
+                .append(',')
+                .append(caption.getY())
+                .append(' ')
+                .append(caption.getWidth())
+                .append('x')
+                .append(caption.getHeight())
+                .append(" owner=")
+                .append(element.getX())
+                .append(',')
+                .append(element.getY())
+                .append('\n');
+          }
+          return result.toString();
+        });
+  }
+
+  /**
+   * Visual Paradigm cannot pick up a SIDE_FREEMOVE label in a swimlane, and such a label stays
+   * behind when the lane moves. A label dragged in the editor is SIDE_NONE, which VP stores as an
+   * offset from its owner. The OpenAPI still reads and writes absolute diagram coordinates.
+   */
+  private static void anchorLabel(IDiagramElement owner, int absoluteX, int absoluteY) {
+    ICaptionUIModel caption = owner.getCaptionUIModel();
+    caption.setSide(ICaptionUIModel.SIDE_NONE);
+    caption.setX(absoluteX);
+    caption.setY(absoluteY);
+    markChanged(owner);
+  }
+
+  /**
+   * Caption edits fire no change event, so Visual Paradigm would not save them. Toggling and
+   * restoring the owner's line colour marks the element as modified without changing it.
+   */
+  private static void markChanged(IDiagramElement owner) {
+    Color original = owner.getForeground();
+    if (original == null) {
+      return;
+    }
+    owner.setForeground(Color.WHITE.equals(original) ? Color.BLACK : Color.WHITE);
+    owner.setForeground(original);
+  }
+
+  private static final Class<?>[] ACTIVITY_NODE_TYPES = {
+    IActivityAction.class,
+    IInitialNode.class,
+    IActivityFinalNode.class,
+    IDecisionNode.class,
+    IMergeNode.class,
+    IForkNode.class,
+    IJoinNode.class
+  };
+
+  private static boolean isActivityNode(IDiagramElement element) {
+    IModelElement model = element.getModelElement();
+    for (Class<?> type : ACTIVITY_NODE_TYPES) {
+      if (type.isInstance(model)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private IDiagramElement activityNode(IDiagramUIModel diagram, String name) {
-    Class<?>[] supported = {
-      IActivityAction.class,
-      IInitialNode.class,
-      IActivityFinalNode.class,
-      IDecisionNode.class,
-      IMergeNode.class,
-      IForkNode.class,
-      IJoinNode.class
-    };
-    for (Class<?> type : supported) {
+    for (Class<?> type : ACTIVITY_NODE_TYPES) {
       try {
         @SuppressWarnings("unchecked")
         Class<? extends IModelElement> modelType = (Class<? extends IModelElement>) type;
@@ -467,20 +730,22 @@ public final class ActivityDiagramTools extends VpAccess {
     return (IActivitySwimlane2NewUIModel) shape;
   }
 
-  private static IActivityPartition verticalPartition(
+  private static IActivityPartition partition(
       IActivitySwimlane2 swimlane, String partitionName) {
-    Iterator<?> iterator = swimlane.verticalPartitionIterator();
-    while (iterator.hasNext()) {
-      Object item = iterator.next();
-      if (item instanceof IActivityPartition
-          && partitionName.equals(((IActivityPartition) item).getName())) {
-        return (IActivityPartition) item;
+    for (Iterator<?> iterator :
+        List.of(swimlane.verticalPartitionIterator(), swimlane.horizontalPartitionIterator())) {
+      while (iterator.hasNext()) {
+        Object item = iterator.next();
+        if (item instanceof IActivityPartition
+            && partitionName.equals(((IActivityPartition) item).getName())) {
+          return (IActivityPartition) item;
+        }
       }
     }
-    throw new IllegalArgumentException("Vertical activity partition not found: " + partitionName);
+    throw new IllegalArgumentException("Activity partition not found: " + partitionName);
   }
 
-  private static IActivitySwimlane2CompartmentUIModel verticalCompartment(
+  private static IActivitySwimlane2CompartmentUIModel compartment(
       IActivitySwimlane2NewUIModel swimlaneShape, IActivityPartition partition) {
     String headerId = null;
     for (IShapeUIModel child : swimlaneShape.toChildArray()) {
@@ -498,13 +763,24 @@ public final class ActivityDiagramTools extends VpAccess {
       if (child instanceof IActivitySwimlane2CompartmentUIModel) {
         IActivitySwimlane2CompartmentUIModel compartment =
             (IActivitySwimlane2CompartmentUIModel) child;
-        if (headerId.equals(compartment.getVerticalPartitionId())) {
+        if (headerId.equals(compartment.getVerticalPartitionId())
+            || headerId.equals(compartment.getHorizontalPartitionId())) {
           return compartment;
         }
       }
     }
     throw new IllegalArgumentException(
         "Partition compartment view not found: " + partition.getName());
+  }
+
+  private static boolean shownOnlyOn(IModelElement model, IDiagramUIModel diagram) {
+    for (IDiagramElement view : model.getDiagramElements()) {
+      IDiagramUIModel owner = view.getDiagramUIModel();
+      if (owner == null || !diagram.getId().equals(owner.getId())) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private static boolean containsModel(Iterator<?> iterator, IModelElement target) {

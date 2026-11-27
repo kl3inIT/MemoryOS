@@ -12,11 +12,9 @@ import {
   type Persona,
 } from "@/features/chat/chat-personas-api";
 import {
-  createChatPersonaLabelMutation,
   getChatPersonaQueryKey,
   listAvailableChatModelsQueryKey,
   listChatPersonaLabelsOptions,
-  listChatPersonaLabelsQueryKey,
   listChatPersonaModelsOptions,
   updateChatPersonaMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
@@ -28,18 +26,13 @@ import { withRequestTimeout } from "@/lib/api";
 
 /** The choices the editor offers: Sources, Document Sets, models, labels and MCP servers. */
 export function useAgentChoices(agent: Persona) {
-  const cache = useQueryClient();
   const sources = useQuery(personaSourcesOptions());
   const documentSets = useQuery(agentDocumentSetsOptions());
   // The assistant keeps offering the model it is pinned to.
   const models = useQuery(listChatPersonaModelsOptions({ path: { personaId: agent.id } }));
   const labels = useQuery({ ...listChatPersonaLabelsOptions(), select: namedRefsOf });
   const mcp = useMcpConnections();
-  const createLabel = useMutation({
-    ...withRequestTimeout(createChatPersonaLabelMutation()),
-    onSuccess: () => cache.invalidateQueries({ queryKey: listChatPersonaLabelsQueryKey() }),
-  });
-  return { sources, documentSets, models, labels, mcp, createLabel };
+  return { sources, documentSets, models, labels, mcp };
 }
 
 /**

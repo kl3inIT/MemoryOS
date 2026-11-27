@@ -2,6 +2,7 @@ package vn.edu.swd392.vpmcp.tools;
 
 import com.vp.plugin.ApplicationManager;
 import com.vp.plugin.DiagramManager;
+import com.vp.plugin.diagram.ICaptionUIModel;
 import com.vp.plugin.diagram.IDiagramElement;
 import com.vp.plugin.diagram.IDiagramUIModel;
 import com.vp.plugin.model.IModelElement;
@@ -157,7 +158,22 @@ abstract class VpAccess {
     model.setName(name);
     IDiagramElement element = diagrams().createDiagramElement(diagram, model);
     element.setBounds(x, y, width, height);
+    fitCaptionToBounds(element);
     return element;
+  }
+
+  /**
+   * Visual Paradigm keeps a caption at the size of the shape it was created with, so a resized
+   * shape paints its name off-centre. Size a centred caption to the shape directly: the
+   * resetCaption request flags stay pending in the project and break dragging the shape in VP.
+   */
+  protected static void fitCaptionToBounds(IDiagramElement element) {
+    ICaptionUIModel caption = element.getCaptionUIModel();
+    if (caption == null || caption.getSide() != ICaptionUIModel.SIDE_CENTER) {
+      return;
+    }
+    caption.setWidth(element.getWidth());
+    caption.setHeight(element.getHeight());
   }
 
   protected final IDiagramElement findDiagramElementById(

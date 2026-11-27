@@ -181,30 +181,24 @@ export function LoadFailure({ children, onRetry }: { children: ReactNode; onRetr
   );
 }
 
-/** Selected labels as removable chips plus a searchable add/create menu (Langdock). */
+/**
+ * Selected labels as removable chips plus a searchable menu of the Tenant's labels (Langdock). Labels are created
+ * on the agent administration page, so the editor only assigns them.
+ */
 export function AgentLabelPicker({
   labels,
   value,
   disabled,
   onChange,
-  onCreate,
 }: {
   labels: NamedRef[];
   value: string[];
   disabled: boolean;
   onChange: (ids: string[]) => void;
-  /** Creates a label and resolves once it is selected; a rejection carries the message to show. */
-  onCreate: (name: string) => Promise<void>;
 }) {
   const ui = useAppTranslation();
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const [error, setError] = useState<string>();
   const selected = value.flatMap((id) => labels.filter((label) => label.id === id));
-  const trimmed = query.trim();
-  const exact = labels.some(
-    (label) => label.name.toLocaleLowerCase() === trimmed.toLocaleLowerCase(),
-  );
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-1.5">
@@ -239,13 +233,13 @@ export function AgentLabelPicker({
             </PopoverTrigger>
             <PopoverContent align="start" className="w-64 p-0">
               <Command>
-                <CommandInput
-                  value={query}
-                  onValueChange={setQuery}
-                  placeholder={ui("Tìm hoặc tạo nhãn…")}
-                />
+                {labels.length > 0 && <CommandInput placeholder={ui("Tìm nhãn…")} />}
                 <CommandList>
-                  <CommandEmpty>{ui("Chưa có nhãn nào.")}</CommandEmpty>
+                  <CommandEmpty>
+                    {labels.length === 0
+                      ? ui("Chưa có nhãn. Quản trị viên tạo nhãn trong Quản trị › Trợ lý.")
+                      : ui("Không tìm thấy nhãn.")}
+                  </CommandEmpty>
                   <CommandGroup>
                     {labels.map((label) => {
                       const checked = value.includes(label.id);
@@ -267,22 +261,6 @@ export function AgentLabelPicker({
                         </CommandItem>
                       );
                     })}
-                    {trimmed && !exact && (
-                      <CommandItem
-                        value={`__create__${trimmed}`}
-                        onSelect={() => {
-                          setError(undefined);
-                          onCreate(trimmed)
-                            .then(() => setQuery(""))
-                            .catch((cause: unknown) =>
-                              setError(cause instanceof Error ? cause.message : String(cause)),
-                            );
-                        }}
-                      >
-                        <Plus aria-hidden="true" />
-                        {ui("Tạo nhãn “{{v1}}”", { v1: trimmed })}
-                      </CommandItem>
-                    )}
                   </CommandGroup>
                 </CommandList>
               </Command>
@@ -290,7 +268,6 @@ export function AgentLabelPicker({
           </Popover>
         )}
       </div>
-      {error && <FieldError>{error}</FieldError>}
     </div>
   );
 }

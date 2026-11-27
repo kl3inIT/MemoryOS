@@ -1471,7 +1471,6 @@ export const vietnameseUi: Record<string, string> = {
   "Dùng model mặc định của tổ chức": "Use the organization's default model",
   "Không tìm thấy nguồn.": "No sources found.",
   "Rời trang": "Leave page",
-  "Tạo nhãn “{{v1}}”": "Create label “{{v1}}”",
   // MEM-273: an assistant's title, greeting and reasoning level
   "Chức danh": "Title",
   "Ví dụ: Chuyên viên phân tích tài chính": "For example: Financial analyst",
@@ -1558,7 +1557,6 @@ export const vietnameseUi: Record<string, string> = {
     "Document Set is unavailable (selection retained)",
   "Bỏ bộ tài liệu {{v1}}": "Remove Document Set {{v1}}",
   "Theo model": "Model default",
-  "Tìm hoặc tạo nhãn…": "Search or create a label…",
   "Tìm nguồn…": "Search sources…",
   "Ví dụ: OKR/KPI hằng tháng": "Example: Monthly OKR/KPI",
   "Ví dụ: Xếp loại KPI tháng 8 của các đơn vị": "Example: Rank the units' August KPIs",
@@ -1793,8 +1791,6 @@ export const vietnameseUi: Record<string, string> = {
     "The new owner has full control of the agent. If you are the current owner, you keep edit access.",
   "Chủ sở hữu mới: {{v1}}": "New owner: {{v1}}",
   "Chưa có chủ sở hữu": "No owner",
-  "Chưa có nhãn. Người tạo trợ lý thêm nhãn trong trình chỉnh sửa.":
-    "No labels yet. Agent creators add labels in the editor.",
   "Chưa có trợ lý nào được chia sẻ": "No agents have been shared with you",
   Chung: "General",
   "Chuyển chủ sở hữu": "Transfer owner",
@@ -1856,6 +1852,26 @@ export const vietnameseUi: Record<string, string> = {
   "Thao tác": "Actions",
   "Thao tác khác cho {{v1}}": "More actions for {{v1}}",
   "Thêm nhãn": "Add label",
+  "Model và giới hạn token. Mặc định theo model đã chọn.":
+    "Model and token limits. Defaults follow the selected model.",
+  "Giới hạn token": "Token limits",
+  "Hiển thị giới hạn của model đã chọn. Bạn có thể tùy chỉnh nhỏ hơn giới hạn này.":
+    "Shows the selected model's limits. You can set lower custom limits.",
+  "Giới hạn tối đa của model hiện tại.": "The current model's maximum.",
+  "Tối đa {{v1}} token.": "Up to {{v1}} tokens.",
+  "Số token tối đa gửi vào model mỗi lượt: hướng dẫn, công cụ, lịch sử hội thoại và tài liệu. Thấp hơn giúp tiết kiệm chi phí nhưng trợ lý đọc được ít hơn.":
+    "The most tokens sent to the model each turn: instructions, tools, conversation history and documents. Lower saves cost but the assistant reads less.",
+  "Số token tối đa model được viết cho một câu trả lời, gồm cả phần suy luận. Đặt quá thấp có thể làm câu trả lời bị cắt.":
+    "The most tokens the model may write for one answer, including reasoning. Too low can cut answers off.",
+  "Theo model (Khuyến nghị)": "Follow model (Recommended)",
+  "Tìm nhãn…": "Search labels…",
+  "Không tìm thấy nhãn.": "No matching label.",
+  "Chưa có nhãn. Quản trị viên tạo nhãn trong Quản trị › Trợ lý.":
+    "No labels yet. Administrators create labels in Administration › Assistants.",
+  "Người tạo trợ lý chọn các nhãn này trong trình chỉnh sửa để phân loại thư viện.":
+    "Assistant creators pick these labels in the editor to organize the library.",
+  "Tên nhãn mới": "New label name",
+  "Nhãn này đã có.": "This label already exists.",
   "Thử đổi bộ lọc hoặc từ khóa tìm kiếm.": "Try another filter or search term.",
   "Tìm người": "Search people",
   "Tìm tài liệu nội bộ": "Internal document search",

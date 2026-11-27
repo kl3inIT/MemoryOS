@@ -106,6 +106,13 @@ semantic validation, optimistic revisions, targeted layout/routing, and routing
 repair are separate tools. Native `DFDataStore` elements are rejected because
 they are outside this level-0 boundary model.
 
+Visual Paradigm Community Edition cannot create a Data Flow Diagram. For that edition the
+freeform tools (`addFreeformShape`, `addFreeformConnector`, `routeFreeformConnector`,
+`layoutFreeformConnectorLabel`, `setFreeformLine`, `inspectFreeformDiagram`,
+`deleteFreeformElement`, `deleteFreeformDiagram`) draw generic ovals, rectangles and connectors
+on an existing UML diagram. They carry no DFD semantics and are not covered by the Context
+validator.
+
 It is deliberately not a fully autonomous replacement for the SWD lifecycle.
 The agent must not invent missing requirements, decide disputed domain rules, or
 submit an unreviewed diagram. Requirements validation, UML-semantic approval,

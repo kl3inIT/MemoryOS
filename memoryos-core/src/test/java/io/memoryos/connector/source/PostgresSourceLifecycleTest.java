@@ -421,6 +421,9 @@ class PostgresSourceLifecycleTest {
         assertThrows(IamException.class, () -> service.createFileSource(manager, "Mixed", List.of(managed, foreign), null));
         assertThrows(IamException.class, () -> service.createFileSource(manager, "System", List.of(adminGroupId()), null));
         assertEquals(0L, count("connector_credential_pairs"));
+        // Each reach past the manager's scope is recorded and survives the rollback (BR-09): publishing to every member,
+        // and every ordinary Group they do not manage. A system Group is no Source target for anyone, so it is not.
+        assertEquals(List.of("TENANT:null", "GROUP:" + foreign.value(), "GROUP:" + foreign.value()), denials(manager));
 
         // Nobody reads a private Source with no Group; its creator attaches it when they are ready.
         var source = service.createFileSource(manager, "Unattached", List.of(), null);
@@ -431,6 +434,10 @@ class PostgresSourceLifecycleTest {
         service.replaceSourceGroups(manager, source.id(), List.of(managed));
         assertThat(service.listSourceGroups(manager, source.id()))
                 .extracting(GroupIdentity::id).containsExactly(managed);
+        assertThrows(IamException.class, () -> service.replaceSourceGroups(manager, source.id(), List.of(managed, foreign)));
+        assertThrows(IamException.class, () -> service.removeGroupSource(manager, foreign, source.id()));
+        assertEquals(List.of("TENANT:null", "GROUP:" + foreign.value(), "GROUP:" + foreign.value(),
+                "GROUP:" + foreign.value(), "GROUP:" + foreign.value()), denials(manager));
         assertThrows(SourceException.class, () -> service.deleteSource(manager, source.id()));
         service.replaceSourceGroups(manager, source.id(), List.of());
         assertThat(service.listSourceGroups(manager, source.id())).isEmpty();
@@ -1348,6 +1355,16 @@ class PostgresSourceLifecycleTest {
                 .update();
     }
 
+    /** The recorded denials of one actor, oldest first, as {@code <scope>:<resource id>}. */
+    private List<String> denials(ActorId actorId) {
+        return jdbcClient.sql("""
+                        SELECT (details->>'scope') || ':' || coalesce(resource_id, 'null') FROM audit_event
+                        WHERE action = 'permission.denied' AND outcome = 'DENIED' AND actor_id = :actor
+                          AND details->>'capability' = 'SOURCES_MANAGE'
+                        ORDER BY occurred_at, id
+                        """).param("actor", actorId.value()).query(String.class).list();
+    }
+
     private ActorId addScopedManager(GroupId groupId) {
         ActorId actorId = new ActorId(UUID.randomUUID());
         jdbcClient.sql("INSERT INTO actors (id) VALUES (:actorId)")
@@ -1429,7 +1446,7 @@ class PostgresSourceLifecycleTest {
                 new JdbcSourceSyncRepository(jdbcClient),
                 SourceSyncAdapters.registry(),
                 new JdbcSourceSelectionRepository(jdbcClient),
-                new SourceAccessPolicy(new DefaultIamAuthorization(new IamAuthorizationRepository(jdbcClient), new IamLockRepository(jdbcClient)), sourceRepository, new DefaultGroupScopeService(new GroupInvariantRepository(jdbcClient), new GroupProjectionRepository(jdbcClient)), TestDatabase.noAudit(), SourceSyncAdapters.registry())
+                new SourceAccessPolicy(new DefaultIamAuthorization(new IamAuthorizationRepository(jdbcClient), new IamLockRepository(jdbcClient)), sourceRepository, new DefaultGroupScopeService(new GroupInvariantRepository(jdbcClient), new GroupProjectionRepository(jdbcClient)), TestDatabase.audit(jdbcClient, transactionManager), SourceSyncAdapters.registry())
         , TestDatabase.noAudit());
         return TestDatabase.transactionalProxy(target, SourceManagementService.class, transactionManager);
     }

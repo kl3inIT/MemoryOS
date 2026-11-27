@@ -14,6 +14,21 @@ const sources = [
   { id: "70000000-0000-4000-8000-000000000021", name: "Báo cáo tài chính Q2/2026", type: "FILE" },
 ];
 
+const editorModels = [
+  {
+    id: "10000000-0000-4000-8000-000000000001",
+    providerId: "20000000-0000-4000-8000-000000000001",
+    providerName: "OpenAI",
+    modelName: "gpt-5-mini",
+    displayName: "GPT-5 mini",
+    isDefault: true,
+    capabilities: { streaming: true, toolCalling: true, vision: false, reasoning: true },
+    contextWindow: 32000,
+    maxOutputTokens: 4096,
+    pricing: null,
+  },
+];
+
 function identity(capabilities: string[]) {
   return {
     actorId: me,
@@ -72,13 +87,24 @@ async function mockAgents(page: Page, capabilities: string[], initial: ReturnTyp
     deleted: undefined as string | undefined,
     copied: undefined as string | undefined,
     listings: [] as { id: string; body: unknown }[],
+    labels: [{ id: "70000000-0000-4000-8000-000000000030", name: "Tài chính" }],
+    createdLabel: undefined as unknown,
   };
   await page.route("**/api/identity/me", (route) =>
     route.fulfill({ json: identity(capabilities) }),
   );
-  await page.route("**/api/chat/persona-labels**", (route) =>
-    route.fulfill({ json: [{ id: "70000000-0000-4000-8000-000000000030", name: "Tài chính" }] }),
-  );
+  await page.route("**/api/chat/persona-labels**", (route) => {
+    if (route.request().method() === "POST") {
+      state.createdLabel = route.request().postDataJSON();
+      const label = {
+        id: "70000000-0000-4000-8000-000000000031",
+        name: (state.createdLabel as { name: string }).name,
+      };
+      state.labels = [...state.labels, label];
+      return route.fulfill({ status: 201, json: label });
+    }
+    return route.fulfill({ json: state.labels });
+  });
   await page.route("**/api/chat/persona-pins**", (route) => {
     if (route.request().method() === "PUT") {
       const { personaIds } = route.request().postDataJSON() as { personaIds: string[] };
@@ -136,7 +162,7 @@ async function mockAgents(page: Page, capabilities: string[], initial: ReturnTyp
     const request = route.request();
     const path = new URL(request.url()).pathname;
     if (path.endsWith("/sources")) return route.fulfill({ json: sources });
-    if (path.endsWith("/models")) return route.fulfill({ json: [] });
+    if (path.endsWith("/models")) return route.fulfill({ json: editorModels });
     const detail = /\/api\/chat\/personas\/([0-9a-f-]{36})$/.exec(path)?.[1];
     if (detail && request.method() === "GET")
       return route.fulfill({ json: state.agents.find((item) => item.id === detail) });
@@ -874,6 +900,18 @@ test("reorders and unpins sidebar agents and features agents from administration
   await expect
     .poll(() => state.listings.find((item) => item.id === hr)?.body)
     .toMatchObject({ featured: true, listed: true });
+
+  // Labels are created on the administration page; a duplicate name is refused before sending.
+  const labelName = page.getByLabel("Tên nhãn mới");
+  const addLabel = page.getByRole("button", { name: "Thêm nhãn" });
+  await labelName.fill("tài chính");
+  await expect(page.getByText("Nhãn này đã có.")).toBeVisible();
+  await expect(addLabel).toBeDisabled();
+  await labelName.fill("Nhân sự");
+  await addLabel.click();
+  await expect.poll(() => state.createdLabel).toEqual({ name: "Nhân sự" });
+  await expect(labelName).toHaveValue("");
+  await expect(page.getByRole("button", { name: "Đổi tên nhãn Nhân sự" })).toBeVisible();
 });
 
 test("sends a starter prompt from the agent's detail view into a new topic", async ({ page }) => {

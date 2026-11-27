@@ -18,6 +18,7 @@ import io.memoryos.iam.GroupScopeService;
 import io.memoryos.iam.IamAccess;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
+import io.memoryos.iam.IamException;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -143,6 +144,10 @@ public class SourceAccessPolicy {
         }
         if (distinct.size() > 100) throw SourceException.invalid("Select no more than 100 groups.", "source group limit exceeded");
         boolean global = authority.authority() == Authority.GLOBAL;
+        if (!global && requestedAccess == SourceAccess.PUBLIC) {
+            // Publishing to every member is beyond a scoped manager (BR-10); the attempt is recorded (BR-09).
+            recordDenied(authority, actorId, "TENANT", null);
+        }
         SourceAccess access = access(adapters.permissionSync(type), global, requestedAccess);
         List<GroupId> groups = List.copyOf(distinct);
         if (global) {
@@ -150,9 +155,43 @@ public class SourceAccessPolicy {
         } else {
             // A Source may start with no Group: its recorded manager attaches it later, and until then nobody
             // reads its content, because restricted reads come from Group membership alone.
-            groupScopes.validateManagedGroupIds(authority.tenantId(), actorId, groups);
+            requireManagedGroups(authority, actorId, groups);
         }
         return new Creation(authority, access, groups);
+    }
+
+    /**
+     * Refuses a scoped manager any Group they do not manage, recording each existing one as denied (BR-09): the
+     * refusal the Group capability records for its own operations, here for attaching or detaching a Source.
+     */
+    public void requireManagedGroups(IamAccess access, ActorId actorId, Collection<GroupId> groupIds) {
+        try {
+            groupScopes.validateManagedGroupIds(access.tenantId(), actorId, groupIds);
+        } catch (IamException refused) {
+            for (GroupId groupId : groupIds) {
+                if (!groupScopes.isManagedBy(access.tenantId(), actorId, groupId) && groupExists(access, groupId)) {
+                    recordDenied(access, actorId, "GROUP", groupId);
+                }
+            }
+            throw refused;
+        }
+    }
+
+    private boolean groupExists(IamAccess access, GroupId groupId) {
+        try {
+            groupScopes.validateGroupIds(access.tenantId(), List.of(groupId));
+            return true;
+        } catch (IamException unknown) {
+            return false;
+        }
+    }
+
+    private void recordDenied(IamAccess access, ActorId actorId, String scope, @Nullable GroupId groupId) {
+        AuditRecord.Builder event = AuditRecord.of(AuditAction.PERMISSION_DENIED, access.tenantId())
+                .outcome(AuditOutcome.DENIED).actor(actorId)
+                .detail("capability", IamCapability.SOURCES_MANAGE.name()).detail("scope", scope);
+        if (groupId != null) event.resource("GROUP", groupId.value(), null);
+        audit.recordSeparately(event.build());
     }
 
     public record Creation(IamAccess authority, SourceAccess access, List<GroupId> groupIds) {}
