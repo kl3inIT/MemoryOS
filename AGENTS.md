@@ -31,4 +31,4 @@ The repository is the system of record. Chat, Linear, pull-request comments and 
 - Record an ADR only after the decision is accepted and implementation has started. ADRs are append-only; supersede them with a new ADR.
 - After verification, consolidate durable facts into architecture, spec, test and guideline documents in the same change. Keep the increment under `active/` until its pull request merges and its stated acceptance is done; then move it to `completed/`, fix links to it and reconcile the roadmap.
 - Test observable contracts at the narrowest useful boundary, then exercise the changed runtime surface ([testing guideline](docs/guidelines/testing.md)).
-- Use the checked-in Gradle wrapper; `clean check` is the repository-wide backend gate and `pnpm --dir web check` the web gate.
+- Use the checked-in Gradle wrapper. `clean check` is the repository-wide backend gate and `pnpm --dir web check` the web gate. [CI Gate](docs/runbooks/ci-cd.md#required-verification-and-release-identity) checks affected areas on pull requests and gates main releases on the production builds and smoke checks.

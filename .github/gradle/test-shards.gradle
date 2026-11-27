@@ -1,0 +1,35 @@
+// CI passes one shard per runner. The catch-all gets every class outside the named packages.
+gradle.beforeProject { project ->
+    def groups = [
+        ':memoryos-core': [
+            'core-ai': ['io/memoryos/ai/**'],
+            'core-chat': ['io/memoryos/chat/**'],
+            'core-connectors': ['io/memoryos/connector/**'],
+            'core-retrieval': ['io/memoryos/retrieval/**'],
+        ],
+        ':memoryos-api': [
+            'api-chat': ['io/memoryos/api/chat/**'],
+        ],
+    ][project.path]
+    if (groups == null) {
+        return
+    }
+    def shard = project.providers.environmentVariable('BACKEND_TEST_SHARD').get()
+    if (project.name != "memoryos-${shard.split('-')[0]}") {
+        return // The other module can be configured as a dependency.
+    }
+    def catchAll = shard.endsWith('-other')
+    if (!catchAll && !groups.containsKey(shard)) {
+        throw new GradleException("Unknown test shard: ${shard}")
+    }
+
+    project.pluginManager.withPlugin('java') {
+        project.tasks.named('test', Test) {
+            if (catchAll) {
+                exclude(groups.values().flatten())
+            } else {
+                include(groups[shard])
+            }
+        }
+    }
+}
