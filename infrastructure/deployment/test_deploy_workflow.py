@@ -622,7 +622,7 @@ else:
 
 
 class VerifiedTreeReuseTest(unittest.TestCase):
-    TEST_JOBS = {"infrastructure", "backend", "frontend-check", "frontend"}
+    TEST_JOBS = {"infrastructure", "frontend-check", "frontend"}
     MAIN_JOBS = {"backend-images", "keycloak-image", "frontend-image", "frontend-preview", "interpreter", "landing"}
     ALWAYS = {"changes", "secrets", "migrations"}
     AREAS = ("infrastructure", "backend", "backend_images", "keycloak_image",
@@ -635,7 +635,7 @@ class VerifiedTreeReuseTest(unittest.TestCase):
         step = job.split("        run: |\n", 1)[1].split("\n\n", 1)[0]
         results = {
             name: {"result": overrides.get(name, "success" if name in successful or name in self.ALWAYS else "skipped")}
-            for name in self.TEST_JOBS | self.MAIN_JOBS | self.ALWAYS
+            for name in self.TEST_JOBS | self.MAIN_JOBS | self.ALWAYS | {"backend"}
         }
         results["changes"]["outputs"] = outputs
         run = subprocess.run(
@@ -648,14 +648,16 @@ class VerifiedTreeReuseTest(unittest.TestCase):
 
     def test_a_verified_main_tree_skips_reused_tests_but_requires_images_and_production_browser(self):
         every = dict.fromkeys(self.AREAS, "true")
-        self.assertEqual(0, self.gate("push", every, self.MAIN_JOBS | self.TEST_JOBS))
+        self.assertEqual(0, self.gate("push", every, self.MAIN_JOBS | self.TEST_JOBS | {"backend"}))
         verified = {**every, "backend_verified": "true", "web_verified": "true", "interpreter_verified": "true"}
-        self.assertEqual(0, self.gate("push", verified, self.MAIN_JOBS))
-        for job, result in (("backend-images", "skipped"), ("keycloak-image", "failure"),
+        required = self.MAIN_JOBS | {"backend"}
+        self.assertEqual(0, self.gate("push", verified, required))
+        for job, result in (("backend", "skipped"), ("backend", "failure"),
+                            ("backend-images", "skipped"), ("keycloak-image", "failure"),
                             ("frontend-preview", "skipped"), ("interpreter", "skipped"),
                             ("migrations", "failure")):
             with self.subTest(job=job, result=result):
-                self.assertEqual(1, self.gate("push", verified, self.MAIN_JOBS, **{job: result}))
+                self.assertEqual(1, self.gate("push", verified, required, **{job: result}))
 
     def test_a_filtered_pr_requires_success_for_selected_jobs_and_skips_for_the_rest(self):
         docs_only = dict.fromkeys(self.AREAS, "false")
@@ -668,6 +670,33 @@ class VerifiedTreeReuseTest(unittest.TestCase):
                             ("keycloak-image", "cancelled"), ("changes", "failure")):
             with self.subTest(job=job, result=result):
                 self.assertEqual(1, self.gate("pull_request", outputs, selected, **{job: result}))
+
+    def test_backend_shards_extend_pr_coverage_even_when_main_reuses_it(self):
+        if shutil.which("jq") is None:
+            self.skipTest("jq is required to select backend shards")
+        selector = CI_WORKFLOW.split("      - name: Select backend test shards\n", 1)[1]
+        step = selector.split("        run: |\n", 1)[1].split("\n\n", 1)[0]
+
+        def legs(event, verified):
+            with tempfile.TemporaryDirectory() as directory:
+                output = Path(directory) / "outputs"
+                subprocess.run(
+                    ["bash", "-e", "-o", "pipefail", "-c", step],
+                    env={**os.environ, "EVENT_NAME": event, "BACKEND_VERIFIED": verified, "GITHUB_OUTPUT": str(output)},
+                    check=True,
+                )
+                names = json.loads(output.read_text().removeprefix("legs="))
+                self.assertEqual(len(names), len(set(names)))
+                return set(names)
+
+        pr = legs("pull_request", "")
+        self.assertIn("core-architecture", pr)
+        self.assertIn("api-contracts", pr)
+        extra = {"core-main", "api-main"}
+        self.assertTrue(pr.isdisjoint(extra))
+        self.assertEqual(extra, legs("push", "true"))
+        self.assertEqual(pr | extra, legs("push", "false"))
+        self.assertEqual(pr | extra, legs("workflow_dispatch", ""))
 
     def test_only_a_successful_same_repository_pull_request_run_of_this_commit_is_trusted(self):
         changes = CI_WORKFLOW.split("  changes:\n", 1)[1].split("\n  infrastructure:\n", 1)[0]

@@ -1,14 +1,26 @@
-// CI passes one shard per runner. The catch-all gets every class outside the named packages.
+// CI passes one shard per runner. The catch-all gets every class outside the named groups.
 gradle.beforeProject { project ->
     def groups = [
         ':memoryos-core': [
             'core-ai': ['io/memoryos/ai/**'],
             'core-chat': ['io/memoryos/chat/**'],
             'core-connectors': ['io/memoryos/connector/**'],
+            'core-architecture': [
+                'io/memoryos/CoreDependencyRulesTest.class',
+                'io/memoryos/ModulithArchitectureTest.class',
+            ],
             'core-retrieval': ['io/memoryos/retrieval/**'],
+            'core-main': ['io/memoryos/retrieval/opensearch/OpenSearchRetrievalIntegrationTest.class'],
         ],
         ':memoryos-api': [
-            'api-chat': ['io/memoryos/api/chat/**'],
+            'api-contracts': [
+                'io/memoryos/api/OpenApiContractTest.class',
+                'io/memoryos/api/*MigrationTest.class',
+            ],
+            'api-main': [
+                'io/memoryos/api/chat/ChatSessionApiIntegrationTest.class',
+                'io/memoryos/api/StagingTelemetryIntegrationTest.class',
+            ],
         ],
     ][project.path]
     if (groups == null) {
@@ -29,6 +41,9 @@ gradle.beforeProject { project ->
                 exclude(groups.values().flatten())
             } else {
                 include(groups[shard])
+                if (shard == 'core-retrieval') {
+                    exclude(groups['core-main'])
+                }
             }
         }
     }

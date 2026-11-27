@@ -45,6 +45,7 @@ jobs:
       interpreter: ${{ steps.scope.outputs.interpreter }}
       tree: ${{ steps.scope.outputs.tree }}
       backend_verified: ${{ steps.verified.outputs.backend }}
+      backend_legs: ${{ steps.backend.outputs.legs }}
       web_verified: ${{ steps.verified.outputs.web }}
       interpreter_verified: ${{ steps.verified.outputs.interpreter }}
     steps:
@@ -144,8 +145,8 @@ jobs:
           done
           printf 'tree=%s\n' "$(git rev-parse 'HEAD^{tree}')" >> "$GITHUB_OUTPUT"
 
-      # A main commit whose tree a same-repository pull request run already verified does not run those tests
-      # again; its images are still built, because their revision label names the main commit (ADR 0021). A fork's
+      # A main commit whose tree a same-repository pull request run already verified reuses those PR tests.
+      # Its images are still built, because their revision label names the main commit (ADR 0021). A fork's
       # artifact is never trusted: it could carry the name of another pull request's tree. Any failure to prove the
       # match leaves every test in place.
       - name: Reuse the verification of an identical pull request tree
@@ -185,6 +186,24 @@ jobs:
           else
             printf 'No same-repository pull request run verified tree %s; every test runs.\n' "$TREE" >> "$GITHUB_STEP_SUMMARY"
           fi
+
+      - name: Select backend test shards
+        id: backend
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BACKEND_VERIFIED: ${{ steps.verified.outputs.backend }}
+        run: |
+          pr_legs=(core-ai core-chat core-connectors core-architecture core-retrieval core-other api-contracts api-other sources-worker)
+          main_legs=(core-main api-main)
+          if [[ "$EVENT_NAME" == pull_request ]]; then
+            legs=("${pr_legs[@]}")
+          elif [[ "$BACKEND_VERIFIED" == true ]]; then
+            legs=("${main_legs[@]}")
+          else
+            legs=("${pr_legs[@]}" "${main_legs[@]}")
+          fi
+          legs_json=$(jq --compact-output --null-input '$ARGS.positional' --args "${legs[@]}")
+          printf 'legs=%s\n' "$legs_json" >> "$GITHUB_OUTPUT"
 
   # Deployment, monitoring and workflow checks need no JVM, so they run beside the Gradle legs instead of before them.
   infrastructure:
@@ -269,32 +288,16 @@ jobs:
       - name: Verify the run_python evaluation's scoring
         run: python3 -m unittest discover -s tools/interpreter-eval/tests -t tools/interpreter-eval
 
-  # Each leg gets its own runner. Named shards and their catch-all together run the full module check.
+  # A verified PR tree can supply the regular shards. Main still runs its own integration shards.
   backend:
     needs: changes
-    if: ${{ needs.changes.outputs.backend == 'true' && needs.changes.outputs.backend_verified != 'true' }}
+    if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - leg: core-ai
-            tasks: ':memoryos-core:check'
-          - leg: core-chat
-            tasks: ':memoryos-core:check'
-          - leg: core-connectors
-            tasks: ':memoryos-core:check'
-          - leg: core-retrieval
-            tasks: ':memoryos-core:check'
-          - leg: core-other
-            tasks: ':memoryos-core:check'
-          - leg: api-chat
-            tasks: ':memoryos-api:check'
-          - leg: api-other
-            tasks: ':memoryos-api:check'
-          - leg: sources-worker
-            tasks: ':memoryos-sources:check :memoryos-worker:check'
+        leg: ${{ fromJSON(needs.changes.outputs.backend_legs) }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -314,10 +317,15 @@ jobs:
         env:
           MEMORYOS_CORE_TEST_FORKS: 3
           BACKEND_TEST_SHARD: ${{ matrix.leg }}
-          TASKS: ${{ matrix.tasks }}
         run: |
-          read -ra tasks <<< "$TASKS"
           gradle_args=(--no-daemon)
+          case "$BACKEND_TEST_SHARD" in
+            core-architecture) tasks=(:memoryos-core:check) ;;
+            core-*) tasks=(:memoryos-core:test) ;;
+            api-*) tasks=(:memoryos-api:test) ;;
+            sources-worker) tasks=(:memoryos-sources:check :memoryos-worker:check) ;;
+            *) exit 2 ;;
+          esac
           if [[ "$BACKEND_TEST_SHARD" != sources-worker ]]; then
             gradle_args+=(--init-script .github/gradle/test-shards.gradle)
           fi
@@ -928,7 +936,7 @@ jobs:
                 secrets: true,
                 migrations: true,
                 infrastructure: (selected("infrastructure") and (verified("backend") | not)),
-                backend: (selected("backend") and (verified("backend") | not)),
+                backend: selected("backend"),
                 "backend-images": selected("backend_images"),
                 "keycloak-image": selected("keycloak_image"),
                 "frontend-check": (selected("web") and (verified("web") | not)),
