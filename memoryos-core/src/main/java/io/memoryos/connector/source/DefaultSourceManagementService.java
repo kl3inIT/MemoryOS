@@ -249,7 +249,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
             Set<GroupId> changed = new LinkedHashSet<>(requiredGroupIds);
             changed.removeAll(current);
             current.stream().filter(groupId -> !requiredGroupIds.contains(groupId)).forEach(changed::add);
-            groupScopes.validateManagedGroupIds(access.tenantId(), requiredActorId, changed);
+            sourceAccess.requireManagedGroups(access, requiredActorId, changed);
         }
         List<String> before = groupNames(access.tenantId(), requiredSourceId);
         sourceGroups.replace(access.tenantId(), requiredSourceId, requiredGroupIds);
@@ -360,7 +360,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
         if (global) {
             groupScopes.validateGroupIds(access.tenantId(), List.of(requiredGroupId));
         } else {
-            groupScopes.validateManagedGroupIds(access.tenantId(), requiredActorId, List.of(requiredGroupId));
+            sourceAccess.requireManagedGroups(access, requiredActorId, List.of(requiredGroupId));
         }
         requireMutable(sources.lockAuthorized(access.tenantId(), requiredActorId, requiredSourceId, global));
         if (!sourceGroups.groupIds(access.tenantId(), requiredSourceId).contains(requiredGroupId)) {
