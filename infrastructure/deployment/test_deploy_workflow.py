@@ -34,7 +34,9 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         push_trigger = CI_WORKFLOW.split("  push:\n", 1)[1].split("  pull_request:", 1)[0]
         for entry in ("'docs/**'", "'*.md'", "'tools/visual-paradigm-mcp/**'"):
             self.assertIn(entry, push_trigger)
-        self.assertRegex(CI_WORKFLOW, r"(?m)^  pull_request:\n")
+        pr_trigger = CI_WORKFLOW.split("  pull_request:", 1)[1].split("\n  workflow_dispatch:", 1)[0]
+        self.assertNotIn("paths:", pr_trigger)
+        self.assertNotIn("paths-ignore:", pr_trigger)
 
     def test_delivery_does_not_require_business_test_tooling_or_accounts(self):
         for removed in ("STAGING_SMOKE", "MEMORYOS_SMOKE", "test:staging", "playwright", "setup-node", "corepack", "pnpm"):
